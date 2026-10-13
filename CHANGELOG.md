@@ -7,6 +7,196 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## 3.1.0 - 2026-10-13
+
+Versions 2.0.0 and 3.0.0 were not published on PyPI. PyPI has 1.2.0.
+Thus 3.1.0 is the first release after 1.2.0. It contains the changes of 2.0.0 and 3.0.0.
+If you upgrade from 1.2.0, also read the 3.0.0 and 2.0.0 sections below.
+
+A decision provider is a service that gives typed answers to typed questions about the map.
+Jev and OpenAI Decisions are the two decision providers.
+
+### Changes that can stop a command or change a CI result
+
+Each item gives the change, and then the step that you must do.
+
+- `systemap delta` sends questions to a decision provider only on request.
+  Before this change, `delta` sent questions to Jev if `TYPESAFE_API_KEY` was set, because `[jev] enabled` was true by default.
+  After this change, a key alone sends no request. Without an explicit `[jev] enabled` value, `delta` prints one hint.
+  In the tests, a key with no `[jev]` table sent 3 requests before the change, and 0 requests after it.
+
+  Step: to keep the suggestions, give `delta --decide`, or set `[jev] enabled = true` in `systemap.toml`.
+  `[jev] enabled = false` stops the hint.
+
+- The facts format is now 7. A facts file of an earlier format is stale.
+  Thus `systemap check` and `systemap extract --check` exit 1 until you extract the facts again.
+  Format 5 added the `completeness` record. Format 6 changed the meaning of `package`. Format 7 added the `call_sites` fact.
+
+  The `package` fact is now the folder package that the language adapter gives.
+  Before this change, systemap calculated the package from the dotted module name.
+  Thus a dot in a TypeScript file name, such as `user.service.ts`, does not make a package.
+  A pattern such as `pkg.users.user.*` does not include the files adjacent to `user.service.ts`.
+
+  Step: operate `systemap refresh` after the upgrade, and commit the facts file.
+  Then operate `systemap check`, and correct each claim that it gives.
+
+- The evidence digest of an exact answer now contains only the evidence that its line names.
+  Before this change, the digest contained the full model file and all modules.
+  Thus each change of a `source_review` value opened all exact answers again.
+  The digest of a `crossing import` answer does not change.
+  [What does the second pass find?](docs/reference.md#what-does-the-second-pass-find) gives the evidence of each line.
+
+  Step: after the upgrade, each exact answer that is not for a `crossing import` line is pending one time.
+  `systemap judgement` prints the new digest in the `pending answer` line.
+  Examine the source again. Then write the new digest in `evidence`.
+
+  From 1.2.0, two more answer rules apply. An exact answer must have `evidence`, and a family answer must have `policy = true`.
+  An answer without its value is pending. Thus `judgement --strict` exits 1.
+
+- The finding kinds that started with `jev` now start with `decision`, because Jev or OpenAI can give the answers.
+  For example, `jev flow` is now `decision flow`.
+  `--decide` and `--no-decide` replace `--jev` and `--no-jev` in `delta`, and `--decide` replaces `--jev` in `suggest`.
+
+  Only this release reads the previous names and options. Each previous name in `[judgement] answered` gives one warning.
+  An exact answer with one item keeps its evidence digest. An `items` group with a changed name gets a new digest.
+
+  Step: do the steps in [How do you change to the new finding names?](docs/reference.md#how-do-you-change-to-the-new-finding-names).
+
+- Without the `language` key, systemap now finds the source language from the source files.
+  Before this change, a TypeScript repository without the key got the Python adapter.
+  If the evidence for Python and the evidence for TypeScript are equal, the command stops.
+  The message tells you to set the key.
+
+  Step: if a command gives this message, set `language = "python"` or `language = "typescript"` in `systemap.toml`.
+
+- The `[decisions]` table has two keys: `provider` and `max_contradicted`.
+  A `[decision]` table gives a configuration error that names `[decisions] provider`.
+
+  Step: if your configuration has a `[decision]` table, move its `provider` key into the `[decisions]` table.
+
+- A model file that is not in the repository gives a configuration error.
+  The "Security repairs" list below gives the cause.
+
+  Step: put the model file in the repository, and set `model` to its path.
+
+### New commands and options
+
+- `systemap review COMPONENT` writes the current `source_review` digest of one component into the model file.
+  `systemap review --flow ID` and `systemap review --flow 'SRC->DST'` write the `review_digest` of one flow.
+  The command writes one target for each call, because a person or an agent must examine each claim.
+  It does not examine the claims. It keeps the comments and the format of the model file.
+  The skill uses this command. It does not use the earlier Python script.
+
+- `systemap judgement --json` writes one JSON object for programs.
+  The object gives each open line with its kind, its detail lines, and the evidence digest that an exact answer must have.
+  It also gives the answers, the stale answers, the source review counts, and the counts for each kind.
+  The schema version is 1. The exit codes are the same as in the text mode.
+
+- `systemap decisions pending`, `systemap decisions submit FILE`, and `systemap decisions status` give the claims of the map to a coding agent.
+  The agent examines each claim and sends a verdict: `supported`, `contradicted`, or `insufficient_evidence`.
+  Each verdict gives citations: the file, the line span, and the SHA-256 digest of the current file.
+  systemap examines each citation. Then it records each `supported` verdict as a review digest or as an exact answer.
+
+  These commands send no request to a model.
+  At `[decisions] max_contradicted` verdicts of `contradicted` for one target, the decision request becomes unknown.
+  The default limit is 3. A change of the map does not set the count to zero. A change of a source file of the target does.
+
+- A model can contain import rules (`ImportRule`). The `kind` values are `forbid_import`, `allow_imports`, and `forbid_cycle`.
+  The result of a rule is `pass`, `fail`, or `unknown`.
+  `unknown` occurs if a module did not parse, or if the facts possibly do not contain all its imports.
+  `systemap check` exits 1 for a `fail` result. `systemap rules [--json]` gives the result of each rule.
+  With `[rules] unknown = "fail"`, the two commands also exit 1 for an `unknown` result.
+
+- `systemap judgement --order-by-drift` sends one Jev question for each open `stale source review` line.
+  The answer is the drift score: the probability that the claims of the component agree with its changed source.
+  The report puts the stale lines in sequence from the lowest score.
+  The score does not close a line, and it does not change the exit code.
+  No measurement gives a threshold for the score. Thus the option has no threshold.
+
+- OpenAI Decisions is a second decision provider (`POST /v1/decisions`, model `gpt-6-luna`).
+  To select it, give `--provider openai`, or set `[decisions] provider = "openai"`. Set `OPENAI_API_KEY` too.
+  A key alone does not select OpenAI.
+
+  The thresholds come from the Jev bench rows: five development maps and three holdout maps of Python repositories.
+  A question kind is available only if each holdout figure is 10 points or less from its development figure.
+  The available kinds are `decision owner`, `decision sentence`, `decision flow`, and `decision governs`.
+
+  | kind | threshold | development | holdout |
+  |---|---|---|---|
+  | `decision owner` | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
+  | `decision sentence` | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
+  | `decision flow` | P < 0.05 | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+  | `decision governs` | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
+
+  The other kinds are not available for OpenAI. The command sends no question for them and gives the cause.
+  `decision mis-fold` found 82.1% of incorrect component assignments on development, and 61.5% on holdout.
+  `triage` put the correct component first in 82.5% on development and 69.2% on holdout.
+  `plan` included 0.73 of the changed components on development and 0.39 on holdout.
+  The pair question of `suggest --decide` and the move question of `delta --decide` have no holdout rows.
+
+  The `decision flow` threshold of OpenAI was measured with the earlier flow context.
+  A new measurement with the call-site context is necessary.
+  The 1,636 bench requests used 1,211,893 input tokens and cost 0.12 dollars.
+
+- A flow can have an `id`. Two or more flows can then connect one pair of components, for example `submit-order` and `cancel-order`.
+  Each of these flows has its own sentence, review digest, and judgement lines, and the map shows each one as a different line.
+  A sequence step can name a flow with `flow="ID"`. A step can also have `source_refs`, which `judgement` validates.
+  A model without ids does not change. Its finding lines and digests stay the same.
+
+- Each language adapter writes a `call_sites` fact. The Python adapter uses `ast`, and the TypeScript adapter uses tree-sitter.
+  The fact gives the lines that use an imported name.
+  It also gives the lines that use a local name that gets its value from an imported name, such as `ledger.record(parts)`.
+
+  After this change, the `decision flow` question gets its source lines from this fact.
+  On the Jev bench rows at P < 0.2, it found 48 of 80 incorrect claims on development. It gave a finding for 2 of 80 correct claims.
+  On holdout, it found 25 of 48 incorrect claims, and it gave a finding for 1 of 48 correct claims.
+  This result satisfies the acceptance value. The earlier context did not satisfy the same value.
+
+  `decision flow` stays out of the default kinds of `audit`, because no TypeScript row set is available.
+
+- `[judgement] require_reviews = true` makes a source review necessary for each source component.
+  Then a component without `source_review` gives a `missing source review` finding, and `judgement --strict` exits 1.
+  The default is false.
+
+- Each module record in the facts has a `completeness` record: `parsed`, `line`, `reason`, and `unresolved_imports`.
+  The two language adapters write it with the same meaning.
+  If a module did not parse, `unresolved_imports` is null, because the value is not known.
+  After this change, a TypeScript module that did not parse gets no source review digest.
+  Flow source records to that module do not resolve.
+  An import with a calculated name, such as `importlib.import_module(x)` or `import(x)`, is not in the facts for the two languages.
+
+### Security repairs
+
+- systemap reads a repository file only if it is a regular file in the repository.
+  The facts, the configuration, and the model can give an absolute path, a path with a `..` part, or a symbolic link.
+  Before this change, such a path could make `audit` read a file that is not in the repository.
+  `audit` and `judgement --order-by-drift` then sent the text of that file to Jev.
+  After this change, the readers refuse these paths.
+  Extraction records a link to a file that is not in the repository as a module that did not parse.
+  In 44 tests, no request body contains a marker from a file that is not in the repository.
+
+- A model value or a Git ref cannot be an option of `git`.
+  Before this change, `judgement --order-by-drift` gave the `source_review` value of the model file to `git grep` as an argument.
+  In a repository from a different person, a value that starts with `-` could be an option.
+  After this change, the value must be a 64-character hexadecimal digest. If it is not, Git is not called.
+  `git grep` gets the commit after `--end-of-options`. The ref resolution of `delta` also uses `--end-of-options`.
+
+### Language repairs
+
+Before this change, shared code selected some behavior from the language name or the file suffix.
+A search found 14 locations that gave an incorrect result for one language.
+After this change, one `LanguageAdapter` protocol gives the language operations, and shared code reads only neutral facts.
+Each repair has a Python test and a TypeScript test. These are examples of the repaired results:
+
+- TypeScript entry points showed as empty lines on the page.
+- The schematic gave `.py` paths for TypeScript files.
+- A dot in a TypeScript file name, such as `user.service.ts`, made a package.
+- An empty `index.ts` file was reported as a module without a component.
+- A TypeScript repository without the `language` key got the Python adapter.
+
+One finding line says "under Python" for the `parse_error` fact, which only the Python adapter writes.
+The line is a finding identifier. Thus a change of the line is necessary in a different release, with a migration.
+
 ## 3.0.0 - 2026-10-12
 
 This version changes four behaviors. Each change can stop a command or change a CI result.

@@ -103,14 +103,16 @@ The <strong>artifact</strong> is the named data or control item that the flow ca
 </span></code></pre>
 <ul>
 <li>The standard flow kinds are <code>data</code>, <code>control</code>, <code>context</code>, and <code>tool</code>. A model declares each other kind in <code>flow_kinds</code> and gives it a layer.</li>
-<li>A map has one flow, or no flow, for each ordered pair of components.</li>
+<li>A flow can have an <code>id</code>. Two or more flows can connect one ordered pair of components only if each of them has an <code>id</code>, for example <code>submit-order</code> and <code>cancel-order</code>.
+A flow without an <code>id</code> has the identifier <code>SRC-&gt;DST</code>. The <a href="reference.html#how-do-two-flows-connect-one-pair-of-components">reference</a> gives the rules.</li>
 </ul>
 <h2 id="sequence-and-entry-point">Sequence and entry point</h2>
 <p>An <strong>entry point</strong> is a command, route, or public symbol where a run can start.</p>
 <p>A <strong>sequence</strong> is the ordered set of steps that starts at an entry point. The schema uses <code>Journey</code> for a sequence.
-Each step gives the acting components (<code>acts</code>), the measurement components (<code>measures</code>), one flow (<code>edge</code>), and one sentence (<code>say</code>).
+Each step gives the acting components (<code>acts</code>), the measurement components (<code>measures</code>), one flow (<code>flow=&quot;ID&quot;</code> or <code>edge</code>), and one sentence (<code>say</code>).
 <code>covers</code> gives the entry points that the sequence covers.
 A sequence does not record a run of the program.</p>
+<p>A step can also have <code>source_refs</code>. <code>judgement</code> gives a <code>step source</code> finding for each record that does not resolve, or that is not in a module of a component of the step.</p>
 <h2 id="layer">Layer</h2>
 <p>A <strong>layer</strong> is a map view that shows a specified set of components and flows.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="layer">
@@ -153,6 +155,9 @@ A sequence does not record a run of the program.</p>
 </ul>
 <h2 id="invariant">Invariant</h2>
 <p>An <strong>invariant</strong> is a source-supported rule that applies to specified components. Its text cites the source of the rule.</p>
+<p>An <strong>import rule</strong> gives the permitted imports between the modules of components, for example <code>forbid_import</code> from one component to another.
+<code>systemap check</code> and <code>systemap rules</code> compare each rule with the resolved imports. The result is <code>pass</code>, <code>fail</code>, or <code>unknown</code>.
+A <code>fail</code> result makes <code>check</code> exit 1.</p>
 <h2 id="evidence-states">Evidence states</h2>
 <p>systemap calculates the evidence state of each flow from the stored source snapshot.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="evidence-states">
@@ -193,7 +198,8 @@ The <a href="reference.html#what-does-systemap-check-reject">reference</a> gives
 <h2 id="review-states">Review states</h2>
 <p>A component can record a <code>source_review</code> digest after an examination of its source and claims.
 Its state is <code>missing</code> (no value), <code>stale</code> (not the current digest), or <code>current</code>.
-A stale review is a finding. A missing review is not a finding.</p>
+A stale review is a finding. A missing review is not a finding, unless <code>[judgement] require_reviews = true</code>.
+<code>systemap review ID</code> writes the current digest after the examination. <a href="coding-agents.html#source-reviews-and-verdicts">Coding agents</a> tells how an agent records reviews.</p>
 <h2 id="findings-and-answers">Findings and answers</h2>
 <p>A <strong>finding</strong> is one line that a command prints about the map. It starts with its kind, such as <code>single module</code>.
 A <code>check</code> finding rejects the map. A <code>judgement</code> finding is a possible map error.
@@ -218,7 +224,7 @@ The <a href="reference.html#what-does-the-second-pass-find">reference</a> gives 
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>3.1.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

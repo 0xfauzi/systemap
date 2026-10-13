@@ -195,7 +195,7 @@ The evidence digest of a line contains only the evidence that the line names:
 Thus a change to a different component, or to a `source_review` value, does not open the finding again.
 A line that names no component and no module uses the full evidence: the model file and all modules.
 
-Migration from systemap 3.0.0: the earlier evidence digest of a line that is not a `crossing import` contained the full model file and all modules.
+Migration to systemap 3.1.0: the earlier evidence digest of a line that is not a `crossing import` contained the full model file and all modules.
 Thus each of these exact answers is pending one time after the update.
 The digests of `crossing import` answers do not change.
 
@@ -239,9 +239,15 @@ The data contains module names, docstrings, public names, internal imports, comp
 sentences, invariants, and source lines at connections between components.
 With a key, the dry run gets the model list to count cached answers. It sends no map data.
 
-A `decision flow` question gets the source lines that use a name from the other component.
-For a whole-module, namespace, or default import, systemap reads the import statement for the local name.
-For TypeScript, it compares the last part of the import path with the file name of the target module.
+A `decision flow` question gets its source lines from the `call_sites` fact of the modules at the two ends of the flow.
+The fact has the same form for Python and TypeScript. The context has these lines, in this sequence, until it has 60 lines:
+
+1. The import lines and the lines that use a name from the other component.
+2. The lines that read a property of a local name that gets its value from an imported name, such as `ledger.record(parts)` after `ledger = Ledger()`.
+3. The line of the function or method that contains each of these lines.
+
+Then the context gives at most 12 lines from the facts of the target modules.
+These lines are the signature of each imported function, class, or method that a selected line uses, and the first sentence of each module description.
 A flow without such lines gets no question. The report gives the count of these flows.
 
 Each Jev answer must agree with its question: a choice from the offered options,
@@ -345,7 +351,7 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 | decision mis-fold | not available | 82.1% found at P < 0.02, 3.1% incorrect findings | 61.5% found. More than 10 points below development. |
 | decision owner | confidence 0.99 or more | 9.5% of modules get one component, 100% correct | 4.7%, 100% correct |
 | decision sentence | P < 0.3 | 81.0% of incorrect sentences found, 1.3% incorrect findings | 75.0% found, 0.0% incorrect findings |
-| decision flow | P < 0.05 (only with `--kind "decision flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings | 56.2% found, 8.3% incorrect findings |
+| decision flow | P < 0.05 (only with `--kind "decision flow"`) | 46.2% of incorrect claims found, 2.5% incorrect findings. These figures used the earlier flow context, not the `call_sites` context. A new measurement is necessary. | 56.2% found, 8.3% incorrect findings |
 | decision governs | P 0.99 or more | 19.8% of applicable components found, 1.1% of other components proposed | 17.2% found, 6.0% proposed |
 | triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
 | plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
@@ -594,6 +600,19 @@ imports, test references, and entry points.
 Package `__init__` records include re-exports.
 The other commands read this file.
 
+Each language adapter also writes these facts with the same meaning for Python and TypeScript:
+
+- `package`: the folder package of the module. A dot in a file name does not make a package.
+- `completeness`: `parsed`, `line`, `reason`, and `unresolved_imports`.
+  If the module did not parse, `unresolved_imports` is null, because the value is not known.
+  A component with a module that did not parse gets no source review digest. An import rule for that module gives `unknown`.
+- `call_sites`: the lines that use each imported name, and the lines that use a local name that gets its value from an imported name.
+  The `decision flow` question reads this fact.
+
+The facts file has a format number in its `version` key. The current format is 7.
+A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
+After an upgrade of systemap, run `systemap refresh`.
+
 - `--check` exits 1 if stored facts differ from the source tree.
   It also exits 1 if a model claim names a module that the source tree does not have.
   The report gives the two problem groups separately.
@@ -818,7 +837,7 @@ It also exits 1 for an `unknown` result with `[rules] unknown = "fail"`.
   It also has `imports` (`source`, `target`) and `unknown` (`module`, `cause`, `detail`).
   The `cause` values are `no_facts`, `no_read_state`, `not_parsed`, `unresolved_not_known`, `unresolved_imports`, and `no_component`.
 
-### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--jev | --no-jev]`
+### `systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]`
 
 Compares extracted facts from two Git commits.
 Python and TypeScript use the configured language adapter, as the working tree
@@ -861,13 +880,15 @@ than one-third of the map.
 
 - `--no-decide` sends nothing.
 
-- `--jev` and `--no-jev` are the previous names of `--decide` and `--no-decide`. They stay for one release.
+- `--jev` and `--no-jev` are aliases: the previous names of `--decide` and `--no-decide`. They stay for one release.
 
 - `--provider jev|openai` selects the decision provider of `--decide`.
   With `openai`, `[jev] enabled = true` must have `OPENAI_API_KEY`.
   OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
 
-- The Jev cost goes to stderr.
+- `--brief` prints the lines without the explanation rows. `systemap explain KIND` gives the full explanation.
+
+- The cost of the decision provider goes to stderr.
 
 ### `systemap describe`
 
@@ -890,7 +911,8 @@ The finding kinds are `decision mis-fold`, `decision owner`, `decision sentence`
 `--kind` also accepts the previous `jev` names for one release, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.
-Set `TYPESAFE_API_KEY` before you run the command.
+
+Set `TYPESAFE_API_KEY` for Jev, or `OPENAI_API_KEY` for OpenAI, before you run the command.
 
 - Use `--kind KIND` again to select another question kind.
 
@@ -898,6 +920,8 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `--provider jev|openai` selects the decision provider.
   With `openai`, the command does not send the `decision mis-fold` questions and gives the cause.
+
+- `--brief` prints the findings without the explanation rows.
 
 ### `systemap plan "<task>" [--check ID] [--base REF]`
 

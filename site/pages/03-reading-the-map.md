@@ -45,6 +45,7 @@ A layer with more than 20 flows shows one grey line for the flows between two re
 - Select a card. The Details panel gives its flows, sequences, rules, and source modules.
 - Move the pointer or the keyboard focus to a line to see a preview of the flow.
 - Select a line. The Details panel gives its artifact, direction, evidence state, and source records.
+- If two or more flows connect the same two components, the map shows a different line with its own label for each flow.
 - Press Escape to clear the selection.
 
 ## The Details panel

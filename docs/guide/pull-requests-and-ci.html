@@ -75,7 +75,7 @@
 </table>
 </div>
 <p>The workflow runs <code>uvx --from &quot;systemap==&lt;version&gt;&quot;</code> with the version that wrote the file.
-It does not set <code>TYPESAFE_API_KEY</code>, so no question goes to Jev.
+It does not set <code>TYPESAFE_API_KEY</code> or <code>OPENAI_API_KEY</code>, and it does not give <code>--decide</code>. Thus no question goes to a decision provider.
 When you install a new systemap version, change the version in the workflow file.</p>
 <h2 id="advisory-and-strict">Advisory and strict</h2>
 <p>The variable <code>SYSTEMAP_CI</code> in the workflow sets what a map finding does.
@@ -120,7 +120,19 @@ These are the first lines of the output:</p>
 <p>The exit code is 1 while the map needs an update.
 After the agent did the four actions, the exit code was 0.</p>
 <p><code>systemap explain &quot;&lt;kind&gt;&quot;</code> gives the meaning and the action of a line kind.
-The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev">reference</a> gives the options.</p>
+The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide">reference</a> gives the options.</p>
+<p><code>delta</code> sends questions to a decision provider only with <code>--decide</code> or <code>[jev] enabled = true</code>. A key alone sends no request.
+The answers are suggestions under their own heading. They do not change the delta lines or the exit code.</p>
+<h2 id="changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</h2>
+<p>These changes can change the result of a CI job after you install 3.1.0:</p>
+<ul>
+<li>The facts format is 7. A facts file of an earlier format is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code>, and commit the facts file.</li>
+<li>Each exact answer that is not for a <code>crossing import</code> line is pending one time. <code>judgement</code> prints the new digest. Examine the source again, and write the digest in <code>evidence</code>.</li>
+<li>The <code>jev ...</code> finding kinds are now <code>decision ...</code> kinds. The previous names give a warning for one release.</li>
+<li>With <code>[judgement] require_reviews = true</code>, a component without a <code>source_review</code> digest is a finding, and <code>judgement --strict</code> exits 1.</li>
+<li>An import rule with the result <code>fail</code> makes <code>check</code> exit 1.</li>
+</ul>
+<p><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">CHANGELOG.md</a> gives each change and its steps.</p>
 <h2 id="the-changes-view">The Changes view</h2>
 <p><code>systemap render --base REF</code> writes a page with a revision comparison.
 A link that ends in <code>#changes</code> opens the Changes view. <a href="reading-the-map.html#changes">Read the map</a> tells what it shows.</p>
@@ -155,12 +167,12 @@ Version 2.0.0 removed this option, so with 2.0.0 or later the delta job fails wi
 <p>In a workflow from 2.0.0, each map finding makes the job fail. For the advisory mode, do the same steps.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="coding-agents.html" rel="prev"><span class="kicker">Previous</span><span>Coding agents</span></a><a class="pager__a pager__next" href="live-map.html" rel="next"><span class="kicker">Next</span><span>The live map</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-link-comment">The link comment</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-link-comment">The link comment</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>3.1.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

@@ -49,6 +49,7 @@
 <li><a href="reference.html#what-does-systemap-check-reject"><code>systemap check</code></a>: each module that is not an empty package marker has one component, or an ignore with a reason.
 Entry and interface names exist in the claimed modules. Routes and labels obey the layout rules. The facts, the page, and the figures are current.</li>
 <li><code>systemap judgement --strict</code>: each possible map error has a map change or an answer with a reason. Each exact answer has the current evidence digest.</li>
+<li><code>systemap rules</code>: no resolved import is against an import rule. If the facts possibly do not contain all imports of a rule module, the result is <code>unknown</code>.</li>
 <li><code>systemap delta</code>: the component claims agree with the moved, added, and removed modules. Each changed component has a current source review.</li>
 </ul>
 <h2 id="what-it-does-not-show">What it does not show</h2>
@@ -66,14 +67,17 @@ The maintainer corrects the incorrect claims.</p>
 <p>A current source review (<code>observed</code>) means that the stored source records and review digest agree with the current source and claim.
 It does not show that the examination was correct, or that a program ran.</p>
 <p>A digest (<code>source_sha256</code>, <code>review_digest</code>, <code>source_review</code>, or <code>evidence</code>) changes when its source or claim changes, and the finding opens again.
-A person or an agent can record a current digest without a source examination. No program can find this.</p>
+A person or an agent can record a current digest without a source examination. No program can find this.
+<code>systemap decisions submit</code> makes sure that each citation refers to the current file. It cannot make sure that the agent read the cited lines correctly.</p>
 <h2 id="languages">Languages</h2>
 <ul>
 <li>systemap reads only Python and TypeScript (<code>.ts</code>, <code>.tsx</code>, <code>.mts</code>, <code>.cts</code>).
 It does not read declaration files, such as <code>.d.ts</code>, or framework-specific routes.</li>
 <li>Syntax that systemap cannot parse, or a package target that it cannot map, gets an unknown record.
 <code>check</code> does not reject the map for it. <code>judgement --strict</code> accepts it only after a correction or an accepted answer.</li>
-<li>The <a href="reference.html#what-questions-does-jev-answer">Jev measurements</a> used Python repositories only.</li>
+<li>The <a href="reference.html#what-questions-does-jev-answer">Jev measurements</a> and the <a href="reference.html#which-decision-provider-answers-the-questions">OpenAI measurements</a> used Python repositories only.
+No TypeScript row set is available. Thus <code>decision flow</code> is not a default question of <code>audit</code>.</li>
+<li>If a module did not parse, its <code>unresolved_imports</code> value is not known. An import rule for that module gives <code>unknown</code>, not <code>pass</code>.</li>
 </ul>
 <h2 id="size-limits">Size limits</h2>
 <ul>
@@ -87,7 +91,7 @@ It does not read declaration files, such as <code>.d.ts</code>, or framework-spe
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>3.1.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

@@ -49,6 +49,11 @@ Read it before you run systemap on a repository that another person controls.</p
 <p>systemap reads the source files under the package roots, the test files, <code>systemap.toml</code>, <code>pyproject.toml</code>, <code>package.json</code>, and <code>tsconfig.json</code>.
 <code>delta</code>, <code>history</code>, <code>render --base</code>, and <code>live</code> also read committed files from Git.
 Extraction parses the source files but does not import or run them.</p>
+<p>The facts, the configuration, and the model can give file paths. A cloned repository can put any path in these files.
+systemap reads such a file only if it is a regular file in the repository.
+It refuses an absolute path, a path with a <code>..</code> part, and a symbolic link to a file that is not in the repository.
+Extraction records a link to a file that is not in the repository as a module that did not parse.
+A model file that is not in the repository gives a configuration error.</p>
 <h2 id="what-systemap-runs">What systemap runs</h2>
 <p>systemap reads the model, usually <code>map/model.py</code>, with a <a href="reference.html#what-does-a-model-contain">reader that runs no code</a>.
 If the file needs code, the command stops and gives the file and the line.</p>
@@ -59,17 +64,24 @@ systemap does not read this value from a repository file. Set it only for code t
 Then it writes the file again with literal values only.</li>
 <li>The base models of <code>render --base</code>, <code>figure --base</code>, and <code>live</code> use the same reader.</li>
 </ul>
+<p>systemap runs <code>git</code> with values from the model and from the command line.
+A <code>source_review</code> value must be a 64-character hexadecimal digest before it goes to <code>git grep</code>.
+A commit or a ref goes after <code>--end-of-options</code>. Thus a value that starts with <code>-</code> is not a Git option.</p>
 <h2 id="the-agent-command">The agent command</h2>
 <p><code>systemap journeys</code> runs the command under <code>[agent] command</code> in <code>systemap.toml</code>, without a shell. No other command runs it.
 A repository can set this command. Examine the value before you run <code>systemap journeys</code>.</p>
 <h2 id="what-systemap-sends">What systemap sends</h2>
-<p>Jev is the TypeSafe model at <code>https://api.typesafe.ai/v1</code>. <code>TYPESAFE_BASE_URL</code> selects a different server.
-No question goes to Jev without <code>TYPESAFE_API_KEY</code>.</p>
-<p>With the key, <code>audit</code>, <code>suggest --jev</code>, <code>plan</code>, <code>triage</code>, and <code>delta</code> can send questions.
-<code>plan --check</code> and <code>delta --no-jev</code> send no question.
-The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
+<p>A decision provider is a model API that answers the questions of <code>audit</code>, <code>suggest --decide</code>, <code>plan</code>, <code>triage</code>, and <code>delta --decide</code>.
+Jev is the TypeSafe model at <code>https://api.typesafe.ai/v1</code>, and the default provider. <code>TYPESAFE_BASE_URL</code> selects a different server.
+No question goes to Jev without <code>TYPESAFE_API_KEY</code>.
+OpenAI Decisions is the second provider. A question goes to OpenAI only with <code>--provider openai</code> or <code>[decisions] provider = &quot;openai&quot;</code>, and with <code>OPENAI_API_KEY</code>.</p>
+<p>A key alone does not make <code>delta</code> send questions. <code>delta</code> sends questions only with <code>--decide</code> or <code>[jev] enabled = true</code>.
+<code>judgement</code> sends questions to Jev only with <code>--order-by-drift</code>.
+<code>plan --check</code>, <code>delta --no-decide</code>, and <code>systemap decisions</code> send no question.</p>
+<p>The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
+<code>--order-by-drift</code> also sends a diff or the text of the module files of each stale component.
 <code>systemap audit --dry-run</code> shows this data. With a key, it gets the model list but sends no map data.</p>
-<p><code>systemap check</code> and <code>systemap judgement</code> make no network requests.
+<p><code>systemap check</code> makes no network requests. <code>systemap judgement</code> makes no network requests without <code>--order-by-drift</code>.
 The rendered page loads no files from other servers.</p>
 <h2 id="the-ci-link-job">The CI link job</h2>
 <p>In the workflow from <code>init</code>, only the <code>link</code> job has <code>pull-requests: write</code>. It runs only if:</p>
@@ -101,7 +113,7 @@ Other programs on the computer can read the map and send <code>POST /refresh</co
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>3.0.0</code></span>
+<span class="foot__v">Version <code>3.1.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>

@@ -13,7 +13,7 @@ The workflow from `systemap init` compares the map with the source in CI. On a p
 | `link` | If `delta` wrote a comment | Posts or changes one comment with a link to the Changes view. |
 
 The workflow runs `uvx --from "systemap==<version>"` with the version that wrote the file.
-It does not set `TYPESAFE_API_KEY`, so no question goes to Jev.
+It does not set `TYPESAFE_API_KEY` or `OPENAI_API_KEY`, and it does not give `--decide`. Thus no question goes to a decision provider.
 When you install a new systemap version, change the version in the workflow file.
 
 ## Advisory and strict
@@ -46,7 +46,22 @@ The exit code is 1 while the map needs an update.
 After the agent did the four actions, the exit code was 0.
 
 `systemap explain "<kind>"` gives the meaning and the action of a line kind.
-The [reference](reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-jev-no-jev) gives the options.
+The [reference](reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide) gives the options.
+
+`delta` sends questions to a decision provider only with `--decide` or `[jev] enabled = true`. A key alone sends no request.
+The answers are suggestions under their own heading. They do not change the delta lines or the exit code.
+
+## Changes that the upgrade to 3.1.0 makes in CI
+
+These changes can change the result of a CI job after you install 3.1.0:
+
+- The facts format is 7. A facts file of an earlier format is stale, so `extract --check` and `check` exit 1. Run `systemap refresh`, and commit the facts file.
+- Each exact answer that is not for a `crossing import` line is pending one time. `judgement` prints the new digest. Examine the source again, and write the digest in `evidence`.
+- The `jev ...` finding kinds are now `decision ...` kinds. The previous names give a warning for one release.
+- With `[judgement] require_reviews = true`, a component without a `source_review` digest is a finding, and `judgement --strict` exits 1.
+- An import rule with the result `fail` makes `check` exit 1.
+
+[CHANGELOG.md](../../CHANGELOG.md) gives each change and its steps.
 
 ## The Changes view
 
