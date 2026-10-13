@@ -40,8 +40,9 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # the public name. Format 11: a TypeScript parse record has a fixed reason, the excerpt in
 # `source`, and the parser version in `parser`, because a finding line must not contain
 # them. An indirect re-export without a module gives the record of a direct re-export.
-# Format 12: `provenance.files` has each configuration file that `config_paths` of the
-# adapter gives, and `provenance.installed` has such files in an installed package folder.
+# Format 12: `provenance.files` has a digest for each configuration file that
+# `extraction_inputs` of the adapter gives, and `provenance.installed` has the digests of
+# such files in an installed package folder.
 FORMAT = 12
 TESTS_KEPT = 25
 
@@ -241,31 +242,23 @@ def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[s
 
 
 def _config_digests(cfg: Config, language: LanguageAdapter) -> dict[str, dict[str, str]]:
-    """Give the digest of each configuration file that the adapter reads (`config_paths`)
-    and that is present.
+    """Give the digest of the values that extraction reads from each configuration file
+    (`extraction_inputs` of the adapter).
 
     `files` has the files of the repository. `installed` has the files in a folder that
     the adapter skips, such as an installed package folder. A clone can be without such
-    a file. The function reads only a regular file in the repository, with `repo_files`.
-    A link out of the repository and a FIFO give a ConfigError with the path and the
-    cause.
+    a file. A file that the adapter cannot read gives a ConfigError.
     """
     root = cfg.root
     folders = [package for package, _name in cfg.roots]
     folders += [root / rel for rel in cfg.test_dirs if rel]
     found: dict[str, dict[str, str]] = {"files": {}, source_text.INSTALLED: {}}
-    for path in language.config_paths(root, folders):
-        if not repo_files.present(path):
-            continue
+    for path, values in language.extraction_inputs(root, folders).items():
         relative = path.relative_to(root)
         group = "files"
         if language.skip_dirs.intersection(relative.parent.parts):
             group = source_text.INSTALLED
-        try:
-            digest = source_text.text_digest(repo_files.read_bytes(root, relative))
-        except OSError as exc:
-            raise ConfigError(f"The parser could not read {path}: {exc}") from exc
-        found[group][relative.as_posix()] = digest
+        found[group][relative.as_posix()] = source_text.text_digest(values)
     return {group: dict(sorted(files.items())) for group, files in found.items()}
 
 

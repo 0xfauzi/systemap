@@ -89,7 +89,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="da273aef033a0f597f6e7f55e59fe72f511300b52d8cc5ee98bb5b5ee1bf2fda",
+        source_review="aa1dcaa6f3e6c8ef40b131c2492bbbb80eb31ead4a4bbad712890ba3ebda2030",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change. It writes the pages only in its directory and removes the pages of removed maps. The page servers do not supply a file that a symbolic link puts in a location that is not in the served directory.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=(
@@ -118,7 +118,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="2887d4949a93995f9658b1318347cda1ea00c4fe4d1ae139ef5f068509ad24ff",
+        source_review="8135bb5f8c70e91fb507e25298a45e811b8737a2685d558b65c1ed11cc35c110",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. For TypeScript, selects the one source folder of the tsconfig include entries, then src, then the repository root. Finds the type-test files for test_patterns. Finds the configuration files that the language reads, with the tsconfig files that extends and references name. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile, the [rules] table and the decision provider. Reads model files as data and does not run their code. Reads a repository file only if the file is a regular file in the repository. Reads and writes a cache file or an output file only in the repository. A write replaces a link and does not write to the target of the link. Rejects a configured cache, output or model path that is not in the repository. Writes a cache file or an output file through a temporary file of each writer. A new file gets the mode of a usual write. A file that is present keeps its mode. Holds a lock on a cache file while one process reads or changes it. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file. Adds exact answers with citations to systemap.toml and keeps the other text of the file. Accepts the previous names of the decision finding kinds for one release and gives a warning for each previous name. Rejects a package root that is not in the repository. Rejects a model value that does not agree with the type of its field. Rejects a configured output file that is not in the output directory. Rejects a layer ID that is not a safe name and a component ID that is a key of the page data.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -152,8 +152,8 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="412cf6eee582b945f5d3b8042728cf9abd915ed7a4b73f96823b48a65f4d1a0a",
-        does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. Such an import of a declaration file is a type-only dependency and not an unresolved import. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of each configuration file that the language adapter reads. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
+        source_review="5e2d250e6b9ef204d925187b8e17b4067c277b253889cb87e44fe457591d7f10",
+        does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. Such an import of a declaration file is a type-only dependency and not an unresolved import. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
             "systemap.extract",
@@ -342,7 +342,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="03d3961d25e09f4f2eb9dbcb198f823f6e3d49480ea59113f3f469712e713b44",
+        source_review="80db7cb91b987b8a0dda0a5df734ef9b5471c26949bd0c931587a71e5f4d8056",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Compares the import rules with the resolved imports. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=(

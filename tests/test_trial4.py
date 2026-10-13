@@ -111,46 +111,91 @@ def test_an_installed_configuration_package_is_an_extraction_input(
     assert run(root, "extract", "--check") == 0
 
 
-TREES = {
-    "python": {
-        "pyproject.toml": '[project]\nname = "all"\n',
-        "libs/core/pyproject.toml": '[project]\nname = "core"\n',
-        "libs/core/pkg/__init__.py": "",
-        "libs/core/pkg/app.py": "def run() -> None:\n    pass\n",
-        "systemap.toml": '[package_roots]\n"libs/core/pkg" = "pkg"\n',
-    },
-    "typescript": {
-        "package.json": '{"name":"web"}',
-        "tsconfig.json": '{"extends":"./tsconfig.base.json"}',
-        "tsconfig.base.json": '{"compilerOptions":{"strict":true}}',
-        "src/index.ts": "export function run(): void {}\n",
-        "systemap.toml": 'language = "typescript"\n[package_roots]\n"src" = "web"\n',
-    },
+INPUTS_CHANGED = "extraction inputs changed since the map was built"
+TYPESCRIPT_TREE = {
+    "package.json": '{"name":"web"}',
+    "tsconfig.json": '{"extends":["./tsconfig.base.json","@acme/tsconfig/base.json"]}',
+    "tsconfig.base.json": '{"compilerOptions":{"strict":true}}',
+    PACKAGE.as_posix(): '{"compilerOptions":{"paths":{"#/*":["src/*"]}}}',
+    "node_modules/typescript/package.json": '{"name":"typescript","version":"5.9.3"}',
+    "src/index.ts": "export function run(): void {}\n",
+    "systemap.toml": 'language = "typescript"\n[package_roots]\n"src" = "web"\n',
 }
-NEW_INPUT = {"python": "libs/core/pyproject.toml", "typescript": "tsconfig.base.json"}
 
 
-@pytest.mark.parametrize("language", sorted(TREES))
-def test_the_digest_has_each_configuration_file_of_the_adapter(
-    tmp_path: Path, language: str
+def _changed(root: Path, stored: dict[str, object], name: str, text: str) -> bool:
+    (root / name).write_text(text, encoding="utf-8")
+    return INPUTS_CHANGED in extract.drift(extract.build(config.load(root)), stored)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "changed"),
+    [
+        (
+            "node_modules/typescript/package.json",
+            '{"name":"typescript","version":"5.9.3","_where":"/home/ci/app","_resolved":"x"}',
+            False,
+        ),
+        (
+            "node_modules/typescript/package.json",
+            '{\n  "name": "typescript",\n  "version": "5.4.0"\n}\n',
+            False,
+        ),
+        ("node_modules/typescript/package.json", '{"version":"6.0.3"}', True),
+        (
+            PACKAGE.as_posix(),
+            '// shared\n{"compilerOptions":{"paths":{"#/*":["src/*"]},"strict":true,},}\n',
+            False,
+        ),
+        (PACKAGE.as_posix(), '{"compilerOptions":{"paths":{"#/*":["lib/*"]}}}', True),
+        ("tsconfig.base.json", '/* base */ {"compilerOptions":{"strict":false}}', False),
+        ("tsconfig.base.json", '{"compilerOptions":{"strict":true,"baseUrl":"src"}}', True),
+        ("tsconfig.base.json", '{"compilerOptions":{"strict":true},"include":["src"]}', True),
+    ],
+)
+def test_the_digest_has_only_the_values_that_extraction_reads(
+    tmp_path: Path, name: str, text: str, changed: bool
 ) -> None:
-    """Acceptance: in 2 of 2 languages, the provenance digest has one entry for each
-    configuration file that `config_paths` of the adapter gives and that is present. A change
-    to a file that only `config_paths` gives (before: not in the digest) is an extraction
-    input change."""
-    write_tree(tmp_path, TREES[language])
-    cfg = config.load(tmp_path)
-    stored = extract.build(cfg)
-    adapter = languages.repository(language)
-    folders = [package for package, _name in cfg.roots]
-    expected = {
-        path.relative_to(tmp_path).as_posix()
-        for path in adapter.config_paths(tmp_path, folders)
-        if path.is_file()
+    """Acceptance: npm metadata fields (`_where`, `_resolved`), a different minor version,
+    comments, the text format, and a compiler option that extraction does not read
+    (`strict`) give no input change. A different TypeScript major version, a `paths` or
+    `baseUrl` change, and an `include` change give an input change."""
+    write_tree(tmp_path, TYPESCRIPT_TREE)
+    stored = extract.build(config.load(tmp_path))
+    assert set(stored["provenance"]["installed"]) == {
+        PACKAGE.as_posix(),
+        "node_modules/typescript/package.json",
     }
-    assert set(stored["provenance"]["files"]) == expected
-    assert NEW_INPUT[language] in expected
-    target = tmp_path / NEW_INPUT[language]
-    target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
-    changed = extract.build(config.load(tmp_path))
-    assert "extraction inputs changed since the map was built" in extract.drift(changed, stored)
+    assert {"package.json", "tsconfig.json", "tsconfig.base.json"} <= set(
+        stored["provenance"]["files"]
+    )
+    assert _changed(tmp_path, stored, name, text) is changed
+
+
+PYTHON_TREE = {
+    "pyproject.toml": (
+        '[project]\nname = "all"\n[tool.uv.workspace]\nmembers = ["libs/*"]\n'
+        '[tool.systemap]\nname = "All"\n[tool.systemap.package_roots]\n"libs/core/pkg" = "pkg"\n'
+    ),
+    "libs/core/pyproject.toml": '[project]\nname = "core"\n',
+    "libs/core/pkg/__init__.py": "",
+    "libs/core/pkg/app.py": "def run() -> None:\n    pass\n",
+}
+
+
+def test_the_digest_has_only_the_python_files_that_extraction_reads(tmp_path: Path) -> None:
+    """Acceptance: the live watcher monitors the `pyproject.toml` of a uv workspace member,
+    but extraction does not read it. A change to that file gives no input change. A change
+    to the `[tool.systemap]` table of the root `pyproject.toml` gives an input change."""
+    write_tree(tmp_path, PYTHON_TREE)
+    cfg = config.load(tmp_path)
+    folders = [package for package, _name in cfg.roots]
+    watched = languages.repository("python").config_paths(tmp_path, folders)
+    assert tmp_path / "libs/core/pyproject.toml" in watched
+    stored = extract.build(cfg)
+    assert stored["provenance"]["files"].keys() == {"pyproject.toml"}
+    assert stored["provenance"]["installed"] == {}
+    member = '[project]\nname = "core"\ndependencies = ["httpx"]\n'
+    assert not _changed(tmp_path, stored, "libs/core/pyproject.toml", member)
+    root = PYTHON_TREE["pyproject.toml"].replace('name = "All"', 'name = "Everything"')
+    assert _changed(tmp_path, stored, "pyproject.toml", root)

@@ -24,7 +24,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "facts",
         "version",
         "The facts format is 12, with portable syntax hashes, compiler provenance, "
-        "the digests of the configuration files that the adapter reads, "
+        "the digests of the configuration values that extraction reads, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
@@ -45,10 +45,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "The parser, the compiler settings, and the extraction inputs. A change to the "
         "extraction inputs makes a new source review necessary, even without source-file "
         "changes. A parser or compiler change alone does not, because these values can be "
-        "different on another computer. `files` has the digest of each configuration file "
-        "that the adapter reads. `installed` has the digest of each such file in an installed "
-        "package folder, for example `node_modules`. A new or changed installed file is an "
-        "input change. An installed file that is not on this computer is not a change",
+        "different on another computer. `files` has, for each configuration file that "
+        "extraction reads, the digest of the values that extraction reads from it. Comments "
+        "and other values do not change the digest. `installed` has these digests for the "
+        "files in an installed package folder, for example `node_modules`. A new or changed "
+        "installed digest is an input change. An installed file that is not on this "
+        "computer is not a change",
     ),
     (
         "facts",

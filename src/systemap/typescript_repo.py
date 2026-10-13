@@ -27,7 +27,10 @@ from systemap.typescript_config import (
     package_json,
     source_files,
 )
-from systemap.typescript_config_files import typescript_config_paths
+from systemap.typescript_config_files import (
+    typescript_config_paths,
+    typescript_extraction_inputs,
+)
 from systemap.typescript_roots import (
     discover_typescript_roots,
     missing_roots_message,
@@ -169,6 +172,9 @@ class TypeScriptRepository:
         """Give package.json and tsconfig.json near the folders, and each tsconfig file
         that a tsconfig file names in `extends` or `references`."""
         return typescript_config_paths(root, folders)
+
+    def extraction_inputs(self, root: Path, folders: Sequence[Path]) -> dict[Path, bytes]:
+        return typescript_extraction_inputs(root, folders)
 
     def root_name_problem(self, rel: str, name: str) -> str:
         del rel, name

@@ -193,6 +193,18 @@ class PythonRepository:
             root, folders, self.config_files, PYTHON_SKIP | config.OUTPUT_DIRS
         )
 
+    def extraction_inputs(self, root: Path, folders: Sequence[Path]) -> dict[Path, bytes]:
+        """Give the full text of the root pyproject.toml. Extraction does not read a
+        different pyproject.toml file, also not the file of a uv workspace member."""
+        del folders
+        path = root / PYPROJECT
+        if not repo_files.present(path):
+            return {}
+        try:
+            return {path: repo_files.read_bytes(root, PYPROJECT)}
+        except OSError as exc:
+            raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
+
     def root_name_problem(self, rel: str, name: str) -> str:
         if "/" not in name:
             return ""

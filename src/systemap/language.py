@@ -76,6 +76,13 @@ class RepositoryAdapter(Protocol):
         these files."""
         ...
 
+    def extraction_inputs(self, root: Path, folders: Sequence[Path]) -> dict[Path, bytes]:
+        """Give each configuration file that extraction reads and that is present, with a
+        stable text of the values that extraction reads from it. A comment or a value that
+        extraction does not read does not change the text. A file that cannot be read gives
+        a ConfigError. The facts provenance has a digest of each text."""
+        ...
+
     def root_name_problem(self, rel: str, name: str) -> str: ...
 
     def missing_roots_message(self, root: Path) -> str: ...
