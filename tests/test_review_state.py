@@ -26,6 +26,7 @@ from systemap import (
     evidence,
     explain,
     facts_file,
+    flow_review,
     judgement,
     nest,
     page,
@@ -168,16 +169,18 @@ def test_the_new_kinds_have_explanations_and_answer_forms() -> None:
 # ---- source records that touch the flow ----------------------------------------------
 
 
+def _reviewed(flow: Flow, sample: Sample) -> Flow:
+    """Give the flow with its current review digest (`flow_review.digest`)."""
+    digest = flow_review.digest(flow, sample.meaning, sample.facts)
+    return dataclasses.replace(flow, review_digest=digest or "")
+
+
 def _with_refs(sample: Sample, edge: tuple[str, str], module: str) -> Model:
     digest = sample.facts["components"][module]["source_sha256"]
     return dataclasses.replace(
         sample.model,
         flows=tuple(
-            dataclasses.replace(
-                flow,
-                source_refs=(f"{module}@{digest}",),
-                review_digest=evidence.flow_claim_digest(flow, sample.meaning),
-            )
+            _reviewed(dataclasses.replace(flow, source_refs=(f"{module}@{digest}",)), sample)
             if flow.edge == edge
             else flow
             for flow in sample.model.flows

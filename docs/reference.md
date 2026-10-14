@@ -68,7 +68,7 @@ The renderer and the checks use the evidence state of the stored source snapshot
 
 | Evidence | Condition | Indication |
 |---|---|---|
-| `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim and sentence. | A solid line. The page shows "current source review". |
+| `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim, the sentence, and the `source_refs`. | A solid line. The page shows "current source review". |
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. The panel also shows the `source_refs` and each reference that does not resolve. `systemap review` refuses a reference that does not resolve. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
@@ -91,6 +91,23 @@ It does not examine the claims for you. Examine the source before you record the
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
+The `review_digest` also contains the `source_refs` with the digest of each module.
+Thus a change to a module in `source_refs` makes the flow review not current, also when the claim does not change.
+A new digest in `source_refs` does not record a review. Examine the flow again. Then run `systemap review --flow`.
+A flow without `source_refs`, or with a source record that does not agree with the facts, has no current review.
+
+### A flow review from systemap 2.0.0
+
+systemap 2.0.0 records a `review_digest` that contains only the claim.
+Such a digest does not identify the source that the reviewer examined.
+`systemap refresh` and `systemap extract` replace that digest one time with a digest of the claim and the current `source_refs`.
+The commands write only this value in the model file, and they tell you the files.
+The review stays current, with the label "review earlier than source tracking".
+`systemap judgement` gives the label in one row for each such flow. The row is not a finding.
+`systemap judgement --json` gives the flows in `earlier_flow_reviews`.
+The page gives the label in the evidence text of the flow.
+After the replacement, a change to a module in `source_refs` makes the review not current.
+To remove the label, examine the flow against the source. Then run `systemap review --flow`.
 
 ## How do two flows connect one pair of components?
 
@@ -742,6 +759,8 @@ Module records contain public surface, public names, internal imports, external
 imports, test references, and entry points.
 Package `__init__` records include re-exports.
 The other commands read this file.
+Before it writes the file, the command replaces each flow review digest from systemap 2.0.0 one time.
+The section "A flow review from systemap 2.0.0" gives this replacement.
 
 Each language adapter also writes these facts with the same meaning for Python and TypeScript:
 
@@ -952,6 +971,8 @@ It prints the rule results. A rule with the result `fail` causes exit 1.
 With `[rules] unknown = "fail"`, a rule with the result `unknown` also causes exit 1.
 The command writes its outputs before it examines the rules.
 `-q` or `--quiet` prints only errors and check results.
+Before the extraction, the command replaces each flow review digest from systemap 2.0.0 one time.
+The section "A flow review from systemap 2.0.0" gives this replacement.
 
 ### `systemap suggest [--decide]`
 
@@ -975,6 +996,7 @@ sentences, thin layers, uncovered entry points, crossing imports, unreviewed
 flows, source records outside the flow endpoints, stale component source reviews,
 and model SDK imports outside agents.
 A line after the findings counts the component source reviews by state: current, stale, and missing.
+Then one row gives each flow with the label "review earlier than source tracking". These rows are not findings.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
 The first finding of each kind has rows about its effect and necessary action.
@@ -1040,7 +1062,7 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 3. Version 2 added `open[].cause`. Version 3 added `open[].sources`. |
+| `schema_version` | integer | The version of this schema. The value is 4. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
@@ -1057,6 +1079,7 @@ The JSON object has these fields:
 | `answered.answers[].lines` | list of strings | The findings that the answer closes. |
 | `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
 | `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
+| `earlier_flow_reviews` | list of objects | One object for each flow with the label "review earlier than source tracking". `map` is the map ID, and an empty string for the top map. `flow` is the flow identifier. Such a review is current, so it gives no finding. |
 | `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
 | `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
@@ -1309,6 +1332,7 @@ Writes the current review digest of one target into the model file.
 `systemap review ID` writes `source_review` of the component ID.
 `systemap review --flow ID` writes `review_digest` of the flow with that identifier.
 `systemap review --flow 'SRC->DST'` writes `review_digest` of the flow from SRC to DST.
+A flow digest contains the flow claim and the `source_refs` with the digest of each module.
 The `SRC->DST` form is correct only for a pair that one flow connects.
 Put the `SRC->DST` value between quotation marks, because the shell reads `>` as a redirection.
 If the map has no flow with the `ID`, the command stops with exit 2.

@@ -12,7 +12,16 @@ from typing import Any
 
 import pytest
 
-from systemap import card_review, delta, evidence, extract, extraction, history, journey_coverage
+from systemap import (
+    card_review,
+    delta,
+    evidence,
+    extract,
+    extraction,
+    flow_review,
+    history,
+    journey_coverage,
+)
 from systemap.config import Config
 from systemap.model import Component, Flow, Journey, Meaning, Model, Step
 
@@ -174,4 +183,23 @@ def test_changed_reviewed_flow_references_reopen_delta(keep_import: bool) -> Non
     assert pending[0].kind == ("source evidence lost" if keep_import else "evidence lost")
     assert pending[0].decide
     fresh_flow = dataclasses.replace(flow, source_refs=("pkg.reader@" + "c" * 64,))
+    # A review from before source tracking does not identify the examined source.
     assert _pending(_model(*cards, flows=(fresh_flow,)), meaning, base, head) == []
+    # A source-tracked review stays open after only the source records change (issue 49).
+    tracked = dataclasses.replace(flow, review_digest=flow_review.digest(flow, meaning, base) or "")
+    moved = dataclasses.replace(tracked, source_refs=fresh_flow.source_refs)
+    before, after = _model(*cards, flows=(tracked,)), _model(*cards, flows=(moved,))
+    assert evidence.of_model(before, meaning, base)[flow.edge].state == evidence.OBSERVED
+    assert evidence.of_model(after, meaning, head)[flow.edge].state != evidence.OBSERVED
+    found = delta._evidence_review_lines(
+        Config(Path("."), "Example", (), "python"),
+        after,
+        meaning,
+        base,
+        head,
+        before,
+        after,
+        " at the base commit",
+        "map/model.py",
+    )
+    assert [line.kind for line in found] == [pending[0].kind]

@@ -11,12 +11,21 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import audit, judgement, judgement_moves, nest, review_policy, source_facts
+from systemap import (
+    audit,
+    flow_review,
+    judgement,
+    judgement_moves,
+    nest,
+    review_policy,
+    source_facts,
+)
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
-# Version 2 adds `cause` to each row of `open`. Version 3 adds `sources`.
-SCHEMA_VERSION = 3
+# Version 2 adds `cause` to each row of `open`. Version 3 adds `sources`. Version 4 adds
+# `earlier_flow_reviews`.
+SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -31,6 +40,7 @@ class Judged:
     require_reviews: bool = False
     causes: Mapping[str, str] = field(default_factory=dict)
     sources: Mapping[str, list[dict[str, Any]]] = field(default_factory=dict)
+    earlier: list[dict[str, str]] = field(default_factory=list)
 
     def detail(
         self, tree: nest.Tree, facts: dict[str, Any], verbose: bool
@@ -59,7 +69,39 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     result = judgement.apply_answers(lines, given, evidence)
     causes = line_causes(lines, facts)
-    return Judged(lines, evidence, result, cfg.require_reviews, causes, line_sources(lines, facts))
+    sources = line_sources(lines, facts)
+    earlier = earlier_reviews(tree, facts)
+    return Judged(lines, evidence, result, cfg.require_reviews, causes, sources, earlier)
+
+
+def earlier_reviews(tree: nest.Tree, facts: dict[str, Any]) -> list[dict[str, str]]:
+    """This function gives each flow with the review state `earlier` (`flow_review`).
+
+    Such a review is current, so it gives no finding line. The report gives it as a row
+    with the label, because the review digest does not identify the examined source.
+    """
+    return [
+        {"map": m.id, "flow": flow.key}
+        for m in tree.maps
+        for flow in m.model.flows
+        if flow_review.state(flow, m.meaning, facts) == flow_review.EARLIER
+    ]
+
+
+def earlier_rows(judged: Judged, tree: nest.Tree, teach: bool) -> list[str]:
+    """This function gives one text row for each flow review with the state `earlier`."""
+    if not judged.earlier:
+        return []
+    prefixes = {m.id: m.prefix for m in tree.maps}
+    rows = [
+        f"{flow_review.EARLIER_LABEL}: {prefixes.get(row['map'], '')}{row['flow']}"
+        for row in judged.earlier
+    ]
+    action = (
+        "  The review digest does not identify the examined source. Examine the flow claim "
+        "against the source. Then use systemap review --flow ID."
+    )
+    return rows + ([action] if teach else [])
 
 
 def line_causes(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, str]:
@@ -125,6 +167,7 @@ def payload(
         },
         "stale_answers": list(result.stale),
         "source_reviews": dict(reviews) if reviews is not None else None,
+        "earlier_flow_reviews": [dict(row) for row in judged.earlier],
         "require_reviews": judged.require_reviews,
         "kinds": _kind_counts(judged.lines, result.open),
     }

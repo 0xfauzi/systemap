@@ -117,7 +117,7 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
     assert code == 0
     assert [row["line"] for row in out["open"]] == text
     assert READER in text and WRITER in text and THIN not in text
-    assert out["schema_version"] == 3
+    assert out["schema_version"] == 4
     assert {row["line"]: row["kind"] for row in out["open"]}[READER] == "single module"
     assert out["stale_answers"] == ["single module: Gone contains only pkg.gone"]
     assert out["answered"] == {
@@ -127,6 +127,7 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
         ],
     }
     assert out["source_reviews"] == {"current": 0, "stale": 0, "missing": 2}
+    assert out["earlier_flow_reviews"] == []
     assert out["kinds"]["single module"] == {"open": 2, "answered": 0}
     assert out["kinds"]["thin layer"] == {"open": 0, "answered": 1}
     assert sum(k["open"] for k in out["kinds"].values()) == len(text)
