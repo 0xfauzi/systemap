@@ -127,14 +127,14 @@ def test_python_init_without_roots_also_gives_the_instruction(
     ("source", "expected"),
     [
         ("/*! MIT License © Web */\n\nexport const x = 1;\n", ""),
-        ("/*! MIT */\n/** Reads files. */\nexport const x = 1;\n", "Reads files."),
+        ("/*! MIT */\n/** Reads files. */\n\nexport const x = 1;\n", "Reads files."),
         (
             "// Copyright 2020 Web LLC\n//\n// Licensed under the Apache License.\n\n"
-            "// Reads files.\nexport const x = 1;\n",
+            "// Reads files.\n\nexport const x = 1;\n",
             "Reads files.",
         ),
         ("/**\n * @license\n * Copyright Web\n */\nexport const x = 1;\n", ""),
-        ("/** Reads files. */\nexport const x = 1;\n", "Reads files."),
+        ("/** Reads files. */\n\nexport const x = 1;\n", "Reads files."),
     ],
 )
 def test_a_typescript_license_notice_is_not_a_description(

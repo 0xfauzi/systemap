@@ -190,12 +190,12 @@ def test_docstring_is_the_first_comment_before_the_code() -> None:
     """
     doc = parse_surface(
         "#!/usr/bin/env node\n// eslint-disable-next-line no-console\n"
-        "/**\n * Reads orders.\n * Writes records.\n *\n * More text.\n */\nexport const a = 1;\n"
+        "/**\n * Reads orders.\n * Writes records.\n *\n * More text.\n */\n\nexport const a = 1;\n"
     )
     assert doc is not None and doc["docstring"] == "Reads orders. Writes records."
     late = parse_surface('import x from "./x";\n// Not a module comment.\nexport const b = x;\n')
     assert late is not None and late["docstring"] == ""
-    line = parse_surface("// Reads orders.\nexport const c = 1;\n")
+    line = parse_surface("// Reads orders.\n\nexport const c = 1;\n")
     assert line is not None and line["docstring"] == "Reads orders."
 
 
