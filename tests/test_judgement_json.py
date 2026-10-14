@@ -117,7 +117,7 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
     assert code == 0
     assert [row["line"] for row in out["open"]] == text
     assert READER in text and WRITER in text and THIN not in text
-    assert out["schema_version"] == 4
+    assert out["schema_version"] == 5
     assert {row["line"]: row["kind"] for row in out["open"]}[READER] == "single module"
     assert out["stale_answers"] == ["single module: Gone contains only pkg.gone"]
     assert out["answered"] == {

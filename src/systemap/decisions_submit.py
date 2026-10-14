@@ -5,7 +5,7 @@ A result has `request_id`, `verdict`, `citations`, and `summary`. Each citation 
 examines all results. If one result is incorrect, it writes nothing and tells each error.
 
 - The request ID must be a current request, and the request must not be unknown.
-- Each cited file must be a source file in the facts, inside the repository.
+- Each cited file must be a source file or a test file in the facts, inside the repository.
 - Each line span must be in the file, and each digest must agree with the current file.
 - `supported` must cite a file of the claim. For a flow, the files of the claim are the
   files of the two endpoints.
@@ -41,6 +41,7 @@ from systemap.config_decisions import Citation
 from systemap.decisions import (
     CONTRADICTED,
     FLOW_REVIEW,
+    INSUFFICIENT,
     JUDGEMENT,
     SOURCE_REVIEW,
     SUPPORTED,
@@ -118,14 +119,14 @@ def read_results(name: str) -> list[Any]:
     return data
 
 
-def _citation_errors(root: Path, files: dict[str, str], cited: Citation, where: str) -> list[str]:
+def _citation_errors(root: Path, files: set[str], cited: Citation, where: str) -> list[str]:
     """Examine one citation against the repository and the current file content."""
     name, start, end, digest = cited
     full, cause = decisions.confined(root, name)
     if full is None:
         return [f"{where}: {name} {cause}."]
     if PurePosixPath(name).as_posix() not in files:
-        return [f"{where}: {name} is not a source file in the facts."]
+        return [f"{where}: {name} is not a source file or a test file in the facts."]
     content = full.read_bytes()
     count = len(content.splitlines())
     errors = []
@@ -148,7 +149,8 @@ def _citations(
     value = item.get("citations")
     if not isinstance(value, list):
         return [], [f"{where}: citations must be a list."]
-    files = decisions.source_files(snap.cfg.root, snap.facts)
+    root = snap.cfg.root
+    files = set(decisions.source_files(root, snap.facts)) | decisions.test_files(root, snap.facts)
     found: list[Citation] = []
     errors: list[str] = []
     for k, entry in enumerate(value, 1):
@@ -175,7 +177,7 @@ def _request(item: dict[str, Any], snap: Snapshot, where: str) -> tuple[Request 
         ]
     if decisions_store.state(snap.records, request) == decisions_store.UNKNOWN:
         return None, [
-            f"{where}: {rid} is unknown. A person must examine the claim. "
+            f"{where}: {rid} is unknown. The command records no more verdicts for it. "
             "A change of the source of the target makes the request pending again."
         ]
     return request, []
@@ -346,22 +348,57 @@ def _write_answers(cfg: config.Config, entries: list[dict[str, Any]]) -> None:
         raise DecisionError(f"{exc}\nThe command restored {target.name}.") from exc
 
 
+def _record_line(snap: Snapshot, request: Request, new: str) -> str:
+    """Give the output line for one recorded result that is not `supported`."""
+    limit = snap.cfg.max_contradicted
+    if new == CONTRADICTED:
+        count = decisions_store.attempts(snap.records, request)
+        return (
+            f"contradicted: {request.id}: contradicted verdict {count} of {limit}. Correct "
+            "the map. Then send a new verdict with systemap decisions submit."
+        )
+    if new == INSUFFICIENT:
+        count = decisions_store.insufficient(snap.records, request)
+        return (
+            f"{INSUFFICIENT}: {request.id}: {INSUFFICIENT} verdict {count} of "
+            f"{decisions_store.MAX_INSUFFICIENT}. Examine more of the source, for example "
+            "other files. Then send one more verdict with systemap decisions submit."
+        )
+    verdict = snap.records[request.key]["verdict"]
+    count = (
+        decisions_store.attempts(snap.records, request)
+        if verdict == CONTRADICTED
+        else decisions_store.insufficient(snap.records, request)
+    )
+    ci = ci_result(decisions.open_lines(request, snap.tree, snap.judged))
+    return (
+        f"unknown: {request.id}: the claim has no decision after {count} {verdict} verdicts. {ci}"
+    )
+
+
+def ci_result(lines: list[str]) -> str:
+    """Give the CI result of an unknown request. The text does not say that a claim is correct."""
+    if lines:
+        return (
+            "The judgement line of the claim stays open. Thus systemap judgement --strict exits 1."
+        )
+    return (
+        "The claim has no open judgement line. Thus systemap judgement --strict does not exit 1 "
+        "because of this claim."
+    )
+
+
 def _record(snap: Snapshot, results: list[Result]) -> list[str]:
     out = []
     limit = snap.cfg.max_contradicted
     for result in results:
         request = result.request
-        new = decisions_store.record(snap.records, request, result.verdict, result.summary, limit)
-        count = decisions_store.attempts(snap.records, request)
-        if new == CONTRADICTED:
-            out.append(
-                f"contradicted: {request.id}: contradicted verdict {count} of {limit}. Correct "
-                "the map. Then send a new verdict with systemap decisions submit."
-            )
-        elif new == decisions_store.UNKNOWN:
-            out.append(
-                f"unknown: {request.id}: the claim has no decision. A person must examine it."
-            )
+        cited = [_cited(c) for c in result.citations]
+        new = decisions_store.record(
+            snap.records, request, result.verdict, result.summary, limit, cited
+        )
+        if new != SUPPORTED:
+            out.append(_record_line(snap, request, new))
     decisions_store.save(snap.cfg.root, snap.records)
     return out
 

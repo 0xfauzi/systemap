@@ -231,7 +231,7 @@ def test_judgement_gives_the_cause_and_the_fix_line_of_an_unknown_surface_line(
     capsys.readouterr()
     main(["--root", str(root), "judgement", "--json"])
     out = json.loads(capsys.readouterr().out)
-    assert out["schema_version"] == 4
+    assert out["schema_version"] == 5
     causes = {row["line"]: row["cause"] for row in out["open"]}
     assert {c for line, c in causes.items() if "unknown surface: " in line} == {"syntax"}
     assert {c for line, c in causes.items() if "unknown surface: " not in line} == {None}

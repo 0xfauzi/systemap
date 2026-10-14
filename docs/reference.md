@@ -1022,6 +1022,7 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - If the decision store has unknown decision requests, the report gives each one after the review counts.
   The row `unknown request ID: CLAIM` gives the claim. The report does not say that the claim is correct.
+  An `open line:` row gives each open judgement line of the claim, and a `CI:` row gives the CI result of the claim.
   The `systemap decisions` section tells about decision requests.
 
 - `--json` writes one JSON object to stdout for software, for example a CI step.
@@ -1062,7 +1063,7 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 4. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. |
+| `schema_version` | integer | The version of this schema. The value is 5. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
@@ -1406,9 +1407,10 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 1. |
+| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `max_insufficient` and `requests[].insufficient`. |
 | `verdicts` | list of strings | `supported`, `contradicted`, and `insufficient_evidence`. |
 | `max_contradicted` | integer | The value of `[decisions] max_contradicted`. |
+| `max_insufficient` | integer | The quantity of `insufficient_evidence` verdicts for one target that makes the decision request unknown. The value is 2. |
 | `requests` | list of objects | One object for each pending decision request. |
 | `requests[].id` | string | The identifier for `request_id` in a verdict. |
 | `requests[].type` | string | `judgement`, `source_review`, or `flow_review`. |
@@ -1419,6 +1421,7 @@ The JSON object has these fields:
 | `requests[].files` | list of objects | The source files of the claim, with `file` (the path from the repository root), `module`, and `sha256` (the source hash of the full file). |
 | `requests[].verdicts` | list of strings | The permitted verdicts. |
 | `requests[].attempts` | integer | The quantity of `contradicted` verdicts for the target since the last change of its source. |
+| `requests[].insufficient` | integer | The quantity of `insufficient_evidence` verdicts for the target since the last change of its source. |
 | `requests[].blocked` | string | If not empty, the cause that prevents `supported`, and the necessary step. |
 | `requests[].identity` | string | The target in the decision store: the component ID, the flow, or the kind and names of a judgement line. |
 | `unknown` | integer | The quantity of unknown decision requests. |
@@ -1445,7 +1448,8 @@ The command rejects a verdict in these conditions:
 - The `request_id` is not a current decision request, or the decision request is unknown. A claim change gives a new `id`.
 - The file has two verdicts for one `request_id`.
 - A `file` is an absolute path, a Windows drive or UNC path, or contains `..` or a backslash.
-- A `file` is not a regular file, or is not a source file in the facts.
+- A `file` is not a regular file, or is not a source file or a test file in the facts.
+  A test file in the facts is the file of a test in the `tests` of a module record, or of a `test_file_issues` record.
 - A `file` is a symbolic link to a file that is not in the repository.
 - A line span is not in the file, or `start_line` is more than `end_line`.
 - A `sha256` is not the SHA-256 digest of the current file content.
@@ -1463,28 +1467,47 @@ Then the command writes, in this sequence:
 A `contradicted` verdict adds one to the `contradicted` count of the target.
 The agent must correct the map and send a new verdict.
 At `[decisions] max_contradicted` verdicts, the decision request becomes unknown.
-After one `insufficient_evidence` verdict, the decision request is unknown.
-A `supported` verdict sets the count to zero.
 
-A change of the map claim does not set the count to zero, and does not make an unknown decision request pending.
+An `insufficient_evidence` verdict adds one to the `insufficient_evidence` count of the target.
+After the first `insufficient_evidence` verdict, the agent can examine more of the source and send one more verdict.
+At 2 `insufficient_evidence` verdicts, the decision request becomes unknown.
+A `supported` verdict sets the two counts to zero.
+
+The decision store keeps each verdict of a target, with its summary, its citations, and its claim digest.
+`systemap decisions status` shows each verdict.
+The limits stop work that occurs again and again. They do not stop an agent that sends `supported` for a claim that it wrote.
+
+A change of the map claim does not set the counts to zero, and does not make an unknown decision request pending.
 Thus an agent that changes the map after each `contradicted` verdict stops at the limit.
-A change of a source file of the target makes the decision request pending again, with a count of zero.
+A change of a source file of the target makes the decision request pending again, with counts of zero.
 A file that the map change adds to the target, or removes from it, is not a source change.
 To start all counts again, delete `.systemap/decisions.json`.
 
+If `.systemap/decisions.json` does not contain correct JSON, or has a different version or form, the `systemap decisions` commands and `systemap judgement` stop with exit 1.
+The error gives the path and the cause. Remove the file. Then do the command again.
+
 #### `systemap decisions status [--json]`
 
-Gives the counts and the unknown decision requests.
+Gives the counts, the unknown decision requests, and the recorded verdicts.
 The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
 An unknown decision request does not show that its claim is correct, and the text does not say that it is correct.
 
+The text gives the CI result of each unknown decision request.
+An open judgement line of the claim stays open. Thus `systemap judgement --strict` exits 1.
+If the claim has no open judgement line, `systemap judgement --strict` does not exit 1 because of the claim.
+For example, with `[judgement] require_reviews = false`, a component without a source review has no open judgement line.
+
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 1. |
+| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `supported_records`, `records`, and the fields `insufficient`, `open_lines`, and `history` of `unknown_requests`. In version 2, `supported` counts only the current claims. |
 | `pending` | integer | The quantity of pending decision requests. |
-| `supported` | integer | The quantity of `supported` verdicts in the decision store. Remove the decision store to start a new count. |
+| `supported` | integer | The quantity of `supported` verdicts for the current claims. A claim is current if its claim digest did not change after the verdict and no decision request opens it again. |
+| `supported_records` | integer | The quantity of `supported` verdicts in the decision store, also for claims that are not current. Remove the decision store to start a new count. |
 | `unknown` | integer | The quantity of unknown decision requests. |
-| `unknown_requests` | list of objects | One object for each unknown decision request, with `id`, `type`, `map`, `target`, `claim`, `claim_digest`, `verdict` (the last verdict), `attempts`, and `summary` (the last summary). |
+| `unknown_requests` | list of objects | One object for each unknown decision request, with `id`, `type`, `map`, `target`, `claim`, `claim_digest`, `verdict` (the last verdict), `attempts`, `insufficient`, `summary` (the last summary), `open_lines`, and `history`. |
+| `unknown_requests[].open_lines` | list of strings | The open judgement lines of the claim. If the list is not empty, `systemap judgement --strict` exits 1. |
+| `records` | list of objects | One object for each target in the decision store, with `id`, `type`, `map`, `target`, `state`, and `history`. |
+| `history` | list of objects | In `unknown_requests` and `records`: one object for each verdict, with `claim_digest`, `verdict`, `summary`, and `citations`. A record from systemap 2.0.0 has an empty list. |
 
 ### `systemap serve [--port 8765]`
 

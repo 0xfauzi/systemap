@@ -401,7 +401,8 @@ It writes one target for each call, and it keeps the comments and the format of 
 
 These commands send no request to a model.
 After `[decisions] max_contradicted` verdicts of `contradicted` for one target, the decision request becomes unknown. The default is 3.
-A person must then examine the claim.
+After two verdicts of `insufficient_evidence`, the decision request also becomes unknown.
+An unknown request is never a pass. `decisions status` gives the CI result that it causes.
 
 ## How do you prevent an import between two components?
 

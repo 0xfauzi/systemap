@@ -24,8 +24,9 @@ from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, Config
 
 # Version 2 adds `cause` to each row of `open`. Version 3 adds `sources`. Version 4 adds
-# `earlier_flow_reviews`.
-SCHEMA_VERSION = 4
+# `earlier_flow_reviews`. Version 5 adds `insufficient`, `open_lines`, and `history` to
+# each row of `unknown_requests`.
+SCHEMA_VERSION = 5
 
 
 @dataclass(frozen=True)
