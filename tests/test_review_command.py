@@ -4,7 +4,7 @@ Acceptance:
 - After `systemap review X`, `card_review.state` for X is `current`. The model file
   differs from before only in the `source_review` value of X.
 - After `systemap review --flow A->B`, the review digest of the flow agrees with the flow
-  claim. The file that defines the flow differs only in that value.
+  claim and the cited source. The file that defines the flow differs only in that value.
 - A target with no usable source snapshot gives exit 1, and the file does not change.
 - An unknown target gives exit 1, and the file does not change.
 - A model that the reader cannot read as data gives exit 1, and the file does not change.
@@ -18,7 +18,16 @@ from pathlib import Path
 import pytest
 from conftest import STARTER_MODULES, TWO_CARD_MODEL, init_two_cards, write_tree
 
-from systemap import card_review, config, evidence, extract, model_edit, model_load, nest
+from systemap import (
+    card_review,
+    config,
+    evidence,
+    extract,
+    flow_review,
+    model_edit,
+    model_load,
+    nest,
+)
 from systemap.cli import main
 
 
@@ -125,8 +134,8 @@ def test_review_flow_writes_only_the_review_digest_in_the_file_that_defines_the_
     assert path.read_text(encoding="utf-8") == model_before
     m = _top(tmp_path)
     flow = m.model.flows[0]
-    digest = evidence.flow_claim_digest(flow, m.meaning)
-    assert flow.review_digest == digest
+    digest = flow_review.digest(flow, m.meaning, _facts(tmp_path))
+    assert digest is not None and flow.review_digest == digest
     states = evidence.of_model(m.model, m.meaning, _facts(tmp_path))
     assert states[flow.edge].state == evidence.OBSERVED
     after = flows.read_text(encoding="utf-8")

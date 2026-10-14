@@ -29,6 +29,7 @@ from systemap import (
     evidence,
     extract,
     flow_ids,
+    flow_review,
     journeys,
     judgement,
     nest,
@@ -217,7 +218,7 @@ def test_each_flow_has_its_own_judgement_lines_and_review_digest(tmp_path: Path)
     after = path.read_text(encoding="utf-8")
     m = _top(tmp_path)
     submit, cancel = m.model.flows
-    assert submit.review_digest == evidence.flow_claim_digest(submit, m.meaning)
+    assert submit.review_digest == flow_review.digest(submit, m.meaning, facts)
     assert cancel.review_digest == ""
     heads = [line.split(" has ")[0] for line in judgement.flow_review(m.model, m.meaning, facts)]
     assert heads == ["flow review: OrderService -> OrderQueue [cancel-order] (cancel)"]
@@ -227,7 +228,7 @@ def test_each_flow_has_its_own_judgement_lines_and_review_digest(tmp_path: Path)
     assert main(["--root", str(tmp_path), "review", "--flow", "cancel-order"]) == 0
     m = _top(tmp_path)
     submit, cancel = m.model.flows
-    assert cancel.review_digest == evidence.flow_claim_digest(cancel, m.meaning)
+    assert cancel.review_digest == flow_review.digest(cancel, m.meaning, facts)
     assert submit.review_digest != cancel.review_digest
     states = evidence.of_model(m.model, m.meaning, facts)
     assert [states.of(f).state for f in m.model.flows] == ["observed", "observed"]

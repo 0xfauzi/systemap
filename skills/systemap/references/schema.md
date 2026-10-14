@@ -229,7 +229,7 @@ RELATIONS = {
 ```
 
 An import, common module, or configured mechanism gives `structural` evidence only.
-`observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
+`observed` must have current `source_refs` and a `review_digest` that agrees with the flow, the relation sentence, and the source in `source_refs`.
 At least one reference must be in a module of the source or target component.
 An actor has no modules. For a flow with an actor end, use a module of the other end.
 If no reference is in an endpoint module, the flow is not `observed`, and `systemap judgement` gives a `no endpoint source` finding.
@@ -242,6 +242,16 @@ It does not examine the claims for you. Examine the source before you record the
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
+The `review_digest` also contains the `source_refs` with the digest of each module.
+Thus a change to a module in `source_refs` makes the flow review not current, also when the claim does not change.
+A new digest in `source_refs` does not record a review. Examine the flow again. Then run `systemap review --flow`.
+A flow without `source_refs`, or with a source record that does not agree with the facts, has no current review.
+
+systemap 2.0.0 records a `review_digest` that contains only the claim.
+`systemap refresh` and `systemap extract` replace that digest one time with a digest of the claim and the current `source_refs`.
+The review stays current, with the label "review earlier than source tracking".
+The label shows that the digest does not identify the examined source.
+After the replacement, a change to a module in `source_refs` makes the review not current.
 Digests identify recorded source and claims. They do not show the claim's meaning automatically.
 
 `external` has an actor endpoint. `declared` has no examined source or structural support.

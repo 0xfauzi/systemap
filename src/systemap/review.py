@@ -6,7 +6,8 @@ the current claims, and it writes that digest into the model file:
 
 - `systemap review ID` writes `source_review` of the component ID.
 - `systemap review --flow ID` or `--flow 'SRC->DST'` writes `review_digest` of that flow.
-  The `SRC->DST` form is correct only for a pair that one flow connects.
+  The `SRC->DST` form is correct only for a pair that one flow connects. The digest
+  contains the flow claim and the source records, with the digest of each module.
 
 One call writes one target. The command has no option for all targets, because a person or an agent
 must examine each claim separately. The command writes the value as literal data into the file
@@ -32,6 +33,7 @@ from systemap import (
     evidence,
     extraction,
     flow_ids,
+    flow_review,
     model_edit,
     model_load,
     model_write,
@@ -135,7 +137,7 @@ def review(
     if model == expected:
         return [*lines, f"The value in {rel} is the current digest. The command wrote nothing."]
     text = model_edit.set_keyword(source, call, target.key, digest)
-    _same(m, path, text, expected, meaning)
+    _same(m, {path: text}, expected, meaning)
     if dry_run:
         return [*lines, f"--dry-run: the command did not write {rel}."]
     model_write.write_models({path: text})
@@ -199,7 +201,10 @@ def _flow_digest(
             f"{m.prefix}flow {name} has source records that do not agree with the current "
             f"source: {', '.join(unresolved)}. Examine the source. Then correct source_refs."
         )
-    return evidence.flow_claim_digest(flow, meaning)
+    digest = flow_review.digest(flow, meaning, facts)
+    if digest is None:
+        raise ReviewError(f"{m.prefix}flow {name} has no current review digest.")
+    return digest
 
 
 def _definition(m: nest.Map, target: Target) -> tuple[Path, str, ast.Call]:
@@ -258,13 +263,14 @@ def _stale_ends(
     return out
 
 
-def _same(m: nest.Map, path: Path, text: str, model: Model, meaning: Meaning) -> None:
-    """Read the new text with the reader that runs no code, in a copy of the model files."""
+def _same(m: nest.Map, texts: dict[Path, str], model: Model, meaning: Meaning) -> None:
+    """Read the new texts with the reader that runs no code, in a copy of the model files."""
     with tempfile.TemporaryDirectory(prefix="systemap-review-") as folder:
         copy = Path(folder)
         for each in model_load.files(m.path, m.rel):
             shutil.copyfile(each, copy / each.name)
-        (copy / path.name).write_text(text, encoding="utf-8", newline="")
+        for path, text in texts.items():
+            (copy / path.name).write_text(text, encoding="utf-8", newline="")
         try:
             names = model_load.read(copy / m.path.name, m.rel)
         except model_load.ModelFileError as exc:

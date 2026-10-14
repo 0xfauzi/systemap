@@ -3,19 +3,18 @@
 An import, shared module, or mechanism word gives structural evidence. Structural
 evidence does not give evidence of the flow direction, artifact, or execution. A source
 record must resolve to the extracted source, and its review digest must agree with the
-flow claim. At least one source record must be in a module of the source component or
-the target component of the flow.
+flow claim and the source records (`flow_review`). At least one source record must be in
+a module of the source component or the target component of the flow.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from systemap import flow_review
 from systemap.model import (
     Component,
     Edge,
@@ -25,7 +24,6 @@ from systemap.model import (
     claimed,
     covers,
     is_symbol,
-    source_parsed,
     symbol_claims,
 )
 
@@ -58,12 +56,18 @@ class Evidence:
     unresolved_refs: tuple[str, ...] = ()
     claim_changed: bool = False
     no_endpoint_ref: bool = False
+    earlier_review: bool = False
 
     @property
     def says(self) -> str:
         """This method gives the panel explanation for the flow evidence state."""
         if self.state == EXTERNAL:
             return "external: The endpoint is outside the source code."
+        if self.state == OBSERVED and self.earlier_review:
+            return (
+                f"{flow_review.EARLIER_LABEL}: The source records agree with this source "
+                "snapshot. The review digest does not identify the examined source."
+            )
         if self.state == OBSERVED:
             return "current source review: The source records agree with this source snapshot."
         if self.pending:
@@ -127,39 +131,22 @@ def _resolves(ref: str, facts: dict[str, Any]) -> bool:
     """This function resolves a module or symbol reference against the extracted source
     snapshot.
     """
-    location, marker, digest = ref.rpartition("@")
-    if not marker or not re.fullmatch(r"[0-9a-f]{64}", digest):
-        return False
-    module, colon, symbol = location.partition(":")
-    record = facts.get("components", {}).get(module)
-    if not isinstance(record, dict) or not source_parsed(record):
-        return False
-    source_hash = record.get("source_sha256")
-    if source_hash != digest:
-        return False
-    if not colon:
-        return True
-    return bool(symbol) and any(
-        item.get("name") == symbol for item in record.get("names", []) if isinstance(item, dict)
-    )
+    return flow_review.resolves(ref, facts)
 
 
 def flow_claim_digest(flow: Flow, meaning: Meaning) -> str:
-    """This function calculates the digest for the exact flow claim.
+    """This function calculates the digest of the flow claim without the source records.
 
-    The claim contains the id only for a flow with an id. Thus a flow without an id keeps
-    the digest that it had before flow ids."""
-    claim: tuple[str, ...] = (flow.src, flow.dst, flow.artifact, flow.kind, meaning.relation(flow))
-    claim += (flow.id,) if flow.id else ()
-    data = json.dumps(claim, ensure_ascii=False, separators=(",", ":"))
-    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+    A review from systemap 2.0.0 has this digest. `flow_review.digest` gives the
+    current review digest."""
+    return flow_review.claim_digest(flow, meaning)
 
 
 def _review(
     flow: Flow, meaning: Meaning, facts: dict[str, Any], model: Model
 ) -> tuple[tuple[str, ...], tuple[str, ...], bool, bool]:
     refs = tuple(flow.source_refs)
-    changed = bool(refs) and flow.review_digest != flow_claim_digest(flow, meaning)
+    changed = bool(refs) and flow_review.form(flow, meaning) not in flow_review.REVIEWED
     ends = [c for c in model.components if c.id in flow.edge]
     unresolved, outside = check_refs(refs, ends, facts)
     no_endpoint = bool(refs) and bool(endpoint_claims(flow, model)) and outside == refs
@@ -297,6 +284,7 @@ def of_model(
         sharing = frozenset(f.edge) in shared
         mechanism = mechanism_of(f, meaning, mechanisms)
         refs, unresolved, claim_changed, no_endpoint = _review(f, meaning, facts, model)
+        earlier = bool(refs) and flow_review.form(f, meaning) == flow_review.EARLIER
         if model.kind_of(f.src) == "actor" or model.kind_of(f.dst) == "actor":
             # The state stays external. The source records and their examination stay
             # in the record for the page and for `systemap review`.
@@ -306,6 +294,7 @@ def of_model(
                 unresolved_refs=unresolved,
                 claim_changed=claim_changed,
                 no_endpoint_ref=no_endpoint,
+                earlier_review=earlier,
             )
         else:
             state = (
@@ -324,6 +313,7 @@ def of_model(
                 unresolved,
                 claim_changed,
                 no_endpoint,
+                earlier,
             )
     return out
 

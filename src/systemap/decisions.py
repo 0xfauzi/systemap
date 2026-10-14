@@ -5,7 +5,11 @@ There are three request types:
 - `judgement`: an open judgement line. The claim is the line.
 - `source_review`: a source component with a missing or stale source review. The claim is
   the component text, with the flows, sequences, and invariants that name it.
-- `flow_review`: a flow with source records and a review digest that is not current.
+- `flow_review`: a flow with source records and a review digest that is not current. The
+  digest contains the claim and the source records with their module digests. A change
+  to a module in the source records gives a request, also when the claim does not change.
+  A flow with a source record that does not agree with the facts has no current digest,
+  and its request is blocked.
 
 Each request has a stable ID. The ID comes from the request type, the target, and the claim
 digest, so the same claim gives the same ID in a different session. The store identity of
@@ -37,6 +41,7 @@ from typing import Any
 from systemap import (
     card_review,
     evidence,
+    flow_review,
     judgement,
     judgement_evidence,
     judgement_json,
@@ -44,6 +49,7 @@ from systemap import (
     repo_files,
     review_policy,
 )
+from systemap.flow_review import REVIEWED
 from systemap.judgement_evidence import card_modules
 from systemap.model import Component, Flow, Meaning, Model
 
@@ -294,9 +300,9 @@ def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
     states = evidence.of_model(m.model, m.meaning, facts)
     out: list[Request] = []
     for flow in m.model.flows:
-        digest = evidence.flow_claim_digest(flow, m.meaning)
-        if not flow.source_refs or flow.review_digest == digest:
+        if not flow.source_refs or flow_review.state(flow, m.meaning, facts) in REVIEWED:
             continue
+        digest = flow_review.digest(flow, m.meaning, facts)
         unresolved = states.of(flow).unresolved_refs
         blocked = (
             f"Source records do not agree with the current source: {', '.join(unresolved)}. "

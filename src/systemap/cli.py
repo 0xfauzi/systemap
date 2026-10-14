@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,7 @@ from systemap import (
     place_source,
     providers,
     review,
+    review_upgrade,
     scaffold,
     serve,
     skill,
@@ -115,6 +117,17 @@ def _project(args: argparse.Namespace) -> Project:
     return Project(cfg, nest.load(cfg))
 
 
+def _upgraded(p: Project, args: argparse.Namespace, note: Callable[..., None]) -> Project:
+    """Record the source records of each flow review from systemap 2.0.0 one time.
+
+    Give the project again after a write (`review_upgrade`)."""
+    lines = review_upgrade.record(p.cfg, p.tree)
+    warnings = [line for line in lines if line.startswith("warning:")]
+    warn(*warnings)
+    note(*[line for line in lines if line not in warnings])
+    return _project(args) if len(lines) > len(warnings) else p
+
+
 # ---- init ------------------------------------------------------------------
 
 
@@ -170,6 +183,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
+    p = _upgraded(p, args, say)
     facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     say(*facts_file.summary(fresh))
     for m in p.tree.maps:
@@ -465,6 +479,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     _require_roots(p)
     if _empty(p):
         return STALE
+    p = _upgraded(p, args, note)
     fresh = extraction.build(p.cfg)
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
@@ -577,6 +592,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*judgement.report(result, detail, args.kind or "", not args.brief, judged.causes))
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
+    say(*judgement_json.earlier_rows(judged, p.tree, not args.brief))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
