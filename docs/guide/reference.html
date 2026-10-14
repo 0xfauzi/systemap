@@ -1318,6 +1318,7 @@ If two statements of one module give the same line, the line occurs one time wit
 <li>
 <p>If the decision store has unknown decision requests, the report gives each one after the review counts.
 The row <code>unknown request ID: CLAIM</code> gives the claim. The report does not say that the claim is correct.
+An <code>open line:</code> row gives each open judgement line of the claim, and a <code>CI:</code> row gives the CI result of the claim.
 The <code>systemap decisions</code> section tells about decision requests.</p>
 </li>
 <li>
@@ -1369,7 +1370,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 4. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>.</td>
+<td>The version of this schema. The value is 5. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1813,7 +1814,7 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 1.</td>
+<td>The version of this schema. The value is 2. Version 2 added <code>max_insufficient</code> and <code>requests[].insufficient</code>.</td>
 </tr>
 <tr>
 <td><code>verdicts</code></td>
@@ -1824,6 +1825,11 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <td><code>max_contradicted</code></td>
 <td>integer</td>
 <td>The value of <code>[decisions] max_contradicted</code>.</td>
+</tr>
+<tr>
+<td><code>max_insufficient</code></td>
+<td>integer</td>
+<td>The quantity of <code>insufficient_evidence</code> verdicts for one target that makes the decision request unknown. The value is 2.</td>
 </tr>
 <tr>
 <td><code>requests</code></td>
@@ -1874,6 +1880,11 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <td><code>requests[].attempts</code></td>
 <td>integer</td>
 <td>The quantity of <code>contradicted</code> verdicts for the target since the last change of its source.</td>
+</tr>
+<tr>
+<td><code>requests[].insufficient</code></td>
+<td>integer</td>
+<td>The quantity of <code>insufficient_evidence</code> verdicts for the target since the last change of its source.</td>
 </tr>
 <tr>
 <td><code>requests[].blocked</code></td>
@@ -1938,7 +1949,8 @@ The command rejects a verdict in these conditions:</p>
 <li>The <code>request_id</code> is not a current decision request, or the decision request is unknown. A claim change gives a new <code>id</code>.</li>
 <li>The file has two verdicts for one <code>request_id</code>.</li>
 <li>A <code>file</code> is an absolute path, a Windows drive or UNC path, or contains <code>..</code> or a backslash.</li>
-<li>A <code>file</code> is not a regular file, or is not a source file in the facts.</li>
+<li>A <code>file</code> is not a regular file, or is not a source file or a test file in the facts.
+A test file in the facts is the file of a test in the <code>tests</code> of a module record, or of a <code>test_file_issues</code> record.</li>
 <li>A <code>file</code> is a symbolic link to a file that is not in the repository.</li>
 <li>A line span is not in the file, or <code>start_line</code> is more than <code>end_line</code>.</li>
 <li>A <code>sha256</code> is not the SHA-256 digest of the current file content.</li>
@@ -1955,18 +1967,29 @@ The command rejects a verdict in these conditions:</p>
 </ol>
 <p>A <code>contradicted</code> verdict adds one to the <code>contradicted</code> count of the target.
 The agent must correct the map and send a new verdict.
-At <code>[decisions] max_contradicted</code> verdicts, the decision request becomes unknown.
-After one <code>insufficient_evidence</code> verdict, the decision request is unknown.
-A <code>supported</code> verdict sets the count to zero.</p>
-<p>A change of the map claim does not set the count to zero, and does not make an unknown decision request pending.
+At <code>[decisions] max_contradicted</code> verdicts, the decision request becomes unknown.</p>
+<p>An <code>insufficient_evidence</code> verdict adds one to the <code>insufficient_evidence</code> count of the target.
+After the first <code>insufficient_evidence</code> verdict, the agent can examine more of the source and send one more verdict.
+At 2 <code>insufficient_evidence</code> verdicts, the decision request becomes unknown.
+A <code>supported</code> verdict sets the two counts to zero.</p>
+<p>The decision store keeps each verdict of a target, with its summary, its citations, and its claim digest.
+<code>systemap decisions status</code> shows each verdict.
+The limits stop work that occurs again and again. They do not stop an agent that sends <code>supported</code> for a claim that it wrote.</p>
+<p>A change of the map claim does not set the counts to zero, and does not make an unknown decision request pending.
 Thus an agent that changes the map after each <code>contradicted</code> verdict stops at the limit.
-A change of a source file of the target makes the decision request pending again, with a count of zero.
+A change of a source file of the target makes the decision request pending again, with counts of zero.
 A file that the map change adds to the target, or removes from it, is not a source change.
 To start all counts again, delete <code>.systemap/decisions.json</code>.</p>
+<p>If <code>.systemap/decisions.json</code> does not contain correct JSON, or has a different version or form, the <code>systemap decisions</code> commands and <code>systemap judgement</code> stop with exit 1.
+The error gives the path and the cause. Remove the file. Then do the command again.</p>
 <h4 id="systemap-decisions-status-json"><code>systemap decisions status [--json]</code></h4>
-<p>Gives the counts and the unknown decision requests.
+<p>Gives the counts, the unknown decision requests, and the recorded verdicts.
 The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
 An unknown decision request does not show that its claim is correct, and the text does not say that it is correct.</p>
+<p>The text gives the CI result of each unknown decision request.
+An open judgement line of the claim stays open. Thus <code>systemap judgement --strict</code> exits 1.
+If the claim has no open judgement line, <code>systemap judgement --strict</code> does not exit 1 because of the claim.
+For example, with <code>[judgement] require_reviews = false</code>, a component without a source review has no open judgement line.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-status-json">
 <table>
 <thead>
@@ -1980,7 +2003,7 @@ An unknown decision request does not show that its claim is correct, and the tex
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 1.</td>
+<td>The version of this schema. The value is 2. Version 2 added <code>supported_records</code>, <code>records</code>, and the fields <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> of <code>unknown_requests</code>. In version 2, <code>supported</code> counts only the current claims.</td>
 </tr>
 <tr>
 <td><code>pending</code></td>
@@ -1990,7 +2013,12 @@ An unknown decision request does not show that its claim is correct, and the tex
 <tr>
 <td><code>supported</code></td>
 <td>integer</td>
-<td>The quantity of <code>supported</code> verdicts in the decision store. Remove the decision store to start a new count.</td>
+<td>The quantity of <code>supported</code> verdicts for the current claims. A claim is current if its claim digest did not change after the verdict and no decision request opens it again.</td>
+</tr>
+<tr>
+<td><code>supported_records</code></td>
+<td>integer</td>
+<td>The quantity of <code>supported</code> verdicts in the decision store, also for claims that are not current. Remove the decision store to start a new count.</td>
 </tr>
 <tr>
 <td><code>unknown</code></td>
@@ -2000,7 +2028,22 @@ An unknown decision request does not show that its claim is correct, and the tex
 <tr>
 <td><code>unknown_requests</code></td>
 <td>list of objects</td>
-<td>One object for each unknown decision request, with <code>id</code>, <code>type</code>, <code>map</code>, <code>target</code>, <code>claim</code>, <code>claim_digest</code>, <code>verdict</code> (the last verdict), <code>attempts</code>, and <code>summary</code> (the last summary).</td>
+<td>One object for each unknown decision request, with <code>id</code>, <code>type</code>, <code>map</code>, <code>target</code>, <code>claim</code>, <code>claim_digest</code>, <code>verdict</code> (the last verdict), <code>attempts</code>, <code>insufficient</code>, <code>summary</code> (the last summary), <code>open_lines</code>, and <code>history</code>.</td>
+</tr>
+<tr>
+<td><code>unknown_requests[].open_lines</code></td>
+<td>list of strings</td>
+<td>The open judgement lines of the claim. If the list is not empty, <code>systemap judgement --strict</code> exits 1.</td>
+</tr>
+<tr>
+<td><code>records</code></td>
+<td>list of objects</td>
+<td>One object for each target in the decision store, with <code>id</code>, <code>type</code>, <code>map</code>, <code>target</code>, <code>state</code>, and <code>history</code>.</td>
+</tr>
+<tr>
+<td><code>history</code></td>
+<td>list of objects</td>
+<td>In <code>unknown_requests</code> and <code>records</code>: one object for each verdict, with <code>claim_digest</code>, <code>verdict</code>, <code>summary</code>, and <code>citations</code>. A record from systemap 2.0.0 has an empty list.</td>
 </tr>
 </tbody>
 </table>

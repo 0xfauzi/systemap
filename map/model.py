@@ -366,7 +366,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="1a93d9b3783e136ffe7d5516d7fe133dd932fd5ca81b6d496f45d26ed3fca5d3",
+        source_review="3fef0dd33222d1c0ff2615d34dc684e1a0a94e9847341ff55fb7b0e39d399855",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. Gives each flow review earlier than source tracking as a row with a label, not as a finding. A change to a cited module opens the flow review again. With --strict, returns exit code 1 for findings without answers or for a model without components. Gives the cause, the fix line and the source location rows of each unknown surface finding. A finding line contains no line number, source excerpt or parser version. With --json, writes the findings, answers and counts as one JSON object. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -381,6 +381,7 @@ COMPONENTS = (
             "systemap.review_policy",
             "systemap.decisions",
             "systemap.decisions_store",
+            "systemap.decisions_supported",
             "systemap.decisions_submit",
             "systemap.decisions_cli",
             "systemap.step_refs",

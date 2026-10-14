@@ -13,7 +13,8 @@ Acceptance values:
    change between each result. A map change does not make the unknown request pending.
    A change of the source of the target makes the request pending again, with zero
    attempts.
-5. One `insufficient_evidence` result makes the request `unknown` at once.
+5. A second `insufficient_evidence` result makes the request `unknown`
+   (`tests/test_decisions_retry.py` tests the first result).
 6. Acceptance values 1 to 5 hold for a Python fixture and a TypeScript fixture.
 7. `[judgement] require_reviews = true` makes `judgement --strict` fail on a missing source
    review. The JSON output gives the setting. The default is false.
@@ -309,8 +310,9 @@ def test_insufficient_evidence_makes_the_request_unknown(
     """Acceptance 5 and 6."""
     card, _name, _new = CASES[language(project)]
     request = of_type(pending(project, capsys), "source_review", card)
-    code, out, err = submit(project, capsys, result(request, "insufficient_evidence"))
-    assert code == 0, err
+    for _attempt in (1, 2):
+        code, out, err = submit(project, capsys, result(request, "insufficient_evidence"))
+        assert code == 0, err
     assert f"unknown: {request['id']}" in out
     assert of_type_absent(pending(project, capsys), card)
     code, out, _err = run(project, capsys, "decisions", "status")
