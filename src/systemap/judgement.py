@@ -527,21 +527,22 @@ def run_tree(
 
 
 def evidence_for_tree(
-    tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str]
+    tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str], earlier: bool = False
 ) -> dict[str, str]:
     """This function hashes the evidence of each printed line for exact answers.
 
     The evidence of a line is the evidence that the line names (`judgement_evidence`).
     Crossing-import evidence includes only the imports between the two components. A
     line with a source line number has the evidence of its statement. An uncommitted
-    source edit that changes a cited fact changes the digest.
+    source edit that changes a cited fact changes the digest. With `earlier`, the
+    digests have the form of systemap 2.0.0 (`answer_upgrade`).
     """
     crossings = {
         m.prefix + crossing_line(p, q): imports
         for m in tree.maps
         for (p, q), imports in crossing_imports(m.model, facts).items()
     }
-    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings)
+    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings, earlier)
 
 
 def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:

@@ -245,9 +245,14 @@ A line that names no component and no module uses the full evidence: the model f
 The model files are the model file and each model file that it imports.
 An `entry point` line with the full evidence also has all entry point records.
 
-Migration from facts format 12: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
-Thus each exact answer is pending one time after the update.
-`judgement` prints the new digest in the `pending answer` line.
+Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
+
+In the 2.0 releases, the first `systemap refresh` or `systemap extract` examines each `evidence` value in the 2.0.0 form.
+If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
+The command changes only the `evidence` value, and it keeps all other text of the configuration file.
+
+A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
+From 2.1.0, an answer with a 2.0.0 value is pending. `judgement` prints the new digest in the `pending answer` line.
 
 Migration from facts format 10: the evidence of an `unknown surface` line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.

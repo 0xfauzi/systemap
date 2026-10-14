@@ -21,6 +21,11 @@ has the imports between the two components, with the imported names. An `unknown
 surface` line about the full repository, such as a `package_export` line, has its
 records.
 
+systemap 2.0.0 recorded the evidence in an earlier form (`earlier=True`): the full module
+record without the syntax fingerprints, and the digest of the source file of each module,
+for each line. A crossing-import line also had the source of the two modules of each
+import. `answer_upgrade` uses this form one time to replace a current 2.0.0 digest.
+
 A `step source` line also has the claim of its sequence step: the step record and the
 map claims of its acting and measured components. Thus a change to the step changes the
 evidence, also when the line names no component.
@@ -111,6 +116,26 @@ def _without_location(record: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in record.items() if key not in _LOCATION}
 
 
+def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
+    """Give the module record of the 2.0.0 evidence: the record without the
+    parser-specific syntax fingerprints."""
+    stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}
+    stable["api"] = [
+        {key: value for key, value in item.items() if key != "fingerprint"}
+        for item in record.get("api", [])
+    ]
+    return stable
+
+
+def _module_row(
+    root: Path, name: str, record: dict[str, Any], behavior: bool, earlier: bool
+) -> Any:
+    """Give the row of one module in the evidence, in the current or the 2.0.0 form."""
+    if earlier:
+        return (name, _answer_facts(record), _source_hash(root, record))
+    return (name, module_state(root, record, behavior))
+
+
 def module_state(root: Path, record: dict[str, Any], behavior: bool) -> Any:
     """Give the evidence of one module: its cited facts, and for a line about behavior,
     also the digest of its source file."""
@@ -195,6 +220,7 @@ def full_state(
     model_hash: str,
     points: list[str] | None = None,
     behavior: bool = False,
+    earlier: bool = False,
 ) -> Any:
     """Give the evidence of a line that names nothing: the model files and all modules.
 
@@ -203,7 +229,7 @@ def full_state(
     state = {
         "model": model_hash,
         "facts": [
-            (name, module_state(root, record, behavior))
+            _module_row(root, name, record, behavior, earlier)
             for name, record in sorted(components.items())
         ],
     }
@@ -212,7 +238,9 @@ def full_state(
     return state
 
 
-def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any:
+def line_state(
+    m: nest.Map, facts: dict[str, Any], root: Path, line: str, earlier: bool = False
+) -> Any:
     """Give the evidence of a line that names components or modules, or None.
 
     None tells the caller to use `full_state`.
@@ -229,7 +257,7 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
             for card in sorted(cards, key=lambda card: card.id)
         ],
         "facts": [
-            (module, module_state(root, components.get(module, {}), about_behavior(m, line)))
+            _module_row(root, module, components.get(module, {}), about_behavior(m, line), earlier)
             for module in modules
         ],
     }
@@ -297,9 +325,25 @@ def _source_rows(root: Path, file: str) -> list[str]:
         return []
 
 
-def crossing_state(components: dict[str, Any], imports: list[tuple[str, str]]) -> Any:
+def crossing_state(
+    components: dict[str, Any],
+    imports: list[tuple[str, str]],
+    root: Path | None = None,
+) -> Any:
     """Give the evidence of a crossing-import line: each import between the two
-    components, with the imported names."""
+    components, with the imported names. With `root`, give the 2.0.0 form: each import
+    also has the digests of the source files of its two modules."""
+    if root is not None:
+        return [
+            (
+                source,
+                target,
+                components[source].get("uses", {}).get(target, []),
+                _source_hash(root, components[source]),
+                _source_hash(root, components[target]),
+            )
+            for source, target in imports
+        ]
     return [
         (source, target, components[source].get("uses", {}).get(target, []))
         for source, target in imports
@@ -318,9 +362,10 @@ def tree_evidence(
     root: Path,
     lines: list[str],
     crossings: Mapping[str, list[tuple[str, str]]],
+    earlier: bool = False,
 ) -> dict[str, str]:
     """Give the evidence digest of each line. `crossings` gives the imports of each
-    crossing-import line."""
+    crossing-import line. With `earlier`, give the 2.0.0 form."""
     located = located_records(facts)
     records = repository_records(facts)
     model_hashes: dict[str, str] = {}
@@ -329,17 +374,17 @@ def tree_evidence(
         m = map_of(tree, key)
         bare = key[len(m.prefix) :]
         state = located_state(root, located.get(bare, []))
-        if state is None and bare in records:
+        if state is None and bare in records and not earlier:
             state = {"records": [_without_location(record) for record in records[bare]]}
         if state is None:
-            state = _named_state(m, facts, root, key, crossings.get(key))
+            state = _named_state(m, facts, root, key, crossings.get(key), earlier)
         if state is None:
             if m.id not in model_hashes:
                 model_hashes[m.id] = model_digest(m)
             points = entry_points(m, facts, key)
             behavior = about_behavior(m, key)
             components = facts.get("components", {})
-            state = full_state(components, root, model_hashes[m.id], points, behavior)
+            state = full_state(components, root, model_hashes[m.id], points, behavior, earlier)
         out[key] = digest(state)
     return out
 
@@ -350,9 +395,10 @@ def _named_state(
     root: Path,
     line: str,
     imports: list[tuple[str, str]] | None,
+    earlier: bool,
 ) -> Any:
     """Give the evidence of a crossing-import line, or of a line that names components or
     modules, or None."""
     if imports is not None:
-        return crossing_state(facts.get("components", {}), imports)
-    return line_state(m, facts, root, line)
+        return crossing_state(facts.get("components", {}), imports, root if earlier else None)
+    return line_state(m, facts, root, line, earlier)

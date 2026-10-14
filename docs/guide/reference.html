@@ -386,9 +386,12 @@ For example, a new import of a module from a different component does not open a
 <p>A line that names no component and no module uses the full evidence: the model files and the cited facts of all modules.
 The model files are the model file and each model file that it imports.
 An <code>entry point</code> line with the full evidence also has all entry point records.</p>
-<p>Migration from facts format 12: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
-Thus each exact answer is pending one time after the update.
-<code>judgement</code> prints the new digest in the <code>pending answer</code> line.</p>
+<p>Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.</p>
+<p>In the 2.0 releases, the first <code>systemap refresh</code> or <code>systemap extract</code> examines each <code>evidence</code> value in the 2.0.0 form.
+If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
+The command changes only the <code>evidence</code> value, and it keeps all other text of the configuration file.</p>
+<p>A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
+From 2.1.0, an answer with a 2.0.0 value is pending. <code>judgement</code> prints the new digest in the <code>pending answer</code> line.</p>
 <p>Migration from facts format 10: the evidence of an <code>unknown surface</code> line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.

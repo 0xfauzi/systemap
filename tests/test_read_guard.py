@@ -44,6 +44,9 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("skill.py", "files", "entry.read_text"): "package data",
     # The configuration file. config.load read it before with repo_files.read_text.
     ("answer_write.py", "add", "target.read_bytes"): "the configuration that config.load read",
+    ("answer_write.py", "renew_evidence", "target.read_bytes"): (
+        "the configuration that config.load read"
+    ),
     ("decisions_submit.py", "_write_answers", "target.read_bytes"): "the same configuration",
     # A path that decisions.confined gave: repo_files.checked examined it.
     ("decisions.py", "file_digest", "path.read_bytes"): "a path from decisions.confined",
@@ -80,7 +83,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("file_write.py", "_temporary", "os.open"): "the confined writer: a new temporary file",
     # The configuration file that config.load read with repo_files: a regular file in the
     # repository. The write keeps its bytes, also a byte order mark.
-    ("answer_write.py", "add", "target.write_bytes"): "the configuration that config.load read",
+    ("answer_write.py", "_write", "target.write_bytes"): "the configuration that config.load read",
     ("decisions_submit.py", "_write_answers", "target.write_bytes"): "the same configuration",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
