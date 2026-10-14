@@ -210,7 +210,7 @@ between proposals. Examine these proposals against the source.
 A component must have one clear function. Module quantity alone does not identify a component.
 
 An exact `item` or `items` answer includes `evidence = "<SHA-256 digest>"`.
-When source or import evidence changes, the finding opens again.
+When a fact that the finding cites changes, the finding opens again.
 `judgement` prints the current digest for examination.
 An exact answer without evidence stays pending until source review.
 
@@ -219,18 +219,35 @@ The evidence digest of a line contains only the evidence that the line names:
 - For each component that the line names, the map claims of the component.
   These claims are the component fields, the plain name, and the flows, sequences, and invariants that name the component.
   The `source_review` value, the flow review digests, and the source digests in `source_refs` are not claims.
-- For each module that the line names, and each module of a named component, the module facts and the source file.
-- For a `crossing import` line, the imports between the two components and the source of the two modules of each import.
+- For each module that the line names, and each module of a named component, the cited facts of the module.
+  The cited facts are the `file`, the `package`, the public `names`, and the imports in `uses` with the imported names.
+  They also include the `external` imports, the `parsed` value, and the unknown records without their line numbers.
+- For a `crossing import` line, the imports between the two components, with the imported names.
 - For an `entry point` line, the entry point records of its modules. A record has the `kind`, `module`, `target`, and `name` values.
-- For an `unknown surface` line of a module or a test file, the records of the line and the text of each cited source line.
+- For an `unknown surface` line of a module, the records of the line and the text of each cited source line.
   The records do not include the line number and the parser version.
   A new line above the statement does not change this evidence. A change to the statement changes it.
   A record without a line number uses the module evidence.
+- For an `unknown surface` line of an entry point or a configuration file, the records of the line, with the `count` value.
 
-Thus a change to a different component, or to a `source_review` value, does not open the finding again.
-A line that names no component and no module uses the full evidence: the model files and all modules.
+A line about behavior also has the source file of each module: `declared flow`, `flow review`, `no endpoint source`, `step source`, `stale source review`, `missing source review`, and `decision flow`.
+A flow is about behavior, and the names and imports do not show behavior.
+
+The cited facts do not include the comments, the function bodies, the tests, or the facts that a different module gives, such as `imported_by`.
+Thus a comment, a change to a function body, or a new test does not open a finding again that is not about behavior.
+A new public name, a new import, or a new entry point in a cited module opens it again.
+A change to a different component, or to a `source_review` value, also does not open the finding again.
+For example, a new import of a module from a different component does not open an `entry point` answer.
+
+The evidence comes from the facts file. After a source change, use `systemap extract` or `systemap refresh`.
+
+A line that names no component and no module uses the full evidence: the model files and the cited facts of all modules.
 The model files are the model file and each model file that it imports.
 An `entry point` line with the full evidence also has all entry point records.
+
+Migration from facts format 12: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
+Thus each exact answer is pending one time after the update.
+`judgement` prints the new digest in the `pending answer` line.
 
 Migration from facts format 10: the evidence of an `unknown surface` line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.
@@ -508,6 +525,28 @@ An answer item in an earlier form applies to the line in the new form.
 `judgement` prints one warning to stderr for each item in an earlier form. The warning gives the new line.
 Two records with different line numbers can give the same line. Then one answer applies to the two records.
 
+Facts format 13 removes the counts from two lines, because a count can change while the finding stays the same.
+A row below the line gives the count, and `judgement --json` gives it in `open[].count`.
+
+| Earlier text in the line | New text in the line |
+|---|---|
+| `crossing import: Skill imports Config in 1 module and no flow connects them` | `crossing import: Skill imports Config and no flow connects them` |
+| `package_export web -> dist/a.js (+2 more): 3 package.json export targets have no resolved TypeScript modules.` | `package_export web -> dist/a.js: The package.json export targets have no resolved TypeScript modules.` |
+
+The row below a `crossing import` line is, for example, `count: 1 module`.
+The row below a `package_export` line is, for example, `count: 3 targets`.
+The `package_export` record has the number of targets in `count`. Only the TypeScript adapter writes this record.
+
+An answer item in an earlier form applies to the line in the new form.
+`judgement` prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+
+`judgement` gives no line about a test file, because a test file is not a part of the map.
+A question about a test file is not a question about the architecture.
+`check` and `refresh` continue to give each `test_file_issues` record.
+An answer for an `unknown surface: test file` line is a stale answer.
+The report gives the row `stale answer: '<item>' is no longer a finding: judgement gives no line about a test file.`
+Remove the item from `[judgement] answered`.
+
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
 The previous options stay for one release. They send the same requests as the new options.
 `[jev] enabled` and the other keys of the `[jev]` table do not change.
@@ -779,12 +818,13 @@ Each language adapter also writes these facts with the same meaning for Python a
 
 - `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
 
-The facts file has a format number in its `version` key. The current format is 12.
+The facts file has a format number in its `version` key. The current format is 13.
 A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
 After an upgrade of systemap, run `systemap refresh`.
 
 A test file that systemap cannot read or parse gives a `test_file_issues` record, for Python and for TypeScript.
 The record is not known. It does not reject the map. `check` and `refresh` print it with its cause and its `fix:` line.
+`judgement` gives no line about a test file.
 
 systemap reads `systemap.toml`, `pyproject.toml`, `package.json`, and each `tsconfig.json` file only in the repository.
 A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
@@ -1008,13 +1048,16 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - `--verbose` prints imports below each crossing-import row.
 
+- Below a `crossing import` line, a `count:` row gives the number of modules of the first component that import the second component.
+  Below a `package_export` line, a `count:` row gives the number of targets.
+
 - `--brief` does not include the two explanation rows.
 
 - Below each `unknown surface` line, a `cause:` row gives the cause that the adapter wrote.
   After the lines, the report gives one `fix:` line for each cause, as `systemap check` does.
   `--brief` does not remove these rows.
 
-- Below the `cause:` row, the line of a module record or a test file record gives its source rows.
+- Below the `cause:` row, the line of a module record gives its source rows.
   An `at:` row gives the file and the line of each cited statement.
   An `excerpt:` row gives the source excerpt. A `parser version:` row gives the version of the parser that refused the source.
   A finding line is the identity of the finding. Thus it does not contain these values (facts format 11).
@@ -1063,14 +1106,15 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 5. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. |
+| `schema_version` | integer | The version of this schema. The value is 6. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
 | `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
 | `open[].cause` | string or null | The cause of an `unknown surface` finding, for example `syntax` or `declaration file`. The `systemap check` section gives the causes. For other kinds, the value is null. |
-| `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module or a test file. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
+| `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
+| `open[].count` | integer or null | The count that the row below the line gives: the importing modules of a `crossing import` finding, or the targets of a `package_export` finding. For other findings, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |

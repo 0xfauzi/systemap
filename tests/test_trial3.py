@@ -310,7 +310,8 @@ def test_an_item_in_an_earlier_form_selects_the_line_without_volatile_values(
     or a parser version, `answer_migrations.current_line` gives the current form, with and
     without a map prefix. The current form does not change. An answer with the earlier
     item and the digest of the current line answers the current line: it is not open,
-    not stale, and not pending. `warnings` names the earlier item."""
+    not stale, and not pending. `warnings` names the earlier item, but not an item about a
+    test file."""
     for prefix in ("", "Web: "):
         item, now = prefix + earlier, prefix + current
         assert answer_migrations.current_line(item) == now
@@ -318,7 +319,9 @@ def test_an_item_in_an_earlier_form_selects_the_line_without_volatile_values(
         answer = Answer(items=(item,), reason="known", evidence="a" * 64)
         result = judgement.apply_answers([now], [answer], {now: "a" * 64})
         assert result.open == [] and result.stale == [] and result.pending == []
-        assert any(item in warning for warning in answer_migrations.warnings([answer]))
+        named = any(item in warning for warning in answer_migrations.warnings([answer]))
+        # `judgement` gives no line about a test file (issue 114). No warning names the item.
+        assert named != bool(answer_migrations.retired(item))
 
 
 # ---- trial3-2 and trial3-6: a type re-export of a declaration file ---------------------

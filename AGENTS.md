@@ -42,9 +42,11 @@ A recorded answer must stay applicable while its finding stays the same. Thus th
 
 A finding line must not contain a value that changes when the finding stays the same. Examples are a line number, a column, a source excerpt, a parser version, and a time. Put such a value in a row below the line and in a field of `judgement --json`.
 
-The evidence digest finds a change to the cited source or claims. The finding line does not have to find it.
+The evidence digest finds a change to the cited facts or claims. The finding line does not have to find it.
+For a structural finding, the cited facts are the names, the imports, and the entry points, not the full source file.
+A comment, a function body, or a test does not change them.
 
-A count in a line is an exception that occurs before this rule, for example "in 3 modules" in a `crossing import` line. Do not add a new count to a finding line.
+A count is also such a value. Put a count in a row below the line, as the `crossing import` line and the `package_export` line do.
 
 Use one migration path, `answer_migrations.py`, for each changed line form. Give each earlier form one pattern and one test.
 

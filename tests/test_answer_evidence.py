@@ -7,13 +7,14 @@ Acceptance values:
    includes `systemap review` of a different component and a new value of the named
    component.
    A new source digest in a flow source record (`source_refs`) also does not change it.
-3. A change to the source of a named module changes the evidence of the line.
+3. A change to a cited fact of a named module, such as a new public name, changes the
+   evidence of the line (issue 90: a comment or a function body does not).
 4. A change to a claim of a named component (its `does` text) changes the evidence.
 5. Acceptance values 1 to 4 hold for a Python fixture and a TypeScript fixture.
 6. The `single module` answers of this repository stay valid after a `systemap review` of a
    different component.
 7. A line that names no component and no module keeps the full evidence: the model file
-   and all module facts.
+   and the cited facts of all modules.
 """
 
 from __future__ import annotations
@@ -41,7 +42,7 @@ CASES = {
         "Reader",
         "pkg.reader",
         "pkg/reader.py",
-        "def read(source: str) -> str:\n    return source.strip()\n",
+        "def read(source: str) -> str:\n    return source\n\n\ndef added() -> None:\n    pass\n",
         "Writer",
     ),
     "typescript": (

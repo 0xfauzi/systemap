@@ -356,7 +356,7 @@ It gives one proposal for each package with two or more modules, and the imports
 between proposals. Examine these proposals against the source.
 A component must have one clear function. Module quantity alone does not identify a component.</p>
 <p>An exact <code>item</code> or <code>items</code> answer includes <code>evidence = &quot;&lt;SHA-256 digest&gt;&quot;</code>.
-When source or import evidence changes, the finding opens again.
+When a fact that the finding cites changes, the finding opens again.
 <code>judgement</code> prints the current digest for examination.
 An exact answer without evidence stays pending until source review.</p>
 <p>The evidence digest of a line contains only the evidence that the line names:</p>
@@ -364,18 +364,31 @@ An exact answer without evidence stays pending until source review.</p>
 <li>For each component that the line names, the map claims of the component.
 These claims are the component fields, the plain name, and the flows, sequences, and invariants that name the component.
 The <code>source_review</code> value, the flow review digests, and the source digests in <code>source_refs</code> are not claims.</li>
-<li>For each module that the line names, and each module of a named component, the module facts and the source file.</li>
-<li>For a <code>crossing import</code> line, the imports between the two components and the source of the two modules of each import.</li>
+<li>For each module that the line names, and each module of a named component, the cited facts of the module.
+The cited facts are the <code>file</code>, the <code>package</code>, the public <code>names</code>, and the imports in <code>uses</code> with the imported names.
+They also include the <code>external</code> imports, the <code>parsed</code> value, and the unknown records without their line numbers.</li>
+<li>For a <code>crossing import</code> line, the imports between the two components, with the imported names.</li>
 <li>For an <code>entry point</code> line, the entry point records of its modules. A record has the <code>kind</code>, <code>module</code>, <code>target</code>, and <code>name</code> values.</li>
-<li>For an <code>unknown surface</code> line of a module or a test file, the records of the line and the text of each cited source line.
+<li>For an <code>unknown surface</code> line of a module, the records of the line and the text of each cited source line.
 The records do not include the line number and the parser version.
 A new line above the statement does not change this evidence. A change to the statement changes it.
 A record without a line number uses the module evidence.</li>
+<li>For an <code>unknown surface</code> line of an entry point or a configuration file, the records of the line, with the <code>count</code> value.</li>
 </ul>
-<p>Thus a change to a different component, or to a <code>source_review</code> value, does not open the finding again.
-A line that names no component and no module uses the full evidence: the model files and all modules.
+<p>A line about behavior also has the source file of each module: <code>declared flow</code>, <code>flow review</code>, <code>no endpoint source</code>, <code>step source</code>, <code>stale source review</code>, <code>missing source review</code>, and <code>decision flow</code>.
+A flow is about behavior, and the names and imports do not show behavior.</p>
+<p>The cited facts do not include the comments, the function bodies, the tests, or the facts that a different module gives, such as <code>imported_by</code>.
+Thus a comment, a change to a function body, or a new test does not open a finding again that is not about behavior.
+A new public name, a new import, or a new entry point in a cited module opens it again.
+A change to a different component, or to a <code>source_review</code> value, also does not open the finding again.
+For example, a new import of a module from a different component does not open an <code>entry point</code> answer.</p>
+<p>The evidence comes from the facts file. After a source change, use <code>systemap extract</code> or <code>systemap refresh</code>.</p>
+<p>A line that names no component and no module uses the full evidence: the model files and the cited facts of all modules.
 The model files are the model file and each model file that it imports.
 An <code>entry point</code> line with the full evidence also has all entry point records.</p>
+<p>Migration from facts format 12: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
+Thus each exact answer is pending one time after the update.
+<code>judgement</code> prints the new digest in the <code>pending answer</code> line.</p>
 <p>Migration from facts format 10: the evidence of an <code>unknown surface</code> line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.
@@ -755,6 +768,39 @@ A recorded answer then stays applicable when a line is added above the cited sta
 An answer item in an earlier form applies to the line in the new form.
 <code>judgement</code> prints one warning to stderr for each item in an earlier form. The warning gives the new line.
 Two records with different line numbers can give the same line. Then one answer applies to the two records.</p>
+<p>Facts format 13 removes the counts from two lines, because a count can change while the finding stays the same.
+A row below the line gives the count, and <code>judgement --json</code> gives it in <code>open[].count</code>.</p>
+<div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
+<table>
+<thead>
+<tr>
+<th>Earlier text in the line</th>
+<th>New text in the line</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>crossing import: Skill imports Config in 1 module and no flow connects them</code></td>
+<td><code>crossing import: Skill imports Config and no flow connects them</code></td>
+</tr>
+<tr>
+<td><code>package_export web -&gt; dist/a.js (+2 more): 3 package.json export targets have no resolved TypeScript modules.</code></td>
+<td><code>package_export web -&gt; dist/a.js: The package.json export targets have no resolved TypeScript modules.</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The row below a <code>crossing import</code> line is, for example, <code>count: 1 module</code>.
+The row below a <code>package_export</code> line is, for example, <code>count: 3 targets</code>.
+The <code>package_export</code> record has the number of targets in <code>count</code>. Only the TypeScript adapter writes this record.</p>
+<p>An answer item in an earlier form applies to the line in the new form.
+<code>judgement</code> prints one warning to stderr for each item in an earlier form. The warning gives the new line.</p>
+<p><code>judgement</code> gives no line about a test file, because a test file is not a part of the map.
+A question about a test file is not a question about the architecture.
+<code>check</code> and <code>refresh</code> continue to give each <code>test_file_issues</code> record.
+An answer for an <code>unknown surface: test file</code> line is a stale answer.
+The report gives the row <code>stale answer: '&lt;item&gt;' is no longer a finding: judgement gives no line about a test file.</code>
+Remove the item from <code>[judgement] answered</code>.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
 The previous options stay for one release. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
@@ -1017,11 +1063,12 @@ A missing value is not known. Then the entry point must have its own sequence.</
 <p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
 </li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 12.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 13.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
-The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.</p>
+The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.
+<code>judgement</code> gives no line about a test file.</p>
 <p>systemap reads <code>systemap.toml</code>, <code>pyproject.toml</code>, <code>package.json</code>, and each <code>tsconfig.json</code> file only in the repository.
 A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
 The error gives the path and the cause.
@@ -1301,6 +1348,10 @@ A model without components also gives exit 1 with <code>--strict</code>, as <cod
 <p><code>--verbose</code> prints imports below each crossing-import row.</p>
 </li>
 <li>
+<p>Below a <code>crossing import</code> line, a <code>count:</code> row gives the number of modules of the first component that import the second component.
+Below a <code>package_export</code> line, a <code>count:</code> row gives the number of targets.</p>
+</li>
+<li>
 <p><code>--brief</code> does not include the two explanation rows.</p>
 </li>
 <li>
@@ -1309,7 +1360,7 @@ After the lines, the report gives one <code>fix:</code> line for each cause, as 
 <code>--brief</code> does not remove these rows.</p>
 </li>
 <li>
-<p>Below the <code>cause:</code> row, the line of a module record or a test file record gives its source rows.
+<p>Below the <code>cause:</code> row, the line of a module record gives its source rows.
 An <code>at:</code> row gives the file and the line of each cited statement.
 An <code>excerpt:</code> row gives the source excerpt. A <code>parser version:</code> row gives the version of the parser that refused the source.
 A finding line is the identity of the finding. Thus it does not contain these values (facts format 11).
@@ -1370,7 +1421,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 5. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>.</td>
+<td>The version of this schema. The value is 6. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1405,7 +1456,12 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>open[].sources</code></td>
 <td>list of objects or null</td>
-<td>The source records of an <code>unknown surface</code> finding of a module or a test file. Each object has <code>file</code>, <code>line</code>, <code>excerpt</code>, and <code>parser</code>. A value that the record does not give is null. For other findings, the value is null.</td>
+<td>The source records of an <code>unknown surface</code> finding of a module. Each object has <code>file</code>, <code>line</code>, <code>excerpt</code>, and <code>parser</code>. A value that the record does not give is null. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].count</code></td>
+<td>integer or null</td>
+<td>The count that the row below the line gives: the importing modules of a <code>crossing import</code> finding, or the targets of a <code>package_export</code> finding. For other findings, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].drift</code></td>

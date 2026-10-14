@@ -100,7 +100,7 @@ def test_historical_cache_discards_pre_portability_hashes(
     cache.write_text(json.dumps(old), encoding="utf-8")
     monkeypatch.setattr(extraction, "FORMAT", current_format)
     fresh = history.facts_at(cfg, sha)
-    assert fresh["version"] == current_format == 12
+    assert fresh["version"] == current_format == 13
     assert fresh["components"]["pkg.reader"]["syntax_sha"] != "obsolete-python-313-hash"
 
 

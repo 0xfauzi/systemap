@@ -12,8 +12,6 @@ a run without Jev give the same lines.
 from __future__ import annotations
 
 import dataclasses
-import hashlib
-import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -31,7 +29,7 @@ from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem, names_not_known
 from systemap.config import Config
 from systemap.judgement import apply_answers, crossing_line, crossing_pairs
-from systemap.judgement_evidence import answer_state
+from systemap.judgement_evidence import crossing_state, digest
 from systemap.model import (
     Component,
     Edge,
@@ -426,7 +424,7 @@ def compute(
             if not q or q == p or frozenset((p, q)) in joined or (module, target) in before:
                 continue
             imports = pairs.get((p, q), [(module, target)])
-            if _answered(cfg, prefix + crossing_line(p, q, imports), h, imports):
+            if _answered(cfg, prefix + crossing_line(p, q), h, imports):
                 continue
             lines.append(
                 Line(
@@ -505,11 +503,10 @@ def _answered(
     """This function accepts an answer for a crossing line with the judgement rule.
 
     An exact answer must have the current evidence digest. A family answer must have
-    `policy = true`. The digest uses the working tree source, as judgement does.
+    `policy = true`. The digest contains the imports, as in `judgement`.
     """
-    state = answer_state(components, cfg.root, "", imports)
-    digest = hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()
-    return not apply_answers([line], cfg.judgement_answered, {line: digest}).open
+    found = digest(crossing_state(components, imports))
+    return not apply_answers([line], cfg.judgement_answered, {line: found}).open
 
 
 def _flow_review_lines(

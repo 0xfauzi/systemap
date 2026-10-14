@@ -49,7 +49,7 @@ from systemap.journey_coverage import (
     crowd_label as crowd_label,
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
-from systemap.source_facts import located_records, package_of, unknown_fact_lines
+from systemap.source_facts import package_of, unknown_fact_lines
 
 __all__ = ["mentioned"]
 
@@ -219,15 +219,13 @@ def crossing_pairs(
     return out
 
 
-def crossing_line(p: str, q: str, imports: list[tuple[str, str]]) -> str:
-    """This function gives one diagnostic for a component pair and its importing-module
-    count.
+def crossing_line(p: str, q: str) -> str:
+    """This function gives one diagnostic for a component pair.
+
+    The line contains no count, because a count can change while the finding stays the
+    same. `crossing_counts` gives the count for the row below the line.
     """
-    n = len({module for module, _target in imports})
-    return (
-        f"crossing import: {p} imports {q} in {n} module{('s' if n != 1 else '')} and "
-        f"no flow connects them"
-    )
+    return f"crossing import: {p} imports {q} and no flow connects them"
 
 
 def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tuple[str, str]]]:
@@ -245,21 +243,26 @@ def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tup
 
 def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
     """This function gives one diagnostic for each ordered component pair with imports but
-    no flow.
-
-    The count includes modules of the source component that import the destination
-    component. The verbose detail lists these imports.
+    no flow. The verbose detail lists these imports.
     """
-    return [
-        crossing_line(p, q, imports) for (p, q), imports in crossing_imports(model, facts).items()
-    ]
+    return [crossing_line(p, q) for p, q in crossing_imports(model, facts)]
 
 
 def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
     """This function indexes imports by their full printed crossing-import diagnostic."""
     return {
-        prefix + crossing_line(p, q, imports): [f"{m} imports {t}" for m, t in imports]
+        prefix + crossing_line(p, q): [f"{m} imports {t}" for m, t in imports]
         for (p, q), imports in crossing_imports(model, facts).items()
+    }
+
+
+def crossing_counts(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int]:
+    """This function gives the count of the modules of the source component that import
+    the destination component, for each crossing-import line of all maps."""
+    return {
+        m.prefix + crossing_line(p, q): len({module for module, _target in imports})
+        for m in tree.maps
+        for (p, q), imports in crossing_imports(m.model, facts).items()
     }
 
 
@@ -394,7 +397,7 @@ def run(
         + step_refs.problems(model, meaning, facts)
         + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip, separators=separators)
-        + unknown_fact_lines(facts, skip, repository)
+        + unknown_fact_lines(facts, skip, repository, test_files=False)
     )
 
 
@@ -529,37 +532,16 @@ def evidence_for_tree(
     """This function hashes the evidence of each printed line for exact answers.
 
     The evidence of a line is the evidence that the line names (`judgement_evidence`).
-    Crossing-import evidence includes only the participating modules. A line with a
-    source line number has the evidence of its statement. An uncommitted source edit
-    changes the digest.
+    Crossing-import evidence includes only the imports between the two components. A
+    line with a source line number has the evidence of its statement. An uncommitted
+    source edit that changes a cited fact changes the digest.
     """
-    components = facts.get("components", {})
-    crossings: dict[str, list[tuple[str, str]]] = {}
-    for m in tree.maps:
-        crossings.update(
-            {
-                m.prefix + crossing_line(p, q, imports): imports
-                for (p, q), imports in crossing_imports(m.model, facts).items()
-            }
-        )
-    model_hashes: dict[str, str] = {}
-    out: dict[str, str] = {}
-    located = located_records(facts)
-    for key in lines:
-        m = judgement_evidence.map_of(tree, key)
-        state = judgement_evidence.located_state(root, located.get(unprefixed(key), []))
-        if state is None and key in crossings:
-            state = judgement_evidence.answer_state(components, root, "", crossings[key])
-        elif state is None:
-            state = judgement_evidence.line_state(m, facts, root, key)
-        if state is None:
-            if m.id not in model_hashes:
-                model_hashes[m.id] = judgement_evidence.model_digest(m)
-            points = judgement_evidence.entry_points(m, facts, key)
-            state = judgement_evidence.full_state(components, root, model_hashes[m.id], points)
-        encoded = json.dumps(state, sort_keys=True, default=str).encode()
-        out[key] = hashlib.sha256(encoded).hexdigest()
-    return out
+    crossings = {
+        m.prefix + crossing_line(p, q): imports
+        for m in tree.maps
+        for (p, q), imports in crossing_imports(m.model, facts).items()
+    }
+    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings)
 
 
 def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
@@ -573,9 +555,7 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
-CROSSING_LINE = re.compile(
-    "^crossing import: (\\S+) imports (\\S+) in \\d+ modules? and no flow connects"
-)
+CROSSING_LINE = re.compile(r"^crossing import: (\S+) imports (\S+) and no flow connects")
 SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component ")
 # How each kind's lines begin; the entry point line carries no colon.
 KIND_PREFIX = {kind: f"{kind}: " for kind in LINE_KINDS} | {"entry point": "entry point "}
@@ -743,12 +723,18 @@ def report(
     out += _shown(shown, _with_causes(detail, found), teach)
     out += unknown_causes.fix_lines(found[line] for line in shown if line in found)
     out += [
-        f"  stale answer: '{item}' is now missing. Remove it from [judgement] answered."
+        f"  stale answer: '{item}' is {_stale_cause(item)}. Remove it from [judgement] answered."
         for item in result.stale
     ]
     out += [f"  pending answer: {item}" for item in result.pending or []]
     out += [f"  policy answer: {item}" for item in result.policies or []]
     return out
+
+
+def _stale_cause(item: str) -> str:
+    """This function tells why an answer item matches no line."""
+    cause = answer_migrations.retired(item)
+    return f"no longer a finding: {cause}" if cause else "now missing"
 
 
 def _with_causes(

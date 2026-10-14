@@ -21,6 +21,8 @@ The transports are injected. No test calls Jev or OpenAI.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -125,7 +127,9 @@ def test_the_digest_is_the_same_for_the_two_names(roots: dict[str, Path]) -> Non
     group = Answer(
         items=(OLD, owner_old),
         reason="r",
-        evidence=judgement.answer_digest([OLD, owner_old], previous),
+        evidence=hashlib.sha256(
+            json.dumps(list(previous.items()), sort_keys=True).encode()
+        ).hexdigest(),
     )
     found = [audit.Line(NEW), audit.Line(owner_new)]
     result = audit.apply_reviewed(found, [group], now, audit.KINDS)
@@ -151,7 +155,7 @@ def test_an_earlier_family_kind_closes_the_new_lines_and_a_nested_line_migrates(
 
 def test_the_judgement_line_kinds_do_not_change() -> None:
     line = "single module: Scaffold contains only pkg.scaffold"
-    assert decision_kinds.current_line(line) == line
+    assert audit.migrated(line) == line
     assert decision_kinds.previous_line(line) == line
     assert decision_kinds.kind_of(line) is None
     assert not audit.is_audit_answer(Answer((line,), "r"))

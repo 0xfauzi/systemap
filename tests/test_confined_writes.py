@@ -299,7 +299,7 @@ def test_a_source_link_out_of_the_repository_gives_its_cause(layout: tuple[Path,
     assert [(f.file, f.problem) for f in files] == [("pkg/a.py", "link out of the repository")]
     assert "pkg/a.py" in decisions.blocked_by("", files)
     assert "link out of the repository" in decisions.blocked_by("", files)
-    state = judgement_evidence.answer_state(_facts("pkg/a.py")["components"], repo, "", None)
+    state = judgement_evidence.full_state(_facts("pkg/a.py")["components"], repo, "", behavior=True)
     assert "link out of the repository" in json.dumps(state)
 
 
@@ -310,12 +310,16 @@ def test_a_fifo_source_gives_its_cause(tmp_path: Path) -> None:
     files = decisions._files(tmp_path, _facts("pkg/a.py"), ["pkg.a"])
     cause = "not a regular file in the repository"
     assert [(f.file, f.problem) for f in files] == [("pkg/a.py", cause)]
-    state = judgement_evidence.answer_state(_facts("pkg/a.py")["components"], tmp_path, "", None)
+    state = judgement_evidence.full_state(
+        _facts("pkg/a.py")["components"], tmp_path, "", behavior=True
+    )
     assert cause in json.dumps(state)
 
 
 def test_a_missing_source_keeps_its_evidence_text(tmp_path: Path) -> None:
-    state = judgement_evidence.answer_state(_facts("pkg/a.py")["components"], tmp_path, "", None)
+    state = judgement_evidence.full_state(
+        _facts("pkg/a.py")["components"], tmp_path, "", behavior=True
+    )
     assert "missing source" in json.dumps(state)
 
 

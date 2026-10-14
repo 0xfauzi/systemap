@@ -278,7 +278,7 @@ def test_the_digests_and_the_snapshot_do_not_read_an_outside_file(
     root, secret, language = project
     _cfg, _tree, facts = loaded(root)
     bad = tampered(facts, bad_path(form, root, secret, language))
-    state = judgement_evidence.answer_state(bad["components"], root, "", None)
+    state = judgement_evidence.full_state(bad["components"], root, "", behavior=True)
     assert text_digest(secret.read_bytes()) not in json.dumps(state)
     # A refused file gives its cause, not "missing source".
     assert "refused source: " in json.dumps(state)

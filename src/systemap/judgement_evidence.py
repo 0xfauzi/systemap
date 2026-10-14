@@ -1,15 +1,25 @@
-"""The evidence digests bind exact judgement answers to source data.
+"""The evidence digests bind exact judgement answers to the facts that the lines cite.
 
-The evidence of a judgement line is the evidence that the line names. For each component
+A recorded answer stays applicable until a fact that its finding cites changes. The
+evidence of a judgement line is the evidence that the line names. For each component
 that the line names, the evidence has the map claims of the component
 (`card_review.claims`). For each module that the line names, and each module of a named
-component, the evidence has the module facts and the digest of the source file. A change
-to a different component, or to a `source_review` value, does not change the evidence.
+component, the evidence has the cited facts of the module (`cited_facts`): its file, its
+package, its public names, its imports with the imported names, its external imports,
+and its unknown records without their locations. A comment, a function body, or a test
+does not change these facts. A change to a different component, or to a `source_review`
+value, does not change the evidence. A fact that a different module gives about this
+module, such as `imported_by`, is not a cited fact.
+
+A line about behavior (`BEHAVIOR_KINDS`), such as a `flow review` line, also has the
+digest of the source file of each module. A flow is about behavior, and the names and
+imports do not show behavior.
 
 A line that names no component and no module has the full evidence: the digest of the
-model files (`model_digest`), and the facts and source of all modules. A crossing-import
-line has the imports between the two components and the source of the two modules of
-each import.
+model files (`model_digest`), and the cited facts of all modules. A crossing-import line
+has the imports between the two components, with the imported names. An `unknown
+surface` line about the full repository, such as a `package_export` line, has its
+records.
 
 A `step source` line also has the claim of its sequence step: the step record and the
 map claims of its acting and measured components. Thus a change to the step changes the
@@ -32,19 +42,36 @@ and the entry point records.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
 from systemap import card_review, flow_ids, model_load, nest, repo_files, step_refs
-from systemap.model import Component, claimed, is_symbol
-from systemap.source_facts import Located, entry_identity
+from systemap.model import Component, claimed, is_symbol, source_parsed
+from systemap.source_facts import Located, entry_identity, located_records, repository_records
 from systemap.source_text import text_digest
 
 # The start of an entry point line, after the map prefix (`journey_coverage`).
 ENTRY_LINE = "entry point "
+# The kinds of line about behavior. Their evidence also has the source of each module.
+# `audit` calculates the evidence of a decision line with its previous kind name.
+BEHAVIOR_KINDS = (
+    "declared flow: ",
+    "flow review: ",
+    "no endpoint source: ",
+    "step source: ",
+    "stale source review: ",
+    "missing source review: ",
+    "decision flow: ",
+    "jev flow: ",
+)
+# The module facts that a finding cites. A fact that a record does not give is None.
+CITED = ("file", "package", "names", "uses", "external")
+# The record values that change while the record stays the same.
+_LOCATION = ("line", "source", "parser")
 
 
 def _source_hash(root: Path, record: dict[str, Any]) -> str:
@@ -65,16 +92,35 @@ def _source_hash(root: Path, record: dict[str, Any]) -> str:
         return f"refused source: {repo_files.refusal(exc)}"
 
 
-def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
-    """This function removes the parser-specific syntax fingerprints from the evidence
-    state.
-    """
-    stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}
-    stable["api"] = [
-        {key: value for key, value in item.items() if key != "fingerprint"}
-        for item in record.get("api", [])
-    ]
-    return stable
+def cited_facts(record: dict[str, Any]) -> dict[str, Any]:
+    """Give the facts of a module record that a finding cites: the names, the imports, and
+    the read state. A comment, a function body, a line number, or a test does not change
+    them."""
+    state = {key: record.get(key) for key in CITED}
+    completeness = record.get("completeness")
+    state["parsed"] = source_parsed(record)
+    state["unresolved_imports"] = (
+        completeness.get("unresolved_imports") if isinstance(completeness, dict) else None
+    )
+    issues = [record["parse_error"]] if record.get("parse_error") else []
+    state["unknown"] = [_without_location(item) for item in [*issues, *record.get("unknown", [])]]
+    return state
+
+
+def _without_location(record: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in record.items() if key not in _LOCATION}
+
+
+def module_state(root: Path, record: dict[str, Any], behavior: bool) -> Any:
+    """Give the evidence of one module: its cited facts, and for a line about behavior,
+    also the digest of its source file."""
+    cited = cited_facts(record)
+    return [cited, _source_hash(root, record)] if behavior else cited
+
+
+def about_behavior(m: nest.Map, line: str) -> bool:
+    """Tell if a line is about behavior (`BEHAVIOR_KINDS`)."""
+    return line[len(m.prefix) :].startswith(BEHAVIOR_KINDS)
 
 
 def names(name: str, text: str) -> bool:
@@ -144,7 +190,11 @@ def entry_points(
 
 
 def full_state(
-    components: dict[str, Any], root: Path, model_hash: str, points: list[str] | None = None
+    components: dict[str, Any],
+    root: Path,
+    model_hash: str,
+    points: list[str] | None = None,
+    behavior: bool = False,
 ) -> Any:
     """Give the evidence of a line that names nothing: the model files and all modules.
 
@@ -153,7 +203,7 @@ def full_state(
     state = {
         "model": model_hash,
         "facts": [
-            (name, _answer_facts(record), _source_hash(root, record))
+            (name, module_state(root, record, behavior))
             for name, record in sorted(components.items())
         ],
     }
@@ -173,17 +223,13 @@ def line_state(m: nest.Map, facts: dict[str, Any], root: Path, line: str) -> Any
     step = step_claim(m, line)
     if not cards and not modules and step is None:
         return None
-    state = {
+    state: dict[str, Any] = {
         "claims": [
             (card.id, card_review.claims(card, m.model, m.meaning))
             for card in sorted(cards, key=lambda card: card.id)
         ],
         "facts": [
-            (
-                module,
-                _answer_facts(components.get(module, {})),
-                _source_hash(root, components.get(module, {})),
-            )
+            (module, module_state(root, components.get(module, {}), about_behavior(m, line)))
             for module in modules
         ],
     }
@@ -251,22 +297,62 @@ def _source_rows(root: Path, file: str) -> list[str]:
         return []
 
 
-def answer_state(
-    components: dict[str, Any],
-    root: Path,
-    model_hash: str,
-    imports: list[tuple[str, str]] | None,
-) -> Any:
-    """Give the full evidence, or the evidence of the imports of a crossing-import line."""
-    if imports is None:
-        return full_state(components, root, model_hash)
+def crossing_state(components: dict[str, Any], imports: list[tuple[str, str]]) -> Any:
+    """Give the evidence of a crossing-import line: each import between the two
+    components, with the imported names."""
     return [
-        (
-            source,
-            target,
-            components[source].get("uses", {}).get(target, []),
-            _source_hash(root, components[source]),
-            _source_hash(root, components[target]),
-        )
+        (source, target, components[source].get("uses", {}).get(target, []))
         for source, target in imports
     ]
+
+
+def digest(state: Any) -> str:
+    """Give the SHA-256 digest of an evidence state."""
+    encoded = json.dumps(state, sort_keys=True, default=str).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def tree_evidence(
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    root: Path,
+    lines: list[str],
+    crossings: Mapping[str, list[tuple[str, str]]],
+) -> dict[str, str]:
+    """Give the evidence digest of each line. `crossings` gives the imports of each
+    crossing-import line."""
+    located = located_records(facts)
+    records = repository_records(facts)
+    model_hashes: dict[str, str] = {}
+    out: dict[str, str] = {}
+    for key in lines:
+        m = map_of(tree, key)
+        bare = key[len(m.prefix) :]
+        state = located_state(root, located.get(bare, []))
+        if state is None and bare in records:
+            state = {"records": [_without_location(record) for record in records[bare]]}
+        if state is None:
+            state = _named_state(m, facts, root, key, crossings.get(key))
+        if state is None:
+            if m.id not in model_hashes:
+                model_hashes[m.id] = model_digest(m)
+            points = entry_points(m, facts, key)
+            behavior = about_behavior(m, key)
+            components = facts.get("components", {})
+            state = full_state(components, root, model_hashes[m.id], points, behavior)
+        out[key] = digest(state)
+    return out
+
+
+def _named_state(
+    m: nest.Map,
+    facts: dict[str, Any],
+    root: Path,
+    line: str,
+    imports: list[tuple[str, str]] | None,
+) -> Any:
+    """Give the evidence of a crossing-import line, or of a line that names components or
+    modules, or None."""
+    if imports is not None:
+        return crossing_state(facts.get("components", {}), imports)
+    return line_state(m, facts, root, line)

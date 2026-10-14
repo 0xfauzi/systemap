@@ -5,6 +5,8 @@ and with Jev not available. Each transport is an injected fake. No test opens a 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import shutil
 from pathlib import Path
 from typing import Any
@@ -17,7 +19,6 @@ from systemap.cli import main
 from systemap.config import Answer, Config
 from systemap.config import load as load_config
 from systemap.decision import JEV, ChoiceAnswer, DecisionError
-from systemap.judgement import answer_digest
 from systemap.model import Component, Flow, Meaning, Model
 
 MODELS = {"models": [{"name": "jev-latest", "release_date": "2026-09-10"}]}
@@ -300,8 +301,9 @@ def test_answers_recorded_with_the_old_line_still_match() -> None:
     found = [audit.Line(NEW), audit.Line(NEW_OWNER)]
     evidence = {NEW: "d1", NEW_OWNER: "d2"}
     one = Answer(items=(OLD,), reason="r", evidence="d1")
-    # The digest of a group was recorded over the old lines.
-    group_digest = answer_digest([OLD, OLD_OWNER], {OLD: "d1", OLD_OWNER: "d2"})
+    # The digest of a group was recorded over the old lines, as the earlier release did.
+    recorded = [(OLD, "d1"), (OLD_OWNER, "d2")]
+    group_digest = hashlib.sha256(json.dumps(recorded, sort_keys=True).encode()).hexdigest()
     group = Answer(items=(OLD, OLD_OWNER), reason="r", evidence=group_digest)
     for given in ([one], [group]):
         result = audit.apply_reviewed(found, given, evidence, audit.KINDS)

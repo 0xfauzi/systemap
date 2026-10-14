@@ -16,13 +16,13 @@ from conftest import write_tree
 from test_trial_check import SOURCES, UNREAD, mapped_project
 
 from systemap import (
+    answer_migrations,
     config,
     explain,
     extract,
     import_rules,
     journey_coverage,
     judgement_json,
-    judgement_moves,
     source_facts,
     trend,
     unknown_causes,
@@ -191,10 +191,10 @@ def test_an_answer_for_the_earlier_reexport_target_line_selects_the_new_line() -
     old_shapes = earlier.replace("#types/missing", "#types/shapes")
     for prefix in ("", "Web: "):
         given = [Answer(items=(prefix + earlier, prefix + old_shapes), reason="known")]
-        [moved] = judgement_moves.current_lines(given, [prefix + current, prefix + declared])
+        [moved] = answer_migrations.current_lines(given, [prefix + current, prefix + declared])
         assert moved.items == (prefix + current, prefix + old_shapes)
     second = current.replace("Missing.", "Other.")
-    [kept] = judgement_moves.current_lines(
+    [kept] = answer_migrations.current_lines(
         [Answer(items=(earlier,), reason="known")], [current, second]
     )
     assert kept.items == (earlier,)
@@ -231,7 +231,7 @@ def test_judgement_gives_the_cause_and_the_fix_line_of_an_unknown_surface_line(
     capsys.readouterr()
     main(["--root", str(root), "judgement", "--json"])
     out = json.loads(capsys.readouterr().out)
-    assert out["schema_version"] == 5
+    assert out["schema_version"] == 6
     causes = {row["line"]: row["cause"] for row in out["open"]}
     assert {c for line, c in causes.items() if "unknown surface: " in line} == {"syntax"}
     assert {c for line, c in causes.items() if "unknown surface: " not in line} == {None}
