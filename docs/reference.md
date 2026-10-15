@@ -303,7 +303,8 @@ No question goes to Jev without `TYPESAFE_API_KEY`.
 `audit --dry-run` counts the questions and shows the data to send.
 The data contains module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
-With a key, the dry run gets the model list to count cached answers. It sends no map data.
+With Jev and `TYPESAFE_API_KEY`, the dry run gets the Jev model list to count cached answers. It sends no map data.
+With OpenAI, the dry run sends no request.
 
 A `decision flow` question gets its source lines from the `call_sites` fact of the modules at the two ends of the flow.
 The fact has the same form for Python and TypeScript. The context has these lines, in this sequence, until it has 60 lines:
@@ -393,6 +394,7 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 ## Which decision provider answers the questions?
 
 A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --decide`, and `delta --decide`.
+`judgement --order-by-drift` always uses Jev, also when the configuration selects OpenAI.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
 
@@ -730,14 +732,16 @@ The full schema and examples are in
 
 ## Which command do you use?
 
-All commands accept `--root DIR` before or after the command.
+All commands accept `--root DIR` before the command. All commands except `explain` also accept it after the command.
 This option shows a project outside the current directory.
+After `decisions`, put the option after the action, for example `systemap decisions status --root DIR`.
 Exit codes are `0` for current, `1` for stale or rejected, and `2` for unusable
 configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, `systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
 A command reads and writes a cache file or an output file only in the repository.
+The two exceptions are an absolute `figure --out` path and a `delta --comment` file outside the repository.
 If the file or one of its folders is a link out of the repository, the command stops with exit code `1`.
 A FIFO or a device at the file also stops the command with exit code `1`.
 The error gives the file and the cause.
@@ -993,6 +997,7 @@ Uses the page generator to render one figure for a document.
 
 - A relative `--out` path is relative to the output directory.
   Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+  An absolute `--out` path can be outside the repository.
   The command replaces a link at the `--out` path with a file. It does not write to the target of the link.
 
 - `--svg-id ID` sets the HTML ID of the drawing. The default is `lessonmap`.
@@ -1094,6 +1099,8 @@ The first finding of each kind has rows about its effect and necessary action.
   The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
   Examine each stale component, also the components at the end of the sequence.
   Set `TYPESAFE_API_KEY` for this option. Without the option, `judgement` sends no request.
+  Without the key, or without an open `stale source review` line, the option also sends no request.
+  The option always uses Jev. `[decisions] provider` does not apply to it.
 
   The question gives the claims that the `source_review` digest contains, and one part of the source.
   Git finds the last commit that added the recorded `source_review` digest below the folder of the model file.
@@ -1203,6 +1210,9 @@ than one-third of the map.
   Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
   If `FILE` is a link, the command replaces the link. It does not write to the target of the link.
+  A relative `FILE` is relative to the current directory, not to `--root`.
+  If `FILE` is in the repository, its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+  `FILE` can be outside the repository, for example in a folder of the CI runner.
   If `FILE` is in the repository, each folder of `FILE` must be in the repository.
 
 - `--decide` enables the suggestions of the decision provider for modules with changed
@@ -1362,6 +1372,7 @@ TypeScript samples include `.ts`, `.tsx`, tests, and package entry points.
 Prints one finding kind's meaning, effect on the map, and necessary action.
 With no kind, it lists all printed kinds and their one-line meanings.
 An unknown kind causes exit 1.
+The command reads no repository files. Thus it has no `--root` option after the command.
 
 ### `systemap convert`
 
@@ -1443,7 +1454,7 @@ If the claim does not change, the `id` stays the same in a different session.
 A source change that does not change a judgement line does not change its `id`.
 
 The decision store keeps one record for each target. The record does not use the claim digest.
-The target of a component is its ID, and the target of a flow is `SRC->DST`.
+The target of a component is its ID. The target of a flow is its `id`, or `SRC->DST` for a flow without an `id`.
 The target of a judgement line is its kind and the names of the components and modules in the line, for example `single module: Reader pkg.reader`.
 If two current lines have the same kind and names, or a line names nothing, the target is the full line.
 
@@ -1464,7 +1475,7 @@ The JSON object has these fields:
 | `requests[].id` | string | The identifier for `request_id` in a verdict. |
 | `requests[].type` | string | `judgement`, `source_review`, or `flow_review`. |
 | `requests[].map` | string | The ID of the nested map. The top map has an empty string. |
-| `requests[].target` | string | The judgement line, the component ID, or the flow as `SRC->DST`. |
+| `requests[].target` | string | The judgement line, the component ID, or the flow identifier: the `id` of the flow, or `SRC->DST` for a flow without an `id`. |
 | `requests[].claim` | string | The claim text. For a component, it includes the flows, invariants, and sequences that name it. |
 | `requests[].claim_digest` | string or null | The current claim digest. The value is null if the component has no current digest. |
 | `requests[].files` | list of objects | The source files of the claim, with `file` (the path from the repository root), `module`, and `sha256` (the source hash of the full file). |
@@ -1472,7 +1483,7 @@ The JSON object has these fields:
 | `requests[].attempts` | integer | The quantity of `contradicted` verdicts for the target since the last change of its source. |
 | `requests[].insufficient` | integer | The quantity of `insufficient_evidence` verdicts for the target since the last change of its source. |
 | `requests[].blocked` | string | If not empty, the cause that prevents `supported`, and the necessary step. |
-| `requests[].identity` | string | The target in the decision store: the component ID, the flow, or the kind and names of a judgement line. |
+| `requests[].identity` | string | For a judgement line, the target in the decision store: the kind and names of the line, or the full line. For a component or a flow, an empty string, and the store uses `target`. |
 | `unknown` | integer | The quantity of unknown decision requests. |
 
 For a judgement line, the files are the files of the components and the modules that the line names.

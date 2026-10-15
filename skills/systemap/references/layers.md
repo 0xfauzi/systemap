@@ -23,7 +23,9 @@ Each flow has one kind:
 First identify the artifact. If the reader must know what moves, use data.
 If the reader must know which component starts an action, use control.
 If both apply, select the kind that best answers the reader's question.
-Keep one flow per ordered component pair.
+Use one flow for each ordered pair of components.
+If two or more artifacts go from one component to the same other component, use one flow for each artifact.
+Give each of these flows its own `id` (see `schema.md`).
 A model without control flows receives a finding about possible missing flows.
 
 The standard layers are Data flow and Control flow.

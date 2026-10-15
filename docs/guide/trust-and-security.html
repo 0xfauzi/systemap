@@ -69,19 +69,74 @@ A <code>source_review</code> value must be a 64-character hexadecimal digest bef
 A commit or a ref goes after <code>--end-of-options</code>. Thus a value that starts with <code>-</code> is not a Git option.</p>
 <h2 id="the-agent-command">The agent command</h2>
 <p><code>systemap journeys</code> runs the command under <code>[agent] command</code> in <code>systemap.toml</code>, without a shell. No other command runs it.
-A repository can set this command. Examine the value before you run <code>systemap journeys</code>.</p>
+A repository can set this command. Examine the value before you run <code>systemap journeys</code>.
+The question to the agent contains map text and source facts. The agent command can send this question to a model API.</p>
 <h2 id="what-systemap-sends">What systemap sends</h2>
-<p>A decision provider is a model API that answers the questions of <code>audit</code>, <code>suggest --decide</code>, <code>plan</code>, <code>triage</code>, and <code>delta --decide</code>.
-Jev is the TypeSafe model at <code>https://api.typesafe.ai/v1</code>, and the default provider. <code>TYPESAFE_BASE_URL</code> selects a different server.
-No question goes to Jev without <code>TYPESAFE_API_KEY</code>.
-OpenAI Decisions is the second provider. A question goes to OpenAI only with <code>--provider openai</code> or <code>[decisions] provider = &quot;openai&quot;</code>, and with <code>OPENAI_API_KEY</code>.</p>
-<p>A key alone does not make <code>delta</code> send questions. <code>delta</code> sends questions only with <code>--decide</code> or <code>[jev] enabled = true</code>.
-<code>judgement</code> sends questions to Jev only with <code>--order-by-drift</code>.
-<code>plan --check</code>, <code>delta --no-decide</code>, and <code>systemap decisions</code> send no question.</p>
-<p>The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
-<code>--order-by-drift</code> also sends a diff or the text of the module files of each stale component.
-<code>systemap audit --dry-run</code> shows this data. With a key, it gets the model list but sends no map data.</p>
-<p><code>systemap check</code> makes no network requests. <code>systemap judgement</code> makes no network requests without <code>--order-by-drift</code>.
+<p>Only the six commands in the table send data on the network.
+Each of these commands sends questions to a decision provider: a model API that gives typed answers.
+A command sends no data if it has no question, or if the key of its provider is not set.</p>
+<p>There are two decision providers:</p>
+<ul>
+<li>Jev is the TypeSafe model at <code>https://api.typesafe.ai/v1</code>, and the default provider. <code>TYPESAFE_BASE_URL</code> selects a different server. Each Jev request must have <code>TYPESAFE_API_KEY</code>.</li>
+<li>OpenAI Decisions is at <code>https://api.openai.com/v1/decisions</code>. A request goes to OpenAI only with <code>OPENAI_API_KEY</code>, and with <code>--provider openai</code> or <code>[decisions] provider = &quot;openai&quot;</code>. A key alone does not select OpenAI.</li>
+</ul>
+<div class="table" role="region" tabindex="0" aria-labelledby="what-systemap-sends">
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Provider</th>
+<th>Condition</th>
+<th>Data in the questions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>audit</code></td>
+<td>The selected provider.</td>
+<td>The key of that provider.</td>
+<td>Module names, docstrings, public names, internal imports, component IDs and sentences, invariants, flow sentences, and source lines at connections between components.</td>
+</tr>
+<tr>
+<td><code>delta</code></td>
+<td>The selected provider.</td>
+<td><code>--decide</code>, or <code>[jev] enabled = true</code> without <code>--no-decide</code>. Also the key of that provider.</td>
+<td>The names, files, docstrings, public names, and internal imports of removed modules, added modules, and modules without a component. Also the component IDs and sentences.</td>
+</tr>
+<tr>
+<td><code>suggest --decide</code></td>
+<td>Jev only. With OpenAI, the command sends no data.</td>
+<td><code>TYPESAFE_API_KEY</code>.</td>
+<td>The names, docstrings, public names, and internal imports of two modules for each question.</td>
+</tr>
+<tr>
+<td><code>triage TEXT</code></td>
+<td>Jev only. With OpenAI, the command sends no data.</td>
+<td><code>TYPESAFE_API_KEY</code>.</td>
+<td>The system name, the first 2,000 characters of the issue text, and the component IDs and sentences.</td>
+</tr>
+<tr>
+<td><code>plan &quot;&lt;task&gt;&quot;</code></td>
+<td>Jev only. With OpenAI, the command sends no data.</td>
+<td><code>TYPESAFE_API_KEY</code>.</td>
+<td>The system name, the first 2,000 characters of the task text, and the component IDs and sentences.</td>
+</tr>
+<tr>
+<td><code>judgement --order-by-drift</code></td>
+<td>Jev only. <code>--provider</code> and <code>[decisions] provider</code> do not apply.</td>
+<td><code>TYPESAFE_API_KEY</code> and one or more open <code>stale source review</code> lines.</td>
+<td>For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Before the questions, each Jev command reads the Jev model list. This request sends only the key.
+The model list request also occurs when the Jev cache has all the answers. A cached answer does not go to the provider again.</p>
+<p><code>systemap audit --dry-run</code> lists the types of data that <code>audit</code> sends. With Jev and <code>TYPESAFE_API_KEY</code>, it reads the model list but sends no map data. With OpenAI, it sends no request.</p>
+<p>All other commands send no data on the network.
+These commands include <code>check</code>, <code>refresh</code>, <code>render</code>, <code>review</code>, <code>decisions</code>, <code>plan --check</code>, and <code>judgement</code> without <code>--order-by-drift</code>.
+<code>journeys</code> sends no data, but <a href="#the-agent-command">the agent command</a> can send its question to a model API.
+<code>serve</code> and <code>live</code> answer only requests on 127.0.0.1 (<a href="#the-local-servers">The local servers</a>).
 The rendered page loads no files from other servers.</p>
 <h2 id="the-ci-link-job">The CI link job</h2>
 <p>In the workflow from <code>init</code>, only the <code>link</code> job has <code>pull-requests: write</code>. It runs only if:</p>

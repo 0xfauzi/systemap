@@ -467,7 +467,8 @@ Do not use the recorded scores as results for the changed prompts or your system
 <code>audit --dry-run</code> counts the questions and shows the data to send.
 The data contains module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
-With a key, the dry run gets the model list to count cached answers. It sends no map data.</p>
+With Jev and <code>TYPESAFE_API_KEY</code>, the dry run gets the Jev model list to count cached answers. It sends no map data.
+With OpenAI, the dry run sends no request.</p>
 <p>A <code>decision flow</code> question gets its source lines from the <code>call_sites</code> fact of the modules at the two ends of the flow.
 The fact has the same form for Python and TypeScript. The context has these lines, in this sequence, until it has 60 lines:</p>
 <ol>
@@ -542,6 +543,7 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 <code>[jev] enabled = false</code> stops the hints.</p>
 <h2 id="which-decision-provider-answers-the-questions">Which decision provider answers the questions?</h2>
 <p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --decide</code>, and <code>delta --decide</code>.
+<code>judgement --order-by-drift</code> always uses Jev, also when the configuration selects OpenAI.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (<code>POST https://api.openai.com/v1/decisions</code>, model <code>gpt-6-luna</code>, public beta).</p>
 <p>To select OpenAI, give <code>--provider openai</code> to the command, or set <code>[decisions] provider = &quot;openai&quot;</code> in <code>systemap.toml</code>.
@@ -969,13 +971,15 @@ Thus systemap refuses these names when it reads the model, and the command exits
 <a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/SKILL.md"><code>SKILL.md</code></a> and its
 <a href="https://github.com/0xfauzi/systemap/tree/main/src/systemap/skill/references"><code>references/</code></a>.</p>
 <h2 id="which-command-do-you-use">Which command do you use?</h2>
-<p>All commands accept <code>--root DIR</code> before or after the command.
+<p>All commands accept <code>--root DIR</code> before the command. All commands except <code>explain</code> also accept it after the command.
 This option shows a project outside the current directory.
+After <code>decisions</code>, put the option after the action, for example <code>systemap decisions status --root DIR</code>.
 Exit codes are <code>0</code> for current, <code>1</code> for stale or rejected, and <code>2</code> for unusable
 configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, <code>systemap.toml</code> or the model module, a <code>tsconfig.json</code> file, or a Git ref.</p>
 <p>A command reads and writes a cache file or an output file only in the repository.
+The two exceptions are an absolute <code>figure --out</code> path and a <code>delta --comment</code> file outside the repository.
 If the file or one of its folders is a link out of the repository, the command stops with exit code <code>1</code>.
 A FIFO or a device at the file also stops the command with exit code <code>1</code>.
 The error gives the file and the cause.
@@ -1287,6 +1291,7 @@ The legend contains only that layer.</p>
 <li>
 <p>A relative <code>--out</code> path is relative to the output directory.
 Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+An absolute <code>--out</code> path can be outside the repository.
 The command replaces a link at the <code>--out</code> path with a file. It does not write to the target of the link.</p>
 </li>
 <li>
@@ -1397,7 +1402,9 @@ With <code>--json</code>, each stale row has <code>drift</code>, and the object 
 The open lines and the exit code are the same with and without the option.
 The score has no threshold, because no measurement gives one (<code>bench/jev/README.md</code>, test 7).
 Examine each stale component, also the components at the end of the sequence.
-Set <code>TYPESAFE_API_KEY</code> for this option. Without the option, <code>judgement</code> sends no request.</p>
+Set <code>TYPESAFE_API_KEY</code> for this option. Without the option, <code>judgement</code> sends no request.
+Without the key, or without an open <code>stale source review</code> line, the option also sends no request.
+The option always uses Jev. <code>[decisions] provider</code> does not apply to it.</p>
 <p>The question gives the claims that the <code>source_review</code> digest contains, and one part of the source.
 Git finds the last commit that added the recorded <code>source_review</code> digest below the folder of the model file.
 The source part is the diff of the module files of the component, from that commit to the working tree.
@@ -1602,6 +1609,9 @@ If it is necessary to update the map, one more line says so and gives the number
 Without <code>page_url</code>, the command writes no file.
 The comment does not change the delta lines or the exit code.
 If <code>FILE</code> is a link, the command replaces the link. It does not write to the target of the link.
+A relative <code>FILE</code> is relative to the current directory, not to <code>--root</code>.
+If <code>FILE</code> is in the repository, its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+<code>FILE</code> can be outside the repository, for example in a folder of the CI runner.
 If <code>FILE</code> is in the repository, each folder of <code>FILE</code> must be in the repository.</p>
 </li>
 <li>
@@ -1764,7 +1774,8 @@ If Git cannot resolve <code>REF</code>, or if a Git command fails, the command e
 <h3 id="systemap-explain-kind"><code>systemap explain [KIND]</code></h3>
 <p>Prints one finding kind's meaning, effect on the map, and necessary action.
 With no kind, it lists all printed kinds and their one-line meanings.
-An unknown kind causes exit 1.</p>
+An unknown kind causes exit 1.
+The command reads no repository files. Thus it has no <code>--root</code> option after the command.</p>
 <h3 id="systemap-convert"><code>systemap convert</code></h3>
 <p>Writes each model file that systemap refuses again, with literal values only.
 The command must run each refused file one time, so it needs <code>SYSTEMAP_TRUST_MODEL_CODE=1</code>.
@@ -1853,7 +1864,7 @@ They are also <code>flow review</code> and <code>declared flow</code> for a flow
 If the claim does not change, the <code>id</code> stays the same in a different session.
 A source change that does not change a judgement line does not change its <code>id</code>.</p>
 <p>The decision store keeps one record for each target. The record does not use the claim digest.
-The target of a component is its ID, and the target of a flow is <code>SRC-&gt;DST</code>.
+The target of a component is its ID. The target of a flow is its <code>id</code>, or <code>SRC-&gt;DST</code> for a flow without an <code>id</code>.
 The target of a judgement line is its kind and the names of the components and modules in the line, for example <code>single module: Reader pkg.reader</code>.
 If two current lines have the same kind and names, or a line names nothing, the target is the full line.</p>
 <h4 id="systemap-decisions-pending-json"><code>systemap decisions pending [--json]</code></h4>
@@ -1913,7 +1924,7 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <tr>
 <td><code>requests[].target</code></td>
 <td>string</td>
-<td>The judgement line, the component ID, or the flow as <code>SRC-&gt;DST</code>.</td>
+<td>The judgement line, the component ID, or the flow identifier: the <code>id</code> of the flow, or <code>SRC-&gt;DST</code> for a flow without an <code>id</code>.</td>
 </tr>
 <tr>
 <td><code>requests[].claim</code></td>
@@ -1953,7 +1964,7 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <tr>
 <td><code>requests[].identity</code></td>
 <td>string</td>
-<td>The target in the decision store: the component ID, the flow, or the kind and names of a judgement line.</td>
+<td>For a judgement line, the target in the decision store: the kind and names of the line, or the full line. For a component or a flow, an empty string, and the store uses <code>target</code>.</td>
 </tr>
 <tr>
 <td><code>unknown</code></td>

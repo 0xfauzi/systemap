@@ -216,8 +216,12 @@ def test_language_policy_is_mandatory_and_installed(tmp_path: Path) -> None:
     ):
         assert phrase in text
     # The agent reads the writing profile, and only the strict profile has a dictionary step.
+    # Issue 97, item 8: the configuration reader also reads `[tool.systemap]` in pyproject.toml
+    # when systemap.toml is missing, so the skill names the two places.
     assert (
-        "Read `[writing] profile` in `systemap.toml`. If the key is missing, use `plain`." in text
+        "Read `[writing] profile` in `systemap.toml`. If `systemap.toml` is missing, read "
+        "`[tool.systemap.writing] profile` in `pyproject.toml`. If the key is missing, use "
+        "`plain`." in text
     )
     assert "There is no dictionary step. Do not say that the text obeys ASD-STE100." in text
     assert "The `plain` profile has no dictionary step." in policy

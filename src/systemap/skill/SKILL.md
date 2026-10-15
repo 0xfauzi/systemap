@@ -20,7 +20,7 @@ If `systemap.toml` is missing, run `systemap init`.
 
 ## Mandatory language requirement
 
-Read `[writing] profile` in `systemap.toml`. If the key is missing, use `plain`.
+Read `[writing] profile` in `systemap.toml`. If `systemap.toml` is missing, read `[tool.systemap.writing] profile` in `pyproject.toml`. If the key is missing, use `plain`.
 Apply the profile to all names and text that a person reads in every new map and every map update.
 It includes component names, artifacts, layers, sequences, steps, invariants, explanations, and recorded reasons.
 Read [references/language.md](references/language.md) before you write. Do not change commands, schema keys, identifiers, or quoted source evidence.

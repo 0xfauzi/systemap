@@ -34,23 +34,37 @@ A commit or a ref goes after `--end-of-options`. Thus a value that starts with `
 
 `systemap journeys` runs the command under `[agent] command` in `systemap.toml`, without a shell. No other command runs it.
 A repository can set this command. Examine the value before you run `systemap journeys`.
+The question to the agent contains map text and source facts. The agent command can send this question to a model API.
 
 ## What systemap sends
 
-A decision provider is a model API that answers the questions of `audit`, `suggest --decide`, `plan`, `triage`, and `delta --decide`.
-Jev is the TypeSafe model at `https://api.typesafe.ai/v1`, and the default provider. `TYPESAFE_BASE_URL` selects a different server.
-No question goes to Jev without `TYPESAFE_API_KEY`.
-OpenAI Decisions is the second provider. A question goes to OpenAI only with `--provider openai` or `[decisions] provider = "openai"`, and with `OPENAI_API_KEY`.
+Only the six commands in the table send data on the network.
+Each of these commands sends questions to a decision provider: a model API that gives typed answers.
+A command sends no data if it has no question, or if the key of its provider is not set.
 
-A key alone does not make `delta` send questions. `delta` sends questions only with `--decide` or `[jev] enabled = true`.
-`judgement` sends questions to Jev only with `--order-by-drift`.
-`plan --check`, `delta --no-decide`, and `systemap decisions` send no question.
+There are two decision providers:
 
-The questions contain module names, docstrings, public names, internal imports, component identifiers, sentences, invariants, and source lines at connections between components.
-`--order-by-drift` also sends a diff or the text of the module files of each stale component.
-`systemap audit --dry-run` shows this data. With a key, it gets the model list but sends no map data.
+- Jev is the TypeSafe model at `https://api.typesafe.ai/v1`, and the default provider. `TYPESAFE_BASE_URL` selects a different server. Each Jev request must have `TYPESAFE_API_KEY`.
+- OpenAI Decisions is at `https://api.openai.com/v1/decisions`. A request goes to OpenAI only with `OPENAI_API_KEY`, and with `--provider openai` or `[decisions] provider = "openai"`. A key alone does not select OpenAI.
 
-`systemap check` makes no network requests. `systemap judgement` makes no network requests without `--order-by-drift`.
+| Command | Provider | Condition | Data in the questions |
+|---|---|---|---|
+| `audit` | The selected provider. | The key of that provider. | Module names, docstrings, public names, internal imports, component IDs and sentences, invariants, flow sentences, and source lines at connections between components. |
+| `delta` | The selected provider. | `--decide`, or `[jev] enabled = true` without `--no-decide`. Also the key of that provider. | The names, files, docstrings, public names, and internal imports of removed modules, added modules, and modules without a component. Also the component IDs and sentences. |
+| `suggest --decide` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The names, docstrings, public names, and internal imports of two modules for each question. |
+| `triage TEXT` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the issue text, and the component IDs and sentences. |
+| `plan "<task>"` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the task text, and the component IDs and sentences. |
+| `judgement --order-by-drift` | Jev only. `--provider` and `[decisions] provider` do not apply. | `TYPESAFE_API_KEY` and one or more open `stale source review` lines. | For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters. |
+
+Before the questions, each Jev command reads the Jev model list. This request sends only the key.
+The model list request also occurs when the Jev cache has all the answers. A cached answer does not go to the provider again.
+
+`systemap audit --dry-run` lists the types of data that `audit` sends. With Jev and `TYPESAFE_API_KEY`, it reads the model list but sends no map data. With OpenAI, it sends no request.
+
+All other commands send no data on the network.
+These commands include `check`, `refresh`, `render`, `review`, `decisions`, `plan --check`, and `judgement` without `--order-by-drift`.
+`journeys` sends no data, but [the agent command](#the-agent-command) can send its question to a model API.
+`serve` and `live` answer only requests on 127.0.0.1 ([The local servers](#the-local-servers)).
 The rendered page loads no files from other servers.
 
 ## The CI link job
