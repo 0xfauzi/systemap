@@ -331,6 +331,7 @@ MODEL_READERS = {
     "model_edit.py": "It edits the Python model file in place.",
     "review.py": "It records source reviews in the Python model file.",
     "review_upgrade.py": "It records earlier flow review digests in the Python model file.",
+    "contract_edit.py": "It moves the rules of the Python model file to the contract file.",
 }
 SUFFIXES = {".py", ".ts", ".tsx", ".mts", ".cts", "*.py", "*.ts", "__init__.py", "__init__"}
 LANGUAGE_NAMES = {"python", "typescript"}

@@ -33,6 +33,7 @@ At the root of your repository, run `systemap init`. These are the first lines o
 $ systemap init
 wrote systemap.toml
 wrote map/model.py
+wrote map/contract.py
 wrote docs/map/.gitkeep
 wrote .github/workflows/systemap.yml
 The command wrote .claude/skills/systemap/ (SKILL.md and 9 references)
@@ -127,7 +128,8 @@ For a different port, see the [reference](reference.html#systemap-serve-port-876
 
 ## Commit the map
 
-Commit `map/model.py`, `systemap.toml`, and `docs/map/` with the source code.
+Commit `map/model.py`, `map/contract.py`, `systemap.toml`, and `docs/map/` with the source code.
+`init` also prints a suggested `CODEOWNERS` line for `map/contract.py`. Add it to select the reviewers of a change to a rule.
 Then the workflow from `init` compares the map with the source on each push to `main` and on each pull request.
 
 ## Next steps

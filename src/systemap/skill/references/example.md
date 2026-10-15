@@ -13,6 +13,7 @@ The tests do the model checks against a source fixture with these modules.
 The example gives the positions so that the example is a complete file.
 For an initial model, do not write `x` and `y`. Then run `systemap place`.
 All values are literal values. systemap reads the file and does not run it as code.
+The rules of this map are in `map/contract.py`. `references/schema.md` gives an example contract file.
 
 ```python
 """The system map of pkg and its component connections."""
@@ -23,7 +24,6 @@ from systemap import (
     Component,
     Container,
     Flow,
-    Invariant,
     Journey,
     Layer,
     Meaning,
@@ -106,14 +106,7 @@ FLOWS = (
 
 FLOW_KINDS = ("record",)
 
-INVARIANTS = (
-    # Each invariant identifies its source document.
-    Invariant(1, "The writer never reads the input itself (README, Design).", governs=("Writer",)),
-    Invariant(
-        2, "The writer records each result once (docs/ledger.md).", governs=("Writer", "Ledger")
-    ),
-)
-
+# The invariants are in the contract file, map/contract.py.
 MODEL = Model(
     canvas=(900, 400),
     containers=CONTAINERS,
@@ -121,7 +114,6 @@ MODEL = Model(
     components=COMPONENTS,
     flows=FLOWS,
     flow_kinds=FLOW_KINDS,
-    invariants=INVARIANTS,
 )
 
 # Names, layers, and flow sentences.

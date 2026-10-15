@@ -62,6 +62,7 @@ Then run each command with <code>uv run systemap</code>.</p>
 <pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> init</span>
 <span class="ln" style="--i:0">wrote systemap.toml</span>
 <span class="ln" style="--i:0">wrote map/model.py</span>
+<span class="ln" style="--i:0">wrote map/contract.py</span>
 <span class="ln" style="--i:0">wrote docs/map/.gitkeep</span>
 <span class="ln" style="--i:0">wrote .github/workflows/systemap.yml</span>
 <span class="ln" style="--i:0">The command wrote .claude/skills/systemap/ (SKILL.md and 9 references)</span></code></pre>
@@ -121,7 +122,8 @@ Then the strict command passed. This is the first line of the output:</p>
 The <a href="../map/">live example</a> is the map of systemap itself.
 For a different port, see the <a href="reference.html#systemap-serve-port-8765">reference</a>.</p>
 <h2 id="commit-the-map">Commit the map</h2>
-<p>Commit <code>map/model.py</code>, <code>systemap.toml</code>, and <code>docs/map/</code> with the source code.
+<p>Commit <code>map/model.py</code>, <code>map/contract.py</code>, <code>systemap.toml</code>, and <code>docs/map/</code> with the source code.
+<code>init</code> also prints a suggested <code>CODEOWNERS</code> line for <code>map/contract.py</code>. Add it to select the reviewers of a change to a rule.
 Then the workflow from <code>init</code> compares the map with the source on each push to <code>main</code> and on each pull request.</p>
 <h2 id="next-steps">Next steps</h2>
 <ul>

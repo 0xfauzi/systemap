@@ -10,12 +10,11 @@ Delta and judgement both use it.
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 from typing import Any
 
-from systemap import flow_review
+from systemap import contract, flow_review
 from systemap.flow_ids import journey_record, resolve
 from systemap.model import (
     Component,
@@ -112,7 +111,7 @@ def _claims(
         journey_record(journey) for journey in meaning.journeys if touches(journey, card.id)
     ]
     invariants = [
-        dataclasses.asdict(invariant)
+        contract.claim(invariant)
         for invariant in model.invariants
         if not invariant.governs or card.id in invariant.governs
     ]

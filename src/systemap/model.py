@@ -172,11 +172,12 @@ class Flow:
 
 @dataclass(frozen=True)
 class Invariant:
-    """A numbered rule with the identifiers of the applicable components."""
+    """A numbered rule with the applicable components and the reason for the rule."""
 
     n: int
     text: str
     governs: tuple[str, ...] = ()
+    reason: str = ""
 
 
 @dataclass(frozen=True)

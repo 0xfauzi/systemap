@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from systemap import extract, jev, model_load
+from systemap import contract, extract, jev, model_load
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -336,7 +336,6 @@ from systemap import (
     Component,
     Container,
     Flow,
-    Invariant,
     Journey,
     Meaning,
     Model,
@@ -383,10 +382,6 @@ FLOWS = (Flow("Reader", "Writer", "request", "data"),)
 
 FLOW_KINDS = ()
 
-INVARIANTS = (
-    Invariant(1, "The writer never reads the input itself.", governs=("Writer",)),
-)
-
 MODEL = Model(
     canvas=(600, 300),
     containers=CONTAINERS,
@@ -394,7 +389,6 @@ MODEL = Model(
     components=COMPONENTS,
     flows=FLOWS,
     flow_kinds=FLOW_KINDS,
-    invariants=INVARIANTS,
 )
 
 PLAIN = {
@@ -438,11 +432,22 @@ MEANING = Meaning(
 '''
 
 
+# The contract of the two-card model: one invariant with its reason.
+TWO_CARD_CONTRACT = contract.text("map/model.py").replace(
+    "INVARIANTS: tuple[Invariant, ...] = ()",
+    "INVARIANTS: tuple[Invariant, ...] = (\n"
+    '    Invariant(1, "The writer never reads the input itself.", governs=("Writer",), '
+    'reason="The writer gets each request from the reader."),\n'
+    ")",
+)
+
+
 def init_two_cards(root: Path, *argv: str) -> None:
-    """init, then the two-card model over the empty starter.
+    """init, then the two-card model and its contract over the empty starter.
 
     The package root `pkg` is an empty `__init__`: an empty package marker
     the coverage rule leaves out on its own, so no ignore is written.
     """
     assert main(["--root", str(root), "init", *argv]) == 0
     (root / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
+    (root / "map/contract.py").write_text(TWO_CARD_CONTRACT, encoding="utf-8")

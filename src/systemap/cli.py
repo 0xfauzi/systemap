@@ -30,6 +30,7 @@ from systemap import (
     check_actions,
     check_report,
     config,
+    contract_move,
     decisions_cli,
     delta,
     delta_git,
@@ -119,9 +120,12 @@ def _project(args: argparse.Namespace) -> Project:
 
 
 def _upgraded(p: Project, args: Any, note: Callable[..., None], fresh: dict[str, Any]) -> Project:
-    """Record the source records of each flow review and the current evidence of each
-    current answer from systemap 2.0.0 one time (`review_upgrade`, `answer_upgrade`)."""
-    lines = review_upgrade.record(p.cfg, p.tree) + answer_upgrade.record(p.cfg, p.tree, fresh)
+    """Move the rules of each earlier map to its contract file, and record the source
+    records of each flow review and the current evidence of each current answer from
+    systemap 2.0.0, one time (`contract_move`, `review_upgrade`, `answer_upgrade`)."""
+    lines = contract_move.record(p.cfg, p.tree, fresh)
+    p = _project(args) if any(not line.startswith("warning:") for line in lines) else p
+    lines += review_upgrade.record(p.cfg, p.tree) + answer_upgrade.record(p.cfg, p.tree, fresh)
     warnings = [line for line in lines if line.startswith("warning:")]
     warn(*warnings)
     note(*[line for line in lines if line not in warnings])
