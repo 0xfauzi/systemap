@@ -47,7 +47,8 @@
 <h2 id="facts-and-model">Facts and model</h2>
 <ul>
 <li><strong>Facts</strong>: records that <code>systemap extract</code> makes from the source files. They give modules, public names, imports, test references, and entry points. They do not show which modules do one task together, or the direction of a connection.</li>
-<li><strong>Model</strong>: a Python module, usually <code>map/model.py</code>, that a person or a coding agent writes. It gives the components, flows, sequences, and invariants.</li>
+<li><strong>Model</strong>: a Python module, usually <code>map/model.py</code>, that a coding agent writes. It gives the components, flows, and sequences.</li>
+<li><strong>Contract</strong>: a Python module in the folder of the model, usually <code>map/contract.py</code>, that a coding agent writes. It gives the invariants and the import rules, each with a reason.</li>
 </ul>
 <h2 id="component">Component</h2>
 <p>A <strong>component</strong> is the system part that a map assigns to source modules or symbols. A card on the map shows one component.
@@ -153,7 +154,10 @@ A sequence does not record a run of the program.</p>
 <li><strong>Container</strong>: a map boundary for a process, a host, or a source directory.</li>
 <li><strong>Region</strong>: a group of components and its bounds on the map. Each region is in a container.</li>
 </ul>
-<h2 id="invariant">Invariant</h2>
+<h2 id="contract">Contract</h2>
+<p>The <strong>contract</strong> gives the rules of the system. It is a different file from the map. Thus a change to a rule shows as a change to that file in a pull request.
+An agent changes the map freely. An agent changes a rule only with a reason.
+A rule without a reason gives a <code>contract reason</code> finding. If a reviewer refuses a change to a rule, the agent adds the cause to the reason of the rule that stays.</p>
 <p>An <strong>invariant</strong> is a source-supported rule that applies to specified components. Its text cites the source of the rule.</p>
 <p>An <strong>import rule</strong> gives the permitted imports between the modules of components, for example <code>forbid_import</code> from one component to another.
 <code>systemap check</code> and <code>systemap rules</code> compare each rule with the resolved imports. The result is <code>pass</code>, <code>fail</code>, or <code>unknown</code>.
@@ -219,7 +223,7 @@ A <code>check</code> finding rejects the map. A <code>judgement</code> finding i
 The <a href="reference.html#what-does-the-second-pass-find">reference</a> gives each finding and each answer form.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="getting-started.html" rel="prev"><span class="kicker">Previous</span><span>Get started</span></a><a class="pager__a pager__next" href="reading-the-map.html" rel="next"><span class="kicker">Next</span><span>Read the map</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#facts-and-model">Facts and model</a></li><li class="toc__l2"><a href="#component">Component</a></li><li class="toc__l2"><a href="#flow-and-artifact">Flow and artifact</a></li><li class="toc__l2"><a href="#sequence-and-entry-point">Sequence and entry point</a></li><li class="toc__l2"><a href="#layer">Layer</a></li><li class="toc__l2"><a href="#region-and-container">Region and container</a></li><li class="toc__l2"><a href="#invariant">Invariant</a></li><li class="toc__l2"><a href="#evidence-states">Evidence states</a></li><li class="toc__l2"><a href="#review-states">Review states</a></li><li class="toc__l2"><a href="#findings-and-answers">Findings and answers</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#facts-and-model">Facts and model</a></li><li class="toc__l2"><a href="#component">Component</a></li><li class="toc__l2"><a href="#flow-and-artifact">Flow and artifact</a></li><li class="toc__l2"><a href="#sequence-and-entry-point">Sequence and entry point</a></li><li class="toc__l2"><a href="#layer">Layer</a></li><li class="toc__l2"><a href="#region-and-container">Region and container</a></li><li class="toc__l2"><a href="#contract">Contract</a></li><li class="toc__l2"><a href="#evidence-states">Evidence states</a></li><li class="toc__l2"><a href="#review-states">Review states</a></li><li class="toc__l2"><a href="#findings-and-answers">Findings and answers</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

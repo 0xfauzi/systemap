@@ -8,8 +8,7 @@
 - Region
 - Component: source and interface, kind and appearance, positions and text, nested map
 - Flow
-- Invariant
-- ImportRule
+- The contract file: Contract, Invariant, ImportRule
 - Journey
 - Step
 - Layer
@@ -19,6 +18,7 @@
 
 The model uses frozen dataclasses exported by `systemap`.
 `map/model.py` exports `MODEL` as a `Model` and `MEANING` as a `Meaning`.
+`map/contract.py` exports `CONTRACT` as a `Contract`.
 Default values identify optional fields.
 Use names and prose under the writing profile in `references/language.md`.
 Keep schema keys and source symbols exact.
@@ -51,6 +51,7 @@ For a model file from an earlier version, tell the maintainer about `systemap co
 `Model(canvas, containers, regions, components, flows, flow_kinds, invariants=(), import_rules=())`
 
 `canvas` gives `(width, height)` in SVG coordinate units.
+Write the invariants and the import rules in the contract file, not in `Model`.
 The other collections are tuples of the dataclasses below.
 `flow_kinds` contains custom kinds only.
 A declaration is not necessary for the standard kinds `data`, `control`, `context`, and `tool`.
@@ -264,13 +265,45 @@ observed_by = ["subprocess", "queue", "facts file"]
 
 These configured words classify structural mechanisms only. They do not give observed evidence.
 
+## The contract file
+
+`Contract(invariants=(), import_rules=())`
+
+The contract file gives the rules of the map. It is in the folder of the model file.
+For `map/model.py`, the file is `map/contract.py`. For a nested map in `map/gateway.py`, the file is `map/gateway_contract.py`.
+The file uses the same statements as the model file and exports `CONTRACT`.
+Change the components, flows, and sequences freely. Change a rule only with a reason.
+Each rule must have a `reason`. A rule without a reason gives a `contract reason` line.
+Write the reason from the code, the documentation, or the commit history.
+If a reviewer refuses a change to a rule, add the cause to the reason of the rule that stays.
+
+A map from before the contract file can give the rules in `Model(..., invariants=..., import_rules=...)`.
+The first `systemap refresh` or `systemap extract` moves them to the contract file one time.
+If the two files give rules, systemap refuses the map.
+
+```python
+from systemap import Contract, Invariant
+
+INVARIANTS = (
+    Invariant(
+        1,
+        "The writer never reads the input itself (README, Design).",
+        governs=("Writer",),
+        reason="The reader is the only component that reads the input (README, Design).",
+    ),
+)
+
+CONTRACT = Contract(invariants=INVARIANTS)
+```
+
 ## Invariant
 
-`Invariant(n, text, governs=())`
+`Invariant(n, text, governs=(), reason="")`
 
 An invariant gives a source-supported repository rule.
 `n` must be unique. `text` includes a file and line or a document heading citation.
 `governs` contains the directly affected component identifiers.
+`reason` gives the cause of the rule. The reason is not a claim of a component.
 The page and component inspector show the applicable rules.
 
 ## ImportRule
@@ -302,7 +335,7 @@ IMPORT_RULES = (
 )
 ```
 
-Put the tuple in `Model(..., import_rules=IMPORT_RULES)`.
+Put the tuple in `Contract(..., import_rules=IMPORT_RULES)`.
 The result is `unknown` if no resolved import is against the rule, but the facts possibly do not contain all imports of a rule module.
 This occurs when a module did not parse, or when a module has unresolved imports.
 `allow_imports` also gives `unknown` for an import of a module with no component.

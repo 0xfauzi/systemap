@@ -30,6 +30,7 @@ from typing import Any
 from systemap import (
     card_review,
     config,
+    contract_file,
     evidence,
     extraction,
     flow_ids,
@@ -160,9 +161,10 @@ def _data(m: nest.Map) -> tuple[Model, Meaning]:
     """Read the model with the reader that runs no code, also with permission for code."""
     try:
         names = model_load.read(m.path, m.rel)
+        model = contract_file.merged(m.path, m.rel, names.get("MODEL"), model_load.read)
     except model_load.ModelFileError as exc:
         raise ReviewError(f"{exc}\n{NOT_DATA}") from exc
-    model, meaning = names.get("MODEL"), names.get("MEANING")
+    meaning = names.get("MEANING")
     if not isinstance(model, Model) or not isinstance(meaning, Meaning):
         raise ReviewError(f"{m.rel}: the data does not give MODEL and MEANING. {NOT_DATA}")
     return model, meaning
@@ -267,15 +269,18 @@ def _same(m: nest.Map, texts: dict[Path, str], model: Model, meaning: Meaning) -
     """Read the new texts with the reader that runs no code, in a copy of the model files."""
     with tempfile.TemporaryDirectory(prefix="systemap-review-") as folder:
         copy = Path(folder)
-        for each in model_load.files(m.path, m.rel):
+        for each in contract_file.map_files(m.path, m.rel):
             shutil.copyfile(each, copy / each.name)
         for path, text in texts.items():
             (copy / path.name).write_text(text, encoding="utf-8", newline="")
         try:
             names = model_load.read(copy / m.path.name, m.rel)
+            found = contract_file.merged(
+                copy / m.path.name, m.rel, names.get("MODEL"), model_load.read
+            )
         except model_load.ModelFileError as exc:
             raise ReviewError(f"{exc}\nThe command wrote no file.") from exc
-    if names.get("MODEL") != model or names.get("MEANING") != meaning:
+    if found != model or names.get("MEANING") != meaning:
         raise ReviewError(
             f"{m.rel}: the new text does not give the same model with only the new value. "
             "The command wrote no file."

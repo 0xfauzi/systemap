@@ -7,6 +7,7 @@ model.
 
 from __future__ import annotations
 
+from systemap.contract import Contract
 from systemap.model import (
     AGENT_KINDS,
     KINDS,
@@ -34,6 +35,7 @@ __all__ = [
     "STANDARD_KINDS",
     "Component",
     "Container",
+    "Contract",
     "Flow",
     "ImportRule",
     "Invariant",

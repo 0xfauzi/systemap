@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import TYPE_CHECKING
 
-from systemap import explain, unknown_causes
+from systemap import contract, explain, unknown_causes
 from systemap.schematic import TEXT_PX
 
 if TYPE_CHECKING:
@@ -126,6 +126,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
     out += unknown_surface_report(
         result.unknown_surface, result.unknown_causes, result.unknown_rows
     )
+    out += contract_report(result.contract)
     out += _model_groups(result.problems, model_file)
     out += _layout(model, result.problems, model_file)
     out += report_stale(result.stale)
@@ -222,3 +223,18 @@ def unknown_surface_report(
         out.append(f"  {line.removeprefix('unknown surface: ')}")
         out += [f"    {row}" for row in (rows or {}).get(line, [])]
     return out + unknown_causes.fix_lines(found)
+
+
+def contract_report(findings: Sequence[str]) -> list[str]:
+    """Give the contract rules without a reason, and the fix line.
+
+    These lines do not reject the map. `systemap judgement` gives the same lines."""
+    if not findings:
+        return []
+    out = [f"{contract.KIND}: {plural(len(findings), 'finding')}"]
+    out += [f"  {line.removeprefix(contract.KIND + ': ')}" for line in findings]
+    return [
+        *out,
+        "  fix: In the contract file of the map, write the reason of each rule. Use the code, "
+        "the documentation, or the history of the repository.",
+    ]

@@ -222,6 +222,18 @@ JUDGEMENT = {
             "these lines."
         ),
     ),
+    "contract reason": Lesson(
+        means="A rule of the contract has no reason. The rule is an invariant or an import rule.",
+        why=(
+            "The reason tells a reviewer and the next agent the cause of the rule. Without "
+            "a reason, an agent cannot know which changes the rule must stop."
+        ),
+        do=(
+            "In the contract file, write the `reason` of the rule. Use the code, the "
+            "documentation, or the history of the repository. Do not record an answer for "
+            "this line. `systemap check` does not reject the map for these lines."
+        ),
+    ),
 }
 
 # ---- the lines `systemap delta` prints --------------------------------------------

@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path, PurePosixPath
 from typing import Protocol
 
-from systemap import __version__, config, repo_files
+from systemap import __version__, config, contract, repo_files
 from systemap.config import ConfigError
 
 
@@ -34,6 +34,14 @@ class LanguageSetup(Protocol):
 
 # The model file that init writes. The model file is Python for each source language.
 MODEL_PATH = "map/model.py"
+# The contract file in the folder of the model file.
+CONTRACT_PATH = contract.path_for(Path(MODEL_PATH)).as_posix()
+# The suggested CODEOWNERS line. init cannot know the team, so it writes no CODEOWNERS file.
+CODEOWNERS_NOTE = (
+    "note: To select the reviewers of a change to the contract, add this line to the "
+    "CODEOWNERS file. Replace @OWNER with the team or the person:",
+    "  /{path} @OWNER",
+)
 CONFIG = """# systemap configuration. All keys are optional.
 # The project name comes from the package metadata or the repository directory.
 language = "{language}"
@@ -116,7 +124,6 @@ from systemap import (  # type: ignore[import-not-found, unused-ignore]
     Component,
     Container,
     Flow,
-    Invariant,
     Journey,
     Layer,
     Meaning,
@@ -159,9 +166,7 @@ FLOWS: tuple[Flow, ...] = ()
 
 FLOW_KINDS: tuple[str, ...] = ()
 
-# Record source-supported rules with source references and applicable component identifiers.
-INVARIANTS: tuple[Invariant, ...] = ()
-
+# The invariants and the import rules are in the contract file, map/contract.py.
 MODEL = Model(
     canvas=(910, 570),
     containers=CONTAINERS,
@@ -169,7 +174,6 @@ MODEL = Model(
     components=COMPONENTS,
     flows=FLOWS,
     flow_kinds=FLOW_KINDS,
-    invariants=INVARIANTS,
 )
 
 
@@ -524,6 +528,7 @@ def files(
         MODEL_PATH: MODEL.format(
             doc_name=quoted(name)[1:-1], label=quoted(name.upper()), package=package
         ),
+        CONTRACT_PATH: contract.text(MODEL_PATH),
         "docs/map/.gitkeep": "",
     }
     if ci:
@@ -559,17 +564,29 @@ def write(
                 f"The file {rel} is not in {root}, because of a symbolic link or the "
                 f"configured path. Remove the symbolic link, or correct the path."
             )
+    model = next(rel for rel in planned if _contract_of(rel) in planned)
+    model_present = (root / model).exists()
     for rel, content in planned.items():
         path = root / rel
         if path.exists():
             out.append(f"kept {rel} (file exists)")
             continue
+        if rel == _contract_of(model) and model_present:
+            out.append(f"did not write {rel}, because {model} exists and can give the rules")
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8", newline="\n")
         out.append(f"wrote {rel}")
+    if f"wrote {_contract_of(model)}" in out:
+        out += [CODEOWNERS_NOTE[0], CODEOWNERS_NOTE[1].format(path=_contract_of(model))]
     if not roots and f"wrote {config.CONFIG_FILE}" in out:
         out.append(language.missing_roots_message(root))
     return out
+
+
+def _contract_of(rel: str) -> str:
+    """Give the contract file of a model file path (`contract.path_for`)."""
+    return contract.path_for(Path(rel)).as_posix()
 
 
 def _existing_config(root: Path, planned: dict[str, str]) -> tuple[dict[str, str], list[str]]:
@@ -584,11 +601,12 @@ def _existing_config(root: Path, planned: dict[str, str]) -> tuple[dict[str, str
     cfg = config.load(root)
     kept = {
         cfg.model: planned[MODEL_PATH],
+        _contract_of(cfg.model): planned[CONTRACT_PATH],
         f"{cfg.out_dir}/.gitkeep": planned["docs/map/.gitkeep"],
     }
     rest = {
         rel: text
         for rel, text in planned.items()
-        if rel not in (config.CONFIG_FILE, MODEL_PATH, "docs/map/.gitkeep")
+        if rel not in (config.CONFIG_FILE, MODEL_PATH, CONTRACT_PATH, "docs/map/.gitkeep")
     }
     return {**kept, **rest}, ["kept pyproject.toml [tool.systemap] (configuration exists)"]

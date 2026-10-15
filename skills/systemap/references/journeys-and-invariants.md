@@ -71,6 +71,9 @@ Use these sources in this order:
 Write the rule under the writing profile without a change to its meaning.
 If the identity of an external quotation is necessary, keep the exact quotation.
 Put the citation in the invariant text.
+Write the invariant in the contract file, `map/contract.py`, with a `reason`.
+The reason gives the cause of the rule from the code, the documentation, or the commit history.
+A rule without a reason gives a `contract reason` line. Do not record an answer for it.
 List directly affected component identifiers in `governs`.
 A proposed rule is not an existing invariant. Put proposals in the completion report.
 
