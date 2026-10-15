@@ -117,7 +117,7 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
     assert code == 0
     assert [row["line"] for row in out["open"]] == text
     assert READER in text and WRITER in text and THIN not in text
-    assert out["schema_version"] == 3
+    assert out["schema_version"] == 6
     assert {row["line"]: row["kind"] for row in out["open"]}[READER] == "single module"
     assert out["stale_answers"] == ["single module: Gone contains only pkg.gone"]
     assert out["answered"] == {
@@ -127,6 +127,7 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
         ],
     }
     assert out["source_reviews"] == {"current": 0, "stale": 0, "missing": 2}
+    assert out["earlier_flow_reviews"] == []
     assert out["kinds"]["single module"] == {"open": 2, "answered": 0}
     assert out["kinds"]["thin layer"] == {"open": 0, "answered": 1}
     assert sum(k["open"] for k in out["kinds"].values()) == len(text)
@@ -216,7 +217,7 @@ def test_kind_limits_the_open_list_only(mapped: Path, capsys: pytest.CaptureFixt
 
 def test_crossing_detail_is_in_each_row() -> None:
     """A crossing-import row gives its imports. Other rows give an empty list."""
-    line = "crossing import: A imports B in 1 module and no flow connects them"
+    line = "crossing import: A imports B and no flow connects them"
     lines = [line, READER]
     judged = judgement_json.Judged(
         lines=lines,
@@ -232,6 +233,7 @@ def test_crossing_detail_is_in_each_row() -> None:
             "evidence": "a" * 64,
             "cause": None,
             "sources": None,
+            "count": None,
         }
     ]
     assert out["answered"]["answers"] == [

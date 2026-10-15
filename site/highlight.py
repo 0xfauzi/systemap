@@ -46,16 +46,19 @@ LEXERS = {
 SHELL = frozenset({"sh", "bash", "shell"})
 OUTPUT = frozenset({"text", "console", "output"})
 
-# The parts of a shell line, in the order of the test.
+# The parts of a shell line, in the order of the test. The last part agrees with each
+# other character, for example a quotation mark without its pair. Thus the parts keep
+# each character of the line. A "&" after "<" or ">" is a part of a redirection.
 SH_PART = re.compile(
     r"(?P<c>(?<!\S)#.*$)"
     r"|(?P<s>'[^']*'|\"[^\"]*\")"
     r"|(?P<o>(?<!\S)--?[A-Za-z][\w-]*)"
     r"|(?P<e>(?<!\S)[A-Z_][A-Z0-9_]*=\S*)"
     r"|(?P<v>\$\{?\w+\}?)"
-    r"|(?P<j>&&|\|\||[|;])"
+    r"|(?P<j>&&|\|\||[|;]|(?<![<>])&)"
     r"|(?P<w>[^\s'\"|;&]+)"
     r"|(?P<sp>\s+)"
+    r"|(?P<x>.)"
 )
 
 # The start of a systemap output line, and its class. Each rule has two groups:
@@ -141,7 +144,7 @@ def _shell_parts(line: str) -> Iterator[tuple[str, str]]:
             command_next = True
             yield "p", text
         else:
-            yield {"c": "c", "s": "s", "o": "a", "e": "f", "v": "f", "sp": ""}[group], text
+            yield {"c": "c", "s": "s", "o": "a", "e": "f", "v": "f", "sp": "", "x": ""}[group], text
 
 
 def shell_line(line: str) -> str:

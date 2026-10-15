@@ -42,8 +42,10 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # them. An indirect re-export without a module gives the record of a direct re-export.
 # Format 12: `provenance.files` has a digest for each configuration file that
 # `extraction_inputs` of the adapter gives, and `provenance.installed` has the digests of
-# such files in an installed package folder.
-FORMAT = 12
+# such files in an installed package folder. Format 13: a `package_export` record has no
+# count in `target` and `reason`, because a finding line must not contain a count. The
+# record has the count in `count`.
+FORMAT = 13
 TESTS_KEPT = 25
 
 
@@ -289,7 +291,7 @@ def _facts_file(
     components: dict[str, Any],
     tests_dirs: tuple[str, ...],
     points: list[dict[str, str]],
-    entry_issues: list[dict[str, str]],
+    entry_issues: list[dict[str, Any]],
     context: Any,
 ) -> dict[str, Any]:
     head = subprocess.run(

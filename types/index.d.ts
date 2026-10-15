@@ -35,6 +35,8 @@ export type SystemapLive = {
   url: string
   /** The render number of the last `rendered` or `error` line. */
   version: number
+  /** The render number of the last `rendered` line; 0 before a render is good. */
+  good: number
   /** The number of map updates that need an action. */
   updates: number
   lines: SystemapLine[]

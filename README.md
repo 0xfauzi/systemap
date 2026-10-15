@@ -401,7 +401,8 @@ It writes one target for each call, and it keeps the comments and the format of 
 
 These commands send no request to a model.
 After `[decisions] max_contradicted` verdicts of `contradicted` for one target, the decision request becomes unknown. The default is 3.
-A person must then examine the claim.
+After two verdicts of `insufficient_evidence`, the decision request also becomes unknown.
+An unknown request is never a pass. `decisions status` gives the CI result that it causes.
 
 ## How do you prevent an import between two components?
 
@@ -480,8 +481,11 @@ On this repository, the command takes about 7 to 8 seconds to render the map.
   Set `TYPESAFE_API_KEY` for Jev. For OpenAI, set `OPENAI_API_KEY` and give `--provider openai`.
   A key alone does not select OpenAI. `delta` sends questions only with `--decide` or `[jev] enabled = true`.
 
-- **Put the stale source reviews in sequence.** `systemap judgement --order-by-drift` sends one Jev question for each stale source review.
+- **Put the stale source reviews in sequence.** With `TYPESAFE_API_KEY`, `systemap judgement --order-by-drift` sends one Jev question for each open stale source review.
+  The question contains the claims of the component and a diff or the text of its module files.
+  This option always uses Jev, also when `[decisions] provider` selects OpenAI.
   It puts the lines with the lowest drift score first. Without this option, `check` and `judgement` make no network requests.
+  [Trust and security](https://0xfauzi.github.io/systemap/guide/trust-and-security.html#what-systemap-sends) gives each command that sends data, and the data.
 
 The experiments set acceptance thresholds before implementation.
 The experiment records include features that did not meet their thresholds and

@@ -17,10 +17,10 @@ import fixture_workspace
 import pytest
 from conftest import Sample, write_tree
 
-from systemap import config, evidence, figure, judgement, page
+from systemap import config, evidence, figure, flow_review, judgement, page
 from systemap import theme as theme_mod
 from systemap.config import Answer, ConfigError
-from systemap.model import all_layers
+from systemap.model import Flow, all_layers
 from systemap.schematic import render as render_schematic
 
 # The sample: the parser imports the reader and the writer imports the
@@ -68,6 +68,12 @@ def test_structural_evidence_does_not_claim_a_flow_was_observed(sample: Sample) 
     ]
 
 
+def _reviewed(flow: Flow, sample: Sample) -> Flow:
+    """Give the flow with its current review digest (`flow_review.digest`)."""
+    digest = flow_review.digest(flow, sample.meaning, sample.facts)
+    return dataclasses.replace(flow, review_digest=digest or "")
+
+
 def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample) -> None:
     module = "pkg.reader"
     digest = sample.facts["components"][module]["source_sha256"]
@@ -75,11 +81,7 @@ def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample)
     model = dataclasses.replace(
         sample.model,
         flows=tuple(
-            dataclasses.replace(
-                flow,
-                source_refs=(ref,),
-                review_digest=evidence.flow_claim_digest(flow, sample.meaning),
-            )
+            _reviewed(dataclasses.replace(flow, source_refs=(ref,)), sample)
             if flow.edge == ("Reader", "Parser")
             else flow
             for flow in sample.model.flows
@@ -99,8 +101,10 @@ def test_source_review_refs_resolve_against_the_extracted_source(sample: Sample)
     assert edge["import_present"]
     assert edge["unresolved_refs"] == []
     assert not edge["claim_changed"]
-    assert edge["review_digest"] == evidence.flow_claim_digest(
-        next(flow for flow in model.flows if flow.edge == ("Reader", "Parser")), sample.meaning
+    assert edge["review_digest"] == flow_review.digest(
+        next(flow for flow in model.flows if flow.edge == ("Reader", "Parser")),
+        sample.meaning,
+        sample.facts,
     )
     changed = copy.deepcopy(sample.facts)
     changed["components"][module]["source_sha256"] = "0" * 64

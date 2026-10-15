@@ -5,7 +5,11 @@ There are three request types:
 - `judgement`: an open judgement line. The claim is the line.
 - `source_review`: a source component with a missing or stale source review. The claim is
   the component text, with the flows, sequences, and invariants that name it.
-- `flow_review`: a flow with source records and a review digest that is not current.
+- `flow_review`: a flow with source records and a review digest that is not current. The
+  digest contains the claim and the source records with their module digests. A change
+  to a module in the source records gives a request, also when the claim does not change.
+  A flow with a source record that does not agree with the facts has no current digest,
+  and its request is blocked.
 
 Each request has a stable ID. The ID comes from the request type, the target, and the claim
 digest, so the same claim gives the same ID in a different session. The store identity of
@@ -37,6 +41,7 @@ from typing import Any
 from systemap import (
     card_review,
     evidence,
+    flow_review,
     judgement,
     judgement_evidence,
     judgement_json,
@@ -44,6 +49,7 @@ from systemap import (
     repo_files,
     review_policy,
 )
+from systemap.flow_review import REVIEWED
 from systemap.judgement_evidence import card_modules
 from systemap.model import Component, Flow, Meaning, Model
 
@@ -154,6 +160,24 @@ def source_files(root: Path, facts: dict[str, Any]) -> dict[str, str]:
         if isinstance(name, str) and confined(root, name)[0] is not None:
             out.setdefault(PurePosixPath(name).as_posix(), module)
     return out
+
+
+def test_files(root: Path, facts: dict[str, Any]) -> set[str]:
+    """Give the test files in the facts, by repository-relative path.
+
+    These are the files of the test IDs (`FILE::NAME`) in the `tests` of each module record.
+    They are also the files of the `test_file_issues` records. Each language adapter writes
+    these fields in the same form. A path that `confined` refuses is not in the result.
+    """
+    names = {
+        issue["file"]
+        for issue in facts.get("test_file_issues", [])
+        if isinstance(issue, dict) and isinstance(issue.get("file"), str)
+    }
+    for record in facts.get("components", {}).values():
+        tests = record.get("tests", []) if isinstance(record, dict) else []
+        names |= {t.partition("::")[0] for t in tests if isinstance(t, str) and "::" in t}
+    return {PurePosixPath(n).as_posix() for n in names if confined(root, n)[0] is not None}
 
 
 def _files(root: Path, facts: dict[str, Any], modules: Iterable[str]) -> tuple[SourceFile, ...]:
@@ -294,9 +318,9 @@ def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
     states = evidence.of_model(m.model, m.meaning, facts)
     out: list[Request] = []
     for flow in m.model.flows:
-        digest = evidence.flow_claim_digest(flow, m.meaning)
-        if not flow.source_refs or flow.review_digest == digest:
+        if not flow.source_refs or flow_review.state(flow, m.meaning, facts) in REVIEWED:
             continue
+        digest = flow_review.digest(flow, m.meaning, facts)
         unresolved = states.of(flow).unresolved_refs
         blocked = (
             f"Source records do not agree with the current source: {', '.join(unresolved)}. "
@@ -336,21 +360,38 @@ def _subject(m: nest.Map, line: str, facts: dict[str, Any]) -> str:
     return f"{kind}: {' '.join(cards + modules)}"
 
 
+def closes(request: Request, m: nest.Map, line: str) -> bool:
+    """Find if a review request closes this judgement line of the map `m`."""
+    if request.map != m.id or request.type == JUDGEMENT:
+        return False
+    if request.type == SOURCE_REVIEW:
+        heads = (f"stale source review: {request.target} ", review_policy.line(request.target))
+    else:
+        flow = next((f for f in m.model.flows if f.key == request.target), None)
+        name = flow.name if flow is not None else request.target
+        heads = (f"flow review: {name} (", f"declared flow: {name} (")
+    return judgement.unprefixed(line).startswith(heads)
+
+
 def _covered(review_requests: list[Request], m: nest.Map, line: str) -> bool:
     """Find if a review request closes this judgement line. Then the line is not a request."""
-    bare = judgement.unprefixed(line)
-    for request in review_requests:
-        if request.map != m.id:
-            continue
-        if request.type == SOURCE_REVIEW:
-            heads = (f"stale source review: {request.target} ", review_policy.line(request.target))
-        else:
-            flow = next((f for f in m.model.flows if f.key == request.target), None)
-            name = flow.name if flow is not None else request.target
-            heads = (f"flow review: {name} (", f"declared flow: {name} (")
-        if bare.startswith(heads):
-            return True
-    return False
+    return any(closes(request, m, line) for request in review_requests)
+
+
+def open_lines(request: Request, tree: nest.Tree, judged: judgement_json.Judged) -> list[str]:
+    """Give the open judgement lines of the claim of a request.
+
+    A line stays open while the claim has no decision. Thus each line makes
+    `judgement --strict` exit 1. If the list is empty, the current configuration gives no
+    open line for the claim, and `judgement --strict` does not exit 1 because of it.
+    """
+    if request.type == JUDGEMENT:
+        return [request.target] if request.target in judged.result.open else []
+    return [
+        line
+        for line in judged.result.open
+        if closes(request, judgement_evidence.map_of(tree, line), line)
+    ]
 
 
 def _line_requests(

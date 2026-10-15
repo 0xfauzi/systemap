@@ -39,13 +39,12 @@ Exact answers must have reviewed-evidence digests. Family answers must have
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import decision, decision_kinds, explain, nest
+from systemap import answer_migrations, decision, decision_kinds, explain, nest
 from systemap import language as languages
 from systemap.audit_code import code_between
 from systemap.config import AUDIT_KINDS, Answer, Config
@@ -405,21 +404,12 @@ def run(
 # ---- answers, shared with judgement ---------------------------------------------
 
 
-# An earlier form of the mis-fold and owner lines ended with the pick of the provider.
-_EARLIER = re.compile(
-    r"^(?P<line>(?:\S+: )?(?:jev|decision) "
-    r"(?:mis-fold: \S+ claims \S+|owner: \S+ is claimed by no card))"
-    r"(?:, which reads like .+|; it reads like .+|; closest: .+)$"
-)
-
-
 def migrated(line: str) -> str:
-    """Change a line in an earlier form to the current form.
+    """Change a line in an earlier form to the current form (`answer_migrations`).
 
     An earlier form has the pick of the provider at the end, or a previous kind name.
     """
-    found = _EARLIER.match(line)
-    return decision_kinds.current_line(found["line"] if found else line)
+    return answer_migrations.current_line(line)
 
 
 def _bare(line: str) -> str:

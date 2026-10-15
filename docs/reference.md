@@ -68,7 +68,7 @@ The renderer and the checks use the evidence state of the stored source snapshot
 
 | Evidence | Condition | Indication |
 |---|---|---|
-| `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim and sentence. | A solid line. The page shows "current source review". |
+| `observed` | `source_refs` resolve to extracted source hashes. At least one reference is in a module of the source or target component. `review_digest` agrees with the current flow claim, the sentence, and the `source_refs`. | A solid line. The page shows "current source review". |
 | `structural` | An import connects the components, a module is shared, or a configured mechanism is in the sentence. These facts do not show direction, artifact, or execution. | A dashed line. The panel identifies the structural fact. `judgement` asks for source review. |
 | `external` | An actor is at one end. The flow crosses the code boundary. | A solid line. The panel identifies the endpoint outside the source code. The panel also shows the `source_refs` and each reference that does not resolve. `systemap review` refuses a reference that does not resolve. |
 | `declared` | No source review or structural fact gives evidence for the flow. | A dashed line. `systemap judgement` prints a `declared flow` finding. |
@@ -91,6 +91,23 @@ It does not examine the claims for you. Examine the source before you record the
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
+The `review_digest` also contains the `source_refs` with the digest of each module.
+Thus a change to a module in `source_refs` makes the flow review not current, also when the claim does not change.
+A new digest in `source_refs` does not record a review. Examine the flow again. Then run `systemap review --flow`.
+A flow without `source_refs`, or with a source record that does not agree with the facts, has no current review.
+
+### A flow review from systemap 2.0.0
+
+systemap 2.0.0 records a `review_digest` that contains only the claim.
+Such a digest does not identify the source that the reviewer examined.
+`systemap refresh` and `systemap extract` replace that digest one time with a digest of the claim and the current `source_refs`.
+The commands write only this value in the model file, and they tell you the files.
+The review stays current, with the label "review earlier than source tracking".
+`systemap judgement` gives the label in one row for each such flow. The row is not a finding.
+`systemap judgement --json` gives the flows in `earlier_flow_reviews`.
+The page gives the label in the evidence text of the flow.
+After the replacement, a change to a module in `source_refs` makes the review not current.
+To remove the label, examine the flow against the source. Then run `systemap review --flow`.
 
 ## How do two flows connect one pair of components?
 
@@ -193,7 +210,7 @@ between proposals. Examine these proposals against the source.
 A component must have one clear function. Module quantity alone does not identify a component.
 
 An exact `item` or `items` answer includes `evidence = "<SHA-256 digest>"`.
-When source or import evidence changes, the finding opens again.
+When a fact that the finding cites changes, the finding opens again.
 `judgement` prints the current digest for examination.
 An exact answer without evidence stays pending until source review.
 
@@ -202,18 +219,40 @@ The evidence digest of a line contains only the evidence that the line names:
 - For each component that the line names, the map claims of the component.
   These claims are the component fields, the plain name, and the flows, sequences, and invariants that name the component.
   The `source_review` value, the flow review digests, and the source digests in `source_refs` are not claims.
-- For each module that the line names, and each module of a named component, the module facts and the source file.
-- For a `crossing import` line, the imports between the two components and the source of the two modules of each import.
+- For each module that the line names, and each module of a named component, the cited facts of the module.
+  The cited facts are the `file`, the `package`, the public `names`, and the imports in `uses` with the imported names.
+  They also include the `external` imports, the `parsed` value, and the unknown records without their line numbers.
+- For a `crossing import` line, the imports between the two components, with the imported names.
 - For an `entry point` line, the entry point records of its modules. A record has the `kind`, `module`, `target`, and `name` values.
-- For an `unknown surface` line of a module or a test file, the records of the line and the text of each cited source line.
+- For an `unknown surface` line of a module, the records of the line and the text of each cited source line.
   The records do not include the line number and the parser version.
   A new line above the statement does not change this evidence. A change to the statement changes it.
   A record without a line number uses the module evidence.
+- For an `unknown surface` line of an entry point or a configuration file, the records of the line, with the `count` value.
 
-Thus a change to a different component, or to a `source_review` value, does not open the finding again.
-A line that names no component and no module uses the full evidence: the model files and all modules.
+A line about behavior also has the source file of each module: `declared flow`, `flow review`, `no endpoint source`, `step source`, `stale source review`, `missing source review`, and `decision flow`.
+A flow is about behavior, and the names and imports do not show behavior.
+
+The cited facts do not include the comments, the function bodies, the tests, or the facts that a different module gives, such as `imported_by`.
+Thus a comment, a change to a function body, or a new test does not open a finding again that is not about behavior.
+A new public name, a new import, or a new entry point in a cited module opens it again.
+A change to a different component, or to a `source_review` value, also does not open the finding again.
+For example, a new import of a module from a different component does not open an `entry point` answer.
+
+The evidence comes from the facts file. After a source change, use `systemap extract` or `systemap refresh`.
+
+A line that names no component and no module uses the full evidence: the model files and the cited facts of all modules.
 The model files are the model file and each model file that it imports.
 An `entry point` line with the full evidence also has all entry point records.
+
+Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
+
+In the 2.0 releases, the first `systemap refresh` or `systemap extract` examines each `evidence` value in the 2.0.0 form.
+If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
+The command changes only the `evidence` value, and it keeps all other text of the configuration file.
+
+A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
+From 2.1.0, an answer with a 2.0.0 value is pending. `judgement` prints the new digest in the `pending answer` line.
 
 Migration from facts format 10: the evidence of an `unknown surface` line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.
@@ -264,7 +303,8 @@ No question goes to Jev without `TYPESAFE_API_KEY`.
 `audit --dry-run` counts the questions and shows the data to send.
 The data contains module names, docstrings, public names, internal imports, component ids,
 sentences, invariants, and source lines at connections between components.
-With a key, the dry run gets the model list to count cached answers. It sends no map data.
+With Jev and `TYPESAFE_API_KEY`, the dry run gets the Jev model list to count cached answers. It sends no map data.
+With OpenAI, the dry run sends no request.
 
 A `decision flow` question gets its source lines from the `call_sites` fact of the modules at the two ends of the flow.
 The fact has the same form for Python and TypeScript. The context has these lines, in this sequence, until it has 60 lines:
@@ -354,6 +394,7 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 ## Which decision provider answers the questions?
 
 A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --decide`, and `delta --decide`.
+`judgement --order-by-drift` always uses Jev, also when the configuration selects OpenAI.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
 
@@ -490,6 +531,28 @@ The judgement report gives these values in rows below the line, and `judgement -
 An answer item in an earlier form applies to the line in the new form.
 `judgement` prints one warning to stderr for each item in an earlier form. The warning gives the new line.
 Two records with different line numbers can give the same line. Then one answer applies to the two records.
+
+Facts format 13 removes the counts from two lines, because a count can change while the finding stays the same.
+A row below the line gives the count, and `judgement --json` gives it in `open[].count`.
+
+| Earlier text in the line | New text in the line |
+|---|---|
+| `crossing import: Skill imports Config in 1 module and no flow connects them` | `crossing import: Skill imports Config and no flow connects them` |
+| `package_export web -> dist/a.js (+2 more): 3 package.json export targets have no resolved TypeScript modules.` | `package_export web -> dist/a.js: The package.json export targets have no resolved TypeScript modules.` |
+
+The row below a `crossing import` line is, for example, `count: 1 module`.
+The row below a `package_export` line is, for example, `count: 3 targets`.
+The `package_export` record has the number of targets in `count`. Only the TypeScript adapter writes this record.
+
+An answer item in an earlier form applies to the line in the new form.
+`judgement` prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+
+`judgement` gives no line about a test file, because a test file is not a part of the map.
+A question about a test file is not a question about the architecture.
+`check` and `refresh` continue to give each `test_file_issues` record.
+An answer for an `unknown surface: test file` line is a stale answer.
+The report gives the row `stale answer: '<item>' is no longer a finding: judgement gives no line about a test file.`
+Remove the item from `[judgement] answered`.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
 The previous options stay for one release. They send the same requests as the new options.
@@ -669,14 +732,16 @@ The full schema and examples are in
 
 ## Which command do you use?
 
-All commands accept `--root DIR` before or after the command.
+All commands accept `--root DIR` before the command. All commands except `explain` also accept it after the command.
 This option shows a project outside the current directory.
+After `decisions`, put the option after the action, for example `systemap decisions status --root DIR`.
 Exit codes are `0` for current, `1` for stale or rejected, and `2` for unusable
 configuration, model, or option value.
 The line after an error tells you which input to correct.
 The input is a command option, `systemap.toml` or the model module, a `tsconfig.json` file, or a Git ref.
 
 A command reads and writes a cache file or an output file only in the repository.
+The two exceptions are an absolute `figure --out` path and a `delta --comment` file outside the repository.
 If the file or one of its folders is a link out of the repository, the command stops with exit code `1`.
 A FIFO or a device at the file also stops the command with exit code `1`.
 The error gives the file and the cause.
@@ -742,6 +807,8 @@ Module records contain public surface, public names, internal imports, external
 imports, test references, and entry points.
 Package `__init__` records include re-exports.
 The other commands read this file.
+Before it writes the file, the command replaces each flow review digest from systemap 2.0.0 one time.
+The section "A flow review from systemap 2.0.0" gives this replacement.
 
 Each language adapter also writes these facts with the same meaning for Python and TypeScript:
 
@@ -760,12 +827,13 @@ Each language adapter also writes these facts with the same meaning for Python a
 
 - `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
 
-The facts file has a format number in its `version` key. The current format is 12.
+The facts file has a format number in its `version` key. The current format is 13.
 A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
 After an upgrade of systemap, run `systemap refresh`.
 
 A test file that systemap cannot read or parse gives a `test_file_issues` record, for Python and for TypeScript.
 The record is not known. It does not reject the map. `check` and `refresh` print it with its cause and its `fix:` line.
+`judgement` gives no line about a test file.
 
 systemap reads `systemap.toml`, `pyproject.toml`, `package.json`, and each `tsconfig.json` file only in the repository.
 A configuration file that is a link out of the repository, or that is not a regular file, gives a configuration error.
@@ -934,6 +1002,7 @@ Uses the page generator to render one figure for a document.
 
 - A relative `--out` path is relative to the output directory.
   Its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+  An absolute `--out` path can be outside the repository.
   The command replaces a link at the `--out` path with a file. It does not write to the target of the link.
 
 - `--svg-id ID` sets the HTML ID of the drawing. The default is `lessonmap`.
@@ -957,6 +1026,8 @@ It prints the rule results. A rule with the result `fail` causes exit 1.
 With `[rules] unknown = "fail"`, a rule with the result `unknown` also causes exit 1.
 The command writes its outputs before it examines the rules.
 `-q` or `--quiet` prints only errors and check results.
+Before the extraction, the command replaces each flow review digest from systemap 2.0.0 one time.
+The section "A flow review from systemap 2.0.0" gives this replacement.
 
 ### `systemap suggest [--decide]`
 
@@ -980,6 +1051,7 @@ sentences, thin layers, uncovered entry points, crossing imports, unreviewed
 flows, source records outside the flow endpoints, stale component source reviews,
 and model SDK imports outside agents.
 A line after the findings counts the component source reviews by state: current, stale, and missing.
+Then one row gives each flow with the label "review earlier than source tracking". These rows are not findings.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
 The first finding of each kind has rows about its effect and necessary action.
@@ -991,13 +1063,16 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - `--verbose` prints imports below each crossing-import row.
 
+- Below a `crossing import` line, a `count:` row gives the number of modules of the first component that import the second component.
+  Below a `package_export` line, a `count:` row gives the number of targets.
+
 - `--brief` does not include the two explanation rows.
 
 - Below each `unknown surface` line, a `cause:` row gives the cause that the adapter wrote.
   After the lines, the report gives one `fix:` line for each cause, as `systemap check` does.
   `--brief` does not remove these rows.
 
-- Below the `cause:` row, the line of a module record or a test file record gives its source rows.
+- Below the `cause:` row, the line of a module record gives its source rows.
   An `at:` row gives the file and the line of each cited statement.
   An `excerpt:` row gives the source excerpt. A `parser version:` row gives the version of the parser that refused the source.
   A finding line is the identity of the finding. Thus it does not contain these values (facts format 11).
@@ -1005,6 +1080,7 @@ The first finding of each kind has rows about its effect and necessary action.
 
 - If the decision store has unknown decision requests, the report gives each one after the review counts.
   The row `unknown request ID: CLAIM` gives the claim. The report does not say that the claim is correct.
+  An `open line:` row gives each open judgement line of the claim, and a `CI:` row gives the CI result of the claim.
   The `systemap decisions` section tells about decision requests.
 
 - `--json` writes one JSON object to stdout for software, for example a CI step.
@@ -1028,6 +1104,8 @@ The first finding of each kind has rows about its effect and necessary action.
   The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
   Examine each stale component, also the components at the end of the sequence.
   Set `TYPESAFE_API_KEY` for this option. Without the option, `judgement` sends no request.
+  Without the key, or without an open `stale source review` line, the option also sends no request.
+  The option always uses Jev. `[decisions] provider` does not apply to it.
 
   The question gives the claims that the `source_review` digest contains, and one part of the source.
   Git finds the last commit that added the recorded `source_review` digest below the folder of the model file.
@@ -1045,14 +1123,15 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 3. Version 2 added `open[].cause`. Version 3 added `open[].sources`. |
+| `schema_version` | integer | The version of this schema. The value is 6. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
 | `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
 | `open[].cause` | string or null | The cause of an `unknown surface` finding, for example `syntax` or `declaration file`. The `systemap check` section gives the causes. For other kinds, the value is null. |
-| `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module or a test file. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
+| `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
+| `open[].count` | integer or null | The count that the row below the line gives: the importing modules of a `crossing import` finding, or the targets of a `package_export` finding. For other findings, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |
@@ -1062,6 +1141,7 @@ The JSON object has these fields:
 | `answered.answers[].lines` | list of strings | The findings that the answer closes. |
 | `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
 | `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
+| `earlier_flow_reviews` | list of objects | One object for each flow with the label "review earlier than source tracking". `map` is the map ID, and an empty string for the top map. `flow` is the flow identifier. Such a review is current, so it gives no finding. |
 | `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
 | `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
@@ -1135,6 +1215,9 @@ than one-third of the map.
   Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
   If `FILE` is a link, the command replaces the link. It does not write to the target of the link.
+  A relative `FILE` is relative to the current directory, not to `--root`.
+  If `FILE` is in the repository, its folder must be in the repository after the resolution of links. If it is not, the command exits 1.
+  `FILE` can be outside the repository, for example in a folder of the CI runner.
   If `FILE` is in the repository, each folder of `FILE` must be in the repository.
 
 - `--decide` enables the suggestions of the decision provider for modules with changed
@@ -1294,6 +1377,7 @@ TypeScript samples include `.ts`, `.tsx`, tests, and package entry points.
 Prints one finding kind's meaning, effect on the map, and necessary action.
 With no kind, it lists all printed kinds and their one-line meanings.
 An unknown kind causes exit 1.
+The command reads no repository files. Thus it has no `--root` option after the command.
 
 ### `systemap convert`
 
@@ -1314,6 +1398,7 @@ Writes the current review digest of one target into the model file.
 `systemap review ID` writes `source_review` of the component ID.
 `systemap review --flow ID` writes `review_digest` of the flow with that identifier.
 `systemap review --flow 'SRC->DST'` writes `review_digest` of the flow from SRC to DST.
+A flow digest contains the flow claim and the `source_refs` with the digest of each module.
 The `SRC->DST` form is correct only for a pair that one flow connects.
 Put the `SRC->DST` value between quotation marks, because the shell reads `>` as a redirection.
 If the map has no flow with the `ID`, the command stops with exit 2.
@@ -1374,7 +1459,7 @@ If the claim does not change, the `id` stays the same in a different session.
 A source change that does not change a judgement line does not change its `id`.
 
 The decision store keeps one record for each target. The record does not use the claim digest.
-The target of a component is its ID, and the target of a flow is `SRC->DST`.
+The target of a component is its ID. The target of a flow is its `id`, or `SRC->DST` for a flow without an `id`.
 The target of a judgement line is its kind and the names of the components and modules in the line, for example `single module: Reader pkg.reader`.
 If two current lines have the same kind and names, or a line names nothing, the target is the full line.
 
@@ -1387,21 +1472,23 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 1. |
+| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `max_insufficient` and `requests[].insufficient`. |
 | `verdicts` | list of strings | `supported`, `contradicted`, and `insufficient_evidence`. |
 | `max_contradicted` | integer | The value of `[decisions] max_contradicted`. |
+| `max_insufficient` | integer | The quantity of `insufficient_evidence` verdicts for one target that makes the decision request unknown. The value is 2. |
 | `requests` | list of objects | One object for each pending decision request. |
 | `requests[].id` | string | The identifier for `request_id` in a verdict. |
 | `requests[].type` | string | `judgement`, `source_review`, or `flow_review`. |
 | `requests[].map` | string | The ID of the nested map. The top map has an empty string. |
-| `requests[].target` | string | The judgement line, the component ID, or the flow as `SRC->DST`. |
+| `requests[].target` | string | The judgement line, the component ID, or the flow identifier: the `id` of the flow, or `SRC->DST` for a flow without an `id`. |
 | `requests[].claim` | string | The claim text. For a component, it includes the flows, invariants, and sequences that name it. |
 | `requests[].claim_digest` | string or null | The current claim digest. The value is null if the component has no current digest. |
 | `requests[].files` | list of objects | The source files of the claim, with `file` (the path from the repository root), `module`, and `sha256` (the source hash of the full file). |
 | `requests[].verdicts` | list of strings | The permitted verdicts. |
 | `requests[].attempts` | integer | The quantity of `contradicted` verdicts for the target since the last change of its source. |
+| `requests[].insufficient` | integer | The quantity of `insufficient_evidence` verdicts for the target since the last change of its source. |
 | `requests[].blocked` | string | If not empty, the cause that prevents `supported`, and the necessary step. |
-| `requests[].identity` | string | The target in the decision store: the component ID, the flow, or the kind and names of a judgement line. |
+| `requests[].identity` | string | For a judgement line, the target in the decision store: the kind and names of the line, or the full line. For a component or a flow, an empty string, and the store uses `target`. |
 | `unknown` | integer | The quantity of unknown decision requests. |
 
 For a judgement line, the files are the files of the components and the modules that the line names.
@@ -1426,7 +1513,8 @@ The command rejects a verdict in these conditions:
 - The `request_id` is not a current decision request, or the decision request is unknown. A claim change gives a new `id`.
 - The file has two verdicts for one `request_id`.
 - A `file` is an absolute path, a Windows drive or UNC path, or contains `..` or a backslash.
-- A `file` is not a regular file, or is not a source file in the facts.
+- A `file` is not a regular file, or is not a source file or a test file in the facts.
+  A test file in the facts is the file of a test in the `tests` of a module record, or of a `test_file_issues` record.
 - A `file` is a symbolic link to a file that is not in the repository.
 - A line span is not in the file, or `start_line` is more than `end_line`.
 - A `sha256` is not the SHA-256 digest of the current file content.
@@ -1444,28 +1532,47 @@ Then the command writes, in this sequence:
 A `contradicted` verdict adds one to the `contradicted` count of the target.
 The agent must correct the map and send a new verdict.
 At `[decisions] max_contradicted` verdicts, the decision request becomes unknown.
-After one `insufficient_evidence` verdict, the decision request is unknown.
-A `supported` verdict sets the count to zero.
 
-A change of the map claim does not set the count to zero, and does not make an unknown decision request pending.
+An `insufficient_evidence` verdict adds one to the `insufficient_evidence` count of the target.
+After the first `insufficient_evidence` verdict, the agent can examine more of the source and send one more verdict.
+At 2 `insufficient_evidence` verdicts, the decision request becomes unknown.
+A `supported` verdict sets the two counts to zero.
+
+The decision store keeps each verdict of a target, with its summary, its citations, and its claim digest.
+`systemap decisions status` shows each verdict.
+The limits stop work that occurs again and again. They do not stop an agent that sends `supported` for a claim that it wrote.
+
+A change of the map claim does not set the counts to zero, and does not make an unknown decision request pending.
 Thus an agent that changes the map after each `contradicted` verdict stops at the limit.
-A change of a source file of the target makes the decision request pending again, with a count of zero.
+A change of a source file of the target makes the decision request pending again, with counts of zero.
 A file that the map change adds to the target, or removes from it, is not a source change.
 To start all counts again, delete `.systemap/decisions.json`.
 
+If `.systemap/decisions.json` does not contain correct JSON, or has a different version or form, the `systemap decisions` commands and `systemap judgement` stop with exit 1.
+The error gives the path and the cause. Remove the file. Then do the command again.
+
 #### `systemap decisions status [--json]`
 
-Gives the counts and the unknown decision requests.
+Gives the counts, the unknown decision requests, and the recorded verdicts.
 The command exits 0 if no decision request is pending or unknown. If not, it exits 1.
 An unknown decision request does not show that its claim is correct, and the text does not say that it is correct.
 
+The text gives the CI result of each unknown decision request.
+An open judgement line of the claim stays open. Thus `systemap judgement --strict` exits 1.
+If the claim has no open judgement line, `systemap judgement --strict` does not exit 1 because of the claim.
+For example, with `[judgement] require_reviews = false`, a component without a source review has no open judgement line.
+
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 1. |
+| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `supported_records`, `records`, and the fields `insufficient`, `open_lines`, and `history` of `unknown_requests`. In version 2, `supported` counts only the current claims. |
 | `pending` | integer | The quantity of pending decision requests. |
-| `supported` | integer | The quantity of `supported` verdicts in the decision store. Remove the decision store to start a new count. |
+| `supported` | integer | The quantity of `supported` verdicts for the current claims. A claim is current if its claim digest did not change after the verdict and no decision request opens it again. |
+| `supported_records` | integer | The quantity of `supported` verdicts in the decision store, also for claims that are not current. Remove the decision store to start a new count. |
 | `unknown` | integer | The quantity of unknown decision requests. |
-| `unknown_requests` | list of objects | One object for each unknown decision request, with `id`, `type`, `map`, `target`, `claim`, `claim_digest`, `verdict` (the last verdict), `attempts`, and `summary` (the last summary). |
+| `unknown_requests` | list of objects | One object for each unknown decision request, with `id`, `type`, `map`, `target`, `claim`, `claim_digest`, `verdict` (the last verdict), `attempts`, `insufficient`, `summary` (the last summary), `open_lines`, and `history`. |
+| `unknown_requests[].open_lines` | list of strings | The open judgement lines of the claim. If the list is not empty, `systemap judgement --strict` exits 1. |
+| `records` | list of objects | One object for each target in the decision store, with `id`, `type`, `map`, `target`, `state`, and `history`. |
+| `history` | list of objects | In `unknown_requests` and `records`: one object for each verdict, with `claim_digest`, `verdict`, `summary`, and `citations`. A record from systemap 2.0.0 has an empty list. |
 
 ### `systemap serve [--port 8765]`
 

@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from typing import Any
 from systemap import (
     __version__,
     answer_migrations,
+    answer_upgrade,
     change,
     check,
     check_actions,
@@ -56,6 +58,7 @@ from systemap import (
     place_source,
     providers,
     review,
+    review_upgrade,
     scaffold,
     serve,
     skill,
@@ -115,6 +118,16 @@ def _project(args: argparse.Namespace) -> Project:
     return Project(cfg, nest.load(cfg))
 
 
+def _upgraded(p: Project, args: Any, note: Callable[..., None], fresh: dict[str, Any]) -> Project:
+    """Record the source records of each flow review and the current evidence of each
+    current answer from systemap 2.0.0 one time (`review_upgrade`, `answer_upgrade`)."""
+    lines = review_upgrade.record(p.cfg, p.tree) + answer_upgrade.record(p.cfg, p.tree, fresh)
+    warnings = [line for line in lines if line.startswith("warning:")]
+    warn(*warnings)
+    note(*[line for line in lines if line not in warnings])
+    return _project(args) if len(lines) > len(warnings) else p
+
+
 # ---- init ------------------------------------------------------------------
 
 
@@ -170,6 +183,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
+    p = _upgraded(p, args, say, fresh)
     facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     say(*facts_file.summary(fresh))
     for m in p.tree.maps:
@@ -466,6 +480,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     if _empty(p):
         return STALE
     fresh = extraction.build(p.cfg)
+    p = _upgraded(p, args, note, fresh)
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.
@@ -577,6 +592,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*judgement.report(result, detail, args.kind or "", not args.brief, judged.causes))
     say(*notes)
     say(*judgement.review_counts(p.tree, facts))
+    say(*judgement_json.earlier_rows(judged, p.tree, not args.brief))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)

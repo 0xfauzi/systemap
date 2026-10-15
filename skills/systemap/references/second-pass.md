@@ -87,6 +87,10 @@ answered = [
 
 An exact answer must have the SHA-256 evidence digest for the current finding.
 A placeholder or old digest is not sufficient.
+The digest contains the facts that the finding cites: the names, the imports, and the entry points.
+A comment, a function body, or a test does not open the answer again.
+A line about a flow or a source review also contains the source files.
+`judgement` gives no line about a test file.
 A broad answer is a permanent policy only with `policy = true`.
 Use `reviewed = ["<printed line>", ...]` to record its examined baseline.
 The report counts current matches outside that baseline.

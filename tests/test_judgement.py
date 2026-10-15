@@ -269,7 +269,9 @@ def test_exact_crossing_answer_reopens_when_import_evidence_changes(tmp_path: Pa
     before = judgement.evidence_for_tree(tree, facts, tmp_path, lines)
     answer = Answer((crossing,), "only a type is imported", evidence=before[crossing])
     assert crossing not in judgement.apply_answers(lines, [answer], before).open
+    # The evidence comes from the facts: the imports with the imported names.
     (tmp_path / "pkg/extra.py").write_text("from pkg.reader import send\n", encoding="utf-8")
+    facts = extract.build(cfg)
     after = judgement.evidence_for_tree(tree, facts, tmp_path, lines)
     result = judgement.apply_answers(lines, [answer], after)
     assert crossing in result.open
@@ -293,7 +295,10 @@ def test_exact_answer_evidence_ignores_ast_dump_spelling(
     for item in record["api"]:
         item["fingerprint"] = "different AST dump"
     assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] == original
+    # A function body is not a cited fact (issue 90). A new public name is.
     (tmp_path / "pkg/reader.py").write_text("def read():\n    return 2\n", encoding="utf-8")
+    assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] == original
+    record["names"] = [*record["names"], {"kind": "function", "name": "added"}]
     assert judgement.evidence_for_tree(tree, other_parser, tmp_path, [line])[line] != original
 
 
@@ -589,7 +594,7 @@ def test_crossing_imports_without_flow() -> None:
     # pkg.cli imports pkg.reader (a flow joins CLI and Reader: silent) and
     # pkg.ledger (no flow joins CLI and Ledger: asked). pkg.__main__ imports
     # pkg.cli inside the same component: silent.
-    assert lines == ["crossing import: CLI imports Ledger in 1 module and no flow connects them"]
+    assert lines == ["crossing import: CLI imports Ledger and no flow connects them"]
     assert judgement.crossing_detail(model, entry_facts()) == {
         lines[0]: ["pkg.cli imports pkg.ledger"]
     }
@@ -600,9 +605,9 @@ def test_crossing_imports_without_flow() -> None:
 
 
 def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
-    """Sixteen modules of P importing Q is one question, not sixteen: the
-    line counts the importing modules, and --verbose lists the imports."""
-    model, _ = entry_model()
+    """Sixteen modules of P importing Q is one question, not sixteen: the row
+    below the line counts the importing modules, and --verbose lists the imports."""
+    model, meaning = entry_model()
     facts = entry_facts()
     # Two modules of CLI import Ledger, one of them twice over; Worker imports
     # CLI once; the count is of importing modules, the detail of imports.
@@ -611,16 +616,18 @@ def test_crossing_imports_are_one_line_per_pair_with_the_module_count() -> None:
     facts["components"]["pkg.worker"]["uses"] = {"pkg.cli": ["main"], "pkg.__main__": ["*"]}
     lines = judgement.crossing_imports_without_flow(model, facts)
     assert lines == [
-        "crossing import: CLI imports Ledger in 2 modules and no flow connects them",
-        "crossing import: Worker imports CLI in 1 module and no flow connects them",
+        "crossing import: CLI imports Ledger and no flow connects them",
+        "crossing import: Worker imports CLI and no flow connects them",
     ]
+    top = nest.Map(id="", path=Path("map/model.py"), rel="", model=model, meaning=meaning, theme={})
+    assert judgement.crossing_counts(nest.Tree((top,)), facts) == {lines[0]: 2, lines[1]: 1}
     detail = judgement.crossing_detail(model, facts)
     assert detail[lines[0]] == ["pkg.__main__ imports pkg.ledger", "pkg.cli imports pkg.ledger"]
     assert detail[lines[1]] == ["pkg.worker imports pkg.__main__", "pkg.worker imports pkg.cli"]
     # Both directions are two lines: the pair is ordered, the flow rule is not.
     facts["components"]["pkg.ledger"]["uses"] = {"pkg.cli": ["main"]}
     assert judgement.crossing_imports_without_flow(model, facts)[1] == (
-        "crossing import: Ledger imports CLI in 1 module and no flow connects them"
+        "crossing import: Ledger imports CLI and no flow connects them"
     )
     assert judgement.CROSSING_LINE.match(lines[0]) is not None
     assert judgement.CROSSING_LINE.match(lines[0]).groups() == ("CLI", "Ledger")  # type: ignore[union-attr]
@@ -727,9 +734,9 @@ def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
     lines = [
         "single module: A contains only p.a",
         "single module: B contains only p.b",
-        "crossing import: A imports B in 1 module and no flow connects them",
-        "crossing import: B imports A in 3 modules and no flow connects them",
-        "crossing import: A imports C in 1 module and no flow connects them",
+        "crossing import: A imports B and no flow connects them",
+        "crossing import: B imports A and no flow connects them",
+        "crossing import: A imports C and no flow connects them",
         "model sdk: module p.a imports google.adk and its component A is not an agent",
         "model sdk: module p.c imports openai and its component C is not an agent",
         "entry point main() in p.a has no sequence (component A)",
@@ -768,7 +775,7 @@ def test_crossing_answers_cover_into_from_and_every_pair() -> None:
     """One answer for every crossing import into a card, out of it, or among a set."""
 
     def line(a: str, b: str) -> str:
-        return f"crossing import: {a} imports {b} in 2 modules and no flow connects them"
+        return f"crossing import: {a} imports {b} and no flow connects them"
 
     lines = [line("A", "M"), line("B", "M"), line("M", "C"), line("A", "B"), line("C", "A")]
     into = judgement.apply_answers(lines, (Answer((), "the schema", crossing_into="M"),))
@@ -829,19 +836,20 @@ def test_crossing_into_and_from_in_the_configuration(
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    into_reader = "crossing import: Extra imports Reader in 1 module and no flow connects them"
-    into_writer = "crossing import: Extra imports Writer in 1 module and no flow connects them"
+    into_reader = "crossing import: Extra imports Reader and no flow connects them"
+    into_writer = "crossing import: Extra imports Writer and no flow connects them"
     assert into_reader in out and into_writer in out
     # --verbose lists the imports under each line; --kind prints one kind and
     # the head still counts every open line; an unknown kind is refused.
     assert main(["--root", str(tmp_path), "judgement", "--verbose", "--brief"]) == 0
     out = capsys.readouterr().out
-    assert f"  {into_reader}\n    pkg.extra imports pkg.reader\n  {into_writer}\n" in out
+    count = "    count: 1 module\n"
+    assert f"  {into_reader}\n{count}    pkg.extra imports pkg.reader\n  {into_writer}\n" in out
     # without --brief the kind is taught once, under the first line of that kind
     assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
     out = capsys.readouterr().out
     assert out.count("      why: The code has a connection that the map does not show.") == 1
-    assert f"  {into_reader}\n    pkg.extra imports pkg.reader\n      why: " in out
+    assert f"  {into_reader}\n{count}    pkg.extra imports pkg.reader\n      why: " in out
     assert main(["--root", str(tmp_path), "judgement", "--kind", "crossing import"]) == 0
     out = capsys.readouterr().out
     assert out.startswith("judgement: ") and ". The report shows 2 crossing import lines\n" in out

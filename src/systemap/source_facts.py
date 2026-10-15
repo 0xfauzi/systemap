@@ -111,15 +111,23 @@ def module_file(module: str, components: Mapping[str, Any]) -> str:
 
 
 def unknown_fact_lines(
-    facts: dict[str, Any], skip: Collection[str] = (), repository: bool = True
+    facts: dict[str, Any],
+    skip: Collection[str] = (),
+    repository: bool = True,
+    *,
+    test_files: bool = True,
 ) -> list[str]:
     """Give the facts that the extractor could not fully read or connect.
 
     A module line is not given for a module in `skip`. The judgement gives a module line
     in the map that owns the module. The lines about entry points, test files, and
     configuration files apply to the full repository. Only `repository` gives them.
+    Without `test_files`, no line is about a test file: `judgement` gives only questions
+    about the architecture, and a test file is not part of the map.
     """
-    return [line for line, _cause in unknown_fact_causes(facts, skip, repository)]
+    lines = unknown_fact_causes(facts, skip, repository)
+    tests = {line for line, _found in _test_file_issues(facts)} if not test_files else set()
+    return [line for line, _cause in lines if line not in tests]
 
 
 def unknown_fact_causes(
@@ -170,21 +178,55 @@ def _test_file_issues(facts: dict[str, Any]) -> list[tuple[str, Located]]:
 
 
 def _unknown_repository_lines(facts: dict[str, Any]) -> list[tuple[str, str]]:
-    out: list[tuple[str, str]] = []
-    for issue in facts.get("entry_point_issues", []):
-        line = (
+    tests = [(line, found.record) for line, found in _test_file_issues(facts)]
+    found = [*_entry_issues(facts), *tests, *_config_issues(facts)]
+    return [(line, unknown_causes.of(record)) for line, record in found]
+
+
+def _entry_issues(facts: dict[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:
+    """Give the line and the record of each entry point issue. `answer_migrations` reads
+    the earlier form of a `package_export` line, with the counts in the line."""
+    return [
+        (
             f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
-            f"{issue['reason']}"
+            f"{issue['reason']}",
+            issue,
         )
-        out.append((line, unknown_causes.of(issue)))
-    out += [(line, unknown_causes.of(found.record)) for line, found in _test_file_issues(facts)]
-    for issue in facts.get("config_issues", []):
-        # `answer_migrations` reads the earlier form of this line, which named npm.
-        line = (
+        for issue in facts.get("entry_point_issues", [])
+    ]
+
+
+def _config_issues(facts: dict[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:
+    """Give the line and the record of each configuration issue. `answer_migrations` reads
+    the earlier form of this line, which named npm."""
+    return [
+        (
             f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
-            "the configuration package could not be read"
+            "the configuration package could not be read",
+            issue,
         )
-        out.append((line, unknown_causes.of(issue)))
+        for issue in facts.get("config_issues", [])
+    ]
+
+
+def repository_records(facts: dict[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
+    """Give the records of each `unknown surface` line about an entry point or a
+    configuration file. `judgement_evidence` gives the records as the evidence."""
+    out: dict[str, list[Mapping[str, Any]]] = {}
+    for line, issue in [*_entry_issues(facts), *_config_issues(facts)]:
+        out.setdefault(line, []).append(issue)
+    return out
+
+
+def unknown_counts(facts: dict[str, Any]) -> dict[str, int]:
+    """Give the count of the targets of each `unknown surface` line whose record has a
+    `count`, such as a group of package targets. The count is not in the line, because it
+    can change while the finding stays the same."""
+    out: dict[str, int] = {}
+    for line, issue in [*_entry_issues(facts), *_config_issues(facts)]:
+        count = issue.get("count")
+        if isinstance(count, int) and not isinstance(count, bool):
+            out[line] = out.get(line, 0) + count
     return out
 
 

@@ -6,8 +6,9 @@ answers.
 
 Before this release, each kind name started with "jev". `PREVIOUS` gives the previous
 name of each kind. For one release, an answer in `[judgement] answered` can use an
-previous name, and it matches the line with the current name. `warnings` gives one
-warning for each previous name in the answers.
+previous name, and it matches the line with the current name. `answer_migrations` changes
+an item with a previous name to the current line. `warnings` gives one warning for each
+previous name in the answers.
 
 The evidence digest of a line is the digest of the same line with its previous kind
 name (`previous_line`). Thus a digest recorded before the rename stays correct. The
@@ -84,15 +85,6 @@ def bare(line: str) -> str:
     """Remove a nested-map `<map>: ` prefix from a decision line."""
     found = _parts(line)
     return line[len(found[0]) :] if found else line
-
-
-def current_line(line: str) -> str:
-    """Change an previous kind name in a decision line to the current name."""
-    found = _parts(line)
-    if found is None:
-        return line
-    prefix, name, rest = found
-    return f"{prefix}{current(name)}: {rest}"
 
 
 def previous_line(line: str) -> str:

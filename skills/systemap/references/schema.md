@@ -229,7 +229,7 @@ RELATIONS = {
 ```
 
 An import, common module, or configured mechanism gives `structural` evidence only.
-`observed` must have current `source_refs` and a `review_digest` that agrees with the flow and relation sentence.
+`observed` must have current `source_refs` and a `review_digest` that agrees with the flow, the relation sentence, and the source in `source_refs`.
 At least one reference must be in a module of the source or target component.
 An actor has no modules. For a flow with an actor end, use a module of the other end.
 If no reference is in an endpoint module, the flow is not `observed`, and `systemap judgement` gives a `no endpoint source` finding.
@@ -242,6 +242,16 @@ It does not examine the claims for you. Examine the source before you record the
 
 A source change gives a new `source_sha256`.
 A change to the flow or its relation sentence gives a new `review_digest`.
+The `review_digest` also contains the `source_refs` with the digest of each module.
+Thus a change to a module in `source_refs` makes the flow review not current, also when the claim does not change.
+A new digest in `source_refs` does not record a review. Examine the flow again. Then run `systemap review --flow`.
+A flow without `source_refs`, or with a source record that does not agree with the facts, has no current review.
+
+systemap 2.0.0 records a `review_digest` that contains only the claim.
+`systemap refresh` and `systemap extract` replace that digest one time with a digest of the claim and the current `source_refs`.
+The review stays current, with the label "review earlier than source tracking".
+The label shows that the digest does not identify the examined source.
+After the replacement, a change to a module in `source_refs` makes the review not current.
 Digests identify recorded source and claims. They do not show the claim's meaning automatically.
 
 `external` has an actor endpoint. `declared` has no examined source or structural support.
@@ -399,14 +409,14 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 12, with portable syntax hashes, compiler provenance, the digests of the configuration values that extraction reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
+- `version`: The facts format is 13, with portable syntax hashes, compiler provenance, the digests of the configuration values that extraction reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, or `reexport`. `extract --check` marks older formats stale.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer. `files` has, for each configuration file that extraction reads, the digest of the values that extraction reads from it. Comments and other values do not change the digest. `installed` has these digests for the files in an installed package folder, for example `node_modules`. A new or changed installed digest is an input change. An installed file that is not on this computer is not a change.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory with the name `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
 - `entry_points`: One record for each entry point, with the fields below.
-- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. The list is empty if there are none.
+- `entry_point_issues`: Package entry targets or Python decorators with unresolved framework bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. A record for a group of targets also has `count`, the number of targets, and `target` is the first target. The list is empty if there are none.
 - `test_file_issues`: Test files that could not be read or parsed. Each record has `file`, and a `problem` with `line`, `reason`, `source`, and `cause`. The test functions of these files are not known. `check` prints these records and does not fail. The Python adapter does not write an empty list.
 - `config_issues`: The configuration packages that a configuration file extends, and that the adapter cannot read. Each record has `file`, `reference`, and `cause`. Only the TypeScript adapter writes this field, for an npm package in the `extends` key of a tsconfig file. The list is empty if there are none.
 - `components`: One module record for each dotted name, with the fields below.

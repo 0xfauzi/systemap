@@ -15,6 +15,7 @@ import hashlib
 import json
 from typing import Any
 
+from systemap import flow_review
 from systemap.flow_ids import journey_record, resolve
 from systemap.model import (
     Component,
@@ -88,7 +89,8 @@ def _claims(
     """Collect semantic claims that make a new source review necessary after changes.
 
     With `reviews` false, the flows have no review digest, and the source records of the
-    flows have no source digest. These digests record an examination, not a claim.
+    flows have no source digest. These digests record an examination, not a claim. The
+    one write of an earlier-review digest does not change the claims (`flow_review`).
     """
     meaning = resolve(model, meaning)
     # A flow without an id gives the same claim as before flow ids.
@@ -99,7 +101,7 @@ def _claims(
             flow.artifact,
             flow.kind,
             flow.source_refs if reviews else tuple(_location(ref) for ref in flow.source_refs),
-            flow.review_digest if reviews else "",
+            flow_review.recorded_value(flow, meaning) if reviews else "",
             meaning.relation(flow),
             *((flow.id,) if flow.id else ()),
         )

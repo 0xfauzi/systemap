@@ -22,7 +22,7 @@ from pathlib import Path
 
 from conftest import TINY_PACKAGE, write_tree
 
-from systemap import answer_migrations, config, extract, judgement, judgement_moves, source_facts
+from systemap import answer_migrations, config, extract, judgement, source_facts
 from systemap.config import Answer
 
 
@@ -91,7 +91,7 @@ def test_an_answer_in_the_earlier_form_follows_a_line_that_moved_to_a_nested_map
         "unknown surface: module app.broken (app/broken.py:3): SyntaxError under Python 3.11.10"
     )
     answer = Answer(items=(earlier,), reason="known", evidence="digest-of-the-evidence")
-    (moved,) = judgement_moves.current_lines([answer], [current])
+    (moved,) = answer_migrations.current_lines([answer], [current])
     assert moved.items == (current,)
     assert answer_migrations.current_line(moved.items[0]) == current
     result = judgement.apply_answers([current], [moved], {current: "digest-of-the-evidence"})
