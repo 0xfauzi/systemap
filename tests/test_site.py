@@ -8,6 +8,7 @@ the order, the summary, the heading ids, the links, and the page parts.
 from __future__ import annotations
 
 import hashlib
+import html
 import importlib.util
 import re
 import sys
@@ -224,6 +225,27 @@ def test_code_blocks_get_classes_and_keep_their_text(site: ModuleType) -> None:
         '<span class="ln" style="--i:0">a &amp; b</span></code></pre>'
     )
     assert highlight("<b>", "unknown") == "&lt;b&gt;"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "systemap live &",
+        "systemap live >log.txt 2>&1 &",
+        "uv run systemap check & uv run systemap judgement",
+        "echo it's done",
+        'echo "one',
+    ],
+)
+def test_a_shell_block_keeps_each_character_of_the_command(site: ModuleType, line: str) -> None:
+    """Issue 97, item 9. Acceptance: the text of the highlighted line, without the tags,
+    is the same as the source line. A reader copies the command from this text."""
+    from highlight import highlight
+
+    shell = highlight(line + "\n", "sh")
+    assert html.unescape(re.sub(r"<[^>]+>", "", shell)) == line
+    command = highlight(f"$ {line}\n", "console")
+    assert html.unescape(re.sub(r"<[^>]+>", "", command)) == f"$ {line}"
 
 
 def test_the_landing_page_shows_recorded_output(fixture_site: dict[str, str]) -> None:

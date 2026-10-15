@@ -51,7 +51,7 @@ Each component has one review state:
 Delta and judgement use the same state.
 Delta gives a `source review` line for a changed component that is not `current`.
 Judgement gives a `stale source review` finding for each `stale` component, so `judgement --strict` fails.
-Judgement counts `missing` components on its `source reviews:` line. A missing review is not a finding.
+Judgement counts `missing` components on its `source reviews:` line. A missing review is not a finding, unless `[judgement] require_reviews = true`.
 
 `systemap review ID` writes the current digest into `source_review` of the component ID.
 It does not examine the claims for you. Examine all the claims before you use it.
