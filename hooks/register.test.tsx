@@ -15,6 +15,8 @@ const SVG_PATH = '/tmp/live/change.svg'
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>'
 const LIVE_ARGS = ['live', '--port', '0', '--json', '--no-watch']
 const SURFACES = ['terminal', 'desktop'] as const
+/** The pane line when no render was good. */
+const NO_RENDER = 'systemap did not render the map. Correct the cause. Then change a file.'
 const LONG = 3_600_000
 /** The time limit of a test in which the fake process runs. */
 const SLOW = { timeoutMs: 30_000 }
@@ -96,6 +98,8 @@ type Setup = {
   files?: Record<string, string>
   /** The fake `systemap live`; 'missing' is a command that cannot start. */
   process?: Step[] | 'missing'
+  /** The answer of GET /status; the default is STATUS. */
+  status?: object
 }
 
 type World = {
@@ -133,7 +137,7 @@ function world(on: On, setup: Setup = {}): World {
   on('http.fetch', ($, e) => {
     const isPost = e.init?.method === 'POST'
     ;(isPost ? found.posts : found.gets).push(e.url)
-    const body = e.url.endsWith('/status') ? STATUS : { queued: true }
+    const body = e.url.endsWith('/status') ? (setup.status ?? STATUS) : { queued: true }
     return { value: { status: isPost ? 202 : 200, ok: true, headers: {}, text: JSON.stringify(body) } }
   })
   on('process.spawn', async function* ($, e) {
@@ -224,6 +228,56 @@ describe('a directory without systemap', () => {
   })
 })
 
+/**
+ * Each pyproject.toml text and the answer of systemap.config.configures for it
+ * (issue 95). The acceptance value: the mod gives the same answer for each text.
+ * A text that is not correct TOML has the answer of a search for "tool.systemap".
+ */
+const PYPROJECTS: [string, boolean][] = [
+  ['[tool."systemap"]\nname = "x"\n', true],
+  ['[tool.systemap.writing]\nprofile = "plain"\n', true],
+  ['[project]\nname = "x"\n# [tool.systemap]\n', false],
+  ['[project]\ndescription = """\n[tool.systemap]\n"""\n', false],
+  ["[project]\ndescription = '''\n[tool.systemap]\n'''\n", false],
+  ['[tool]\nsystemap = { name = "x" }\n', true],
+  ['tool.systemap.name = "x"\n', true],
+  ['[ tool . systemap ]\n', true],
+  ['[tool.other]\nx = "[tool.systemap]"\n', false],
+  ['[tool.systemap\n', true],
+  ['[tool."systemap"\n', false],
+  ['[[tool.systemap.figures]]\nout = "a"\n', true],
+  ['tool = 1\n', true],
+  ['[[tool]]\nx = 1\n', true],
+  ['[tool]\n"systemap" = {}\n', true],
+  ['[tool.ruff]\nline-length = 1\n', false],
+  ["['tool'.'systemap']\n", true],
+  ['[tool]\nsystemap.writing.profile = "plain"\n', true],
+  ['[project]\nx = [\n  "[tool.systemap]",\n  # [tool.systemap]\n]\n', false],
+  ['\ufeff[tool.systemap]\n', true],
+  ['[tool.systemap]\n[tool.systemap]\n', true],
+  ['"tool.systemap" = 1\n', false],
+  ['[tool]\nsystemaps = 1\n', false],
+  ['tool = { systemap = { name = "x" } }\n', true],
+  ['tool = { ruff = { line-length = 1 } }\n', false],
+  ['["tool"."\\u0073ystemap"]\n', true],
+  ['[project]\nname = "x"\n[tool.uv]\ndev = ["a", \'b\', { x = 1 }]\n', false],
+  ['x = 1979-05-27T07:32:00Z\ny = -inf\nz = 0x1F\n[tool.systemap]\n', true],
+  ['[project] # [tool.systemap]\nname = "x"\n', false],
+  ['[project]\nname = "a\\"[tool.systemap]"\n', false],
+  ['[project]\nx = \'a\' # "\n[tool.systemap]\n', true],
+]
+
+describe('the configuration in pyproject.toml, as systemap finds it', () => {
+  for (const [text, isMapped] of PYPROJECTS) {
+    test(`${JSON.stringify(text)} is ${isMapped ? '' : 'not '}a configuration`, async ($, on) => {
+      world(on, { files: { 'pyproject.toml': text } })
+      await $.session.start(SESSION)
+      const words = isMapped ? 'map: not started · Start live map' : 'engine band'
+      expect((await band($)).words).toBe(words)
+    })
+  }
+})
+
 describe('the start of the live map', () => {
   test('session.start without autostart starts nothing and offers a start', async ($, on) => {
     const found = world(on)
@@ -249,6 +303,22 @@ describe('the start of the live map', () => {
     await runMap($)
     expect(found.spawned).toHaveLength(1)
   })
+
+  // Issue 95: the acceptance value is one argument for each quoted path.
+  const COMMANDS: [string, string[]][] = [
+    ['"/Applications/Map Tools/systemap"', ['/Applications/Map Tools/systemap']],
+    ["'/Applications/Map Tools/systemap'", ['/Applications/Map Tools/systemap']],
+    ['uv run --directory "/Users/a b/tools" systemap', ['uv', 'run', '--directory', '/Users/a b/tools', 'systemap']],
+    ['  uvx   systemap ', ['uvx', 'systemap']],
+  ]
+  for (const [command, words] of COMMANDS) {
+    test(`the command ${command} gives ${words.length} words`, { ...SLOW, options: { command } }, async ($, on) => {
+      const found = world(on)
+      await $.session.start(SESSION)
+      await runMap($)
+      expect(found.spawned).toEqual([[...words, ...LIVE_ARGS]])
+    })
+  }
 
   test('/map starts one process and opens the pane', SLOW, async ($, on) => {
     const found = world(on)
@@ -387,6 +457,28 @@ describe('the map pane', () => {
     for (const one of LINES) {
       expect(texts).toContain(one.text)
       expect(texts).toContain(one.action)
+    }
+  })
+
+  // Issue 95: the acceptance value is the cause, and no "The map is current." line.
+  test('a failed first render shows the error and its cause', SLOW, async ($, on) => {
+    const cause = 'map/model.py line 3: invalid syntax'
+    const failed = { state: 'error', updates: 0, lines: [], components: [], error: cause, svg: '', svg_bytes: 0 }
+    world(on, {
+      process: [
+        { out: line(SERVING) },
+        { out: line(RENDERING) },
+        { out: line({ event: 'error', version: 1, text: `${cause}\nTraceback` }) },
+        { wait: LONG },
+      ],
+      status: { ...STATUS, ...failed },
+    })
+    await startLive($)
+    for (const surface of SURFACES) {
+      const { texts } = await pane($, surface)
+      expect(texts).not.toContain('The map is current.')
+      expect(texts).toContain(`map: not updated: ${cause}`)
+      expect(texts).toContain(NO_RENDER)
     }
   })
 
