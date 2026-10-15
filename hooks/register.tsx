@@ -23,17 +23,17 @@ import {
   commandWords,
   endNotice,
   figureAlt,
-  hasToolTable,
   joinUrl,
   lineSplitter,
   liveArgv,
   pageUrl,
+  paneUpdates,
   parseEvent,
   parseStatus,
   shownPhase,
-  updateCount,
 } from './live'
 import type { LiveEvent } from './live'
+import { configures } from './pyproject'
 
 const NO_FIGURE: SystemapFigure = { version: 0, source: '', isTooLarge: false }
 
@@ -49,7 +49,7 @@ async function isMapped($: Engine): Promise<boolean> {
   }
   const pyproject = await $.fs.read('pyproject.toml').catch(() => '')
 
-  return hasToolTable(pyproject)
+  return configures(pyproject)
 }
 
 async function readStatus($: Engine): Promise<void> {
@@ -259,13 +259,12 @@ export const register: Register = (on, options) => {
       </Box>
     ))
     const hasMap = phase === 'ready' || phase === 'error' || phase === 'rendering'
-    const updates =
-      value.updates === 0 ? 'The map is current.' : `${updateCount(value.updates)}:`
+    const updates = paneUpdates(value, phase)
     const body = (
       <Box flexDirection="column">
         <Text>{shown?.words ?? 'map: not started'}</Text>
         {hasMap && value.url !== '' && link($, e, value.url)}
-        {hasMap && value.version > 0 && <Text bold>{updates}</Text>}
+        {hasMap && updates !== '' && <Text bold>{updates}</Text>}
         {hasMap && lines}
       </Box>
     )

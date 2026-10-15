@@ -32,6 +32,7 @@ export const OFF: SystemapLive = {
   cwd: '',
   url: '',
   version: 0,
+  good: 0,
   updates: 0,
   lines: [],
   components: [],
@@ -41,21 +42,48 @@ export const OFF: SystemapLive = {
   notice: '',
 }
 
-/** The `command` option split on spaces, `systemap` when it is empty. */
+/**
+ * The words of the `command` option, or `systemap` when it has no word. Spaces
+ * and tabs divide the words. Text between two quotation marks (' or ") is part
+ * of one word. Thus a path with spaces in quotation marks is one word. Between
+ * two " marks, `\"` is " and `\\` is \. Each other backslash stays, and thus a
+ * Windows path does not change. Text after an open quotation mark with no end
+ * mark is part of one word until the end.
+ */
 export function commandWords(command: unknown): string[] {
-  const words =
-    typeof command === 'string' ? command.split(' ').filter(word => word !== '') : []
+  const text = typeof command === 'string' ? command : ''
+  const words: string[] = []
+  let word: string | undefined
+  let quote = ''
+  for (let at = 0; at < text.length; at += 1) {
+    const char = text[at] ?? ''
+    const next = text[at + 1] ?? ''
+    if (quote === '' && (char === ' ' || char === '\t')) {
+      if (word !== undefined) {
+        words.push(word)
+      }
+      word = undefined
+    } else if (quote === '' && (char === '"' || char === "'")) {
+      quote = char
+      word ??= ''
+    } else if (char === quote) {
+      quote = ''
+    } else if (quote === '"' && char === '\\' && (next === '"' || next === '\\')) {
+      word = (word ?? '') + next
+      at += 1
+    } else {
+      word = (word ?? '') + char
+    }
+  }
+  if (word !== undefined) {
+    words.push(word)
+  }
 
   return words.length > 0 ? words : ['systemap']
 }
 
 export function liveArgv(command: unknown): string[] {
   return [...commandWords(command), 'live', '--port', '0', '--json', '--no-watch']
-}
-
-/** `[tool.systemap]` in pyproject.toml, as systemap's own config.find_root reads it. */
-export function hasToolTable(pyproject: string): boolean {
-  return pyproject.includes('[tool.systemap]')
 }
 
 export function firstLine(text: string): string {
@@ -182,7 +210,7 @@ export function applyEvent(live: SystemapLive, event: LiveEvent): SystemapLive {
       return { ...live, phase: 'rendering' }
     case 'rendered': {
       const { event: _, ...values } = event
-      return { ...live, ...values, phase: 'ready', error: '' }
+      return { ...live, ...values, good: event.version, phase: 'ready', error: '' }
     }
     case 'error':
       return { ...live, phase: 'error', version: event.version, error: firstLine(event.text) }
@@ -299,6 +327,22 @@ export function band(live: SystemapLive, phase: SystemapPhase): Band | undefined
     case 'stopped':
       return { words: live.notice, hasLink: false, canStart: true }
   }
+}
+
+const NO_RENDER = 'systemap did not render the map. Correct the cause. Then change a file.'
+
+/**
+ * The line of the pane above the map update lines, or '' for no line. Before
+ * the first good render, the map update lines are not known. If systemap
+ * cannot render the map then, the line is an error line. The band words above
+ * it give the cause.
+ */
+export function paneUpdates(live: SystemapLive, phase: SystemapPhase): string {
+  if (!(live.good > 0)) {
+    return phase === 'error' ? NO_RENDER : ''
+  }
+
+  return live.updates === 0 ? 'The map is current.' : `${updateCount(live.updates)}:`
 }
 
 /** What a screen reader says for the figure: the changed components. */
