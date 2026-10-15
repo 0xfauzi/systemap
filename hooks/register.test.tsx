@@ -231,7 +231,8 @@ describe('a directory without systemap', () => {
 /**
  * Each pyproject.toml text and the answer of systemap.config.configures for it
  * (issue 95). The acceptance value: the mod gives the same answer for each text.
- * A text that is not correct TOML has the answer of a search for "tool.systemap".
+ * For a text that is not correct TOML, the answer is true only if the text
+ * contains "tool.systemap".
  */
 const PYPROJECTS: [string, boolean][] = [
   ['[tool."systemap"]\nname = "x"\n', true],
