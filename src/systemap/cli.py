@@ -562,6 +562,7 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     With `--strict`, an open line gives exit code 1. `--json` writes one JSON object.
     """
     p = _project(args)
+    p = Project(providers.chosen(p.cfg, args.provider), p.tree)
     return (_judgement_json if args.json else _judgement_text)(p, args)
 
 
@@ -1137,12 +1138,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--order-by-drift",
         action="store_true",
         help=(
-            "Send one Jev question for each open stale source review line. Put these lines "
+            "Send one question to the selected provider for each open stale source review line. "
+            "Put these lines "
             "in sequence from the lowest probability that the claims agree with the source. "
             "The option does not change the open lines or the exit code. "
-            "It must have TYPESAFE_API_KEY."
+            "It must have the key of the selected provider."
         ),
     )
+    providers.add_option(s)
     s.set_defaults(func=cmd_judgement)
 
     s = sub.add_parser(

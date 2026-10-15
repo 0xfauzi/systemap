@@ -7,6 +7,12 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+- `judgement --order-by-drift` uses the provider selected by `[decisions] provider` or `--provider`.
+  Previously, it always sent questions to Jev when `TYPESAFE_API_KEY` was set.
+  A missing key or a failed request gives no score. The command does not send data to another provider.
+
 ## 2.0.0 - 2026-10-13
 
 2.0.0 is the first stable release of systemap.
