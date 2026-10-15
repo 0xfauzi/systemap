@@ -24,6 +24,7 @@ from typing import Any
 from systemap import (
     __version__,
     answer_migrations,
+    answer_upgrade,
     change,
     check,
     check_actions,
@@ -117,11 +118,10 @@ def _project(args: argparse.Namespace) -> Project:
     return Project(cfg, nest.load(cfg))
 
 
-def _upgraded(p: Project, args: argparse.Namespace, note: Callable[..., None]) -> Project:
-    """Record the source records of each flow review from systemap 2.0.0 one time.
-
-    Give the project again after a write (`review_upgrade`)."""
-    lines = review_upgrade.record(p.cfg, p.tree)
+def _upgraded(p: Project, args: Any, note: Callable[..., None], fresh: dict[str, Any]) -> Project:
+    """Record the source records of each flow review and the current evidence of each
+    current answer from systemap 2.0.0 one time (`review_upgrade`, `answer_upgrade`)."""
+    lines = review_upgrade.record(p.cfg, p.tree) + answer_upgrade.record(p.cfg, p.tree, fresh)
     warnings = [line for line in lines if line.startswith("warning:")]
     warn(*warnings)
     note(*[line for line in lines if line not in warnings])
@@ -183,7 +183,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
-    p = _upgraded(p, args, say)
+    p = _upgraded(p, args, say, fresh)
     facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     say(*facts_file.summary(fresh))
     for m in p.tree.maps:
@@ -479,8 +479,8 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     _require_roots(p)
     if _empty(p):
         return STALE
-    p = _upgraded(p, args, note)
     fresh = extraction.build(p.cfg)
+    p = _upgraded(p, args, note, fresh)
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.

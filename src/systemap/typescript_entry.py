@@ -50,10 +50,10 @@ def entry_points(
     prefixes: set[str],
     components: dict[str, Any],
     context: TypeScriptContext,
-) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
     """This function gives the package entry points and the targets that do not resolve."""
     points: list[dict[str, str]] = []
-    issues: list[dict[str, str]] = []
+    issues: list[dict[str, Any]] = []
     root_modules = {f"{prefix}.index" for prefix in prefixes}
     for package in _packages(repo, context):
         root_modules.update(_package_entries(package, context, points, issues))
@@ -104,7 +104,7 @@ def _package_entries(
     package: Package,
     context: TypeScriptContext,
     points: list[dict[str, str]],
-    issues: list[dict[str, str]],
+    issues: list[dict[str, Any]],
 ) -> set[str]:
     for name, target in _bin_targets(package.data, package.directory):
         module = entry_module(target, package, context)
@@ -136,7 +136,7 @@ def _bin_cause(rel: str, context: TypeScriptContext) -> str:
 
 def _package_exports(
     package: Package, context: TypeScriptContext
-) -> tuple[set[str], list[dict[str, str]]]:
+) -> tuple[set[str], list[dict[str, Any]]]:
     name = str(package.data.get("name", package.directory.name))
     modules: set[str] = set()
     unmapped: list[str] = []
@@ -153,11 +153,13 @@ def _package_exports(
             unmapped.append(target)
     if not unmapped:
         return modules, []
+    # The line names the first target. The count is not in the line, because it can
+    # change while the finding stays the same. `answer_migrations` reads the earlier form.
     sample = package.label + unmapped[0]
-    if len(unmapped) > 1:
-        sample += f" (+{len(unmapped) - 1} more)"
-    reason = f"{len(unmapped)} package.json export targets have no resolved TypeScript modules."
-    return modules, [_entry_issue("package_export", name, sample, reason, TARGET)]
+    reason = "The package.json export targets have no resolved TypeScript modules."
+    issue: dict[str, Any] = _entry_issue("package_export", name, sample, reason, TARGET)
+    issue["count"] = len(unmapped)
+    return modules, [issue]
 
 
 def entry_module(target: str, package: Package, context: TypeScriptContext) -> str | None:

@@ -109,7 +109,7 @@ class PythonLanguage(PythonRepository):
         del context, repo
         return {}
 
-    def extra_facts(self, context: Any, entry_issues: list[dict[str, str]]) -> dict[str, Any]:
+    def extra_facts(self, context: Any, entry_issues: list[dict[str, Any]]) -> dict[str, Any]:
         """Give the issue lists. An empty issue list is not written."""
         test_issues = getattr(context, "test_issues", [])
         lists = {"entry_point_issues": entry_issues, "test_file_issues": test_issues}
@@ -210,7 +210,7 @@ class PythonLanguage(PythonRepository):
         components: dict[str, Any],
         sources: dict[str, str],
         context: Any,
-    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
         del context
         issues = [
             issue

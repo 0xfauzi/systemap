@@ -519,7 +519,7 @@ class TypeScriptLanguage(TypeScriptRepository):
     def compiler_record(self, context: Any, repo: Path) -> dict[str, str]:
         return compiler_record(getattr(context, "compiler", None), repo)
 
-    def extra_facts(self, context: Any, entry_issues: list[dict[str, str]]) -> dict[str, Any]:
+    def extra_facts(self, context: Any, entry_issues: list[dict[str, Any]]) -> dict[str, Any]:
         """Give the issue lists. Each list is written, also when it is empty."""
         return {
             "entry_point_issues": entry_issues,
@@ -693,7 +693,7 @@ class TypeScriptLanguage(TypeScriptRepository):
         components: dict[str, Any],
         sources: dict[str, str],
         context: TypeScriptContext,
-    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
         del sources
         return typescript_entry.entry_points(repo, prefixes, components, context)
 

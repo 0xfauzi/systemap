@@ -23,7 +23,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 12, with portable syntax hashes, compiler provenance, "
+        "The facts format is 13, with portable syntax hashes, compiler provenance, "
         "the digests of the configuration values that extraction reads, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
@@ -65,7 +65,8 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "entry_point_issues",
         "Package entry targets or Python decorators with unresolved framework "
         "bindings. Each record has `kind`, `name`, `target`, `reason`, and `cause`. "
-        "The list is empty if there are none",
+        "A record for a group of targets also has `count`, the number of targets, and "
+        "`target` is the first target. The list is empty if there are none",
     ),
     (
         "facts",

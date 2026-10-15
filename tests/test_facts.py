@@ -137,10 +137,10 @@ def test_facts_format_is_9_and_an_older_file_is_stale(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     fresh = extract.build(cfg)
-    assert fresh["version"] == extract.FORMAT == 12
+    assert fresh["version"] == extract.FORMAT == 13
     older = {**fresh, "version": 1}
     assert extract.drift(fresh, older) == [
-        "facts format 1 is older than the extractor's 12; the file records less than the "
+        "facts format 1 is older than the extractor's 13; the file records less than the "
         "extractor reads"
     ]
     assert extract.drift(fresh, fresh) == []

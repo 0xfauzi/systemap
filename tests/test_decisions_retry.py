@@ -221,20 +221,16 @@ def test_a_test_file_that_the_facts_list_can_be_cited(
         "not listed": "systemap.toml",
     }[kind]
     requests = pending(mapped, capsys)
-    line = (
-        next(r for r in requests if r["target"].startswith(f"unknown surface: test file {name}"))
-        if kind == "issue"
-        else None
+    # `judgement` gives no line about a test file (issue 114). Thus no request is about one.
+    assert not [r for r in requests if "test file" in r["target"]]
+    request = of_type(requests, "source_review")
+    code, _out, err = submit(
+        mapped, capsys, verdict(request, "contradicted", "Read.", cite(mapped, name))
     )
-    request = line or of_type(requests, "source_review")
-    choice = "supported" if line else "contradicted"
-    code, out, err = submit(mapped, capsys, verdict(request, choice, "Read.", cite(mapped, name)))
     if kind == "not listed":
         assert code == 1 and f"{name} is not a source file or a test file in the facts." in err
         return
     assert code == 0, err
-    if line:
-        assert "added an exact answer" in out
 
 
 @pytest.mark.parametrize(

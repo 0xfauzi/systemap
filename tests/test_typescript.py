@@ -341,9 +341,10 @@ def test_compiled_package_entries_use_unique_source_fallback(tmp_path: Path) -> 
         {
             "kind": "package_export",
             "name": "web",
-            "target": "dist/missing.js (+1 more)",
-            "reason": "2 package.json export targets have no resolved TypeScript modules.",
+            "target": "dist/missing.js",
+            "reason": "The package.json export targets have no resolved TypeScript modules.",
             "cause": "target",
+            "count": 2,
         }
     ]
 

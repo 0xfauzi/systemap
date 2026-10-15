@@ -12,7 +12,7 @@ from typing import Any
 
 from conftest import write_tree
 
-from systemap import answer_migrations, config, extract, judgement, judgement_moves, source_facts
+from systemap import answer_migrations, config, extract, judgement, source_facts
 from systemap.config import Answer
 
 # A package of the ky layout: the source is in src, and package.json gives the output.
@@ -207,6 +207,6 @@ def test_an_answer_for_the_earlier_parse_line_applies_to_the_current_line(
     answer = Answer(items=(earlier,), reason="known", evidence="digest")
     # From facts format 11, `answer_migrations` gives the current line (trial3-1).
     assert answer_migrations.current_line(earlier) == line
-    [moved] = judgement_moves.current_lines([answer], [line])
+    [moved] = answer_migrations.current_lines([answer], [line])
     result = judgement.apply_answers([line], [moved], {line: "digest"})
     assert result.open == [] and result.stale == [] and result.pending == []

@@ -230,6 +230,59 @@ def add(root: Path, source: str, entries: list[dict[str, Any]]) -> Path:
             f"{target.name}: the command cannot add the answers and keep the other values. "
             f"It wrote no file. Add these rows to [{header}] answered:\n{manual}"
         )
+    _write(target, raw, new)
+    return target
+
+
+def _write(target: Path, raw: bytes, new: str) -> None:
+    """Write the new text. Keep the byte order mark of the file."""
     bom = "﻿" if raw.startswith(b"\xef\xbb\xbf") else ""
     target.write_bytes((bom + new).encode("utf-8"))
+
+
+def renew_evidence(root: Path, source: str, digests: dict[str, str]) -> Path:
+    """Replace each `evidence` value that is a key of `digests` with its new value. Give
+    the path of the file.
+
+    The writer changes only the text of these values in the inline tables of the answers
+    list. It writes the file only if the TOML parser gives the previous data with only
+    these changes."""
+    target = path(root, source)
+    raw = target.read_bytes()
+    text = raw.decode("utf-8-sig")
+    header, keys = _location(source)
+    try:
+        data = tomllib.loads(text)
+        new, answers = _renewed(text, header, _old(data, keys), digests)
+        same = tomllib.loads(new) == _expected(data, keys, answers)
+    except (ValueError, tomllib.TOMLDecodeError):
+        same = False
+    if not same:
+        raise AnswerWriteError(
+            f"{target.name}: the command cannot write the new evidence digests and keep the "
+            "other values. It wrote no file."
+        )
+    _write(target, raw, new)
     return target
+
+
+def _renewed(
+    text: str, header: str, old: list[Any], digests: dict[str, str]
+) -> tuple[str, list[Any]]:
+    """Give the new text and the expected list, with the new evidence values."""
+    _head, _after, start = _list_start(text, header)
+    spans = _tables(text, start) if start >= 0 else []
+    if len(spans) != len(old):
+        raise ValueError("The writer cannot find each answer in the list.")
+    answers = copy.deepcopy(old)
+    for k in reversed(range(len(old))):
+        value = old[k].get("evidence") if isinstance(old[k], dict) else None
+        if not isinstance(value, str) or value not in digests:
+            continue
+        begin, end = spans[k]
+        part = text[begin:end]
+        if part.count(value) != 1:
+            raise ValueError("The evidence value occurs more than one time in an answer.")
+        text = text[:begin] + part.replace(value, digests[value]) + text[end:]
+        answers[k]["evidence"] = digests[value]
+    return text, answers
