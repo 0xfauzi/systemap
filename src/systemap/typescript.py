@@ -43,6 +43,7 @@ from systemap.typescript_repo import (
     ts_skipped,
 )
 from systemap.typescript_resolve import (
+    declaration_file,
     module_name,
     program_dependencies,
     target_module,
@@ -391,7 +392,7 @@ def _reexport_targets(
     return Targets(
         lambda source: _resolve(source, module, known, paths, context),
         lambda source: _is_package(source, path, context),
-        lambda source: typescript_package_imports.declaration_file(source, path, context),
+        lambda source: declaration_file(source, path, context),
     )
 
 
@@ -418,7 +419,7 @@ def _unresolved(
             # A subpath import can name an npm package or a Node.js module.
             out.update(() if _node_module(package) else ((package, False),))
             continue
-        if typescript_package_imports.declaration_file(specifier, importer, context):
+        if declaration_file(specifier, importer, context):
             # A declaration file gives only types. It has no module, so no import rule
             # can apply to it, and it is not an unresolved import.
             continue
