@@ -54,7 +54,7 @@ from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, flow_ids, model_load, nest, repo_files, step_refs
+from systemap import card_review, contract_file, flow_ids, model_load, nest, repo_files, step_refs
 from systemap.model import Component, claimed, is_symbol, source_parsed
 from systemap.source_facts import Located, entry_identity, located_records, repository_records
 from systemap.source_text import text_digest
@@ -182,14 +182,16 @@ def line_modules(m: nest.Map, line: str, facts: dict[str, Any]) -> list[str]:
 
 
 def model_digest(m: nest.Map) -> str:
-    """Give the digest of the model file and each model file that it imports.
+    """Give the digest of the model file, the contract file, and each file that they import.
 
-    A model file without imports keeps the digest of its text, as before. If the data
-    reader refuses the model files, the digest is the digest of the loaded MODEL and
-    MEANING values. This occurs only for model code with SYSTEMAP_TRUST_MODEL_CODE=1.
+    A model file without imports and without a contract file keeps the digest of its text,
+    as before. If the data reader refuses the files, the digest is the digest of the loaded
+    MODEL and MEANING values. This occurs only for model code with
+    SYSTEMAP_TRUST_MODEL_CODE=1. The one move of the rules to the contract file changes this
+    digest, and `contract_move` then renews each answer that was current.
     """
     try:
-        paths = model_load.files(m.path, m.rel)
+        paths = model_load.files(m.path, m.rel) + contract_file.files(m.path, m.rel)
     except model_load.ModelFileError:
         return text_digest(repr((m.model, m.meaning)).encode())
     if len(paths) == 1:

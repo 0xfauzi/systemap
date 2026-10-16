@@ -248,6 +248,8 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | CLI output | Text that a command writes for a person or another program. |
 | compiler | A program that translates or analyses source code. |
 | container | A map boundary for a process, host, or source directory. |
+| contract | The file of a map that gives its invariants and import rules, each with a reason. |
+| reason (of a rule) | The recorded cause of a contract rule: the value of its `reason` field. |
 | contrast probe | A procedure that calculates contrast ratios for specified colors (category 7). |
 | CSS token | A named theme value used by style rules. |
 | diagnostic | A finding from a source, map, or consistency check. |

@@ -22,7 +22,7 @@ The command exits 1 if a rule rejects the map.
 | labels | Text does not fit or touches an obstacle. The conditions are below. |
 | type size | Text is smaller than 11 px at native scale. |
 | meaning | A sentence, verb, override, or sequence step identifies an absent item. A sentence, verb, or override uses the `(SRC, DST)` key of a pair with two or more flows. A sequence step names such a pair with `edge`. A flow has no sentence, or its sentence contains only spaces. A step has no `say`. A custom layer uses a standard id. The heading of these findings is `map meaning`. |
-| import rules | A resolved import is against an import rule of the model. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. The heading of these rule findings is `import rule fields`. |
+| import rules | A resolved import is against an import rule of the contract. The result of the rule is `fail`. A rule has a duplicate id, an unknown `kind` value, an unknown component, or an unknown invariant. The heading of these rule findings is `import rule fields`. |
 | stale | Facts, a page, or a figure are older than the source tree or model. Each map has a page. |
 
 A source module or test file that the extractor cannot read or parse does not reject the map.
@@ -33,6 +33,9 @@ Each result that reads the module is not known, and not a pass:
 - The component that claims the module has no source review digest. Thus `judgement` gives a `stale source review` line for it.
 - An import rule that reads the module gives `unknown`.
 - A missing entry, interface, or symbol name of the component is not known. `check` and `delta` do not report it.
+
+A contract rule without a reason does not reject the map.
+`check` prints it in the `contract reason` group, and `judgement` gives the same line as a finding.
 
 A meaning error, an import rule field error, or a placement error stops the check before it renders the map.
 Then the `map layout` line says that the check did not render the map.
@@ -169,6 +172,7 @@ For each finding, change the model or record the reason for its stored state.
 | step source | A record in the `source_refs` of a sequence step does not resolve in the current facts. Or, the record is in no module of an acting or measured component of the step. Cite a current record or change the step. |
 | stale source review | A component has a `source_review` digest that is not the current digest of its source and claims. Examine the source and the claims again. Then record the current digest with `systemap review ID`. |
 | missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
+| contract reason | An invariant or an import rule of the contract has no `reason`, for example `contract reason: invariant 3 has no reason`. Write the reason in the contract file from the code, the documentation, or the commit history. Do not record an answer. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
 
 Without `--strict`, the report exits 0.
@@ -218,6 +222,7 @@ The evidence digest of a line contains only the evidence that the line names:
 
 - For each component that the line names, the map claims of the component.
   These claims are the component fields, the plain name, and the flows, sequences, and invariants that name the component.
+  The claim of an invariant is its number, its text, and its `governs` value. The `reason` of the invariant is not a claim.
   The `source_review` value, the flow review digests, and the source digests in `source_refs` are not claims.
 - For each module that the line names, and each module of a named component, the cited facts of the module.
   The cited facts are the `file`, the `package`, the public `names`, and the imports in `uses` with the imported names.
@@ -242,7 +247,7 @@ For example, a new import of a module from a different component does not open a
 The evidence comes from the facts file. After a source change, use `systemap extract` or `systemap refresh`.
 
 A line that names no component and no module uses the full evidence: the model files and the cited facts of all modules.
-The model files are the model file and each model file that it imports.
+The model files are the model file, the contract file, and each file that they import.
 An `entry point` line with the full evidence also has all entry point records.
 
 Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
@@ -260,6 +265,11 @@ Thus each of these exact answers is pending one time after the update.
 Migration: the full evidence of a model file that imports other model files changed.
 The evidence of each `entry point` line also changed.
 Thus each of these exact answers is pending one time after the update.
+
+Migration to the contract file: the one move of the rules (see "What does the contract contain?") changes the model files.
+Thus it changes the full evidence of a line that names no component and no module.
+The command that moves the rules writes the new digest of each such answer that was current before the move.
+The move does not change the evidence of a line that names a component, because the rules do not change.
 
 Migration from systemap 1.2.0: an exact answer in 1.2.0 had no `evidence` digest.
 Thus each exact answer from 1.2.0 is pending until you write its digest.
@@ -664,7 +674,7 @@ MEANING = Meaning(
 )
 ```
 
-A model can also contain import rules.
+The contract file (see "What does the contract contain?") can contain import rules.
 `systemap check` and `systemap rules` compare each rule with the resolved imports in the facts.
 This rule gives `fail` if a module of `FactsExtractor` imports a module of `Schematic`:
 
@@ -682,7 +692,7 @@ IMPORT_RULES = (
 )
 ```
 
-Give the tuple to `Model(..., import_rules=IMPORT_RULES)`.
+Give the tuple to `Contract(..., import_rules=IMPORT_RULES)`.
 The schema file of the skill tells about the three `kind` values: `forbid_import`, `allow_imports`, and `forbid_cycle`.
 The page does not show import rules.
 
@@ -730,6 +740,54 @@ The full schema and examples are in
 [`SKILL.md`](../src/systemap/skill/SKILL.md) and its
 [`references/`](../src/systemap/skill/references/).
 
+## What does the contract contain?
+
+The contract file gives the rules of the map: the invariants and the import rules.
+The model files give the description of the code: the components, the flows, and the sequences.
+An agent changes the map freely. An agent changes a rule only with a reason.
+A change to a rule is a change to the contract file. Thus a reviewer sees each change to a rule in the pull request.
+
+The contract file is in the folder of the model file. For `map/model.py`, it is `map/contract.py`.
+For a different model file, such as the nested map `map/gateway.py`, it is `map/gateway_contract.py`.
+The contract file uses the same statements as the model file. It gives `CONTRACT` as a `Contract`:
+
+```python
+from systemap import Contract, Invariant
+
+INVARIANTS = (
+    Invariant(
+        1,
+        "Extraction does not use the drawing (README, Design).",
+        governs=("FactsExtractor",),
+        reason="The facts must not depend on the page.",
+    ),
+)
+
+CONTRACT = Contract(invariants=INVARIANTS)
+```
+
+Each rule must have a `reason` from the code, the documentation, or the commit history.
+A rule without a reason gives a `contract reason` line in `check` and `judgement`.
+If a reviewer refuses a change to a rule, the agent adds the cause to the reason of the rule that stays.
+Thus the next agent reads the cause before it proposes the change again.
+
+systemap keeps no list of owners or approvals. To select the reviewers of a change to the contract, add a `CODEOWNERS` line,
+for example `/map/contract.py @team-leads`. `systemap init` prints this line. It does not write `CODEOWNERS`, because it cannot know the team.
+
+### The rules of a map from before the contract file
+
+A map from before the contract file gives its rules in `Model(..., invariants=..., import_rules=...)`.
+In the 2.x releases, systemap reads the rules from the model file or from the contract file.
+If the two files give rules, systemap refuses the map with a configuration error that names the two files.
+
+The first `systemap refresh` or `systemap extract` moves the rules to the contract file one time, for each map.
+The command removes only the `invariants` and `import_rules` values with their assignments and comments.
+It also removes each imported name that the model file does not use after the move.
+It writes the files only if systemap reads the same model from the new files. If not, it prints a warning and writes no file.
+An empty contract file from `systemap init` gets the moved rules.
+After the move, each rule without a reason gives a `contract reason` line. The agent writes the reasons.
+Examine the two changed files before you commit them.
+
 ## Which command do you use?
 
 All commands accept `--root DIR` before the command. All commands except `explain` also accept it after the command.
@@ -753,8 +811,11 @@ An absolute path or a path with a `..` part gives exit code `2`.
 
 ### `systemap init [--no-ci | --strict-ci]`
 
-Writes `systemap.toml`, an initial model, the skill directory, and a GitHub
+Writes `systemap.toml`, an initial model, an empty contract file, the skill directory, and a GitHub
 workflow. The workflow pins this version.
+The contract file is `map/contract.py`. If the model file is present, the command does not write the contract file.
+After it writes the contract file, the command prints a suggested `CODEOWNERS` line for it, such as `/map/contract.py @OWNER`.
+The command does not write `CODEOWNERS`.
 The command does not replace `systemap.toml`, the model, or the workflow.
 If `pyproject.toml` has a `[tool.systemap]` table and `systemap.toml` is missing,
 the command does not write `systemap.toml`, because the commands read that file before the table.
@@ -809,6 +870,8 @@ Package `__init__` records include re-exports.
 The other commands read this file.
 Before it writes the file, the command replaces each flow review digest from systemap 2.0.0 one time.
 The section "A flow review from systemap 2.0.0" gives this replacement.
+It also moves the rules of each map from before the contract file to that file one time.
+The section "The rules of a map from before the contract file" gives this move.
 
 Each language adapter also writes these facts with the same meaning for Python and TypeScript:
 
@@ -965,6 +1028,9 @@ Each condition that rejects the map prints its lines.
 
 - `--brief` does not include these two rows.
 
+The `contract reason` group gives each invariant and import rule without a `reason`.
+These lines do not reject the map. `systemap judgement` gives the same lines.
+
 The `unknown surface` group gives the records that the extractor could not read or connect.
 These records do not reject the map.
 The adapter writes the cause of each record in the `cause` field.
@@ -1028,6 +1094,7 @@ The command writes its outputs before it examines the rules.
 `-q` or `--quiet` prints only errors and check results.
 Before the extraction, the command replaces each flow review digest from systemap 2.0.0 one time.
 The section "A flow review from systemap 2.0.0" gives this replacement.
+It also moves the rules of each map from before the contract file to that file one time, as `systemap extract` does.
 
 ### `systemap suggest [--decide]`
 

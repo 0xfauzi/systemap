@@ -38,6 +38,7 @@ from systemap.check_report import coverage_line as coverage_line
 from systemap.check_report import report as report
 from systemap.check_report import report_stale as report_stale
 from systemap.config import Config, Ignore
+from systemap.contract import unreasoned
 from systemap.entry_names import missing_entry
 from systemap.model import (
     Component,
@@ -690,6 +691,8 @@ class Result:
     # The source rows below each `unknown_surface` line (`source_facts.source_rows`).
     unknown_rows: Mapping[str, list[str]] = field(default_factory=dict)
     inventory_causes: tuple[str, ...] = ()
+    # The contract rules without a reason (`contract.unreasoned`). They do not reject the map.
+    contract: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -742,6 +745,7 @@ def run(
         unknown_causes=tuple(dict.fromkeys(cause for _line, cause in unknown)),
         unknown_rows=source_facts.unknown_rows(facts) if coverage else {},
         inventory_causes=tuple(dict.fromkeys(cause for _line, cause in unread)),
+        contract=unreasoned(model),
     )
 
 

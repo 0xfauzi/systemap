@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
-from test_check_rules import edit_model, run
+from test_check_rules import run
 
 from systemap import config, explain, extract, import_rules, model_load
 from systemap.import_rules import FAIL, NO_COMPONENT, NOT_PARSED, PASS, UNKNOWN, UNRESOLVED
@@ -268,12 +268,12 @@ def current(root: Path) -> None:
 
 
 def _with_rules(root: Path, *rules: str) -> None:
-    edit_model(root, "    Invariant,\n", "    ImportRule,\n    Invariant,\n")
-    edit_model(
-        root,
-        "    invariants=INVARIANTS,\n)",
-        f"    invariants=INVARIANTS,\n    import_rules=({', '.join(rules)},),\n)",
-    )
+    """Write the import rules in the contract file of the two-card map."""
+    path = root / "map/contract.py"
+    old = "IMPORT_RULES: tuple[ImportRule, ...] = ()"
+    text = path.read_text(encoding="utf-8")
+    assert old in text
+    path.write_text(text.replace(old, f"IMPORT_RULES = ({', '.join(rules)},)"), encoding="utf-8")
 
 
 def test_check_fails_for_a_rule_with_an_unknown_component(

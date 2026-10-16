@@ -19,7 +19,6 @@ import dataclasses
 import hashlib
 import io
 import json
-import os
 import shutil
 import tempfile
 import tokenize
@@ -28,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from systemap import config, file_write, flow_ids, model_load, repo_files, step_refs
+from systemap import config, contract_file, file_write, flow_ids, model_load, repo_files, step_refs
 from systemap import journey_coverage as judgement
 from systemap.agent import Agent, AgentError
 from systemap.config import ConfigError
@@ -453,14 +452,10 @@ def _proposed_meaning(path: Path, label: str, source: str) -> Meaning:
 
 
 def _model_files(path: Path, label: str) -> tuple[Path, ...]:
-    """Give the model file and the files that it can import.
-
-    The reader that runs no code gives the files that the model file imports. With
-    permission to run the model code, each Python file in the folder can be an import."""
-    if os.environ.get(model_load.TRUST) == "1":
-        return tuple(sorted(p for p in path.parent.glob(model_load.MODEL_FILES) if p.is_file()))
+    """Give the model file, the contract file, and the files that they can import
+    (`contract_file.map_files`)."""
     try:
-        return model_load.files(path, label)
+        return contract_file.map_files(path, label)
     except model_load.ModelFileError as exc:
         raise ConfigError(str(exc)) from exc
 
