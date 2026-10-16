@@ -37,6 +37,7 @@ from typing import Any
 
 from systemap import (
     card_review,
+    contract,
     decision,
     delta,
     flow_ids,
@@ -280,7 +281,7 @@ def claims_of(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]
             if card_review.touches(journey, card.id)
         ],
         "invariants": [
-            dataclasses.asdict(invariant)
+            contract.claim(invariant)
             for invariant in model.invariants
             if not invariant.governs or card.id in invariant.governs
         ],

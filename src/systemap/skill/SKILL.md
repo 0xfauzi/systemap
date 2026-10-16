@@ -14,8 +14,7 @@ A maintainer must examine these claims against source code. A structural check w
 The model is a file in Python syntax, usually `map/model.py`, with `MODEL` and `MEANING`. systemap reads it as data and does not run it. Write only literal values and model class calls.
 
 Run commands from the repository root. Use `--root DIR` for another repository.
-If the `systemap` command is missing, tell the maintainer. `uv tool install systemap` or `uv add --dev systemap` installs it.
-For a TypeScript repository, the `systemap[typescript]` package is necessary.
+If the `systemap` command is missing, tell the maintainer. `uv tool install systemap` or `uv add --dev systemap` installs it. For a TypeScript repository, the `systemap[typescript]` package is necessary.
 If `systemap.toml` is missing, run `systemap init`.
 
 ## Mandatory language requirement
@@ -106,6 +105,7 @@ Copy these lines into your answer. Mark each step when it is complete.
 | `missing source review` | With `[judgement] require_reviews = true`, a source component has no `source_review` digest. | Examine its source and all its claims. Then send a verdict with `systemap decisions`. |
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
+   | `contract reason` | An invariant or an import rule has no `reason`. | Write the reason in the contract file from the code, the documentation, or the commit history. Do not record an answer. |
 
    When Jev is available, run `systemap audit`. Act on or answer its `decision ...` lines.
 5. **render**: Run `systemap refresh`. Then run `systemap describe`.
@@ -133,7 +133,7 @@ Do not replace the full model for a small source change.
 1. Run `systemap delta --base REF` against the base branch.
    Each line identifies a change and the necessary map action.
    A `hint:` or `delta --decide:` line means the decision provider did not supply answers. Tell the maintainer.
-2. Act on these lines in `map/model.py` and `systemap.toml`.
+2. Act on these lines in `map/model.py`, `map/contract.py`, and `systemap.toml`.
 3. Run `systemap refresh`. Then run `systemap check && systemap judgement --strict`.
 4. If delta identifies more than one-third of the components, do the full loop.
 5. Do the language acceptance procedure for every changed name and sentence.
@@ -162,15 +162,14 @@ Every flow has an evidence state:
 
 Structural and declared flows use dashed lines. Examine their source evidence. An import alone does not show an artifact or its direction. Never renew a digest without source examination.
 
-Write sequences for the entry points that are important to a reader.
-`starts` is a display label. `covers` contains exact examined entry identities.
+Write sequences for the entry points that are important to a reader. `starts` is a display label. `covers` contains exact examined entry identities.
 Examine coverage for each newly found entry point.
 
-Invariants come from repository rules, source clauses, assertions, or tests.
-Cite the source of each invariant. Do not put a proposed rule in the recorded invariant list.
+The contract file `map/contract.py` gives the invariants and import rules. The other model files give the map. Change the map freely.
+Change a rule of the contract only with a `reason`. Write each reason from the code, the documentation, or the commit history. If a reviewer refuses a change to a rule, add the cause to the reason of the rule that stays.
+Invariants come from repository rules, source clauses, assertions, or tests. Cite the source of each invariant. Do not put a proposed rule in the recorded invariant list.
 
-Select the region for each component. Use `systemap place` for positions.
-A route must not cross an unrelated region.
+Select the region for each component. Use `systemap place` for positions. A route must not cross an unrelated region.
 Use `pinned=True` only for a position that must stay fixed.
 
 A component with more than ten modules can have a nested map. Maps with more than forty components also receive a nested-map suggestion.
@@ -222,7 +221,7 @@ Uncertainty: <each uncertain component assignment, source claim, or word under t
 Proposed rules: <each proposed invariant outside the invariant list>
 ```
 
-Commit `map/model.py`, `systemap.toml`, and `docs/map/` with the source changes.
+Commit `map/model.py`, `map/contract.py`, `systemap.toml`, and `docs/map/` with the source changes.
 The map must show current source, not proposed components.
 Do not put code or test counts on map components. Keep relationships on flows. Do not replace them with prose.
 

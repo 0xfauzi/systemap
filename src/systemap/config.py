@@ -19,6 +19,7 @@ from typing import Any
 
 from systemap import (
     config_decisions,
+    contract_file,
     decision_kinds,
     flow_ids,
     model_fields,
@@ -101,6 +102,7 @@ LINE_KINDS = (
     "missing source review",
     "model sdk",
     "unknown surface",
+    "contract reason",
 )
 # The kinds of line `systemap audit` prints; answered in the same list.
 AUDIT_KINDS = decision_kinds.KINDS
@@ -132,8 +134,7 @@ class Figure:
 class Ignore:
     """This record lets the map omit a module from coverage and gives the reason.
 
-    The module selector uses an exact name or a package pattern with `.*`.
-    """
+    The module selector uses an exact name or a package pattern with `.*`."""
 
     module: str
     reason: str
@@ -165,8 +166,7 @@ class Answer:
     @property
     def label(self) -> str:
         """This property gives the answer selector as configuration text for stale-answer
-        reports.
-        """
+        reports."""
         if self.crossing is not None:
             return "crossing = [" + ", ".join(f'"{cid}"' for cid in self.crossing) + "]"
         if self.crossing_into:
@@ -285,8 +285,7 @@ class Config:
 
 def find_root(start: Path) -> Path | None:
     """This function finds the nearest parent directory with configuration or .git,
-    including the start directory.
-    """
+    including the start directory."""
     for candidate in (start, *start.parents):
         if repo_files.present(candidate / CONFIG_FILE):
             return candidate
@@ -775,17 +774,18 @@ def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
     """This function reads the model file and gets MODEL and MEANING.
 
     The reader runs no code from the file. Only the environment of the command can permit
-    code, with SYSTEMAP_TRUST_MODEL_CODE=1 (see model_load). The optional label supplies
-    the path name in error messages. A refusal or an import error gives a configuration
-    diagnostic. A sequence step that names its flow by id gets the edge of that flow.
-    A name that the page cannot use (see model_names) gives a configuration diagnostic.
-    """
+    code, with SYSTEMAP_TRUST_MODEL_CODE=1 (see model_load). MODEL gets the rules of the
+    contract file (`contract_file.merged`). The optional label supplies the path name in
+    error messages. A refusal, an import error, or a name that the page cannot use (see
+    model_names) gives a configuration diagnostic. A sequence step that names its flow by
+    id gets the edge of that flow."""
     if not path.is_file():
         problem = "not a regular file" if repo_files.present(path) else "missing"
         raise ConfigError(f"The model module is {problem}: {path}")
     label = label or str(path)
     try:
         names = model_load.load(path, label)
+        names["MODEL"] = contract_file.merged(path, label, names.get("MODEL"))
     except model_load.ModelFileError as exc:
         raise ConfigError(str(exc)) from exc
     model = names.get("MODEL")

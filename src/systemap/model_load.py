@@ -32,6 +32,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import model as schema
+from systemap.contract import Contract
 
 TRUST = "SYSTEMAP_TRUST_MODEL_CODE"
 # A model file is Python text for each source language. The pattern finds model files.
@@ -54,6 +55,7 @@ MODEL_CLASSES: dict[str, type] = {
     for cls in (
         schema.Component,
         schema.Container,
+        Contract,
         schema.Flow,
         schema.ImportRule,
         schema.Invariant,

@@ -19,7 +19,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
-from systemap import config, model_load, model_write, nest
+from systemap import config, contract_file, model_load, model_write, nest
 from systemap.config import ConfigError
 
 WIDTH = 96
@@ -154,8 +154,9 @@ def convert(cfg: config.Config) -> list[str]:
             lines.append(f"{m.rel}: literal values only, not changed")
             continue
         doc = ast.get_docstring(ast.parse(m.path.read_text(encoding="utf-8-sig"))) or ""
-        text = source_text(doc, m.model, m.meaning)
-        _same(m.path, m.rel, text, m.model, m.meaning)
+        model = contract_file.own(m.path, m.rel, m.model)
+        text = source_text(doc, model, m.meaning)
+        _same(m.path, m.rel, text, model, m.meaning)
         staged[m.path] = text
         lines.append(f"{m.rel}: wrote the same model with literal values only")
         lines += [

@@ -94,6 +94,11 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("place_source.py", "write", "path.write_bytes"): MODEL + ", to restore its bytes",
     # A copy of the model files in a new temporary folder.
     ("review.py", "_same", "write_text"): "a file in a temporary folder of the command",
+    # The contract move: the model file and the contract file of a loaded map.
+    ("contract_move.py", "_move", "read_bytes"): MODEL,
+    ("contract_move.py", "_move", "target.read_bytes"): MODEL,
+    ("contract_move.py", "_same", "shutil.copyfile"): MODEL,
+    ("contract_move.py", "_same", "write_text"): "a file in a temporary folder of the command",
     # init and skill: each path is examined with repo_files.inside before the write.
     ("scaffold.py", "write", "path.write_text"): "a new file that repo_files.inside examined",
     ("skill.py", "write", "path.write_text"): "a skill file that repo_files.inside examined",

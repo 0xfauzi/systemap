@@ -25,6 +25,7 @@ from typing import Any
 from systemap import (
     answer_migrations,
     card_review,
+    contract,
     evidence,
     explain,
     judgement_evidence,
@@ -398,6 +399,7 @@ def run(
         + stale_source_reviews(model, meaning, facts)
         + model_sdk_imports(model, facts, sdks, skip=skip, separators=separators)
         + unknown_fact_lines(facts, skip, repository, test_files=False)
+        + contract.unreasoned(model)
     )
 
 

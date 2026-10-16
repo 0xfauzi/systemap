@@ -5,7 +5,8 @@ This page gives the terms of a systemap map and their meanings in this project.
 ## Facts and model
 
 - **Facts**: records that `systemap extract` makes from the source files. They give modules, public names, imports, test references, and entry points. They do not show which modules do one task together, or the direction of a connection.
-- **Model**: a Python module, usually `map/model.py`, that a person or a coding agent writes. It gives the components, flows, sequences, and invariants.
+- **Model**: a Python module, usually `map/model.py`, that a coding agent writes. It gives the components, flows, and sequences.
+- **Contract**: a Python module in the folder of the model, usually `map/contract.py`, that a coding agent writes. It gives the invariants and the import rules, each with a reason.
 
 ## Component
 
@@ -66,7 +67,11 @@ A model with an `agent` or `calls_model=True` component also has the Agents, Con
 - **Container**: a map boundary for a process, a host, or a source directory.
 - **Region**: a group of components and its bounds on the map. Each region is in a container.
 
-## Invariant
+## Contract
+
+The **contract** gives the rules of the system. It is a different file from the map. Thus a change to a rule shows as a change to that file in a pull request.
+An agent changes the map freely. An agent changes a rule only with a reason.
+A rule without a reason gives a `contract reason` finding. If a reviewer refuses a change to a rule, the agent adds the cause to the reason of the rule that stays.
 
 An **invariant** is a source-supported rule that applies to specified components. Its text cites the source of the rule.
 
