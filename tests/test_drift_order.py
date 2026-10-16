@@ -28,6 +28,7 @@ import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
 from systemap import card_review, config, drift_order, facts_file, jev, judgement, nest
+from systemap import openai_provider as oa
 from systemap.cli import main
 from systemap.decision import (
     Answer,
@@ -193,6 +194,32 @@ def transport(monkeypatch: pytest.MonkeyPatch) -> Transport:
     sent = Transport({**PY_SCORES, **TS_SCORES})
     monkeypatch.setenv(jev.KEY_ENV, "a test key")
     monkeypatch.setattr(jev, "http_send", lambda key, base=jev.API: sent)
+    return sent
+
+
+class OpenAITransport:
+    """An OpenAI transport with fixed probabilities and a record of each request."""
+
+    def __init__(self) -> None:
+        self.requests: list[dict[str, Any]] = []
+
+    def __call__(self, method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
+        assert method == "POST" and path == "/decisions" and body is not None
+        self.requests.append(body)
+        state = json.loads(body["input"])
+        score = {**PY_SCORES, **TS_SCORES}[state["component"]["id"]]
+        return {
+            "model": oa.MODEL,
+            "answers": [{"type": "predicate", "name": "agrees", "probability": score}],
+            "usage": {},
+        }
+
+
+@pytest.fixture
+def openai_transport(monkeypatch: pytest.MonkeyPatch) -> OpenAITransport:
+    sent = OpenAITransport()
+    monkeypatch.setenv(oa.KEY_ENV, "an OpenAI test key")
+    monkeypatch.setattr(oa, "http_send", lambda key: sent)
     return sent
 
 
@@ -408,6 +435,158 @@ def test_a_second_run_sends_no_question(
     assert transport.posts() == 2
     judgement_run(root, capsys, "--brief", "--order-by-drift")
     assert transport.posts() == 2
+
+
+# ---- provider selection -----------------------------------------------------------
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+@pytest.mark.parametrize(
+    ("configured", "option", "selected"),
+    [
+        ("openai", None, "openai"),
+        ("jev", "openai", "openai"),
+        ("openai", "jev", "jev"),
+        ("jev", None, "jev"),
+    ],
+)
+def test_drift_questions_go_only_to_the_selected_provider(
+    stale: tuple[Path, dict[str, float]],
+    transport: Transport,
+    openai_transport: OpenAITransport,
+    capsys: pytest.CaptureFixture[str],
+    json_output: bool,
+    configured: str,
+    option: str | None,
+    selected: str,
+) -> None:
+    """Acceptance: text and JSON use the selected provider, even when both keys are set."""
+    root, scores = stale
+    path = root / "systemap.toml"
+    path.write_text(path.read_text() + f'\n[decisions]\nprovider = "{configured}"\n')
+    options = ["--json"] if json_output else ["--brief"]
+    if option is not None:
+        options.extend(["--provider", option])
+    code, out = judgement_run(root, capsys, "--order-by-drift", *options)
+    assert code == 0
+    assert transport.posts() == (2 if selected == "jev" else 0)
+    assert len(openai_transport.requests) == (2 if selected == "openai" else 0)
+    if selected == "openai":
+        assert transport.requests == []
+    if json_output:
+        obj = json.loads(out)
+        actual = [row["drift"]["probability"] for row in obj["open"] if "drift" in row]
+        assert actual == sorted(scores.values())
+    else:
+        assert [card_of(row) for row in stale_lines(open_rows(out))] == sorted(
+            scores, key=scores.get
+        )
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+def test_missing_openai_key_does_not_send_to_jev(
+    stale: tuple[Path, dict[str, float]],
+    transport: Transport,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    json_output: bool,
+) -> None:
+    """Acceptance: a Jev key does not replace a missing key for the selected OpenAI provider."""
+    root, _ = stale
+    path = root / "systemap.toml"
+    path.write_text(path.read_text() + '\n[decisions]\nprovider = "openai"\n')
+    monkeypatch.delenv(oa.KEY_ENV, raising=False)
+    code, out = judgement_run(
+        root, capsys, "--order-by-drift", "--strict", "--json" if json_output else "--brief"
+    )
+    assert code == 1
+    assert transport.requests == []
+    if json_output:
+        assert "set OPENAI_API_KEY" in json.loads(out)["drift_order"]["reason"]
+    else:
+        assert "set OPENAI_API_KEY" in out
+
+
+def test_openai_drift_scores_are_cached(
+    stale: tuple[Path, dict[str, float]],
+    transport: Transport,
+    openai_transport: OpenAITransport,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Acceptance: a second OpenAI run uses its cache and sends no request to Jev."""
+    root, _ = stale
+    path = root / "systemap.toml"
+    path.write_text(path.read_text() + '\n[decisions]\nprovider = "openai"\n')
+    judgement_run(root, capsys, "--order-by-drift", "--brief")
+    assert len(openai_transport.requests) == 2
+    judgement_run(root, capsys, "--order-by-drift", "--brief")
+    assert len(openai_transport.requests) == 2
+    assert transport.requests == []
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+@pytest.mark.parametrize("no_questions", ["no option", "no stale review"])
+def test_openai_selection_without_questions_sends_nothing(
+    stale: tuple[Path, dict[str, float]],
+    transport: Transport,
+    openai_transport: OpenAITransport,
+    capsys: pytest.CaptureFixture[str],
+    json_output: bool,
+    no_questions: str,
+) -> None:
+    """Acceptance: keys and provider selection alone do not cause requests."""
+    root, _ = stale
+    path = root / "systemap.toml"
+    path.write_text(path.read_text() + '\n[decisions]\nprovider = "openai"\n')
+    options = ["--json"] if json_output else ["--brief"]
+    if no_questions == "no stale review":
+        record_reviews_again(root)
+        options.append("--order-by-drift")
+    judgement_run(root, capsys, *options)
+    assert transport.requests == []
+    assert openai_transport.requests == []
+
+
+@pytest.mark.parametrize("json_output", [False, True])
+def test_openai_request_failure_never_sends_to_jev(
+    stale: tuple[Path, dict[str, float]],
+    transport: Transport,
+    openai_transport: OpenAITransport,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    json_output: bool,
+) -> None:
+    """Acceptance: an OpenAI error gives no scores and does not select Jev."""
+
+    def fail(method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
+        assert body is not None
+        openai_transport.requests.append(body)
+        raise oa.OpenAIError("OpenAI answered 401: incorrect key")
+
+    monkeypatch.setattr(oa, "http_send", lambda key: fail)
+    root, _ = stale
+    code, out = judgement_run(
+        root,
+        capsys,
+        "--provider",
+        "openai",
+        "--order-by-drift",
+        "--strict",
+        "--json" if json_output else "--brief",
+    )
+    assert code == 1
+    assert len(openai_transport.requests) == 2
+    assert transport.requests == []
+    if json_output:
+        order = json.loads(out)["drift_order"]
+        assert order == {
+            "questions": 2,
+            "no_score": 2,
+            "reason": "OpenAI answered 401: incorrect key",
+        }
+    else:
+        assert out.count("    drift score: no score") == 2
+        assert "OpenAI answered 401: incorrect key" in out
 
 
 # ---- the source part --------------------------------------------------------------

@@ -81,7 +81,7 @@ INVARIANTS: tuple[Invariant, ...] = (
     ),
     Invariant(
         11,
-        "check does not use the network. judgement uses the network only with --order-by-drift (src/systemap/drift_order.py, docstring). A different Jev command sends requests only with a key (src/systemap/jev_cli.py, docstring).",
+        "check does not use the network. judgement uses only the selected decision provider, with its key and --order-by-drift (src/systemap/drift_order.py, docstring). A different Jev command sends requests only with a key (src/systemap/jev_cli.py, docstring).",
         governs=("Check", "Judgement", "SecondOpinion"),
         reason="CI runs check for each pull request. A network request makes the result depend on a service and a key. Network requests occur only with an explicit option or a key (src/systemap/drift_order.py, src/systemap/jev_cli.py, docstrings).",
     ),

@@ -403,8 +403,8 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 
 ## Which decision provider answers the questions?
 
-A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --decide`, and `delta --decide`.
-`judgement --order-by-drift` always uses Jev, also when the configuration selects OpenAI.
+A decision provider is the model API that answers questions about source facts and map claims.
+The commands are `audit`, `triage`, `plan`, `suggest --decide`, `delta --decide`, and `judgement --order-by-drift`.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
 
@@ -1105,7 +1105,7 @@ components that can become nested maps.
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
 
-### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]`
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]`
 
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
@@ -1154,7 +1154,7 @@ The first finding of each kind has rows about its effect and necessary action.
   For a model without components, the lists are empty.
   The exit code is 1 with `--strict`, and 0 without it.
 
-- `--order-by-drift` sends one Jev question for each open `stale source review` line.
+- `--order-by-drift` sends one question to the selected provider for each open `stale source review` line.
   The answer is the drift score: the probability that the claims of the component agree with its changed source.
   The report puts the stale lines in sequence from the lowest drift score.
   The other lines do not move.
@@ -1165,9 +1165,11 @@ The first finding of each kind has rows about its effect and necessary action.
   The open lines and the exit code are the same with and without the option.
   The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
   Examine each stale component, also the components at the end of the sequence.
-  Set `TYPESAFE_API_KEY` for this option. Without the option, `judgement` sends no request.
+  Set the key of the selected provider: `TYPESAFE_API_KEY` for Jev, or `OPENAI_API_KEY` for OpenAI.
+  Without the option, `judgement` sends no request.
   Without the key, or without an open `stale source review` line, the option also sends no request.
-  The option always uses Jev. `[decisions] provider` does not apply to it.
+  `--provider` overrides `[decisions] provider`. The default provider is Jev.
+  A missing key or a failed request gives no score. The command does not use another provider.
 
   The question gives the claims that the `source_review` digest contains, and one part of the source.
   Git finds the last commit that added the recorded `source_review` digest below the folder of the model file.
@@ -1178,8 +1180,8 @@ The first finding of each kind has rows about its effect and necessary action.
 
   A refusal or a request error gives `no score`. A line without a score goes to the end of the stale lines.
   A `drift sequence:` row gives the quantity of questions without a score and the cause.
-  The answers go into the Jev cache. Thus, the next command sends no question.
-  It reads the model list one time, as each Jev command does.
+  The answers go into the cache of the selected provider. Thus, the next command sends no question.
+  With Jev, it reads the model list one time, as each Jev command does.
 
 The JSON object has these fields:
 
