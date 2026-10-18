@@ -403,8 +403,8 @@ Each hint gives a result that was measured with earlier prompts on Python reposi
 
 ## Which decision provider answers the questions?
 
-A decision provider is the model API that answers the questions of `audit`, `triage`, `plan`, `suggest --decide`, and `delta --decide`.
-`judgement --order-by-drift` always uses Jev, also when the configuration selects OpenAI.
+A decision provider is the model API that answers questions about source facts and map claims.
+The commands are `audit`, `triage`, `plan`, `suggest --decide`, `delta --decide`, and `judgement --order-by-drift`.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (`POST https://api.openai.com/v1/decisions`, model `gpt-6-luna`, public beta).
 
@@ -436,6 +436,7 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 | triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
 | plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
 | `suggest --decide`, `delta --decide` moves | not available | not measured | No holdout rows exist. |
+| `judgement --order-by-drift` | not available | not measured | No holdout rows exist. |
 
 The owner question of `delta --decide` uses the `decision owner` threshold.
 The `decision flow` threshold came from a second measurement on 2026-10-13. It used the flow context from the `call_sites` fact, as the command does.
@@ -1139,7 +1140,7 @@ components that can become nested maps.
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
 
-### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]`
+### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]`
 
 Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
@@ -1188,7 +1189,8 @@ The first finding of each kind has rows about its effect and necessary action.
   For a model without components, the lists are empty.
   The exit code is 1 with `--strict`, and 0 without it.
 
-- `--order-by-drift` sends one Jev question for each open `stale source review` line.
+- `--order-by-drift` uses the selected provider only if it has a measured drift result.
+  It sends one question for each open `stale source review` line.
   The answer is the drift score: the probability that the claims of the component agree with its changed source.
   The report puts the stale lines in sequence from the lowest drift score.
   The other lines do not move.
@@ -1199,9 +1201,13 @@ The first finding of each kind has rows about its effect and necessary action.
   The open lines and the exit code are the same with and without the option.
   The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
   Examine each stale component, also the components at the end of the sequence.
-  Set `TYPESAFE_API_KEY` for this option. Without the option, `judgement` sends no request.
+  Jev has a measured drift result (`bench/jev/README.md`, test 7). Set `TYPESAFE_API_KEY` to use it.
+  OpenAI has no measured drift result. With OpenAI selected, the command sends no request and gives the cause.
+  Each stale line then has `no score`. With `--json`, `drift_order.reason` gives the cause.
+  Without the option, `judgement` sends no request.
   Without the key, or without an open `stale source review` line, the option also sends no request.
-  The option always uses Jev. `[decisions] provider` does not apply to it.
+  `--provider` overrides `[decisions] provider`. The default provider is Jev.
+  A missing key or a failed request gives no score. The command does not use another provider.
 
   The question gives the claims that the `source_review` digest contains, and one part of the source.
   Git finds the last commit that added the recorded `source_review` digest below the folder of the model file.
@@ -1212,7 +1218,7 @@ The first finding of each kind has rows about its effect and necessary action.
 
   A refusal or a request error gives `no score`. A line without a score goes to the end of the stale lines.
   A `drift sequence:` row gives the quantity of questions without a score and the cause.
-  The answers go into the Jev cache. Thus, the next command sends no question.
+  Jev answers go into the Jev cache. Thus, the next command sends no question.
   It reads the model list one time, as each Jev command does.
 
 The JSON object has these fields:
@@ -1808,7 +1814,7 @@ Unknown keys are rejected.
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. The previous `jev` names stay correct for one release, with a warning. |
 | `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
-| `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, and `suggest --decide`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
+| `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, `suggest --decide`, and `judgement --order-by-drift`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--decide`. With `enabled` unset, `delta` sends no question without `--decide`, also with a key. `enabled = false` stops the hints. |
 | `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |

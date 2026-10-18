@@ -43,10 +43,10 @@ from systemap import (
     flow_ids,
     history,
     jev,
-    jev_provider,
     judgement,
     judgement_json,
     nest,
+    providers,
     repo_files,
 )
 from systemap.config import Config
@@ -350,20 +350,25 @@ def _usage(provider: Any) -> None:
         print(usage.line(), file=sys.stderr)
 
 
-def with_jev(
+def with_provider(
     cfg: Config,
     tree: nest.Tree,
     facts: dict[str, Any],
     open_lines: Sequence[str],
     send: jev.Send | None = None,
 ) -> Order:
-    """Give the scores from Jev. The provider uses the Jev cache of the configuration."""
+    """Give scores from the selected provider, with its configured cache."""
+
+    def make() -> DecisionProvider:
+        providers.require_drift(cfg)
+        return providers.select(cfg, send)
+
     return order(
         cfg,
         tree,
         facts,
         open_lines,
-        lambda: jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send, cfg.root),
+        make,
     )
 
 
@@ -381,7 +386,7 @@ def text(
     """Give the text report parts. Without `--order-by-drift`, give them with no change."""
     if not args.order_by_drift:
         return result, crossings, []
-    found = with_jev(cfg, tree, facts, result.open)
+    found = with_provider(cfg, tree, facts, result.open)
     return found.applied(result), {**(crossings or {}), **found.rows()}, found.notes()
 
 
@@ -401,7 +406,7 @@ def payload(
     kind = args.kind or ""
     if not args.order_by_drift:
         return judgement_json.payload(given, crossings, reviews, kind), []
-    found = with_jev(cfg, tree, facts, given.result.open)
+    found = with_provider(cfg, tree, facts, given.result.open)
     ordered = dataclasses.replace(given, result=found.applied(given.result))
     obj = judgement_json.payload(ordered, crossings, reviews, kind)
     for row in obj["open"]:
