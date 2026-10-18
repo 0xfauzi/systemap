@@ -161,6 +161,7 @@ Every flow has an evidence state:
 - `declared`: no structural evidence or examined source supports the flow.
 
 Structural and declared flows use dashed lines. Examine their source evidence. An import alone does not show an artifact or its direction. Never renew a digest without source examination.
+Each claim has an assurance level: `established`, `examined`, or `unknown` (`references/decisions.md`). Do not write "verified" for an `examined` claim.
 
 Write sequences for the entry points that are important to a reader. `starts` is a display label. `covers` contains exact examined entry identities.
 Examine coverage for each newly found entry point.
