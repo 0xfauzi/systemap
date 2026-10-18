@@ -185,14 +185,21 @@ def test_delta_has_no_markdown_format(repo: Path) -> None:
     assert stop.value.code == 2
 
 
-def test_this_repository_workflow_writes_no_comment() -> None:
-    """This repository publishes no page for each pull request, so CI writes no comment."""
+def test_this_repository_workflow_writes_the_summary_comment() -> None:
+    """This repository writes the architecture summary, with the same comment job as the
+    workflow from `systemap init`. Only the comment job can write to the pull request."""
     text = (Path(__file__).resolve().parent.parent / ".github/workflows/systemap.yml").read_text(
         encoding="utf-8"
     )
-    job = text.split("\n  delta:\n", 1)[1].split("\n  test:\n", 1)[0]
-    assert 'uv run systemap delta --base "$BASE" --head "$HEAD" || code=$?' in job
-    assert "pull-requests: write" not in text and "gh api" not in text
-    assert "--format markdown" not in text
+    job = text.split("\n  delta:\n", 1)[1].split("\n\n  # This job writes", 1)[0]
+    comment = text.split("\n  comment:\n", 1)[1].split("\n  test:\n", 1)[0]
+    assert (
+        'uv run systemap delta --base "$BASE" --head "$HEAD" --comment comment.md || code=$?' in job
+    )
+    assert 'cat comment.md >> "$GITHUB_STEP_SUMMARY"' in job
     assert "::error title=Map delta::The map needs an update." in job
     assert job.rstrip().endswith('exit "$code"')
+    assert text.count("pull-requests: write") == 1 and "pull-requests: write" in comment
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in comment
+    assert "pull_request_target" not in text
+    assert "--format markdown" not in text

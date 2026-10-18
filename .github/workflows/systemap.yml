@@ -2,7 +2,7 @@ name: systemap
 
 # CI compares committed map output with source and tests the package on three operating systems.
 # Delta gives the necessary map updates in the job log. The job fails if the map needs an update.
-# This repository publishes no map page for each pull request, so no job writes a comment.
+# The comment job writes the architecture summary of delta as one pull request comment.
 # Installation uses an empty environment and a map copy outside the source checkout.
 # Plugin validation rejects all errors and warnings except the documented root CLAUDE.md warning.
 # The plugin tests run the hooks module of the live map with a fake systemap live process.
@@ -71,6 +71,8 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      comment: ${{ steps.delta.outputs.comment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -87,18 +89,55 @@ jobs:
         run: uv sync --frozen --all-extras --dev
 
       - name: Show map changes
+        id: delta
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           code=0
-          uv run systemap delta --base "$BASE" --head "$HEAD" || code=$?
+          uv run systemap delta --base "$BASE" --head "$HEAD" --comment comment.md || code=$?
+          if [ -s comment.md ]; then
+            cat comment.md >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "comment<<SYSTEMAP_COMMENT"
+              cat comment.md
+              echo "SYSTEMAP_COMMENT"
+            } >> "$GITHUB_OUTPUT"
+          fi
           if [ "$code" = "1" ]; then
             echo "::error title=Map delta::The map needs an update. Do the action in each line above. Then run the command in the last line."
           elif [ "$code" != "0" ]; then
             echo "::error title=Map delta::systemap delta could not run (exit $code). The lines above give the reason."
           fi
           exit "$code"
+
+  # This job writes the architecture summary as one pull request comment.
+  # It operates only for a pull request from a branch of this repository. The code of a pull
+  # request from a fork can change the comment text. The job summary of the delta job gives the
+  # summary for each pull request, also from a fork.
+  comment:
+    needs: delta
+    if: >-
+      ${{ !cancelled() && needs.delta.outputs.comment != ''
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # this job posts or updates the summary comment
+    steps:
+      - name: Architecture summary
+        env:
+          BODY: ${{ needs.delta.outputs.comment }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.body | startswith("<!-- systemap delta -->"))) | first | .id // empty' | head -n 1)"
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -f body="$BODY" > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$BODY" > /dev/null
+          fi || echo "::warning title=Architecture summary::The job could not write the comment. The job summary of the delta job gives the text."
 
   test:
     runs-on: ${{ matrix.os }}
