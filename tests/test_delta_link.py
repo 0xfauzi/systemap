@@ -201,5 +201,8 @@ def test_this_repository_workflow_writes_the_summary_comment() -> None:
     assert job.rstrip().endswith('exit "$code"')
     assert text.count("pull-requests: write") == 1 and "pull-requests: write" in comment
     assert "github.event.pull_request.head.repo.full_name == github.repository" in comment
+    # The job changes only a comment from the Actions bot. A comment from a different person can
+    # also start with the marker.
+    assert '.user.login == "github-actions[bot]" and' in comment
     assert "pull_request_target" not in text
     assert "--format markdown" not in text

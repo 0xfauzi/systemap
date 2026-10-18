@@ -132,7 +132,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.body | startswith("<!-- systemap delta -->"))) | first | .id // empty' | head -n 1)"
+          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- systemap delta -->")))) | first | .id // empty' | head -n 1)"
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -f body="$BODY" > /dev/null
           else

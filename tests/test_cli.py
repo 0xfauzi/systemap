@@ -180,6 +180,9 @@ def test_init_workflow_posts_the_summary_as_one_comment(tmp_path: Path) -> None:
     assert "${{ !cancelled() && needs.delta.outputs.comment != ''" in link
     # A fork pull request can change the comment text: the job runs only for this repository.
     assert "&& github.event.pull_request.head.repo.full_name == github.repository }}" in link
+    # The job changes only a comment from the Actions bot. A comment from a different person can
+    # also start with the marker.
+    assert '.user.login == "github-actions[bot]" and' in link
     assert "comment: ${{ steps.delta.outputs.comment }}" in job
     # One comment: found by the marker delta writes first, then edited in place.
     assert f'startswith("{delta_link.MARKER}")' in link
