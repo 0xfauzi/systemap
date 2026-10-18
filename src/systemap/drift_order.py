@@ -1,9 +1,11 @@
 """Put the open stale source review lines in sequence by a drift score.
 
 `systemap judgement --order-by-drift` uses this module. For each open stale source
-review line, a predicate question goes to the decision provider. The question gives
-the claims of the component and a part of its source. The answer is the probability
-that the claims agree with the source. This probability is the drift score.
+review line, a predicate question goes to the decision provider that `[decisions]
+provider` selects. The question gives the claims of the component and a part of its
+source. The answer is the probability that the claims agree with the source. This
+probability is the drift score. A provider without a measurement of this question gets
+no question, and each line gets no score.
 
 The score sets only the sequence of the stale lines, from the lowest score. It does
 not close a line, and it does not change a review or an answer. The set of open lines
@@ -43,10 +45,10 @@ from systemap import (
     flow_ids,
     history,
     jev,
-    jev_provider,
     judgement,
     judgement_json,
     nest,
+    providers,
     repo_files,
 )
 from systemap.config import Config
@@ -350,21 +352,23 @@ def _usage(provider: Any) -> None:
         print(usage.line(), file=sys.stderr)
 
 
-def with_jev(
+def selected(
     cfg: Config,
     tree: nest.Tree,
     facts: dict[str, Any],
     open_lines: Sequence[str],
     send: jev.Send | None = None,
 ) -> Order:
-    """Give the scores from Jev. The provider uses the Jev cache of the configuration."""
-    return order(
-        cfg,
-        tree,
-        facts,
-        open_lines,
-        lambda: jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send, cfg.root),
-    )
+    """Give the scores from the provider that `[decisions] provider` selects.
+
+    A provider without a measurement of the drift question gets no request.
+    """
+
+    def make() -> DecisionProvider:
+        providers.require_drift(cfg)
+        return providers.select(cfg, send)
+
+    return order(cfg, tree, facts, open_lines, make)
 
 
 # ---- the report -------------------------------------------------------------------
@@ -381,7 +385,7 @@ def text(
     """Give the text report parts. Without `--order-by-drift`, give them with no change."""
     if not args.order_by_drift:
         return result, crossings, []
-    found = with_jev(cfg, tree, facts, result.open)
+    found = selected(cfg, tree, facts, result.open)
     return found.applied(result), {**(crossings or {}), **found.rows()}, found.notes()
 
 
@@ -401,7 +405,7 @@ def payload(
     kind = args.kind or ""
     if not args.order_by_drift:
         return judgement_json.payload(given, crossings, reviews, kind), []
-    found = with_jev(cfg, tree, facts, given.result.open)
+    found = selected(cfg, tree, facts, given.result.open)
     ordered = dataclasses.replace(given, result=found.applied(given.result))
     obj = judgement_json.payload(ordered, crossings, reviews, kind)
     for row in obj["open"]:

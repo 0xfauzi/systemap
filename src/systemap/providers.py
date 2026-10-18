@@ -104,6 +104,15 @@ def require_triage(cfg: Config) -> None:
         raise DecisionError(decision.unmeasured(cfg.decision_provider, "triage"))
 
 
+def require_drift(cfg: Config) -> None:
+    """Raise DecisionError if the selected provider has no measurement of the drift question."""
+    if not decision.thresholds(cfg.decision_provider).drift:
+        raise DecisionError(
+            f"{decision.unmeasured(cfg.decision_provider, 'the drift question')}. "
+            'To get drift scores, set [decisions] provider = "jev"'
+        )
+
+
 def usage_to_stderr(provider: Metered) -> None:
     """Print usage to stderr when a run used the provider or its cache."""
     if provider.usage.sent or provider.usage.cached:

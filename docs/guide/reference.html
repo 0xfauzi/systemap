@@ -553,8 +553,7 @@ The <code>delta</code> hint tells how to select Jev. It prints with a key and wi
 Each hint gives a result that was measured with earlier prompts on Python repositories.
 <code>[jev] enabled = false</code> stops the hints.</p>
 <h2 id="which-decision-provider-answers-the-questions">Which decision provider answers the questions?</h2>
-<p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --decide</code>, and <code>delta --decide</code>.
-<code>judgement --order-by-drift</code> always uses Jev, also when the configuration selects OpenAI.
+<p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --decide</code>, <code>delta --decide</code>, and <code>judgement --order-by-drift</code>.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (<code>POST https://api.openai.com/v1/decisions</code>, model <code>gpt-6-luna</code>, public beta).</p>
 <p>To select OpenAI, give <code>--provider openai</code> to the command, or set <code>[decisions] provider = &quot;openai&quot;</code> in <code>systemap.toml</code>.
@@ -630,6 +629,12 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 <td>not available</td>
 <td>not measured</td>
 <td>No holdout rows exist.</td>
+</tr>
+<tr>
+<td><code>judgement --order-by-drift</code></td>
+<td>not available</td>
+<td>not measured</td>
+<td>not measured</td>
 </tr>
 </tbody>
 </table>
@@ -1449,7 +1454,7 @@ For a model without components, the lists are empty.
 The exit code is 1 with <code>--strict</code>, and 0 without it.</p>
 </li>
 <li>
-<p><code>--order-by-drift</code> sends one Jev question for each open <code>stale source review</code> line.
+<p><code>--order-by-drift</code> sends one question to the selected decision provider for each open <code>stale source review</code> line.
 The answer is the drift score: the probability that the claims of the component agree with its changed source.
 The report puts the stale lines in sequence from the lowest drift score.
 The other lines do not move.
@@ -1461,7 +1466,8 @@ The score has no threshold, because no measurement gives one (<code>bench/jev/RE
 Examine each stale component, also the components at the end of the sequence.
 Set <code>TYPESAFE_API_KEY</code> for this option. Without the option, <code>judgement</code> sends no request.
 Without the key, or without an open <code>stale source review</code> line, the option also sends no request.
-The option always uses Jev. <code>[decisions] provider</code> does not apply to it.</p>
+<code>[decisions] provider</code> selects the provider. OpenAI has no measurement of the drift question.
+Thus, with OpenAI, the option sends no request, and the <code>drift sequence:</code> row gives the cause.</p>
 <p>The question gives the claims that the <code>source_review</code> digest contains, and one part of the source.
 Git finds the last commit that added the recorded <code>source_review</code> digest below the folder of the model file.
 The source part is the diff of the module files of the component, from that commit to the working tree.

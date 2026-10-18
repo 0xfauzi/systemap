@@ -27,7 +27,16 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import card_review, config, drift_order, facts_file, jev, judgement, nest
+from systemap import (
+    card_review,
+    config,
+    drift_order,
+    facts_file,
+    jev,
+    judgement,
+    nest,
+    openai_provider,
+)
 from systemap.cli import main
 from systemap.decision import (
     Answer,
@@ -392,6 +401,42 @@ def test_without_a_key_the_lines_get_no_score_and_the_exit_code_stays(
     assert code == 1
     assert out.count("    drift score: no score") == 2
     assert "drift sequence: 2 of 2 questions got no score. Cause: set TYPESAFE_API_KEY" in out
+
+
+def test_with_openai_selected_the_option_sends_no_request(
+    stale: tuple[Path, dict[str, float]],
+    transport: Transport,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Issue 118: with `provider = "openai"` and a Jev key, 0 requests go to Jev.
+
+    OpenAI has no drift measurement. Thus 0 requests go to OpenAI, and the report gives
+    the cause and the remedy. The exit code stays the same.
+    """
+    root, _scores = stale
+    toml = root / "systemap.toml"
+    toml.write_text(toml.read_text(encoding="utf-8") + '\n[decisions]\nprovider = "openai"\n')
+    to_openai: list[str] = []
+
+    def openai_send(method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
+        to_openai.append(path)
+        return {}
+
+    monkeypatch.setenv(openai_provider.KEY_ENV, "a test key")
+    monkeypatch.setattr(openai_provider, "http_send", lambda key, base="": openai_send)
+    code, out = judgement_run(root, capsys, "--brief", "--strict", "--order-by-drift")
+    assert main(["--root", str(root), "judgement", "--json", "--order-by-drift"]) == 0
+    obj = json.loads(capsys.readouterr().out)
+    assert transport.requests == []
+    assert to_openai == []
+    assert code == 1
+    assert out.count("    drift score: no score") == 2
+    cause = "the decision provider openai has no measured value for the drift question"
+    assert f"drift sequence: 2 of 2 questions got no score. Cause: {cause}" in out
+    assert '[decisions] provider = "jev"' in out
+    assert obj["drift_order"]["no_score"] == 2
+    assert obj["drift_order"]["reason"].startswith(cause)
 
 
 # ---- acceptance 5 -----------------------------------------------------------------

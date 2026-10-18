@@ -397,7 +397,7 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="99382da0774e927e1e7cfc2821a6df0bf1f8de1fd617561a4f80290c37962e10",
+        source_review="5f7581e52e1029d084ef586cb89574c51366c9831ee040c38493467ed7e570d5",
         does="Sends different questions about the map to a decision provider. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command or with an explicit option. Does not control map checks.",
         interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(

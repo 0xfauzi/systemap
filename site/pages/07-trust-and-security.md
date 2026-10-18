@@ -54,7 +54,7 @@ There are two decision providers:
 | `suggest --decide` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The names, docstrings, public names, and internal imports of two modules for each question. |
 | `triage TEXT` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the issue text, and the component IDs and sentences. |
 | `plan "<task>"` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the task text, and the component IDs and sentences. |
-| `judgement --order-by-drift` | Jev only. `--provider` and `[decisions] provider` do not apply. | `TYPESAFE_API_KEY` and one or more open `stale source review` lines. | For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters. |
+| `judgement --order-by-drift` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY` and one or more open `stale source review` lines. | For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters. |
 
 Before the questions, each Jev command reads the Jev model list. This request sends only the key.
 The model list request also occurs when the Jev cache has all the answers. A cached answer does not go to the provider again.

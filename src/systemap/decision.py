@@ -135,6 +135,7 @@ class Thresholds:
 
     None: the question type has no measured value for this provider.
     `triage` is False when the triage measurement of the provider failed.
+    `drift` is False when the provider has no measurement of the drift question.
     """
 
     misfold_below: float | None
@@ -147,6 +148,7 @@ class Thresholds:
     plan_cut: float | None
     provider: str = "jev"
     triage: bool = True
+    drift: bool = True
 
 
 # The question type of each threshold, for the reason text.
@@ -226,6 +228,8 @@ OPENAI = Thresholds(
     provider="openai",
     # Not available: the top-1 rate was 82.5% on development and 69.2% on holdout.
     triage=False,
+    # Not available: test 7 measured the drift question only with Jev.
+    drift=False,
 )
 
 THRESHOLDS: dict[str, Thresholds] = {"jev": JEV, "openai": OPENAI}
