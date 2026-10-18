@@ -13,6 +13,7 @@ from typing import Any
 
 from systemap import (
     answer_migrations,
+    assurance,
     audit,
     flow_review,
     judgement,
@@ -25,8 +26,9 @@ from systemap.config import LINE_KINDS, Answer, Config
 
 # Version 2 adds `cause` to each row of `open`. Version 3 adds `sources`. Version 4 adds
 # `earlier_flow_reviews`. Version 5 adds `insufficient`, `open_lines`, and `history` to
-# each row of `unknown_requests`. Version 6 adds `count` to each row of `open`.
-SCHEMA_VERSION = 6
+# each row of `unknown_requests`. Version 6 adds `count` to each row of `open`. Version 7
+# adds `assurance`: the level, the freshness, and the basis of each claim.
+SCHEMA_VERSION = 7
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,7 @@ class Judged:
     sources: Mapping[str, list[dict[str, Any]]] = field(default_factory=dict)
     earlier: list[dict[str, str]] = field(default_factory=list)
     counts: Mapping[str, tuple[int, str]] = field(default_factory=dict)
+    claims: list[assurance.Claim] = field(default_factory=list)
 
     def detail(
         self, tree: nest.Tree, facts: dict[str, Any], verbose: bool
@@ -97,7 +100,10 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     sources = line_sources(lines, facts)
     earlier = earlier_reviews(tree, facts)
     counts = line_counts(tree, facts, lines)
-    return Judged(lines, evidence, result, cfg.require_reviews, causes, sources, earlier, counts)
+    claims = assurance.of_tree(tree, facts)
+    return Judged(
+        lines, evidence, result, cfg.require_reviews, causes, sources, earlier, counts, claims
+    )
 
 
 def earlier_reviews(tree: nest.Tree, facts: dict[str, Any]) -> list[dict[str, str]]:
@@ -197,6 +203,7 @@ def payload(
         "earlier_flow_reviews": [dict(row) for row in judged.earlier],
         "require_reviews": judged.require_reviews,
         "kinds": _kind_counts(judged.lines, result.open),
+        "assurance": assurance.payload(judged.claims),
     }
 
 

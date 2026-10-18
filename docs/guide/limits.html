@@ -69,6 +69,10 @@ It does not show that the examination was correct, or that a program ran.</p>
 <p>A digest (<code>source_sha256</code>, <code>review_digest</code>, <code>source_review</code>, or <code>evidence</code>) changes when its source or claim changes, and the finding opens again.
 A person or an agent can record a current digest without a source examination. No program can find this.
 <code>systemap decisions submit</code> makes sure that each citation refers to the current file. It cannot make sure that the agent read the cited lines correctly.</p>
+<p>Thus each claim has an <a href="reference.html#how-strong-is-the-evidence-for-each-claim">assurance level</a>.
+<code>established</code> means that the facts show the full claim. Only an import rule with the result <code>pass</code> gets it.
+<code>examined</code> means that an agent or a person examined the claim against cited source. The facts do not show the claim.
+<code>unknown</code> means that the facts and the source reviews do not show the claim.</p>
 <h2 id="languages">Languages</h2>
 <ul>
 <li>systemap reads only Python and TypeScript (<code>.ts</code>, <code>.tsx</code>, <code>.mts</code>, <code>.cts</code>).

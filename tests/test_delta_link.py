@@ -1,4 +1,4 @@
-"""The pull request comment is one link to the Changes view, and only if the repository sets it up.
+"""The pull request comment: the summary, and a link to the Changes view if the repository sets it up.
 
 `[delta] page_url` gives the URL of the map page that the repository publishes for each
 pull request, with `{number}` for the pull request number. The configuration reader
@@ -76,22 +76,17 @@ def test_a_page_url_that_cannot_give_the_link_is_a_configuration_error(
 # ---- the comment --------------------------------------------------------------------
 
 
-def test_the_comment_is_the_marker_and_one_link_to_the_changes_view() -> None:
-    assert delta_link.comment(URL, 42, 0) == (
+def test_the_comment_is_the_marker_the_summary_and_one_link_to_the_changes_view() -> None:
+    assert delta_link.comment("SUMMARY", URL, 42) == (
         "<!-- systemap delta -->\n"
+        "SUMMARY\n"
+        "\n"
         "[Open the Changes view of the map](https://example.org/pr-42/#changes)\n"
     )
 
 
-def test_the_comment_says_when_the_map_needs_an_update() -> None:
-    lines = delta_link.comment(URL, 7, 3).splitlines()
-    assert lines[1] == "[Open the Changes view of the map](https://example.org/pr-7/#changes)"
-    assert lines[2:] == [
-        "",
-        "A map update is necessary (3 lines). The log of the delta job gives the action "
-        "for each line.",
-    ]
-    assert "(1 line)" in delta_link.comment(URL, 7, 1)
+def test_without_a_page_url_the_comment_is_the_marker_and_the_summary() -> None:
+    assert delta_link.comment("SUMMARY") == "<!-- systemap delta -->\nSUMMARY\n"
 
 
 # ---- `systemap delta --comment FILE --pr N` --------------------------------------------
@@ -125,28 +120,48 @@ def delta(root: Path, *argv: str) -> int:
     return main(["--root", str(root), "delta", "--no-jev", *argv])
 
 
-def test_without_a_page_url_delta_writes_no_comment(
+UPDATE = (
+    "- **Map update:** necessary for 1 line. "
+    "The log of the delta job gives the action for each line."
+)
+
+
+def test_without_a_page_url_delta_writes_the_summary_without_a_link(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Acceptance: the second commit adds a module without a component. The comment gives
+    the marker, no contract change, no map change, and one row for the map update. It has
+    no link and does not use a pull request number."""
     out = repo / "comment.md"
-    assert delta(repo, "--base", "HEAD~1", "--pr", "5", "--comment", str(out)) == 1
-    assert not out.exists()
+    assert delta(repo, "--base", "HEAD~1", "--comment", str(out)) == 1
+    text = out.read_text(encoding="utf-8")
+    assert text.startswith(delta_link.MARKER + "\n**Architecture**\n")
+    assert "- **Contract:** no change\n- **Map:** no change\n" in text
+    assert UPDATE in text
+    assert "#changes" not in text
     said = capsys.readouterr().out
     assert "The map needs an update (1):" in said
     assert "<!--" not in said
+    # With no source change, the summary is one line.
+    assert delta(repo, "--base", "HEAD", "--comment", str(out)) == 0
+    assert out.read_text(encoding="utf-8") == (
+        f"{delta_link.MARKER}\n**Architecture:** no change to the contract or the map. "
+        "Rules: none.\n"
+    )
 
 
-def test_with_a_page_url_delta_writes_the_link_and_the_update_line(
+def test_with_a_page_url_delta_writes_the_summary_and_the_link(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     add_config(repo, f'[delta]\npage_url = "{URL}"\n')
     out = repo / "comment.md"
     assert delta(repo, "--base", "HEAD~1", "--pr", "5", "--comment", str(out)) == 1
-    assert out.read_text(encoding="utf-8") == delta_link.comment(URL, 5, 1)
+    text = out.read_text(encoding="utf-8")
+    assert UPDATE in text
+    assert text.endswith(
+        "\n\n[Open the Changes view of the map](https://example.org/pr-5/#changes)\n"
+    )
     assert "The map needs an update (1):" in capsys.readouterr().out
-    # With no source change, the map is current: the comment is the link alone.
-    assert delta(repo, "--base", "HEAD", "--pr", "5", "--comment", str(out)) == 0
-    assert out.read_text(encoding="utf-8") == delta_link.comment(URL, 5, 0)
 
 
 def test_a_comment_without_a_pull_request_number_is_an_option_error(
@@ -170,14 +185,24 @@ def test_delta_has_no_markdown_format(repo: Path) -> None:
     assert stop.value.code == 2
 
 
-def test_this_repository_workflow_writes_no_comment() -> None:
-    """This repository publishes no page for each pull request, so CI writes no comment."""
+def test_this_repository_workflow_writes_the_summary_comment() -> None:
+    """This repository writes the architecture summary, with the same comment job as the
+    workflow from `systemap init`. Only the comment job can write to the pull request."""
     text = (Path(__file__).resolve().parent.parent / ".github/workflows/systemap.yml").read_text(
         encoding="utf-8"
     )
-    job = text.split("\n  delta:\n", 1)[1].split("\n  test:\n", 1)[0]
-    assert 'uv run systemap delta --base "$BASE" --head "$HEAD" || code=$?' in job
-    assert "pull-requests: write" not in text and "gh api" not in text
-    assert "--format markdown" not in text
+    job = text.split("\n  delta:\n", 1)[1].split("\n\n  # This job writes", 1)[0]
+    comment = text.split("\n  comment:\n", 1)[1].split("\n  test:\n", 1)[0]
+    assert (
+        'uv run systemap delta --base "$BASE" --head "$HEAD" --comment comment.md || code=$?' in job
+    )
+    assert 'cat comment.md >> "$GITHUB_STEP_SUMMARY"' in job
     assert "::error title=Map delta::The map needs an update." in job
     assert job.rstrip().endswith('exit "$code"')
+    assert text.count("pull-requests: write") == 1 and "pull-requests: write" in comment
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in comment
+    # The job changes only a comment from the Actions bot. A comment from a different person can
+    # also start with the marker.
+    assert '.user.login == "github-actions[bot]" and' in comment
+    assert "pull_request_target" not in text
+    assert "--format markdown" not in text

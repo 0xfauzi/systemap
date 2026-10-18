@@ -15,6 +15,7 @@ A layer is a filtered view of the map.
 - An untagged TypeScript comment directly before a variable declaration no longer gives the module description.
   Separate a module comment with a blank line, or mark its documentation block with `@module` or `@packageDocumentation`.
   The description excludes the tag and its module name. Other file headers retain their descriptions.
+  Tagged descriptions keep their text when the tag precedes, follows, or separates summary lines.
 
 ## 2.0.0 - 2026-10-13
 

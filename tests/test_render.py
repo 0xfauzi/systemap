@@ -19,7 +19,9 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     )
     # 300 KiB, the Inter subset in the page (18,452 bytes) and 4,076 bytes of additional space.
     # bench/jev/README.md "Map page font" gives the measurements and the decision.
-    assert len(html.encode("utf-8")) < 322 * 1024
+    # The assurance levels add 2,367 bytes. The limit is the next whole KiB above the
+    # measured page (bench/jev/README.md, "Assurance levels on the page").
+    assert len(html.encode("utf-8")) < 325 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched
     assert '<link rel="icon" href="data:image/svg+xml,' in html

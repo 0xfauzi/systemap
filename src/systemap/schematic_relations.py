@@ -295,6 +295,13 @@ function endpointButton(id, role){
     + '"><small>' + role + '</small><code>' + esc(id) + '</code><span>'
     + esc(d ? d.plain : '') + '</span></button>';
 }
+function assuranceRow(a){
+  // The assurance level and the freshness of a claim (`assurance.py`), with its text.
+  if(!a){ return ''; }
+  return '<p class="systemap-f__assurance" data-level="' + esc(a.level) + '" data-freshness="'
+    + esc(a.freshness) + '"><b>' + esc(a.level) + ' · ' + esc(a.freshness) + '</b> '
+    + esc((ATEXT[a.level] || '') + ' ' + (ATEXT[a.basis] || '')) + '</p>';
+}
 function evidenceLabel(state){
   return state === 'observed' ? 'current source review' : state;
 }
@@ -354,7 +361,8 @@ function relationshipHtml(i){
     + '<p class="systemap-f__say" data-say>'
     + esc(e.say || 'The model has no explanation for this flow.') + '</p>'
     + '<p class="systemap-f__evidence" data-evidence>' + esc(e.evidence_says || '') + '</p>'
-    + '<p class="systemap-f__reason">' + esc(evidenceReason(e)) + '</p>' + evidenceReview(e);
+    + '<p class="systemap-f__reason">' + esc(evidenceReason(e)) + '</p>'
+    + assuranceRow(e.assurance) + evidenceReview(e);
 }
 function flowChoice(i, out){
   var e = EDGES[i];
@@ -413,7 +421,8 @@ function rulesOf(d){
   if(!rules.length){ return ''; }
   return '<section class="systemap-f__section">' + heading('Rules')
     + '<div class="systemap-f__rules">' + rules.map(function(n){
-      return '<b>' + n + '</b><span>' + esc(RULES[n] || '') + '</span>'; }).join('')
+      return '<b>' + n + '</b><span>' + esc(RULES[n] || '') + assuranceRow(RULE_LEVEL[n])
+        + '</span>'; }).join('')
     + '</div></section>';
 }
 function partDetails(d){
@@ -456,6 +465,7 @@ function describe(d){
   h += '<section class="systemap-f__relationship" data-relationship'
     + (EDGES[state.edge] ? '' : ' hidden') + '>' + relationshipHtml(state.edge) + '</section>';
   if(d.does){ h += '<p class="systemap-f__does">' + esc(d.does) + '</p>'; }
+  h += assuranceRow(d.assurance);
   if(d.note){ h += '<p class="systemap-f__note"><b>Note</b> ' + esc(d.note) + '</p>'; }
   h += mapInside(d) + '<div class="systemap-f__connections"><div class="systemap-f__flow-list">'
     + flowChoices(d) + '</div></div>';

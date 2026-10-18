@@ -32,6 +32,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import model as schema
+from systemap import repo_files
 from systemap.contract import Contract
 
 TRUST = "SYSTEMAP_TRUST_MODEL_CODE"
@@ -120,10 +121,12 @@ class _Budget:
 
 @dataclass
 class _Reader:
-    """The files of one load: the directory, the limits, and the files on the import path."""
+    """The files of one load: the directory, the root that contains the files, the limits,
+    and the files on the import path."""
 
     folder: Path
     labels: PurePosixPath
+    root: Path
     budget: _Budget = field(default_factory=_Budget)
     done: dict[Path, Source] = field(default_factory=dict)
     stack: list[Path] = field(default_factory=list)
@@ -132,7 +135,7 @@ class _Reader:
         key = path.resolve()
         if key in self.done:
             return self.done[key]
-        text, tree = _parse(path, label, self.budget)
+        text, tree = _parse(self.root, path, label, self.budget)
         found = Source(key, label, tree)
         self.stack.append(key)
         _File(found, text, self).check()
@@ -158,13 +161,26 @@ class _Reader:
         return self.source(resolved, str(self.labels / f"{name}.py"))
 
 
-def _parse(path: Path, label: str, budget: _Budget) -> tuple[str, ast.Module]:
+def _base(path: Path, root: Path | None) -> Path:
+    """Give the root that must contain the map files: the given root, or the folder of the
+    model file."""
+    return path.parent if root is None else root
+
+
+def _read(root: Path, path: Path, label: str, size: int = -1) -> bytes:
+    """Read a map file through repo_files. A link out of the root gives a ModelFileError."""
+    try:
+        return repo_files.read_bytes(root, repo_files.relative(root, path), size)
+    except repo_files.RepoPathError as exc:
+        raise ModelFileError(f"{label}: {exc}") from exc
+
+
+def _parse(root: Path, path: Path, label: str, budget: _Budget) -> tuple[str, ast.Module]:
     """This function reads at most the remaining bytes, then parses and counts the nodes."""
     budget.files -= 1
     if budget.files < 0:
         raise ModelFileError(f"{label}: The model imports more than {MAX_FILES} files.")
-    with path.open("rb") as handle:
-        data = handle.read(budget.data + 1)
+    data = _read(root, path, label, budget.data + 1)
     if len(data) > budget.data:
         raise ModelFileError(
             f"{label}: The model files contain more than {MAX_BYTES} bytes. "
@@ -607,25 +623,26 @@ _MAKERS: dict[type[ast.AST], Callable[[Any, dict[str, Any]], Any]] = {
 }
 
 
-def read(path: Path, label: str) -> dict[str, Any]:
+def read(path: Path, label: str, root: Path | None) -> dict[str, Any]:
     """This function gives the values of a model file without running its code.
 
     It checks the file and every imported file first. A refusal gives the file, the line,
-    the construct, and the necessary action.
+    the construct, and the necessary action. Each file must be a regular file in the root
+    (`repo_files`). Without a root, the root is the folder of the model file.
     """
     labels = PurePosixPath(label.replace("\\", "/")).parent
-    reader = _Reader(path.parent.resolve(), labels)
+    reader = _Reader(path.parent.resolve(), labels, _base(path, root))
     source = reader.source(path, label)
     return _build(source, {})
 
 
-def files(path: Path, label: str) -> tuple[Path, ...]:
+def files(path: Path, label: str, root: Path | None) -> tuple[Path, ...]:
     """This function gives the model file and each file that it imports.
 
     It checks all the files first, as `read` does. The paths are resolved paths.
     """
     labels = PurePosixPath(label.replace("\\", "/")).parent
-    reader = _Reader(path.parent.resolve(), labels)
+    reader = _Reader(path.parent.resolve(), labels, _base(path, root))
     reader.source(path, label)
     return tuple(reader.done)
 
@@ -664,16 +681,18 @@ def _import_problem(label: str, exc: ImportError | NameError) -> str:
     return f"{label} could not import: {type(exc).__name__}: {exc}"
 
 
-def run_code(path: Path, label: str) -> dict[str, Any]:
+def run_code(path: Path, label: str, root: Path | None) -> dict[str, Any]:
     """This function runs the model file as Python code, only with the permission of the
-    person who runs the command. An import error gives a diagnostic."""
+    person who runs the command. An import error gives a diagnostic. The file must be a
+    regular file in the root, as for `read`."""
+    data = _read(_base(path, root), path, label)
     name = f"systemap_model_{abs(hash(str(path)))}"
     module = types.ModuleType(name)
     module.__file__ = str(path)
     sys.modules[name] = module
     beside = path.parent.resolve()
     try:
-        source = path.read_text(encoding="utf-8-sig")
+        source = data.decode("utf-8-sig")
         with _beside(beside):
             exec(compile(source, str(path), "exec"), module.__dict__)  # noqa: S102 - permitted
     except (ImportError, NameError) as exc:
@@ -685,9 +704,9 @@ def run_code(path: Path, label: str) -> dict[str, Any]:
     return module.__dict__
 
 
-def load(path: Path, label: str) -> dict[str, Any]:
+def load(path: Path, label: str, root: Path | None) -> dict[str, Any]:
     """This function gives the names of a model file. It runs the file as code only if the
     environment of the command sets SYSTEMAP_TRUST_MODEL_CODE=1."""
     if os.environ.get(TRUST) == "1":
-        return run_code(path, label)
-    return read(path, label)
+        return run_code(path, label, root)
+    return read(path, label, root)

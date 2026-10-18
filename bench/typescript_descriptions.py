@@ -12,7 +12,6 @@ Run: uv run python bench/typescript_descriptions.py /path/to/ky /path/to/vite
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,13 +23,12 @@ from systemap.typescript_config import DECLARATION_SUFFIXES, SOURCE_SUFFIXES
 from systemap.typescript_syntax import (
     DIRECTIVE,
     LEGAL,
+    MODULE_TAG,
     _comment_text,
     _text,
     docstring,
     syntax_tree,
 )
-
-TAG = re.compile(r"(?m)^\s*@(?:module|packageDocumentation)(?:\s|$)")
 
 
 def earlier_description(root: Node) -> str:
@@ -80,11 +78,11 @@ def description_row(root: Node, current: str) -> dict[str, object]:
         if node.type == "comment" and description(_comment_text(_text(node))) == current
     )
     text = _comment_text(_text(comment))
-    match = TAG.search(text) if _text(comment).startswith("/**") else None
+    match = MODULE_TAG.search(text) if _text(comment).startswith("/**") else None
     following = comment.next_named_sibling
     return {
         "current": current,
-        "tagged": description(text[: match.start()]) if match else "",
+        "tagged": description(MODULE_TAG.sub("", text)) if match else "",
         "revised": docstring(root),
         "following": following.type if following else "",
         "blank_line": bool(following and following.start_point.row > comment.end_point.row + 1),

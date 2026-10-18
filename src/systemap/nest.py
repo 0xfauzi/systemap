@@ -31,7 +31,7 @@ class Map:
 
     The top map has an empty ID. Nested IDs use component IDs separated by slashes. The
     card field identifies the parent component. The parent field identifies the parent
-    map.
+    map. The root field gives the root that must contain the map files (`model_load.read`).
     """
 
     id: str
@@ -42,6 +42,7 @@ class Map:
     theme: dict[str, Any]
     parent: str | None = None
     card: str = ""
+    root: Path | None = None
 
     @property
     def top(self) -> bool:
@@ -128,8 +129,9 @@ def load(cfg: Config) -> Tree:
             f"The model file {cfg.model} is not in the repository. Put the model file in the "
             "repository."
         )
-    model, meaning = load_model(cfg.model_path, cfg.model)
-    top = Map("", cfg.model_path, cfg.model, model, meaning, _theme(cfg, model, meaning), None, "")
+    model, meaning = load_model(cfg.model_path, cfg.model, cfg.root)
+    theme = _theme(cfg, model, meaning)
+    top = Map("", cfg.model_path, cfg.model, model, meaning, theme, None, "", cfg.root)
     maps = [top]
     _walk(cfg, top, [cfg.model_path.resolve()], maps)
     return Tree(tuple(maps))
@@ -149,7 +151,7 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
         path = _opened(cfg, parent, c, c.map, above)
         rel = cfg.rel(path)
         _opened_once(cfg, parent, c.id, path, maps)
-        model, meaning = load_model(path, rel)
+        model, meaning = load_model(path, rel, cfg.root)
         child = Map(
             _child_id(parent, c.id),
             path,
@@ -159,6 +161,7 @@ def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
             _theme(cfg, model, meaning),
             parent.id,
             c.id,
+            cfg.root,
         )
         maps.append(child)
         _walk(cfg, child, [*above, path], maps)

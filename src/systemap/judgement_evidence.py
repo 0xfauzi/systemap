@@ -191,7 +191,7 @@ def model_digest(m: nest.Map) -> str:
     digest, and `contract_move` then renews each answer that was current.
     """
     try:
-        paths = model_load.files(m.path, m.rel) + contract_file.files(m.path, m.rel)
+        paths = model_load.files(m.path, m.rel, m.root) + contract_file.files(m.path, m.rel, m.root)
     except model_load.ModelFileError:
         return text_digest(repr((m.model, m.meaning)).encode())
     if len(paths) == 1:

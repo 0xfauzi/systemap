@@ -110,8 +110,10 @@ The job log gives each line and its action.
 If the map is not current, the job gives a warning and passes.
 With `systemap init --strict-ci`, the job fails.
 
-Without `[delta] page_url` in `systemap.toml`, the workflow writes no comment.
-With `page_url`, it writes one comment with a link to the Changes view of the page for the pull request.
+The workflow writes the architecture summary as one pull request comment, and changes it after each push.
+The summary gives the contract changes, the map changes, the rule results, and the assurance level of each row.
+For a pull request from a fork, the workflow writes the summary only to the job summary.
+With `[delta] page_url` in `systemap.toml`, the comment also has a link to the Changes view of the page.
 The page shows the map changes. Make that page with `systemap render --base REF`.
 
 ## Completion

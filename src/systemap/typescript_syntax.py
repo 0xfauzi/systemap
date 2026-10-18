@@ -26,7 +26,10 @@ DIRECTIVE = re.compile(
 # A legal comment of esbuild: minifiers keep it, because it holds a license notice.
 LEGAL = ("/*!", "//!")
 # A documentation tag marks a file comment, rather than a symbol comment.
-MODULE_TAG = re.compile(r"(?m)^\s*@(?:module|packageDocumentation)(?:\s|$)")
+MODULE_TAG = re.compile(
+    r"(?m)^[ \t]*@(?:module(?:[ \t]+[^\n]*)?|packageDocumentation[ \t]*)(?:\n|$)"
+    r"|(?<!\S)@packageDocumentation(?=\s|$)[ \t]*"
+)
 # The grammar does not read `export type * from` and the variance keywords `in` and `out`
 # in a type parameter list. A second parse replaces these keywords with spaces.
 _TYPE_STAR = re.compile(r"(?m)^([ \t]*export\s+)(type)(?=\s+\*)")
@@ -222,7 +225,7 @@ def _module_description(comment: Node, text: str) -> str:
     """Give a file description. A comment directly before a variable describes that variable."""
     tag = MODULE_TAG.search(text) if _text(comment).startswith("/**") else None
     if tag:
-        return description(text[: tag.start()])
+        return description(MODULE_TAG.sub("", text))
     end = comment.end_point.row
     following = comment.next_named_sibling
     while following is not None and following.type == "comment":

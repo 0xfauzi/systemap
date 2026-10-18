@@ -64,12 +64,12 @@
 <tr>
 <td><code>delta</code></td>
 <td>Each pull request</td>
-<td>Runs <code>delta</code> from the base commit to the head commit.</td>
+<td>Runs <code>delta</code> from the base commit to the head commit. Writes the architecture summary to the job summary.</td>
 </tr>
 <tr>
-<td><code>link</code></td>
-<td>If <code>delta</code> wrote a comment</td>
-<td>Posts or changes one comment with a link to the Changes view.</td>
+<td><code>comment</code></td>
+<td>Each pull request from a branch of the same repository</td>
+<td>Posts or changes one comment with the architecture summary.</td>
 </tr>
 </tbody>
 </table>
@@ -146,20 +146,46 @@ The answers are suggestions under their own heading. They do not change the delt
 A link that ends in <code>#changes</code> opens the Changes view. <a href="reading-the-map.html#changes">Read the map</a> tells what it shows.</p>
 <p>Do not commit this page into the output directory, because <code>systemap render --check</code> finds it stale.
 Publish the page of each pull request at a different place, or use <a href="live-map.html">the live map</a> on your computer.</p>
-<h2 id="the-link-comment">The link comment</h2>
+<h2 id="the-architecture-summary">The architecture summary</h2>
+<p>The architecture summary tells the reviewer of a pull request the effect of the change on the architecture.
+<code>systemap delta --comment FILE</code> writes it to <code>FILE</code>. The summary has these parts:</p>
+<ul>
+<li><strong>Contract</strong>: the invariants and the import rules that the change added, removed, or changed. Accept or reject each contract change in the review.</li>
+<li><strong>Map</strong>: the components, the flows, and the sequences that the change added, removed, or changed.</li>
+<li><strong>Rules</strong>: the result of each import rule at the head commit.</li>
+<li><strong>Map update</strong>: the number of delta lines with a necessary action. This row shows only if a map update is necessary.</li>
+</ul>
+<p>Each row of an item gives the assurance level of its claim at the head commit, and the freshness of the record behind the level.
+A removed item, an actor, and a sequence have no level.
+Each part gives a maximum of 5 rows, and then the count of the other rows.</p>
+<p>In the two-component fixture of the systemap tests, a change added an import rule, a reason, a flow artifact, and a module without a component.
+This is the summary of that change:</p>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">&lt;!-- systemap delta --&gt;</span>
+<span class="ln" style="--i:0">**Architecture**</span>
+<span class="ln" style="--i:0"></span>
+<span class="ln" style="--i:0">- **Contract:** 1 changed invariant, 1 added import rule. Accept or reject each contract change in this review.</span>
+<span class="ln" style="--i:2">  - changed invariant `1` (reason): unknown, source review missing</span>
+<span class="ln" style="--i:2">  - added import rule `no-back`: established from facts</span>
+<span class="ln" style="--i:0">- **Map:** 1 changed flow</span>
+<span class="ln" style="--i:2">  - changed flow `Reader` -&gt; `Writer`, `parsed request` (artifact): unknown, flow review missing</span>
+<span class="ln" style="--i:0">- **Rules:** 1 passed, 0 failed, 0 unknown</span>
+<span class="ln" style="--i:0">- **Map update:** necessary for 1 line. The log of the delta job gives the action for each line.</span>
+<span class="ln" style="--i:0"></span>
+<span class="ln" style="--i:0">Levels: established = the facts show the claim. examined = an agent or a person examined the cited source. unknown = no fact or review shows the claim.</span></code></pre>
+<p>If the change has no effect on the contract or the map, and no rule has the result <code>fail</code>, the summary is one line:</p>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">**Architecture:** no change to the contract or the map. Rules: 1 passed, 0 failed, 0 unknown.</span></code></pre>
+<p>The <code>comment</code> job posts the summary as one comment, and changes the same comment after each push.
+It runs only for a pull request from a branch of the same repository. <a href="trust-and-security.html#the-ci-comment-job">Trust and security</a> tells why.
+For a pull request from a fork, read the summary in the job summary of the <code>delta</code> job.</p>
+<h2 id="the-link-to-the-changes-view">The link to the Changes view</h2>
 <p>If your repository publishes the map page of each pull request, set its URL in <code>systemap.toml</code>:</p>
 <pre class="code"><code class="language-toml"><span class="k">[delta]
 </span><span class="a">page_url </span><span class="p">= </span><span class="s">"https://example.org/pr-{number}/"
 </span></code></pre>
 <p>The <a href="reference.html#what-can-you-configure">reference</a> gives the rules for the URL.
-Then <code>systemap delta --comment FILE --pr N</code> writes the comment to <code>FILE</code>:</p>
-<pre class="out"><code class="language-text"><span class="ln" style="--i:0">&lt;!-- systemap delta --&gt;</span>
-<span class="ln" style="--i:0">[Open the Changes view of the map](https://example.org/pr-7/#changes)</span>
-<span class="ln" style="--i:0"></span>
-<span class="ln" style="--i:0">A map update is necessary (4 lines). The log of the delta job gives the action for each line.</span></code></pre>
-<p>systemap does not publish the page.
-The <code>link</code> job posts the comment, and changes the same comment after each push.
-It runs only for a pull request from a branch of the same repository. <a href="trust-and-security.html#the-ci-link-job">Trust and security</a> tells why.</p>
+Then the comment also has a link to the Changes view of the page, and <code>--comment FILE</code> must have <code>--pr N</code>:</p>
+<pre class="out"><code class="language-text"><span class="ln" style="--i:0">[Open the Changes view of the map](https://example.org/pr-7/#changes)</span></code></pre>
+<p>systemap does not publish the page.</p>
 <h2 id="upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</h2>
 <p>A workflow from <code>systemap init</code> 1.2.0 or earlier runs <code>systemap delta --format markdown</code>.
 Version 2.0.0 does not have this option, so the delta job fails with exit code 2:</p>
@@ -175,7 +201,7 @@ Version 2.0.0 does not have this option, so the delta job fails with exit code 2
 <p>The new workflow is advisory. For a workflow that fails on a map finding, run <code>systemap init --strict-ci</code> in step 2.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="coding-agents.html" rel="prev"><span class="kicker">Previous</span><span>Coding agents</span></a><a class="pager__a pager__next" href="live-map.html" rel="next"><span class="kicker">Next</span><span>The live map</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-link-comment">The link comment</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-architecture-summary">The architecture summary</a></li><li class="toc__l2"><a href="#the-link-to-the-changes-view">The link to the Changes view</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

@@ -31,6 +31,11 @@ A digest (`source_sha256`, `review_digest`, `source_review`, or `evidence`) chan
 A person or an agent can record a current digest without a source examination. No program can find this.
 `systemap decisions submit` makes sure that each citation refers to the current file. It cannot make sure that the agent read the cited lines correctly.
 
+Thus each claim has an [assurance level](reference.html#how-strong-is-the-evidence-for-each-claim).
+`established` means that the facts show the full claim. Only an import rule with the result `pass` gets it.
+`examined` means that an agent or a person examined the claim against cited source. The facts do not show the claim.
+`unknown` means that the facts and the source reviews do not show the claim.
+
 ## Languages
 
 - systemap reads only Python and TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`).

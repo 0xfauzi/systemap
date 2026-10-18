@@ -68,8 +68,8 @@ function recordOf(id){
 var META = DETAIL._meta || {};
 var LAYERS = META.layers || [];
 var EDGES = META.edges || [];
-var RULES = table();
-(META.rules || []).forEach(function(r){ RULES[r.n] = r.text; });
+var RULES = table(), RULE_LEVEL = table(), ATEXT = META.assurance_text || {};
+(META.rules || []).forEach(function(r){ RULES[r.n] = r.text; RULE_LEVEL[r.n] = r.assurance; });
 // Layer colors come from the theme.
 var LCOL = table(), LAYER_AT = table();
 LAYERS.forEach(function(l){ LCOL[l.id] = l.colour; LAYER_AT[l.id] = l; });

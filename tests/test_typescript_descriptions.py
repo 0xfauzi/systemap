@@ -19,9 +19,27 @@ def test_variable_comment_is_not_a_module_description(
 
 
 @pytest.mark.parametrize("tag", ["@module", "@module Limits", "@packageDocumentation"])
-def test_module_tag_identifies_a_file_comment(tag: str) -> None:
+@pytest.mark.parametrize(
+    "body", ["Reads limits.\n{tag}", "{tag}\nReads limits.", "Reads\n{tag}\nlimits."]
+)
+def test_module_tag_identifies_a_file_comment(tag: str, body: str) -> None:
     """Acceptance: a tagged comment describes the file, without the tag or module name."""
-    surface = parse_surface(f"/**\n * Reads limits.\n * {tag}\n */\nexport const LIMIT = 3;\n")
+    body = body.format(tag=tag).replace("\n", "\n * ")
+    surface = parse_surface(f"/**\n * {body}\n */\nexport const LIMIT = 3;\n")
+    assert surface is not None and surface["docstring"] == "Reads limits."
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "@packageDocumentation Reads limits.",
+        "Reads @packageDocumentation limits.",
+        "Reads limits. @packageDocumentation",
+    ],
+)
+def test_inline_package_tag_keeps_the_summary(body: str) -> None:
+    """Acceptance: a modifier tag does not remove the summary on the same line."""
+    surface = parse_surface(f"/** {body} */\nexport const LIMIT = 3;\n")
     assert surface is not None and surface["docstring"] == "Reads limits."
 
 
