@@ -788,6 +788,35 @@ An empty contract file from `systemap init` gets the moved rules.
 After the move, each rule without a reason gives a `contract reason` line. The agent writes the reasons.
 Examine the two changed files before you commit them.
 
+## How strong is the evidence for each claim?
+
+Each claim of a map has one assurance level and one freshness value.
+The claims are the source components, the flows, the invariants, and the import rules.
+An actor is not part of the source. Thus it has no level.
+`systemap judgement --json` gives the values in `assurance`. The page gives them in the panel of each component, flow, and rule.
+
+| Level | Meaning | The states that give it |
+|---|---|---|
+| `established` | The facts of this source snapshot show the full claim. | An import rule with the result `pass`. |
+| `examined` | An agent or a person examined the claim against the cited source. The facts do not show the claim. | A current source review of a component. A current flow review with a source record in a module of an endpoint. For an invariant, a current source review of each applicable component. |
+| `unknown` | The facts and the source reviews do not show the claim. A program must not count it as the result `pass`. | All other states. Examples are a missing or stale review, a rule with the result `fail` or `unknown`, and an invariant with a linked import rule that fails. |
+
+Only an import rule can be `established`.
+An import or a call site does not show the direction or the artifact of a flow.
+A linked import rule examines only the imports of an invariant, not its text.
+Thus a linked rule with the result `pass` does not make its invariant `established`.
+
+The freshness tells if the record behind the level agrees with the current source:
+
+- `current`: the review digest is the current digest. For an import rule, the result comes from the current facts.
+- `earlier`: a flow review earlier than source tracking (`review earlier than source tracking`).
+- `stale`: the source or the claim changed after the source review.
+- `missing`: the map has no source review, or no facts are available.
+
+A stale source review does not give `examined`.
+A `supported` decision writes a review digest. Thus the review state includes it.
+The level does not use the local decision store.
+
 ## Which command do you use?
 
 All commands accept `--root DIR` before the command. All commands except `explain` also accept it after the command.
@@ -1185,7 +1214,7 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 6. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. |
+| `schema_version` | integer | The version of this schema. The value is 7. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
@@ -1206,6 +1235,14 @@ The JSON object has these fields:
 | `earlier_flow_reviews` | list of objects | One object for each flow with the label "review earlier than source tracking". `map` is the map ID, and an empty string for the top map. `flow` is the flow identifier. Such a review is current, so it gives no finding. |
 | `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
+| `assurance.counts` | object | The keys `established`, `examined`, and `unknown`, with the quantity of claims at each level. No key counts `unknown` claims as the result `pass`. |
+| `assurance.claims` | list of objects | One object for each claim, map by map in tree order. In each map: the source components and the flows in model order, the invariants in number order, and the import rules in model order. |
+| `assurance.claims[].map` | string | The map ID, and an empty string for the top map. |
+| `assurance.claims[].type` | string | `component`, `flow`, `invariant`, or `import_rule`. |
+| `assurance.claims[].id` | string | The component ID, the flow identifier, the invariant number as text, or the import rule id. |
+| `assurance.claims[].level` | string | `established`, `examined`, or `unknown`. See [How strong is the evidence for each claim?](#how-strong-is-the-evidence-for-each-claim). |
+| `assurance.claims[].freshness` | string | `current`, `earlier`, `stale`, or `missing`. |
+| `assurance.claims[].basis` | string | The state that gives the level, for example `rule_pass`, `source_review_current`, `flow_review_stale`, or `citation_outside_endpoints`. |
 | `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
 | `unknown_requests` | list of objects | The unknown decision requests, with the fields of `unknown_requests` in `systemap decisions status --json`. Without a decision store, the list is empty. |
 

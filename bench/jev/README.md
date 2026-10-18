@@ -3055,3 +3055,24 @@ On this repository, the base and the change give the same 136 test files in the 
 The other `glob` calls in the Python adapter do not go into a skipped folder by default.
 `_loose_files` uses `glob("*.py")` in each folder of `config.walk`, and `config.walk` does not go into the skipped folders.
 `workspace_members` uses the `[tool.uv.workspace] members` patterns of the user. The change keeps the selection of uv for these patterns.
+
+## Assurance levels on the page (2026-10-18)
+
+Issue 102 adds the assurance level and the freshness of each component, flow, invariant, and import rule to the map page.
+The sample page of `tests/test_render.py` has a size limit.
+
+Acceptance, written before the measurement: the limit increases only by the measured cost of the levels.
+The limit stays a whole number of KiB, as in "Map page font".
+
+Method: `page.build` for the sample system with `{"has_change": False}`, at origin/main 4d2b030 and on the branch.
+The page records only `level`, `freshness`, and `basis`. The page has the text of each level and basis one time.
+
+| revision | sample page (bytes) | limit (bytes) | space |
+|---|---|---|---|
+| base (4d2b030) | 329,623 | 329,728 (322 KiB) | 105 |
+| first form, with the full text in each record | 333,251 | 329,728 (322 KiB) | -3,523 (fail) |
+| change, with the text one time | 331,990 | 332,800 (325 KiB) | 810 |
+
+The base had 105 bytes of space. Thus the levels could not pass the earlier limit.
+The levels cost 2,367 bytes. The new limit, 325 KiB, is the next whole KiB above the measured page (324.2 KiB).
+The maintainer must accept or refuse this new limit.

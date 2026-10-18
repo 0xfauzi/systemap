@@ -31,7 +31,7 @@ import json
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from systemap import evidence, flow_ids
+from systemap import assurance, evidence, flow_ids
 from systemap.model import (
     DERIVED_LAYERS,
     Meaning,
@@ -239,6 +239,8 @@ def render(
 
     states = {c.id: build_state(c, facts) for c in COMPONENTS}
     backed = evidence.of_model(model, meaning, facts, observed_by)
+    # The level and the freshness of each claim, for the inspector (`assurance`).
+    claims = assurance.of_model(model, meaning, facts)
     marks = change_marks(model, backed, mode, changed, adjacent, tests_only, changed_modules)
 
     # The geometry the router and the label pass read: the card boxes, the
@@ -535,6 +537,7 @@ def render(
             "moved": moved,
             "gained": gained.get(cid, {}),
             "rules": model.rules_of(cid),
+            **assurance.panel_field(claims, assurance.COMPONENT, cid),
             "edges": [
                 i
                 for i, (a, b, _art, _k) in enumerate(FLOWS)
@@ -570,6 +573,7 @@ def render(
                 "claim_changed": ev.claim_changed,
                 "review_digest": flow.review_digest,
                 "evidence_says": ev.says,
+                **assurance.panel_field(claims, assurance.FLOW, flow.key),
             }
         )
     edge_index = {f.key: i for i, f in enumerate(model.flows)}
@@ -624,8 +628,14 @@ def render(
                 }
                 for r in model.regions
             ],
+            "assurance_text": assurance.texts(claims),
             "rules": [
-                {"n": inv.n, "text": inv.text, "ids": sorted(inv.governs)}
+                {
+                    "n": inv.n,
+                    "text": inv.text,
+                    "ids": sorted(inv.governs),
+                    **assurance.panel_field(claims, assurance.INVARIANT, str(inv.n)),
+                }
                 for inv in sorted(model.invariants, key=lambda i: i.n)
             ],
             "kinds": list(model.flow_kinds),

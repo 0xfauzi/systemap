@@ -231,6 +231,8 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | source code | The program text that an extractor or maintainer reads. |
 | source record | The module, symbol, path, and digest cited for a claim. |
 | source review | A recorded examination of source support for a claim. |
+| assurance level | The classification of the evidence for a claim: `established`, `examined`, or `unknown`. |
+| freshness | The state of the record behind an assurance level against the current source: `current`, `earlier`, `stale`, or `missing`. |
 | SVG | The vector image format used for map figures. |
 | symbol | A named function, class, or object in source code. |
 | threshold | The specified acceptance value for a measurement (category 7). |

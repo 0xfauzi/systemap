@@ -72,3 +72,14 @@ To start new counts, remove the file.
 
 If the file does not contain correct JSON, or has a different version or form, the commands stop with exit 1. The error gives the path and the cause.
 Then remove the file.
+
+## Assurance level
+
+`systemap judgement --json` gives each claim an assurance level in `assurance`. The page gives it in the panel.
+
+- `established`: the facts show the full claim. Only an import rule with the result `pass` gets this level.
+- `examined`: a current source review or a current flow review records that an agent or a person examined the claim against citations. A `supported` verdict writes this source review. The facts do not show the claim.
+- `unknown`: the facts and the source reviews do not show the claim. Do not count it as the result `pass`.
+
+The freshness is a different value: `current`, `earlier`, `stale`, or `missing`. A stale source review gives `unknown`.
+In a report, do not write "verified" or "proven" for an `examined` claim. Write "examined".
