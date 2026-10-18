@@ -1,10 +1,13 @@
-"""The pull request comment: one link to the Changes view of the published map page.
+"""The pull request comment: the architecture summary, and a link to the Changes view.
 
-A repository can publish the map page of each pull request, for example with
+`systemap delta --comment FILE` writes the comment. The comment starts with a marker
+line. CI finds the comment with the marker and changes that comment on each push.
+`systemap.pr_summary` gives the architecture summary.
+
+A repository can also publish the map page of each pull request, for example with
 `systemap render --base REF`. `[delta] page_url` gives the URL of that page, with
-`{number}` in the place of the pull request number. CI then posts one comment with a
-link to the Changes view of the page. If the map needs an update, the comment also has
-one line that says so. Without `page_url`, `systemap delta` writes no comment.
+`{number}` in the place of the pull request number. Then the comment also has a link to
+the Changes view of the page, and `--pr` must give the pull request number.
 """
 
 from __future__ import annotations
@@ -77,33 +80,24 @@ def link(url: str, pr: int) -> str:
     return url.replace(NUMBER, str(pr)) + CHANGES
 
 
-def comment(url: str, pr: int, open_lines: int) -> str:
-    """Give the comment: the link, and one line if the map needs an update."""
-    out = [MARKER, f"[Open the Changes view of the map]({link(url, pr)})"]
-    if open_lines:
-        word = "line" if open_lines == 1 else "lines"
-        out += [
-            "",
-            f"A map update is necessary ({open_lines} {word}). The log of the delta job "
-            "gives the action for each line.",
-        ]
+def comment(summary: str, url: str = "", pr: int = 0) -> str:
+    """Give the comment: the marker, the summary, and the link if there is a page URL."""
+    out = [MARKER, summary]
+    if url:
+        out += ["", f"[Open the Changes view of the map]({link(url, pr)})"]
     return "\n".join(out) + "\n"
 
 
-def write(path: str, url: str, pr: int, open_lines: int, root: Path) -> bool:
-    """Write the comment to `path` if the configuration has a page URL.
+def write(path: str, url: str, pr: int, summary: str, root: Path) -> None:
+    """Write the comment to `path`. With a page URL, `pr` must give the number.
 
-    Without a page URL, the function writes no file. The result tells if it wrote one.
     The write replaces a link at the path. It does not write to the target of the link.
     For a path in the repository at `root`, each folder of the path must be in the
     repository. A different path is in a folder of the person who runs the command, for
     example a folder of the CI runner. `file_write.RefusedFile` gives a refused path.
     """
-    if not url:
-        return False
-    if not pr:
+    if url and not pr:
         raise LinkError("delta --comment must have --pr with the pull request number.")
     target = Path(os.path.abspath(path))
     inside = any(target.is_relative_to(base) for base in (root, root.resolve()))
-    file_write.write_atomic(root if inside else target.parent, target, comment(url, pr, open_lines))
-    return True
+    file_write.write_atomic(root if inside else target.parent, target, comment(summary, url, pr))

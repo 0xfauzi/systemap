@@ -58,6 +58,7 @@ from systemap import (
     page,
     place,
     place_source,
+    pr_summary,
     providers,
     review,
     review_upgrade,
@@ -636,7 +637,8 @@ def cmd_delta(args: argparse.Namespace) -> int:
     """Print map changes from the facts at two Git commits.
 
     The command reads committed trees and uses the model on disk. If the map needs an
-    update, the exit code is 1. `--comment` writes the link comment if `page_url` is set.
+    update, the exit code is 1. `--comment` writes the pull request summary
+    (`pr_summary`), with a link to the Changes view if `page_url` is set.
     """
     p = _project(args)
     _require_roots(p)
@@ -656,7 +658,9 @@ def cmd_delta(args: argparse.Namespace) -> int:
     say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
-        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, len(d.open), root)
+        found = pr_summary.collect(p.cfg, p.tree, compared, head, len(d.open))
+        summary = pr_summary.markdown(found)
+        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, summary, root)
     if args.decide is None and not selected and d.added and d.removed:
         jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
@@ -1192,7 +1196,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--comment",
         metavar="FILE",
-        help="Write the pull request comment to FILE. Without [delta] page_url, write no file.",
+        help=(
+            "Write the pull request comment to FILE. The comment gives the changes to the "
+            "contract and the map, the rule results, and the assurance level of each item. "
+            "With [delta] page_url, the comment also has a link to the Changes view."
+        ),
     )
     s.add_argument(
         "--decide",

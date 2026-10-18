@@ -78,7 +78,7 @@ profile = "plain"
 
 # The URL of the map page that CI publishes for each pull request.
 # The pull request number replaces {{number}}.
-# With this value, CI posts one comment with a link to the Changes view of that page.
+# With this value, the summary comment of CI also has a link to the Changes view of that page.
 # [delta]
 # page_url = "https://example.org/pr-{{number}}/"
 
@@ -211,9 +211,10 @@ WORKFLOW = """name: systemap
 # SYSTEMAP_CI below controls what a map finding does. With advisory, a finding gives a
 # warning and the job passes. With strict, a finding makes the job fail. When systemap
 # cannot run, the job fails with both values. The delta log gives each action.
-# Only the link job can write a pull request comment. It runs only if
-# [delta] page_url in systemap.toml gives the map page of each pull request,
-# and only for a pull request from a branch of this repository.
+# The delta job writes the architecture summary of a pull request to the job summary.
+# Only the comment job can write a pull request comment. It writes the summary as one
+# comment, and changes that comment on each push. It runs only for a pull request from
+# a branch of this repository, because a fork pull request has a read-only token.
 
 
 on:
@@ -332,6 +333,7 @@ jobs:
           uvx --from "systemap==__VERSION__" systemap delta --base "$BASE" --head "$HEAD" --pr "$PR" --comment comment.md || code=$?
           echo "$code" > delta.code
           if [ -s comment.md ]; then
+            cat comment.md >> "$GITHUB_STEP_SUMMARY"
             {
               echo "comment<<SYSTEMAP_COMMENT"
               cat comment.md
@@ -352,10 +354,11 @@ jobs:
             exit "$code"
           fi
 
-  # This job runs only if [delta] page_url in systemap.toml gives the map page of each pull request.
+  # This job writes the architecture summary as one pull request comment.
   # It runs only for a pull request from a branch of this repository. The code and the settings
-  # of a pull request from a fork can change the comment text.
-  link:
+  # of a pull request from a fork can change the comment text. The job summary of the delta job
+  # gives the summary for each pull request, also from a fork.
+  comment:
     needs: delta
     if: >-
       ${{ !cancelled() && needs.delta.outputs.comment != ''
@@ -363,21 +366,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      pull-requests: write # this job posts or updates the link comment
+      pull-requests: write # this job posts or updates the summary comment
     steps:
-      - name: Link to the Changes view
+      - name: Architecture summary
         env:
           BODY: ${{ needs.delta.outputs.comment }}
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.body | startswith("<!-- systemap delta -->"))) | first | .id // empty' | head -n 1)"
+          existing="$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq 'map(select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- systemap delta -->")))) | first | .id // empty' | head -n 1)"
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -f body="$BODY" > /dev/null
           else
             gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$BODY" > /dev/null
-          fi || echo "::warning title=Map link::The job could not write the comment. A fork pull request has a read-only token."
+          fi || echo "::warning title=Architecture summary::The job could not write the comment. The job summary of the delta job gives the text."
 """
 
 

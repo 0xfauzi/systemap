@@ -9,8 +9,8 @@ The workflow from `systemap init` compares the map with the source in CI. On a p
 | Job | When it runs | What it does |
 |---|---|---|
 | `systemap` | Each push to `main` and each pull request | Runs `extract --check`, `check`, `judgement --strict`, and `render --check`. |
-| `delta` | Each pull request | Runs `delta` from the base commit to the head commit. |
-| `link` | If `delta` wrote a comment | Posts or changes one comment with a link to the Changes view. |
+| `delta` | Each pull request | Runs `delta` from the base commit to the head commit. Writes the architecture summary to the job summary. |
+| `comment` | Each pull request from a branch of the same repository | Posts or changes one comment with the architecture summary. |
 
 The workflow runs `uvx --from "systemap==<version>"` with the version that wrote the file.
 It does not set `TYPESAFE_API_KEY` or `OPENAI_API_KEY`, and it does not give `--decide`. Thus no question goes to a decision provider.
@@ -79,7 +79,49 @@ A link that ends in `#changes` opens the Changes view. [Read the map](reading-th
 Do not commit this page into the output directory, because `systemap render --check` finds it stale.
 Publish the page of each pull request at a different place, or use [the live map](live-map.html) on your computer.
 
-## The link comment
+## The architecture summary
+
+The architecture summary tells the reviewer of a pull request the effect of the change on the architecture.
+`systemap delta --comment FILE` writes it to `FILE`. The summary has these parts:
+
+- **Contract**: the invariants and the import rules that the change added, removed, or changed. Accept or reject each contract change in the review.
+- **Map**: the components, the flows, and the sequences that the change added, removed, or changed.
+- **Rules**: the result of each import rule at the head commit.
+- **Map update**: the number of delta lines with a necessary action. This row shows only if a map update is necessary.
+
+Each row of an item gives the assurance level of its claim at the head commit, and the freshness of the record behind the level.
+A removed item, an actor, and a sequence have no level.
+Each part gives a maximum of 5 rows, and then the count of the other rows.
+
+In the two-component fixture of the systemap tests, a change added an import rule, a reason, a flow artifact, and a module without a component.
+This is the summary of that change:
+
+```text
+<!-- systemap delta -->
+**Architecture**
+
+- **Contract:** 1 changed invariant, 1 added import rule. Accept or reject each contract change in this review.
+  - changed invariant `1` (reason): unknown, source review missing
+  - added import rule `no-back`: established from facts
+- **Map:** 1 changed flow
+  - changed flow `Reader` -> `Writer`, `parsed request` (artifact): unknown, flow review missing
+- **Rules:** 1 passed, 0 failed, 0 unknown
+- **Map update:** necessary for 1 line. The log of the delta job gives the action for each line.
+
+Levels: established = the facts show the claim. examined = an agent or a person examined the cited source. unknown = no fact or review shows the claim.
+```
+
+If the change has no effect on the contract or the map, and no rule has the result `fail`, the summary is one line:
+
+```text
+**Architecture:** no change to the contract or the map. Rules: 1 passed, 0 failed, 0 unknown.
+```
+
+The `comment` job posts the summary as one comment, and changes the same comment after each push.
+It runs only for a pull request from a branch of the same repository. [Trust and security](trust-and-security.html#the-ci-comment-job) tells why.
+For a pull request from a fork, read the summary in the job summary of the `delta` job.
+
+## The link to the Changes view
 
 If your repository publishes the map page of each pull request, set its URL in `systemap.toml`:
 
@@ -89,18 +131,13 @@ page_url = "https://example.org/pr-{number}/"
 ```
 
 The [reference](reference.html#what-can-you-configure) gives the rules for the URL.
-Then `systemap delta --comment FILE --pr N` writes the comment to `FILE`:
+Then the comment also has a link to the Changes view of the page, and `--comment FILE` must have `--pr N`:
 
 ```text
-<!-- systemap delta -->
 [Open the Changes view of the map](https://example.org/pr-7/#changes)
-
-A map update is necessary (4 lines). The log of the delta job gives the action for each line.
 ```
 
 systemap does not publish the page.
-The `link` job posts the comment, and changes the same comment after each push.
-It runs only for a pull request from a branch of the same repository. [Trust and security](trust-and-security.html#the-ci-link-job) tells why.
 
 ## Upgrade a workflow from 1.2.0
 

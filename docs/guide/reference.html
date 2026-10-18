@@ -1102,6 +1102,10 @@ a map finding gives a warning annotation, and the job passes.
 With <code>--strict-ci</code>, the value is <code>strict</code>: a map finding makes the job fail.
 You can change the value in the workflow file later.
 If systemap cannot run (exit code 2 or more), the job fails with both values.</p>
+<p>On a pull request, the <code>delta</code> job writes the architecture summary of <code>delta --comment</code> to its job summary.
+The <code>comment</code> job posts the summary as one pull request comment, and changes that comment after each push.
+Only the <code>comment</code> job has <code>pull-requests: write</code>. It runs only for a pull request from a branch of the same repository.
+For a pull request from a fork, the summary is only in the job summary. The comment does not change the result of a CI job.</p>
 <p>If the repository has no Python package and a directory has a <code>tsconfig.json</code> file,
 <code>init</code> selects TypeScript.
 For TypeScript, <code>init</code> selects the package root with this rule, in this sequence:</p>
@@ -1746,11 +1750,24 @@ The list does not print if the component with the most changes connects to more
 than one-third of the map.</p>
 <ul>
 <li>
-<p><code>--comment FILE --pr N</code> writes the pull-request comment to <code>FILE</code> if <code>[delta] page_url</code> is set.
-The comment has one link to the Changes view of the page for pull request <code>N</code>.
-If it is necessary to update the map, one more line says so and gives the number of lines.</p>
+<p><code>--comment FILE</code> writes the architecture summary of the pull request to <code>FILE</code>.
+The summary has four parts:</p>
+<ul>
+<li>Contract: the invariants and the import rules that the change added, removed, or changed.
+systemap compares the committed model at the merge base with the model on disk.</li>
+<li>Map: the components, the flows, and the sequences that the change added, removed, or changed.</li>
+<li>Rules: the result of each import rule with the facts at the head commit, and <code>[rules] unknown</code>.</li>
+<li>Map update: the number of delta lines with a necessary action. This row shows only if the number is not 0.</li>
+</ul>
+<p>Each item row gives the assurance level and the freshness of its claim at the head commit.
+These are the values of <code>assurance</code> in <code>judgement --json</code>.
+A removed item, an actor, and a sequence have no level.
+Each part gives a maximum of 5 rows, and then the count of the other rows.
+The summary is one line if these conditions are true: the contract and the map did not change, no rule has the result <code>fail</code>, and no delta line has a necessary action.
+If the model at the merge base does not load, the contract and the map are <code>unknown</code>, with the cause.</p>
+<p>With <code>[delta] page_url</code>, the comment also has a link to the Changes view of the page for pull request <code>N</code>.
+Then <code>--pr N</code> is necessary.</p>
 <p>The first comment line is <code>&lt;!-- systemap delta --&gt;</code>. CI finds the comment with it and changes that comment.
-Without <code>page_url</code>, the command writes no file.
 The comment does not change the delta lines or the exit code.
 If <code>FILE</code> is a link, the command replaces the link. It does not write to the target of the link.
 A relative <code>FILE</code> is relative to the current directory, not to <code>--root</code>.
@@ -2526,7 +2543,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[delta]</code></td>
 <td>none</td>
-<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, <code>systemap delta --comment FILE --pr N</code> writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
+<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, the comment of <code>systemap delta --comment FILE --pr N</code> also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
 </tr>
 <tr>
 <td><code>[writing]</code></td>

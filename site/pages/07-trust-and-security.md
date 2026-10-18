@@ -67,14 +67,17 @@ These commands include `check`, `refresh`, `render`, `review`, `decisions`, `pla
 `serve` and `live` answer only requests on 127.0.0.1 ([The local servers](#the-local-servers)).
 The rendered page loads no files from other servers.
 
-## The CI link job
+## The CI comment job
 
-In the workflow from `init`, only the `link` job has `pull-requests: write`. It runs only if:
+In the workflow from `init`, only the `comment` job has `pull-requests: write`. It runs only if:
 
-- `systemap delta` wrote a comment, which needs `[delta] page_url`.
+- `systemap delta` wrote the summary comment.
 - The pull request comes from a branch of the same repository.
 
-The code and the settings of a fork can change the comment text, so the `link` job does not run for a fork.
+The code and the settings of a fork can change the comment text. Thus the `comment` job does not run for a fork.
+The token of a fork pull request also cannot write a comment.
+For each pull request, the `delta` job writes the summary to its job summary. That job has only `contents: read`.
+The workflow does not use `pull_request_target`, because that event gives a write token to the workflow for the code of a fork.
 The other jobs have only `contents: read`. They check out the code without stored credentials.
 Each action has a fixed commit.
 

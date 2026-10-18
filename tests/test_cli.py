@@ -144,11 +144,11 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     assert workflow.index("persist-credentials") < workflow.index("setup-uv")
 
 
-def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path) -> None:
+def test_init_workflow_posts_the_summary_as_one_comment(tmp_path: Path) -> None:
     """The pull_request jobs: delta gives its lines in the log, and SYSTEMAP_CI decides if a
-    necessary map update fails the job. Only the link job can write a comment, and it runs
-    only when delta wrote one, which needs [delta] page_url. Nothing is expanded inside a
-    run block."""
+    necessary map update fails the job. The delta job writes the summary to the job summary.
+    Only the comment job can write a comment, and only for a branch of this repository.
+    Nothing is expanded inside a run block."""
     import re
 
     from systemap import delta_link
@@ -156,9 +156,10 @@ def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     assert run("--root", str(tmp_path), "init") == 0
     workflow = (tmp_path / ".github/workflows/systemap.yml").read_text(encoding="utf-8")
-    assert workflow.count("\n  delta:\n") == 1 and workflow.count("\n  link:\n") == 1
-    job = workflow[workflow.index("\n  delta:\n") : workflow.index("\n  # This job runs only")]
-    link = workflow[workflow.index("\n  link:\n") :]
+    assert workflow.count("\n  delta:\n") == 1 and workflow.count("\n  comment:\n") == 1
+    assert "pull_request_target" not in workflow
+    job = workflow[workflow.index("\n  delta:\n") : workflow.index("\n  # This job writes")]
+    link = workflow[workflow.index("\n  comment:\n") :]
     assert "if: github.event_name == 'pull_request'" in job
     assert "persist-credentials: false" in job and "fetch-depth: 0" in job
     assert "BASE: ${{ github.event.pull_request.base.sha }}" in job
@@ -166,17 +167,22 @@ def test_init_workflow_posts_only_a_link_and_only_with_a_page_url(tmp_path: Path
     pin = f'uvx --from "systemap=={__version__}" systemap'
     assert f'{pin} delta --base "$BASE" --head "$HEAD" --pr "$PR" --comment comment.md' in job
     assert "--format" not in workflow and "What this change does to the map" not in workflow
-    # The delta job has no write permission and writes no comment.
+    # The delta job has no write permission and writes no comment. Its job summary gives the
+    # text for each pull request, also from a fork.
     assert "permissions:" not in job and "gh api" not in job
+    assert 'cat comment.md >> "$GITHUB_STEP_SUMMARY"' in job
     assert 'if [ "$SYSTEMAP_CI" = "strict" ]; then exit 1; fi' in job
     assert "::$level title=Map delta::A map update is necessary." in job
-    # The link job: write permission on that job alone, only with a comment from delta.
+    # The comment job: write permission on that job alone, only with a comment from delta.
     assert workflow.count("pull-requests: write") == 1
     assert "    permissions:\n      pull-requests: write" in link
     assert "    needs: delta\n" in link
     assert "${{ !cancelled() && needs.delta.outputs.comment != ''" in link
     # A fork pull request can change the comment text: the job runs only for this repository.
     assert "&& github.event.pull_request.head.repo.full_name == github.repository }}" in link
+    # The job changes only a comment from the Actions bot. A comment from a different person can
+    # also start with the marker.
+    assert '.user.login == "github-actions[bot]" and' in link
     assert "comment: ${{ steps.delta.outputs.comment }}" in job
     # One comment: found by the marker delta writes first, then edited in place.
     assert f'startswith("{delta_link.MARKER}")' in link
