@@ -192,10 +192,12 @@ def _open_below(base: Path, target: Path) -> int:
         os.close(folder)
 
 
-def read_bytes(root: Path, rel: str | PurePath) -> bytes:
-    """Give the bytes of a regular file in the root, or give an OSError."""
+def read_bytes(root: Path, rel: str | PurePath, size: int = -1) -> bytes:
+    """Give the bytes of a regular file in the root, or give an OSError.
+
+    With a size that is not negative, give at most that number of bytes."""
     with os.fdopen(_open(root, rel), "rb") as handle:
-        return handle.read()
+        return handle.read(size)
 
 
 def read_text(

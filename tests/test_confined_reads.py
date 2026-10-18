@@ -419,3 +419,77 @@ def test_a_fifo_model_file_gives_its_cause(tmp_path: Path) -> None:
     outcome = _outcome(lambda: config.load_model(tmp_path / "model.py"), tmp_path / "model.py")
     _refused(outcome, NOT_REGULAR, "model.py")
     assert isinstance(outcome[1], ConfigError)
+
+
+# ---- the map files (issue 120) --------------------------------------------------------
+
+# A file that is not in the repository. The model reader names a refused call in its
+# message. Thus a read of this file puts LEAKED_TEXT in the output.
+LEAKED = "LEAKED_TEXT()\n"
+
+
+def _linked(repo: Path, name: str, target: Path) -> None:
+    """Put a link to the target at the map file. Move the map file to a missing target."""
+    path = repo / "map" / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        path.replace(target)
+    path.unlink(missing_ok=True)
+    path.symlink_to(target)
+
+
+def _commands(repo: Path, capsys: pytest.CaptureFixture[str]) -> list[tuple[int, str]]:
+    found = []
+    for command in ("check", "judgement", "render"):
+        capsys.readouterr()
+        code = main(["--root", str(repo), command])
+        out = capsys.readouterr()
+        found.append((code, out.out + out.err))
+    return found
+
+
+@pytest.mark.parametrize("name", ["model.py", "contract.py"])
+def test_a_map_file_link_out_of_the_repository_is_refused(
+    tmp_path: Path, name: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = tmp_path / "repo"
+    _rendered(repo)
+    (tmp_path / "outside.py").write_text(LEAKED, encoding="utf-8")
+    _linked(repo, name, tmp_path / "outside.py")
+    for code, text in _commands(repo, capsys):
+        assert code == 2, text
+        assert f"map/{name}" in text, text
+        assert OUTSIDE_LINK in text, text
+        assert "LEAKED_TEXT" not in text, text
+
+
+@pytest.mark.parametrize("name", ["model.py", "contract.py"])
+def test_the_model_reader_refuses_a_map_file_link_out_of_the_folder(
+    tmp_path: Path, name: str
+) -> None:
+    """Without a repository root, the root of the model reader is the folder of the model
+    file. The read refuses the link, also without nest.load."""
+    repo = tmp_path / "repo"
+    write_tree(repo, {"pkg/__init__.py": "", **STARTER_MODULES})
+    init_two_cards(repo, "--no-ci")
+    (tmp_path / "outside.py").write_text(LEAKED, encoding="utf-8")
+    _linked(repo, name, tmp_path / "outside.py")
+    outcome = _outcome(lambda: config.load_model(repo / "map/model.py", "map/model.py"))
+    _refused(outcome, OUTSIDE_LINK, f"map/{name}")
+    assert isinstance(outcome[1], ConfigError)
+    assert "LEAKED_TEXT" not in str(outcome[1])
+
+
+@pytest.mark.parametrize("name", ["model.py", "contract.py"])
+def test_a_map_file_link_inside_the_repository_is_read(
+    tmp_path: Path, name: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A link to a file in a different folder of the repository gives the same results
+    as the file."""
+    repo = tmp_path / "repo"
+    _rendered(repo)
+    before = _commands(repo, capsys)
+    _linked(repo, name, repo / "rules" / name)
+    assert (repo / "map" / name).is_symlink()
+    assert _commands(repo, capsys) == before
+    assert before[0][0] == 0

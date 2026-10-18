@@ -160,8 +160,8 @@ def _map(cfg: config.Config, map_id: str) -> nest.Map:
 def _data(m: nest.Map) -> tuple[Model, Meaning]:
     """Read the model with the reader that runs no code, also with permission for code."""
     try:
-        names = model_load.read(m.path, m.rel)
-        model = contract_file.merged(m.path, m.rel, names.get("MODEL"), model_load.read)
+        names = model_load.read(m.path, m.rel, m.root)
+        model = contract_file.merged(m.path, m.rel, names.get("MODEL"), m.root, model_load.read)
     except model_load.ModelFileError as exc:
         raise ReviewError(f"{exc}\n{NOT_DATA}") from exc
     meaning = names.get("MEANING")
@@ -212,7 +212,7 @@ def _flow_digest(
 def _definition(m: nest.Map, target: Target) -> tuple[Path, str, ast.Call]:
     """Find the one literal call that defines the target in the model files of the map."""
     found: list[tuple[Path, str, ast.Call]] = []
-    for path in model_load.files(m.path, m.rel):
+    for path in model_load.files(m.path, m.rel, m.root):
         # The text has LF line ends. Thus the written model has LF line ends.
         source = source_text.decode(path.read_bytes())
         tree = ast.parse(source, str(path))
@@ -269,14 +269,14 @@ def _same(m: nest.Map, texts: dict[Path, str], model: Model, meaning: Meaning) -
     """Read the new texts with the reader that runs no code, in a copy of the model files."""
     with tempfile.TemporaryDirectory(prefix="systemap-review-") as folder:
         copy = Path(folder)
-        for each in contract_file.map_files(m.path, m.rel):
+        for each in contract_file.map_files(m.path, m.rel, m.root):
             shutil.copyfile(each, copy / each.name)
         for path, text in texts.items():
             (copy / path.name).write_text(text, encoding="utf-8", newline="")
         try:
-            names = model_load.read(copy / m.path.name, m.rel)
+            names = model_load.read(copy / m.path.name, m.rel, copy)
             found = contract_file.merged(
-                copy / m.path.name, m.rel, names.get("MODEL"), model_load.read
+                copy / m.path.name, m.rel, names.get("MODEL"), copy, model_load.read
             )
         except model_load.ModelFileError as exc:
             raise ReviewError(f"{exc}\nThe command wrote no file.") from exc

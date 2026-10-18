@@ -423,14 +423,15 @@ def _docstring(statement: ast.stmt) -> bool:
     )
 
 
-def proposal_problem(path: Path, label: str, source: str, ids: Collection[str]) -> str:
+def proposal_problem(path: Path, label: str, source: str, ids: Collection[str], root: Path) -> str:
     """Give the problem of a proposed model text, or an empty string.
 
     The model reader reads a copy of the model files in a temporary folder, with the
     proposed text in place of the file at `path`. The reader is the reader of each other
-    command (`config.load_model`). The loaded MEANING must contain each sequence id."""
+    command (`config.load_model`). The map files must be in the root. The loaded MEANING
+    must contain each sequence id."""
     try:
-        found = {journey.id for journey in _proposed_meaning(path, label, source).journeys}
+        found = {journey.id for journey in _proposed_meaning(path, label, source, root).journeys}
     except ConfigError as exc:
         return f"The model reader does not accept the changed model: {exc}"
     missing = [one for one in ids if one not in found]
@@ -442,20 +443,20 @@ def proposal_problem(path: Path, label: str, source: str, ids: Collection[str]) 
     )
 
 
-def _proposed_meaning(path: Path, label: str, source: str) -> Meaning:
+def _proposed_meaning(path: Path, label: str, source: str, root: Path) -> Meaning:
     with tempfile.TemporaryDirectory(prefix="systemap-journeys-") as folder:
         copy = Path(folder).resolve()
-        for each in _model_files(path, label):
+        for each in _model_files(path, label, root):
             shutil.copyfile(each, copy / each.name)
         file_write.write_atomic(copy, copy / path.name, source)
-        return config.load_model(copy / path.name, label)[1]
+        return config.load_model(copy / path.name, label, copy)[1]
 
 
-def _model_files(path: Path, label: str) -> tuple[Path, ...]:
+def _model_files(path: Path, label: str, root: Path) -> tuple[Path, ...]:
     """Give the model file, the contract file, and the files that they can import
     (`contract_file.map_files`)."""
     try:
-        return contract_file.map_files(path, label)
+        return contract_file.map_files(path, label, root)
     except model_load.ModelFileError as exc:
         raise ConfigError(str(exc)) from exc
 

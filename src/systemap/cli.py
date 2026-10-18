@@ -13,6 +13,7 @@ error. Commands that read the model include nested maps. Nested lines have a map
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import sys
@@ -786,7 +787,8 @@ def cmd_place(args: argparse.Namespace) -> int:
             continue
         # The writer loads the file again and compares all positions, boxes, and the
         # canvas. If it cannot load the file or a value is different, it restores the file.
-        place_source.write(m.path, m.rel, placement, place.apply(m.model, placement), _reload)
+        reload = functools.partial(_reload, root=m.root)
+        place_source.write(m.path, m.rel, placement, place.apply(m.model, placement), reload)
         laid = ". The command set all boxes and the canvas" if placement.fresh else ""
         say(f"{m.prefix}place: The command wrote {m.rel}: {place.head(placement)}{laid}")
         if placement.fresh:
@@ -797,8 +799,8 @@ def cmd_place(args: argparse.Namespace) -> int:
     return OK
 
 
-def _reload(path: Path, label: str) -> Model:
-    return config.load_model(path, label)[0]
+def _reload(path: Path, label: str, root: Path | None) -> Model:
+    return config.load_model(path, label, root)[0]
 
 
 # ---- serve -----------------------------------------------------------------

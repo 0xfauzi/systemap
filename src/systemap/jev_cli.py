@@ -399,7 +399,7 @@ def _commit_journeys(
     for path, source in sources.items():
         # An inserted sequence calls Journey and Step. The model must import them.
         sources[path] = source = journeys.with_imports(source)
-        problem = journeys.proposal_problem(path, cfg.rel(path), source, written[path])
+        problem = journeys.proposal_problem(path, cfg.rel(path), source, written[path], cfg.root)
         if problem:
             print(f"journeys: the command wrote no file. {problem}")
             return False
