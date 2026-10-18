@@ -436,6 +436,7 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 | triage | not available | 82.5% first-component rate | 69.2%. More than 10 points below development. |
 | plan | not available | 0.73 of changed components covered at 0.5 | 0.39 covered |
 | `suggest --decide`, `delta --decide` moves | not available | not measured | No holdout rows exist. |
+| `judgement --order-by-drift` | not available | not measured | No holdout rows exist. |
 
 The owner question of `delta --decide` uses the `decision owner` threshold.
 The `decision flow` threshold came from a second measurement on 2026-10-13. It used the flow context from the `call_sites` fact, as the command does.
@@ -788,6 +789,35 @@ An empty contract file from `systemap init` gets the moved rules.
 After the move, each rule without a reason gives a `contract reason` line. The agent writes the reasons.
 Examine the two changed files before you commit them.
 
+## How strong is the evidence for each claim?
+
+Each claim of a map has one assurance level and one freshness value.
+The claims are the source components, the flows, the invariants, and the import rules.
+An actor is not part of the source. Thus it has no level.
+`systemap judgement --json` gives the values in `assurance`. The page gives them in the panel of each component, flow, and rule.
+
+| Level | Meaning | The states that give it |
+|---|---|---|
+| `established` | The facts of this source snapshot show the full claim. | An import rule with the result `pass`. |
+| `examined` | An agent or a person examined the claim against the cited source. The facts do not show the claim. | A current source review of a component. A current flow review with a source record in a module of an endpoint. For an invariant, a current source review of each applicable component. |
+| `unknown` | The facts and the source reviews do not show the claim. A program must not count it as the result `pass`. | All other states. Examples are a missing or stale review, a rule with the result `fail` or `unknown`, and an invariant with a linked import rule that fails. |
+
+Only an import rule can be `established`.
+An import or a call site does not show the direction or the artifact of a flow.
+A linked import rule examines only the imports of an invariant, not its text.
+Thus a linked rule with the result `pass` does not make its invariant `established`.
+
+The freshness tells if the record behind the level agrees with the current source:
+
+- `current`: the review digest is the current digest. For an import rule, the result comes from the current facts.
+- `earlier`: a flow review earlier than source tracking (`review earlier than source tracking`).
+- `stale`: the source or the claim changed after the source review.
+- `missing`: the map has no source review, or no facts are available.
+
+A stale source review does not give `examined`.
+A `supported` decision writes a review digest. Thus the review state includes it.
+The level does not use the local decision store.
+
 ## Which command do you use?
 
 All commands accept `--root DIR` before the command. All commands except `explain` also accept it after the command.
@@ -830,6 +860,11 @@ a map finding gives a warning annotation, and the job passes.
 With `--strict-ci`, the value is `strict`: a map finding makes the job fail.
 You can change the value in the workflow file later.
 If systemap cannot run (exit code 2 or more), the job fails with both values.
+
+On a pull request, the `delta` job writes the architecture summary of `delta --comment` to its job summary.
+The `comment` job posts the summary as one pull request comment, and changes that comment after each push.
+Only the `comment` job has `pull-requests: write`. It runs only for a pull request from a branch of the same repository.
+For a pull request from a fork, the summary is only in the job summary. The comment does not change the result of a CI job.
 
 If the repository has no Python package and a directory has a `tsconfig.json` file,
 `init` selects TypeScript.
@@ -1154,7 +1189,8 @@ The first finding of each kind has rows about its effect and necessary action.
   For a model without components, the lists are empty.
   The exit code is 1 with `--strict`, and 0 without it.
 
-- `--order-by-drift` sends one question to the selected provider for each open `stale source review` line.
+- `--order-by-drift` uses the selected provider only if it has a measured drift result.
+  It sends one question for each open `stale source review` line.
   The answer is the drift score: the probability that the claims of the component agree with its changed source.
   The report puts the stale lines in sequence from the lowest drift score.
   The other lines do not move.
@@ -1165,7 +1201,9 @@ The first finding of each kind has rows about its effect and necessary action.
   The open lines and the exit code are the same with and without the option.
   The score has no threshold, because no measurement gives one (`bench/jev/README.md`, test 7).
   Examine each stale component, also the components at the end of the sequence.
-  Set the key of the selected provider: `TYPESAFE_API_KEY` for Jev, or `OPENAI_API_KEY` for OpenAI.
+  Jev has a measured drift result (`bench/jev/README.md`, test 7). Set `TYPESAFE_API_KEY` to use it.
+  OpenAI has no measured drift result. With OpenAI selected, the command sends no request and gives the cause.
+  Each stale line then has `no score`. With `--json`, `drift_order.reason` gives the cause.
   Without the option, `judgement` sends no request.
   Without the key, or without an open `stale source review` line, the option also sends no request.
   `--provider` overrides `[decisions] provider`. The default provider is Jev.
@@ -1180,14 +1218,14 @@ The first finding of each kind has rows about its effect and necessary action.
 
   A refusal or a request error gives `no score`. A line without a score goes to the end of the stale lines.
   A `drift sequence:` row gives the quantity of questions without a score and the cause.
-  The answers go into the cache of the selected provider. Thus, the next command sends no question.
-  With Jev, it reads the model list one time, as each Jev command does.
+  Jev answers go into the Jev cache. Thus, the next command sends no question.
+  It reads the model list one time, as each Jev command does.
 
 The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 6. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. |
+| `schema_version` | integer | The version of this schema. The value is 7. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
@@ -1208,6 +1246,14 @@ The JSON object has these fields:
 | `earlier_flow_reviews` | list of objects | One object for each flow with the label "review earlier than source tracking". `map` is the map ID, and an empty string for the top map. `flow` is the flow identifier. Such a review is current, so it gives no finding. |
 | `require_reviews` | boolean | The value of `[judgement] require_reviews`. With true, a missing source review is an open finding. |
 | `kinds` | object | One key for each finding kind. Each value has `open` and `answered`, with the quantity of findings of that kind. |
+| `assurance.counts` | object | The keys `established`, `examined`, and `unknown`, with the quantity of claims at each level. No key counts `unknown` claims as the result `pass`. |
+| `assurance.claims` | list of objects | One object for each claim, map by map in tree order. In each map: the source components and the flows in model order, the invariants in number order, and the import rules in model order. |
+| `assurance.claims[].map` | string | The map ID, and an empty string for the top map. |
+| `assurance.claims[].type` | string | `component`, `flow`, `invariant`, or `import_rule`. |
+| `assurance.claims[].id` | string | The component ID, the flow identifier, the invariant number as text, or the import rule id. |
+| `assurance.claims[].level` | string | `established`, `examined`, or `unknown`. See [How strong is the evidence for each claim?](#how-strong-is-the-evidence-for-each-claim). |
+| `assurance.claims[].freshness` | string | `current`, `earlier`, `stale`, or `missing`. |
+| `assurance.claims[].basis` | string | The state that gives the level, for example `rule_pass`, `source_review_current`, `flow_review_stale`, or `citation_outside_endpoints`. |
 | `drift_order` | object | Only with `--order-by-drift`. `questions` is the quantity of questions. `no_score` is the quantity of questions without a score. `reason` is the cause, or an empty string. |
 | `unknown_requests` | list of objects | The unknown decision requests, with the fields of `unknown_requests` in `systemap decisions status --json`. Without a decision store, the list is empty. |
 
@@ -1271,12 +1317,25 @@ This list gives context, not a finding.
 The list does not print if the component with the most changes connects to more
 than one-third of the map.
 
-- `--comment FILE --pr N` writes the pull-request comment to `FILE` if `[delta] page_url` is set.
-  The comment has one link to the Changes view of the page for pull request `N`.
-  If it is necessary to update the map, one more line says so and gives the number of lines.
+- `--comment FILE` writes the architecture summary of the pull request to `FILE`.
+  The summary has four parts:
+  - Contract: the invariants and the import rules that the change added, removed, or changed.
+    systemap compares the committed model at the merge base with the model on disk.
+  - Map: the components, the flows, and the sequences that the change added, removed, or changed.
+  - Rules: the result of each import rule with the facts at the head commit, and `[rules] unknown`.
+  - Map update: the number of delta lines with a necessary action. This row shows only if the number is not 0.
+
+  Each item row gives the assurance level and the freshness of its claim at the head commit.
+  These are the values of `assurance` in `judgement --json`.
+  A removed item, an actor, and a sequence have no level.
+  Each part gives a maximum of 5 rows, and then the count of the other rows.
+  The summary is one line if these conditions are true: the contract and the map did not change, no rule has the result `fail`, and no delta line has a necessary action.
+  If the model at the merge base does not load, the contract and the map are `unknown`, with the cause.
+
+  With `[delta] page_url`, the comment also has a link to the Changes view of the page for pull request `N`.
+  Then `--pr N` is necessary.
 
   The first comment line is `<!-- systemap delta -->`. CI finds the comment with it and changes that comment.
-  Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
   If `FILE` is a link, the command replaces the link. It does not write to the target of the link.
   A relative `FILE` is relative to the current directory, not to `--root`.
@@ -1755,11 +1814,11 @@ Unknown keys are rejected.
 | `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. The previous `jev` names stay correct for one release, with a warning. |
 | `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
-| `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, and `suggest --decide`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
+| `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, `suggest --decide`, and `judgement --order-by-drift`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--decide`. With `enabled` unset, `delta` sends no question without `--decide`, also with a key. `enabled = false` stops the hints. |
 | `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
+| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, the comment of `systemap delta --comment FILE --pr N` also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value (`font_ui`, `font_mono`) can contain `"`. A `[theme.marks]` value must be `ring`, `notch`, or `dotted`. A key in a theme table, such as `[theme.delta]`, can contain only letters, digits, `_`, and `-`. The page uses these keys in CSS names. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. An `out` that is not in `out_dir` gives exit code 2. |

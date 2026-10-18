@@ -770,22 +770,22 @@ def _answer_review(
     return evidence, policy, tuple(reviewed)
 
 
-def load_model(path: Path, label: str = "") -> tuple[Model, Meaning]:
+def load_model(path: Path, label: str = "", root: Path | None = None) -> tuple[Model, Meaning]:
     """This function reads the model file and gets MODEL and MEANING.
 
     The reader runs no code from the file. Only the environment of the command can permit
     code, with SYSTEMAP_TRUST_MODEL_CODE=1 (see model_load). MODEL gets the rules of the
     contract file (`contract_file.merged`). The optional label supplies the path name in
-    error messages. A refusal, an import error, or a name that the page cannot use (see
-    model_names) gives a configuration diagnostic. A sequence step that names its flow by
-    id gets the edge of that flow."""
+    error messages. The optional root must contain the map files (see model_load.read). A
+    refusal, an import error, or a name that the page cannot use (see model_names) gives a
+    configuration diagnostic. A sequence step that names its flow by id gets the edge."""
     if not path.is_file():
         problem = "not a regular file" if repo_files.present(path) else "missing"
         raise ConfigError(f"The model module is {problem}: {path}")
     label = label or str(path)
     try:
-        names = model_load.load(path, label)
-        names["MODEL"] = contract_file.merged(path, label, names.get("MODEL"))
+        names = model_load.load(path, label, root)
+        names["MODEL"] = contract_file.merged(path, label, names.get("MODEL"), root)
     except model_load.ModelFileError as exc:
         raise ConfigError(str(exc)) from exc
     model = names.get("MODEL")

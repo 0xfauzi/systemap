@@ -18,6 +18,8 @@ After the write rule was added, the rule found 47 calls on commit e51ab46. This 
 repaired the 8 writes that were not in the list: the page and figure writes, the facts
 write, the plan save, the decision store, and the `systemap live` page writes. A write
 of these went through a link. The list has 39 calls, 23 reads and 16 writes.
+Issue 120 removed the two reads of `model_load` from the list (46 calls before, 44
+after). The model reader reads each map file through `repo_files`.
 """
 
 from __future__ import annotations
@@ -70,8 +72,6 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("judgement_evidence.py", "model_digest", "path.read_bytes"): MODEL,
     ("model_convert.py", "_siblings", "path.read_text"): MODEL,
     ("model_convert.py", "convert", "read_text"): MODEL,
-    ("model_load.py", "_parse", "path.open"): MODEL + ", and _Reader.sibling for an import",
-    ("model_load.py", "run_code", "path.read_text"): MODEL + ", with SYSTEMAP_TRUST_MODEL_CODE=1",
     ("model_write.py", "write_models", "path.read_bytes"): MODEL,
     ("place_source.py", "write", "path.read_bytes"): MODEL,
     ("review.py", "_definition", "path.read_bytes"): MODEL,

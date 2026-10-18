@@ -170,6 +170,8 @@ border:solid var(--ink-3);border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
 .rules{margin:10px 0 0;padding-left:26px}
 .rules li{margin:0 0 14px;color:var(--ink);font-size:13px;line-height:1.55;border-radius:4px}
 .rules li::marker{color:var(--ink-3);font:600 12px var(--fm)}
+.rules .assurance{display:block;color:var(--ink-3);font:12px var(--fm)}
+.rules--import{list-style:none;padding-left:0}
 .rules li:focus{outline:none;background:var(--raised);box-shadow:0 0 0 6px var(--raised)}
 .governs{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .gv{height:24px;min-height:24px;padding:0 8px;font:12px var(--fm)}

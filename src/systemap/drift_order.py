@@ -358,12 +358,17 @@ def with_provider(
     send: jev.Send | None = None,
 ) -> Order:
     """Give scores from the selected provider, with its configured cache."""
+
+    def make() -> DecisionProvider:
+        providers.require_drift(cfg)
+        return providers.select(cfg, send)
+
     return order(
         cfg,
         tree,
         facts,
         open_lines,
-        lambda: providers.select(cfg, send),
+        make,
     )
 
 

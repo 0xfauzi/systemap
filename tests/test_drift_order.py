@@ -27,7 +27,7 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import card_review, config, drift_order, facts_file, jev, judgement, nest
+from systemap import card_review, config, decision, drift_order, facts_file, jev, judgement, nest
 from systemap import openai_provider as oa
 from systemap.cli import main
 from systemap.decision import (
@@ -460,7 +460,7 @@ def test_drift_questions_go_only_to_the_selected_provider(
     option: str | None,
     selected: str,
 ) -> None:
-    """Acceptance: text and JSON use the selected provider, even when both keys are set."""
+    """Acceptance: unmeasured drift questions send nothing to either provider."""
     root, scores = stale
     path = root / "systemap.toml"
     path.write_text(path.read_text() + f'\n[decisions]\nprovider = "{configured}"\n')
@@ -470,17 +470,23 @@ def test_drift_questions_go_only_to_the_selected_provider(
     code, out = judgement_run(root, capsys, "--order-by-drift", *options)
     assert code == 0
     assert transport.posts() == (2 if selected == "jev" else 0)
-    assert len(openai_transport.requests) == (2 if selected == "openai" else 0)
+    assert openai_transport.requests == []
     if selected == "openai":
         assert transport.requests == []
     if json_output:
         obj = json.loads(out)
         actual = [row["drift"]["probability"] for row in obj["open"] if "drift" in row]
-        assert actual == sorted(scores.values())
+        assert actual == (sorted(scores.values()) if selected == "jev" else [None, None])
+        if selected == "openai":
+            assert obj["drift_order"]["reason"] == decision.unmeasured("openai", "drift ordering")
     else:
-        assert [card_of(row) for row in stale_lines(open_rows(out))] == sorted(
-            scores, key=scores.get
-        )
+        if selected == "jev":
+            assert [card_of(row) for row in stale_lines(open_rows(out))] == sorted(
+                scores, key=scores.get
+            )
+        else:
+            assert out.count("    drift score: no score") == 2
+            assert decision.unmeasured("openai", "drift ordering") in out
 
 
 @pytest.mark.parametrize("json_output", [False, True])
@@ -502,25 +508,28 @@ def test_missing_openai_key_does_not_send_to_jev(
     assert code == 1
     assert transport.requests == []
     if json_output:
-        assert "set OPENAI_API_KEY" in json.loads(out)["drift_order"]["reason"]
+        assert (
+            decision.unmeasured("openai", "drift ordering")
+            == json.loads(out)["drift_order"]["reason"]
+        )
     else:
-        assert "set OPENAI_API_KEY" in out
+        assert decision.unmeasured("openai", "drift ordering") in out
 
 
-def test_openai_drift_scores_are_cached(
+def test_unmeasured_openai_drift_sends_nothing_on_repeated_runs(
     stale: tuple[Path, dict[str, float]],
     transport: Transport,
     openai_transport: OpenAITransport,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Acceptance: a second OpenAI run uses its cache and sends no request to Jev."""
+    """Acceptance: repeated OpenAI drift runs send no requests to either provider."""
     root, _ = stale
     path = root / "systemap.toml"
     path.write_text(path.read_text() + '\n[decisions]\nprovider = "openai"\n')
     judgement_run(root, capsys, "--order-by-drift", "--brief")
-    assert len(openai_transport.requests) == 2
+    assert openai_transport.requests == []
     judgement_run(root, capsys, "--order-by-drift", "--brief")
-    assert len(openai_transport.requests) == 2
+    assert openai_transport.requests == []
     assert transport.requests == []
 
 
@@ -548,7 +557,7 @@ def test_openai_selection_without_questions_sends_nothing(
 
 
 @pytest.mark.parametrize("json_output", [False, True])
-def test_openai_request_failure_never_sends_to_jev(
+def test_unmeasured_openai_does_not_create_a_transport(
     stale: tuple[Path, dict[str, float]],
     transport: Transport,
     openai_transport: OpenAITransport,
@@ -556,14 +565,12 @@ def test_openai_request_failure_never_sends_to_jev(
     capsys: pytest.CaptureFixture[str],
     json_output: bool,
 ) -> None:
-    """Acceptance: an OpenAI error gives no scores and does not select Jev."""
+    """Acceptance: the drift guard refuses OpenAI before it creates a transport."""
 
-    def fail(method: str, path: str, body: dict[str, Any] | None) -> dict[str, Any]:
-        assert body is not None
-        openai_transport.requests.append(body)
-        raise oa.OpenAIError("OpenAI answered 401: incorrect key")
+    def fail(key: str) -> Any:
+        raise AssertionError("the command created an OpenAI transport")
 
-    monkeypatch.setattr(oa, "http_send", lambda key: fail)
+    monkeypatch.setattr(oa, "http_send", fail)
     root, _ = stale
     code, out = judgement_run(
         root,
@@ -575,18 +582,18 @@ def test_openai_request_failure_never_sends_to_jev(
         "--json" if json_output else "--brief",
     )
     assert code == 1
-    assert len(openai_transport.requests) == 2
+    assert openai_transport.requests == []
     assert transport.requests == []
     if json_output:
         order = json.loads(out)["drift_order"]
         assert order == {
             "questions": 2,
             "no_score": 2,
-            "reason": "OpenAI answered 401: incorrect key",
+            "reason": decision.unmeasured("openai", "drift ordering"),
         }
     else:
         assert out.count("    drift score: no score") == 2
-        assert "OpenAI answered 401: incorrect key" in out
+        assert decision.unmeasured("openai", "drift ordering") in out
 
 
 # ---- the source part --------------------------------------------------------------

@@ -314,6 +314,8 @@ def _panel_flow(P: Palette) -> str:
         + f".systemap-f__say{{font:13px/20px {P['font_ui']};color:{P['ink']}}}"
         f".systemap-f__evidence{{font:12px/18px {P['font_mono']};color:{P['ink_2']}}}"
         f".systemap-f__reason,.systemap-f__hint{{font:12px/18px {P['font_ui']};color:{P['ink_3']}}}"
+        f".systemap-f__assurance{{display:block;font:12px/18px {P['font_ui']};color:{P['ink_2']}}}"
+        f".systemap-f__assurance b{{font:600 12px/18px {P['font_mono']};color:{P['ink']}}}"
         f".systemap-f__review-warning{{font:12px/18px {P['font_ui']};color:{P['ink']};"
         f"border-left:2px solid {P['ink_3']};padding-left:8px;overflow-wrap:anywhere}}"
         ".systemap-f__review-warning p{margin:0 0 .3rem}"

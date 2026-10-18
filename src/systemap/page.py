@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from systemap import (
+    assurance,
     nest,
     page_changes,
     page_data,
@@ -267,15 +268,40 @@ def _header(
     )
 
 
-def _rules(model: Model) -> str:
+def _level(claim: assurance.Claim | None) -> str:
+    """Give the short assurance label of a rule: the level and the freshness."""
+    if claim is None:
+        return ""
+    return (
+        f'<span class="assurance" data-level="{esc(claim.level)}" '
+        f'data-freshness="{esc(claim.freshness)}">{esc(claim.level)} · '
+        f"{esc(claim.freshness)}</span>"
+    )
+
+
+def _import_rule_rows(model: Model, claims: list[assurance.Claim]) -> str:
+    if not model.import_rules:
+        return ""
+    found = assurance.by_type(claims, assurance.IMPORT_RULE)
+    rows = "".join(
+        f"<li><code>{esc(rule.id)}</code> <span>{esc(rule.kind)}</span>"
+        f"{_level(found.get(rule.id))}</li>"
+        for rule in model.import_rules
+    )
+    return f'<p>Import rules:</p><ul class="rules rules--import">{rows}</ul>'
+
+
+def _rules(model: Model, claims: list[assurance.Claim]) -> str:
     """Give all rules of the system, for the panel of the Map view.
 
-    The panel of a component gives the rules that govern that component."""
-    if not model.invariants:
+    The panel of a component gives the rules that govern that component. Each invariant
+    and each import rule gives its assurance level and its freshness (`assurance`)."""
+    if not model.invariants and not model.import_rules:
         return ""
+    found = assurance.by_type(claims, assurance.INVARIANT)
     rows = "".join(
         f'<li id="rule-{esc(inv.n)}" value="{esc(inv.n)}" tabindex="-1">'
-        f"<span>{esc(inv.text)}</span>"
+        f"<span>{esc(inv.text)}</span>{_level(found.get(str(inv.n)))}"
         '<span class="governs">'
         + "".join(
             f'<button type="button" class="gv" data-go="{esc(i)}">{esc(i)}</button>'
@@ -284,11 +310,15 @@ def _rules(model: Model) -> str:
         + "</span></li>"
         for inv in sorted(model.invariants, key=lambda i: i.n)
     )
+    count = len(model.invariants) + len(model.import_rules)
     return (
         '<details class="read__more" id="invariants"><summary><span class="seq-kicker">RULES'
-        f'</span><span class="seq-count">{len(model.invariants)}</span></summary>'
+        f'</span><span class="seq-count">{count}</span></summary>'
         "<p>A rule must stay correct. Select a component to see its rules.</p>"
-        f'<ol class="rules">{rows}</ol></details>'
+        "<p>Each rule gives its assurance level and its freshness.</p>"
+        + (f'<ol class="rules">{rows}</ol>' if rows else "")
+        + _import_rule_rows(model, claims)
+        + "</details>"
     )
 
 
@@ -306,11 +336,20 @@ def _first_question(model: Model, meaning: Meaning) -> str:
     return layers[0].question if layers else ""
 
 
-def _readpanel(meaning: Meaning, model: Model, t: dict[str, Any], ch: dict[str, Any]) -> str:
+def _readpanel(
+    meaning: Meaning,
+    model: Model,
+    t: dict[str, Any],
+    ch: dict[str, Any],
+    claims: list[assurance.Claim],
+) -> str:
     return (
         '<aside class="readpanel" id="readpanel" aria-label="Details">'
         '<div class="inspector-empty" id="inspector-empty"></div>'
-        '<div class="read-more" id="read-more">' + _map_key(t, model) + _rules(model) + "</div>"
+        '<div class="read-more" id="read-more">'
+        + _map_key(t, model)
+        + _rules(model, claims)
+        + "</div>"
         '<div class="drawer" id="drawer" hidden><div class="drawer__in">'
         '<button type="button" class="drawer__x" id="drawerclose" '
         'aria-label="Clear the selection">Clear</button>'
@@ -553,7 +592,7 @@ def build(
         if nesting.opens
         else "",
         "</section>",
-        _readpanel(meaning, model, t, ch),
+        _readpanel(meaning, model, t, ch, assurance.of_model(model, meaning, facts)),
         "</main>",
         '<details class="map-links"><summary>Child maps</summary>'
         + ", ".join(

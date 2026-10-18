@@ -108,7 +108,7 @@ def _same(path: Path, label: str, text: str, model: Any, meaning: Any) -> None:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as output:
             output.write(text)
-        names = model_load.read(temporary, label)
+        names = model_load.read(temporary, label, path.parent)
     finally:
         temporary.unlink(missing_ok=True)
     if repr(names.get("MODEL")) != repr(model) or repr(names.get("MEANING")) != repr(meaning):
@@ -129,7 +129,7 @@ def _siblings(path: Path) -> list[str]:
 
 def _refused(m: nest.Map) -> bool:
     try:
-        model_load.read(m.path, m.rel)
+        model_load.read(m.path, m.rel, m.root)
     except model_load.ModelFileError:
         return True
     return False
@@ -154,7 +154,7 @@ def convert(cfg: config.Config) -> list[str]:
             lines.append(f"{m.rel}: literal values only, not changed")
             continue
         doc = ast.get_docstring(ast.parse(m.path.read_text(encoding="utf-8-sig"))) or ""
-        model = contract_file.own(m.path, m.rel, m.model)
+        model = contract_file.own(m.path, m.rel, m.model, m.root)
         text = source_text(doc, model, m.meaning)
         _same(m.path, m.rel, text, model, m.meaning)
         staged[m.path] = text
