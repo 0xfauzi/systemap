@@ -971,6 +971,12 @@ With no option, it prints the extraction summary.
 - `--imports NAME` prints imports and importers for one module.
 
 The module description is the first paragraph of the Python module docstring, or of the first TypeScript comment before the first statement.
+An untagged TypeScript comment directly before a variable declaration describes that variable, not the module.
+To give a module description there, separate the comment with a blank line or use a documentation tag.
+The tags `@module` and `@packageDocumentation` identify a module comment in a `/** ... */` block.
+The description excludes the tag and its module name.
+The tag can precede or follow the description. An inline `@packageDocumentation` tag also keeps the surrounding text.
+Headers before imports retain their descriptions without a tag.
 A license notice is not a description.
 A text is a notice if it starts with `Copyright`, `©`, `(c)`, `SPDX-`, `Licensed under`, `@license`, or `@preserve`, in capital or small letters.
 For TypeScript, a comment that starts with `/*!` or `//!` is also a notice.

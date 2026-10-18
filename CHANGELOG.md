@@ -7,6 +7,16 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+- TypeScript relative imports and path aliases can name declaration files, including `.d.ts`, `.d.mts`, and `.d.cts`.
+  These files have no module record. An import of an existing declaration file no longer gives an unresolved import finding.
+  A re-export from a declaration file still gives an unknown public surface, with the declaration file cause.
+- An untagged TypeScript comment directly before a variable declaration no longer gives the module description.
+  Separate a module comment with a blank line, or mark its documentation block with `@module` or `@packageDocumentation`.
+  The description excludes the tag and its module name. Other file headers retain their descriptions.
+  Tagged descriptions keep their text when the tag precedes, follows, or separates summary lines.
+
 ## 2.0.0 - 2026-10-13
 
 2.0.0 is the first stable release of systemap.
