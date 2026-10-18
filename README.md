@@ -434,12 +434,16 @@ and its action. By default, a necessary map update gives a warning, and the job 
 To reject the pull request while a map update is necessary, set `SYSTEMAP_CI: strict`
 in the workflow, or run `systemap init --strict-ci`.
 
-CI writes no comment by default. If your repository publishes the map page of each
-pull request, set `[delta] page_url` in `systemap.toml`. Then CI writes one comment
-with a link to the Changes view of that page, and changes it after each push.
-CI writes this comment only for a pull request from a branch of the same repository.
-The code and the settings of a pull request from a fork can change the comment text.
-The Changes view of that page shows the changed parts on the map.
+CI also writes a short architecture summary for the reviewer of each pull request.
+The summary gives the changes to the contract and to the map, and the rule results.
+Each row gives the assurance level of its claim: established, examined, or unknown.
+CI writes the summary as one comment, and changes that comment after each push.
+For a pull request from a fork, CI writes the summary only to the job summary.
+The code and the settings of a fork can change the comment text.
+
+If your repository publishes the map page of each pull request, set `[delta] page_url`
+in `systemap.toml`. Then the comment also has a link to the Changes view of that page.
+The Changes view shows the changed parts on the map.
 
 The agent can correct these findings without a full new map.
 Three merged pull requests from one 111-module repository cost 2.31, 4.39, and

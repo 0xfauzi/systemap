@@ -3076,3 +3076,45 @@ The page records only `level`, `freshness`, and `basis`. The page has the text o
 The base had 105 bytes of space. Thus the levels could not pass the earlier limit.
 The levels cost 2,367 bytes. The new limit, 325 KiB, is the next whole KiB above the measured page (324.2 KiB).
 The maintainer must accept or refuse this new limit.
+
+## The pull request summary for reviewers (2026-10-18)
+
+Issue 99 adds the architecture summary to `systemap delta --comment FILE`.
+The workflow from `init` writes the summary as one pull request comment.
+
+### The length of the summary
+
+`bench/pr_summary_length.py` writes the summary for five changes and counts the lines, the words, and the characters after the marker line.
+Acceptance, written before the measurement: a change without an architectural effect gives one line.
+Each summary has a maximum of 26 lines. The row limit of 5 rows and one count row in each part gives this maximum.
+
+| summary | lines | words | characters |
+|---|---|---|---|
+| systemap, base HEAD (b6c6322) | 1 | 11 | 68 |
+| systemap, base 4d2b030 | 12 | 106 | 767 |
+| systemap, base b611ede~1 | 19 | 156 | 1115 |
+| systemap, base 0ef6399 | 19 | 156 | 1115 |
+| two-card fixture, base HEAD~1 | 11 | 109 | 669 |
+
+The head of each systemap row is b6c6322 with the model on disk. The result satisfies the acceptance value.
+The bases b611ede~1 and 0ef6399 give the same summary, because the map and the contract did not change between them.
+Two summaries used the row limit. In each, 12 changed invariants gave 5 rows and one count row, and 10 changed map items also gave 5 rows and one count row.
+This repository has no import rules. Thus its rows give `Rules: none`.
+
+### The reviewer test (not done)
+
+The issue gives a test with persons. With the summary, reviewers must tell the architectural effect of a pull request faster and more accurately.
+This test is not done. A coding agent cannot do it. Thus there is no result.
+
+The plan, written before the test:
+
+- Persons: 6 or more reviewers who know Python and do not know the test repository.
+- Tasks: 8 pull requests of one repository with a map. 4 change a boundary: a new flow, a removed flow, an import against a rule, or a changed contract rule. 4 change no boundary.
+- Each reviewer does 4 tasks with the summary and 4 without it. The assignment of the two sets changes from one reviewer to the next.
+- Each reviewer writes the architectural effect in one or two sentences. A second person scores each answer as correct or incorrect against a key that was written before the test.
+- Measurement: the time from the start of the task to the answer, and the score.
+
+Acceptance value: with the summary, the median time is at most 0.7 times the median time without it.
+Also, the share of correct answers with the summary is equal to or more than the share without it.
+If the test does not satisfy the two values, record the result here and change or remove the summary.
+The maintainer must accept or change the value 0.7. No measurement gives it. The issue gives a target of about 30 seconds for each pull request.

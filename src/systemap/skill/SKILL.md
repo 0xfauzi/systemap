@@ -191,7 +191,7 @@ Its actors represent adjacent components. Commands examine every nested map.
 | `systemap suggest` | Show initial package assignments. `--decide` uses the answers of the decision provider. Examine all proposals against source. |
 | `systemap judgement` | Show possible map errors. Correct each one or record an answer. `--strict` exits 1 for unanswered lines. `--kind KIND` shows only the lines of that kind. `--verbose` lists crossing imports. |
 | `systemap audit` | Ask the decision provider about source meaning. Record its answers under `[judgement]`. |
-| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means that you must update the map. With `[delta] page_url`, `--comment FILE --pr N` writes a link comment. `--no-decide` prevents model calls. |
+| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means that you must update the map. `--comment FILE` writes the architecture summary for the pull request. `--no-decide` prevents model calls. |
 | `systemap triage "<issue>"` | Ask Jev for three components that the issue can affect, with modules and adjacent components. |
 | `systemap describe` | Show components per region, bends and length per route, gutter use, and layer contents. |
 | `systemap refresh` | Extract facts, do checks, render configured output, and examine the result. |

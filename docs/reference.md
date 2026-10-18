@@ -860,6 +860,11 @@ With `--strict-ci`, the value is `strict`: a map finding makes the job fail.
 You can change the value in the workflow file later.
 If systemap cannot run (exit code 2 or more), the job fails with both values.
 
+On a pull request, the `delta` job writes the architecture summary of `delta --comment` to its job summary.
+The `comment` job posts the summary as one pull request comment, and changes that comment after each push.
+Only the `comment` job has `pull-requests: write`. It runs only for a pull request from a branch of the same repository.
+For a pull request from a fork, the summary is only in the job summary. The comment does not change the result of a CI job.
+
 If the repository has no Python package and a directory has a `tsconfig.json` file,
 `init` selects TypeScript.
 For TypeScript, `init` selects the package root with this rule, in this sequence:
@@ -1306,12 +1311,25 @@ This list gives context, not a finding.
 The list does not print if the component with the most changes connects to more
 than one-third of the map.
 
-- `--comment FILE --pr N` writes the pull-request comment to `FILE` if `[delta] page_url` is set.
-  The comment has one link to the Changes view of the page for pull request `N`.
-  If it is necessary to update the map, one more line says so and gives the number of lines.
+- `--comment FILE` writes the architecture summary of the pull request to `FILE`.
+  The summary has four parts:
+  - Contract: the invariants and the import rules that the change added, removed, or changed.
+    systemap compares the committed model at the merge base with the model on disk.
+  - Map: the components, the flows, and the sequences that the change added, removed, or changed.
+  - Rules: the result of each import rule with the facts at the head commit, and `[rules] unknown`.
+  - Map update: the number of delta lines with a necessary action. This row shows only if the number is not 0.
+
+  Each item row gives the assurance level and the freshness of its claim at the head commit.
+  These are the values of `assurance` in `judgement --json`.
+  A removed item, an actor, and a sequence have no level.
+  Each part gives a maximum of 5 rows, and then the count of the other rows.
+  The summary is one line if these conditions are true: the contract and the map did not change, no rule has the result `fail`, and no delta line has a necessary action.
+  If the model at the merge base does not load, the contract and the map are `unknown`, with the cause.
+
+  With `[delta] page_url`, the comment also has a link to the Changes view of the page for pull request `N`.
+  Then `--pr N` is necessary.
 
   The first comment line is `<!-- systemap delta -->`. CI finds the comment with it and changes that comment.
-  Without `page_url`, the command writes no file.
   The comment does not change the delta lines or the exit code.
   If `FILE` is a link, the command replaces the link. It does not write to the target of the link.
   A relative `FILE` is relative to the current directory, not to `--root`.
@@ -1794,7 +1812,7 @@ Unknown keys are rejected.
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--decide`. With `enabled` unset, `delta` sends no question without `--decide`, also with a key. `enabled = false` stops the hints. |
 | `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
-| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, `systemap delta --comment FILE --pr N` writes a comment with one link to the Changes view of that page. Without it, the command writes no comment. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
+| `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, the comment of `systemap delta --comment FILE --pr N` also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value (`font_ui`, `font_mono`) can contain `"`. A `[theme.marks]` value must be `ring`, `notch`, or `dotted`. A key in a theme table, such as `[theme.delta]`, can contain only letters, digits, `_`, and `-`. The page uses these keys in CSS names. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. An `out` that is not in `out_dir` gives exit code 2. |

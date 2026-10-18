@@ -138,13 +138,16 @@ These commands include <code>check</code>, <code>refresh</code>, <code>render</c
 <code>journeys</code> sends no data, but <a href="#the-agent-command">the agent command</a> can send its question to a model API.
 <code>serve</code> and <code>live</code> answer only requests on 127.0.0.1 (<a href="#the-local-servers">The local servers</a>).
 The rendered page loads no files from other servers.</p>
-<h2 id="the-ci-link-job">The CI link job</h2>
-<p>In the workflow from <code>init</code>, only the <code>link</code> job has <code>pull-requests: write</code>. It runs only if:</p>
+<h2 id="the-ci-comment-job">The CI comment job</h2>
+<p>In the workflow from <code>init</code>, only the <code>comment</code> job has <code>pull-requests: write</code>. It runs only if:</p>
 <ul>
-<li><code>systemap delta</code> wrote a comment, which needs <code>[delta] page_url</code>.</li>
+<li><code>systemap delta</code> wrote the summary comment.</li>
 <li>The pull request comes from a branch of the same repository.</li>
 </ul>
-<p>The code and the settings of a fork can change the comment text, so the <code>link</code> job does not run for a fork.
+<p>The code and the settings of a fork can change the comment text. Thus the <code>comment</code> job does not run for a fork.
+The token of a fork pull request also cannot write a comment.
+For each pull request, the <code>delta</code> job writes the summary to its job summary. That job has only <code>contents: read</code>.
+The workflow does not use <code>pull_request_target</code>, because that event gives a write token to the workflow for the code of a fork.
 The other jobs have only <code>contents: read</code>. They check out the code without stored credentials.
 Each action has a fixed commit.</p>
 <h2 id="the-local-servers">The local servers</h2>
@@ -163,7 +166,7 @@ Other programs on the computer can read the map and send <code>POST /refresh</co
 <a href="reference.html#which-command-do-you-use">Which command do you use?</a> gives the files of each command.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="live-map.html" rel="prev"><span class="kicker">Previous</span><span>The live map</span></a><a class="pager__a pager__next" href="limits.html" rel="next"><span class="kicker">Next</span><span>Limits</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-systemap-reads">What systemap reads</a></li><li class="toc__l2"><a href="#what-systemap-runs">What systemap runs</a></li><li class="toc__l2"><a href="#the-agent-command">The agent command</a></li><li class="toc__l2"><a href="#what-systemap-sends">What systemap sends</a></li><li class="toc__l2"><a href="#the-ci-link-job">The CI link job</a></li><li class="toc__l2"><a href="#the-local-servers">The local servers</a></li><li class="toc__l2"><a href="#what-systemap-writes">What systemap writes</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-systemap-reads">What systemap reads</a></li><li class="toc__l2"><a href="#what-systemap-runs">What systemap runs</a></li><li class="toc__l2"><a href="#the-agent-command">The agent command</a></li><li class="toc__l2"><a href="#what-systemap-sends">What systemap sends</a></li><li class="toc__l2"><a href="#the-ci-comment-job">The CI comment job</a></li><li class="toc__l2"><a href="#the-local-servers">The local servers</a></li><li class="toc__l2"><a href="#what-systemap-writes">What systemap writes</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
