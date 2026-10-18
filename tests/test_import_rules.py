@@ -238,7 +238,7 @@ def test_the_model_reader_reads_an_import_rule(tmp_path: Path) -> None:
         'reason="Core keeps no state.", invariant=1),)\n',
         encoding="utf-8",
     )
-    values = model_load.read(path, "model.py")
+    values = model_load.read(path, "model.py", None)
     assert values["RULES"] == (
         ImportRule(
             "core-no-store", "forbid_import", ("Core",), ("Store",), "Core keeps no state.", 1

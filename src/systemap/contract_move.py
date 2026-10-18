@@ -62,7 +62,7 @@ def needs_move(m: nest.Map) -> bool:
     contract file."""
     if not contract.has_rules(m.model):
         return False
-    found = contract_file.read(m.path, m.rel)
+    found = contract_file.read(m.path, m.rel, m.root)
     return found is None or not contract.has_rules(found)
 
 
@@ -116,12 +116,12 @@ def _same(m: nest.Map, target: Path, new_model: str, new_contract: str) -> None:
     """Read the new texts in a copy of the map files. Refuse a different model or meaning."""
     with tempfile.TemporaryDirectory(prefix="systemap-contract-") as folder:
         copy = Path(folder)
-        for each in contract_file.map_files(m.path, m.rel):
+        for each in contract_file.map_files(m.path, m.rel, m.root):
             shutil.copyfile(each, copy / each.name)
         (copy / m.path.name).write_text(new_model, encoding="utf-8", newline="")
         (copy / target.name).write_text(new_contract, encoding="utf-8", newline="")
-        model, meaning = config.load_model(copy / m.path.name, m.rel)
-        found = contract_file.read(copy / m.path.name, m.rel)
+        model, meaning = config.load_model(copy / m.path.name, m.rel, copy)
+        found = contract_file.read(copy / m.path.name, m.rel, copy)
     if found is None or not contract.has_rules(found):
         raise contract_edit.EditError("the new contract file gives no rules")
     if (model, meaning) != (m.model, m.meaning):
