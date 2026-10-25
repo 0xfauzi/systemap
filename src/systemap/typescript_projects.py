@@ -33,19 +33,19 @@ from systemap.typescript_config import (
 CONFIG_NAME = "tsconfig.json"
 SCRIPT_SUFFIXES = (".js", ".jsx", ".mjs", ".cjs")
 # An import of a directory reads only these index files, as in tsc.
-INDEX_SUFFIXES = (".ts", ".tsx")
+INDEX_SUFFIXES = (".ts", ".tsx", ".d.ts")
 # The source suffixes that tsc tries for each JavaScript suffix, in order. Measured
-# with tsc 5.9.3 (`bundler` and `node16`): `.mjs` gives only `.mts`, `.cjs` gives only
-# `.cts`, and `.jsx` tries `.tsx` before `.ts`. See "File extension substitution" in
+# with tsc 5.9.3: `.mjs` selects `.mts` or `.d.mts`, and `.cjs` selects `.cts` or `.d.cts`.
+# `.jsx` tries `.tsx` before `.ts` and `.d.ts`. See "File extension substitution" in
 # https://www.typescriptlang.org/docs/handbook/modules/reference.html.
 SCRIPT_SOURCES = {
-    ".js": (".ts", ".tsx"),
-    ".jsx": (".tsx", ".ts"),
-    ".mjs": (".mts",),
-    ".cjs": (".cts",),
+    ".js": (".ts", ".tsx", ".d.ts"),
+    ".jsx": (".tsx", ".ts", ".d.ts"),
+    ".mjs": (".mts", ".d.mts"),
+    ".cjs": (".cts", ".d.cts"),
 }
 # An import without a JavaScript or source suffix tries only these suffixes.
-PLAIN_SOURCES = (".ts", ".tsx")
+PLAIN_SOURCES = (".ts", ".tsx", ".d.ts")
 # Gives the source files that one file imports, with the options of one project.
 DependencyReader = Callable[[Path, TypeScriptConfig], Iterable[Path]]
 

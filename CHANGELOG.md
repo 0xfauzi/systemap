@@ -9,6 +9,13 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+- TypeScript relative imports and path aliases can name declaration files, including `.d.ts`, `.d.mts`, and `.d.cts`.
+  These files have no module record. An import of an existing declaration file no longer gives an unresolved import finding.
+  A re-export from a declaration file still gives an unknown public surface, with the declaration file cause.
+- An untagged TypeScript comment directly before a variable declaration no longer gives the module description.
+  Separate a module comment with a blank line, or mark its documentation block with `@module` or `@packageDocumentation`.
+  The description excludes the tag and its module name. Other file headers retain their descriptions.
+  Tagged descriptions keep their text when the tag precedes, follows, or separates summary lines.
 - `judgement --order-by-drift` uses the provider selected by `[decisions] provider` or `--provider`.
   Previously, it always sent questions to Jev when `TYPESAFE_API_KEY` was set.
   OpenAI has no measured drift result. When OpenAI is selected, the command sends no data and gives the cause.

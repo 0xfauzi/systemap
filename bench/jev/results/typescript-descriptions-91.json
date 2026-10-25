@@ -1,0 +1,424 @@
+[
+  {
+    "repository": "ky",
+    "revision": "0d59458a0a58e1c3d7c6db0ab17ed5c7cd671e47",
+    "files": 87,
+    "descriptions": [
+      {
+        "file": "source/core/retry-timing.ts",
+        "current": "Older epoch-second values are indistinguishable from ordinary delay seconds, so timestamp compatibility only applies to current-era reset headers.",
+        "tagged": "",
+        "revised": "",
+        "following": "lexical_declaration",
+        "blank_line": false
+      },
+      {
+        "file": "source/errors/KyError.ts",
+        "current": "Base class for all Ky-specific errors. `HTTPError`, `NetworkError`, `TimeoutError`, `ResponseSizeError`, and `ForceRetryError` extend this class.",
+        "tagged": "",
+        "revised": "Base class for all Ky-specific errors. `HTTPError`, `NetworkError`, `TimeoutError`, `ResponseSizeError`, and `ForceRetryError` extend this class.",
+        "following": "export_statement",
+        "blank_line": false
+      },
+      {
+        "file": "source/errors/NonError.ts",
+        "current": "Wrapper for non-Error values that were thrown.",
+        "tagged": "",
+        "revised": "Wrapper for non-Error values that were thrown.",
+        "following": "export_statement",
+        "blank_line": false
+      },
+      {
+        "file": "source/types/ResponsePromise.ts",
+        "current": "Returns a `Response` object with `Body` methods added for convenience. So you can, for example, call `ky.get(input).json()` directly without having to await the `Response` first. When called like that, an appropriate `Accept` header will be set depending on the body method used. Unlike the `Body` methods of `window.fe\u2026",
+        "tagged": "",
+        "revised": "Returns a `Response` object with `Body` methods added for convenience. So you can, for example, call `ky.get(input).json()` directly without having to await the `Response` first. When called like that, an appropriate `Accept` header will be set depending on the body method used. Unlike the `Body` methods of `window.fe\u2026",
+        "following": "import_statement",
+        "blank_line": false
+      },
+      {
+        "file": "source/utils/delay.ts",
+        "current": "https://github.com/sindresorhus/delay/tree/ab98ae8dfcb38e1593286c94d934e70d14a4e111",
+        "tagged": "",
+        "revised": "https://github.com/sindresorhus/delay/tree/ab98ae8dfcb38e1593286c94d934e70d14a4e111",
+        "following": "import_statement",
+        "blank_line": true
+      },
+      {
+        "file": "source/utils/is-network-error.ts",
+        "current": "Inlined from https://github.com/sindresorhus/is-network-error v1.3.2",
+        "tagged": "",
+        "revised": "Inlined from https://github.com/sindresorhus/is-network-error v1.3.2",
+        "following": "lexical_declaration",
+        "blank_line": true
+      },
+      {
+        "file": "test/helpers/create-large-file.ts",
+        "current": "Helper function to create a large Blob",
+        "tagged": "",
+        "revised": "Helper function to create a large Blob",
+        "following": "export_statement",
+        "blank_line": false
+      }
+    ]
+  },
+  {
+    "repository": "vite",
+    "revision": "c2c9ef4dcd05b3e4d88844ea3a13dc23819ca2a5",
+    "files": 576,
+    "descriptions": [
+      {
+        "file": "packages/create-vite/template-solid-ts/src/index.tsx",
+        "current": "@refresh reload",
+        "tagged": "",
+        "revised": "@refresh reload",
+        "following": "import_statement",
+        "blank_line": false
+      },
+      {
+        "file": "packages/plugin-legacy/src/snippets.ts",
+        "current": "https://gist.github.com/samthor/64b114e4a4f539915a95b91ffd340acc",
+        "tagged": "",
+        "revised": "",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/scripts/benchCircularImport.ts",
+        "current": "Benchmark for the ModuleRunner",
+        "tagged": "",
+        "revised": "Benchmark for the ModuleRunner",
+        "following": "import_statement",
+        "blank_line": true
+      },
+      {
+        "file": "packages/vite/src/client/clientEntry.ts",
+        "current": "entry for `client.mjs` (middleware mode). `client.ts` exports extra internal",
+        "tagged": "",
+        "revised": "entry for `client.mjs` (middleware mode). `client.ts` exports extra internal",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/module-runner/__tests_dts__/importMeta.ts",
+        "current": "Type test to verify ModuleRunnerImportMeta is structurally compatible with ImportMeta (including @types/node augmentations).",
+        "tagged": "",
+        "revised": "Type test to verify ModuleRunnerImportMeta is structurally compatible with ImportMeta (including @types/node augmentations).",
+        "following": "import_statement",
+        "blank_line": true
+      },
+      {
+        "file": "packages/vite/src/module-runner/constants.ts",
+        "current": "they are exported from ssrTransform plugin, but we can't import from there for performance reasons",
+        "tagged": "",
+        "revised": "",
+        "following": "export_statement",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/module-runner/index.ts",
+        "current": "this file should re-export only things that don't rely on Node.js or other runner features",
+        "tagged": "",
+        "revised": "this file should re-export only things that don't rely on Node.js or other runner features",
+        "following": "export_statement",
+        "blank_line": true
+      },
+      {
+        "file": "packages/vite/src/node/__tests__/fixtures/config/entry/vite.config.import-attributes.ts",
+        "current": "We have to import external json to prevent Vite / esbuild from bundling it.",
+        "tagged": "",
+        "revised": "We have to import external json to prevent Vite / esbuild from bundling it.",
+        "following": "import_statement",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/node/__tests__/plugins/importGlob/fixture-a/index.ts",
+        "current": "NOTE: `#types/importMeta` does not work as `src/node/__tests__/package.json` shadows the root",
+        "tagged": "",
+        "revised": "NOTE: `#types/importMeta` does not work as `src/node/__tests__/package.json` shadows the root",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/node/__tests_dts__/typeOptions.ts",
+        "current": "This file tests `ViteTypeOptions` in `packages/vite/types/importMeta.d.ts`",
+        "tagged": "",
+        "revised": "This file tests `ViteTypeOptions` in `packages/vite/types/importMeta.d.ts`",
+        "following": "import_statement",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/node/server/openBrowser.ts",
+        "current": "The following is modified based on source found in https://github.com/react/create-react-app",
+        "tagged": "",
+        "revised": "The following is modified based on source found in https://github.com/react/create-react-app",
+        "following": "import_statement",
+        "blank_line": true
+      },
+      {
+        "file": "packages/vite/src/node/server/pluginContainer.ts",
+        "current": "This file is refactored into TypeScript based on https://github.com/preactjs/wmr/blob/main/packages/wmr/src/lib/rollup-plugin-container.js",
+        "tagged": "",
+        "revised": "This file is refactored into TypeScript based on https://github.com/preactjs/wmr/blob/main/packages/wmr/src/lib/rollup-plugin-container.js",
+        "following": "comment",
+        "blank_line": true
+      },
+      {
+        "file": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/has-error-first-comment.ts",
+        "current": "comment",
+        "tagged": "",
+        "revised": "comment",
+        "following": "throw_statement",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/node/ssr/runtime/__tests__/fixtures/string-literal-sourcemap.ts",
+        "current": "This file contains sourceMappingURL pattern in string literals",
+        "tagged": "",
+        "revised": "This file contains sourceMappingURL pattern in string literals",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/shared/constants.ts",
+        "current": "Prefix for resolved Ids that are not valid browser import specifiers",
+        "tagged": "",
+        "revised": "",
+        "following": "export_statement",
+        "blank_line": false
+      },
+      {
+        "file": "packages/vite/src/shared/pretty-format.ts",
+        "current": "Minimal subset of @vitest/pretty-format for forwarded console objects.",
+        "tagged": "",
+        "revised": "Minimal subset of @vitest/pretty-format for forwarded console objects.",
+        "following": "interface_declaration",
+        "blank_line": true
+      },
+      {
+        "file": "playground/cli-module/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/cli/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/client-reload/__tests__/serve.ts",
+        "current": "do nothing here since server is managed inside spec",
+        "tagged": "",
+        "revised": "do nothing here since server is managed inside spec",
+        "following": "export_statement",
+        "blank_line": false
+      },
+      {
+        "file": "playground/css-dynamic-import/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/css-lightningcss-proxy/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/css/__tests__/lightningcss/lightningcss.spec.ts",
+        "current": "NOTE: a separate directory from `playground/css` is created by playground/vitestGlobalSetup.ts",
+        "tagged": "",
+        "revised": "NOTE: a separate directory from `playground/css` is created by playground/vitestGlobalSetup.ts",
+        "following": "import_statement",
+        "blank_line": false
+      },
+      {
+        "file": "playground/css/__tests__/postcss-plugins-different-dir/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/css/postcss-caching/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/devtools/vite.config.ts",
+        "current": "no test exists, this should be tested manually",
+        "tagged": "",
+        "revised": "no test exists, this should be tested manually",
+        "following": "import_statement",
+        "blank_line": true
+      },
+      {
+        "file": "playground/hmr-ssr/counter/dep.ts",
+        "current": "This file is never loaded",
+        "tagged": "",
+        "revised": "This file is never loaded",
+        "following": "if_statement",
+        "blank_line": false
+      },
+      {
+        "file": "playground/hmr/counter/dep.ts",
+        "current": "This file is never loaded",
+        "tagged": "",
+        "revised": "This file is never loaded",
+        "following": "if_statement",
+        "blank_line": false
+      },
+      {
+        "file": "playground/js-sourcemap/with-define-object.ts",
+        "current": "test complicated stack since broken sourcemap",
+        "tagged": "",
+        "revised": "test complicated stack since broken sourcemap",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/legacy/__tests__/client-and-ssr/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/legacy/__tests__/ssr/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/lib/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/optimize-missing-deps/__test__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/proxy-hmr/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-conditions/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-deps/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-html/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-noexternal/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-pug/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-wasm/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr-webworker/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/ssr/__tests__/serve.ts",
+        "current": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "tagged": "",
+        "revised": "this is automatically detected by playground/vitestSetup.ts and will replace",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/test-utils.ts",
+        "current": "test utils used in e2e tests for playgrounds.",
+        "tagged": "",
+        "revised": "test utils used in e2e tests for playgrounds.",
+        "following": "comment",
+        "blank_line": false
+      },
+      {
+        "file": "playground/transform-plugin/__tests__/base/transform-plugin.spec.ts",
+        "current": "NOTE: a separate directory from `playground/transform-plugin` is created by playground/vitestGlobalSetup.ts",
+        "tagged": "",
+        "revised": "NOTE: a separate directory from `playground/transform-plugin` is created by playground/vitestGlobalSetup.ts",
+        "following": "import_statement",
+        "blank_line": false
+      },
+      {
+        "file": "scripts/mergeChangelog.ts",
+        "current": "Merges prerelease (alpha/beta/rc) changelog entries into a single stable release section within a package's CHANGELOG.md.",
+        "tagged": "",
+        "revised": "Merges prerelease (alpha/beta/rc) changelog entries into a single stable release section within a package's CHANGELOG.md.",
+        "following": "import_statement",
+        "blank_line": false
+      }
+    ]
+  }
+]

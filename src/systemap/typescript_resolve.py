@@ -84,6 +84,20 @@ def target_module(
     return package_module(specifier, importer, context)
 
 
+def declaration_file(specifier: str, importer: Path | None, context: TypeScriptContext) -> str:
+    """Give the declaration file of a relative, alias, or package import, or an empty string."""
+    if importer is None or NUL in specifier:
+        return ""
+    found = target_file(specifier, importer, context.compiler_for(importer), context.repo)
+    if found is not None:
+        if found.name.endswith(DECLARATION_SUFFIXES) and found.is_relative_to(
+            context.repo.resolve()
+        ):
+            return repo_files.relative(context.repo, found)
+        return ""
+    return typescript_package_imports.declaration_file(specifier, importer, context)
+
+
 def package_module(specifier: str, importer: Path, context: TypeScriptContext) -> str | None:
     """Give the module of a self-name import or a subpath import, or None."""
     if specifier.startswith(".") or NUL in specifier:
