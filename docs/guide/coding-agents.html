@@ -153,7 +153,9 @@ A read-only Bash call does not count. The line then shows the state:</p>
 <pre class="code"><code class="language-sh"><span class="k">systemap</span> skill <span class="a">--dir</span> path/to/skills/systemap</code></pre>
 <p>Then give the agent the instruction from <code>init</code>.
 The plugin works only in Claude Code. <code>systemap live</code> works with each agent and each browser.
-<code>systemap journeys</code> can ask an agent for <a href="reference.html#systemap-journeys-limit-n-dry-run">draft sequences</a> through <code>[agent] command</code>.</p>
+<code>systemap journeys</code> can ask an agent for <a href="reference.html#systemap-journeys-limit-n-dry-run">draft sequences</a> through <code>[agent] command</code>.
+The configuration in the repository gives this command. Thus systemap starts it only if the environment sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code> (<a href="trust-and-security.html#the-agent-command">The agent command</a>).
+A coding agent must not set this value itself. The maintainer sets it after an examination of the command.</p>
 <h2 id="the-writing-profile">The writing profile</h2>
 <p>The writing profile sets the rules for the map text that a person reads.
 The skill gives the rules in <code>references/language.md</code>. Set the profile in <code>systemap.toml</code>:</p>

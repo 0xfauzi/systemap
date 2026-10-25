@@ -235,10 +235,13 @@ def test_a_command_with_an_unmatched_quote_is_an_agent_error(
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows has no execute permission bit")
-def test_a_command_without_execute_permission_is_an_agent_error(tmp_path: Path) -> None:
+def test_a_command_without_execute_permission_is_an_agent_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Acceptance (change-8): a configured file without execute permission gives
     AgentError, not PermissionError.
     """
+    monkeypatch.setenv(agent.TRUST, "1")
     script = tmp_path / "agent.sh"
     script.write_text("#!/bin/sh\necho answer\n", encoding="utf-8")
     os.chmod(script, 0o644)

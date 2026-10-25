@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from systemap import contract, extract, jev, model_load
+from systemap import agent, contract, extract, jev, model_load
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -41,6 +41,14 @@ def no_model_code(monkeypatch: pytest.MonkeyPatch) -> None:
     """Each test reads model files with the safe reader, as a command does by default. A
     test that permits model code sets SYSTEMAP_TRUST_MODEL_CODE itself."""
     monkeypatch.delenv(model_load.TRUST, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_agent_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each test starts without the permission for the repository agent command, as a
+    command does by default. A test that starts a fixture agent sets
+    SYSTEMAP_TRUST_AGENT_COMMAND itself."""
+    monkeypatch.delenv(agent.TRUST, raising=False)
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:

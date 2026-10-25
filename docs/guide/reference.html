@@ -1888,6 +1888,10 @@ For multiple same-kind entries in one component, it can write a grouped
 sequence. Its <code>covers</code> field records the examined entry identities.
 An examination must add a new entry to that list before the entry counts as covered.</p>
 <p><code>[agent] command</code> reads source from the entry point.
+The configuration in the repository gives this command. Thus systemap starts it only if the environment of the
+command sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>. systemap does not read this value from a
+repository file, and <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> does not give it.
+Without this value, <code>systemap journeys</code> starts no program, names the value, and exits 1.
 The agent gives components in the execution path and a sentence for each step.
 Each request contains the language policy of the <code>[writing]</code> profile.
 The command rejects a step with no authored flow and gives a finding.
@@ -1916,7 +1920,9 @@ removes the mark.</p>
 <p><code>--limit N</code> writes no more than N sequences. N must be 1 or more.</p>
 </li>
 <li>
-<p><code>--dry-run</code> lists proposed sequences without file changes.</p>
+<p><code>--dry-run</code> lists proposed sequences without file changes. It starts no program.
+If the environment does not set <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>, it tells you that a
+run needs this value.</p>
 </li>
 <li>
 <p>With no <code>[agent] command</code>, the command also lists proposals and gives the
@@ -2549,7 +2555,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[agent]</code></td>
 <td><code>command</code> unset, <code>timeout = 300</code>, <code>cache = &quot;.systemap/agent-cache.json&quot;</code></td>
-<td>The command for sequence generation. It reads the question from stdin, for example <code>command = &quot;claude -p --output-format json&quot;</code>. With no command, nothing executes and the reason is printed.</td>
+<td>The command for sequence generation. It reads the question from stdin, for example <code>command = &quot;claude -p --output-format json&quot;</code>. With no command, nothing executes and the reason is printed. systemap starts the command only if the environment sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>, because a repository can set any command. The &quot;Trust and security&quot; guide page gives the trust model.</td>
 </tr>
 <tr>
 <td><code>[delta]</code></td>

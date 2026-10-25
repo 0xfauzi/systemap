@@ -39,6 +39,9 @@ List each examined entry identity in `covers`.
 New entry points do not automatically receive coverage from that sequence.
 
 With `[agent] command`, `systemap journeys` asks the agent for a draft sequence.
+The configuration in the repository gives this command. Thus systemap starts it only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+Do not set this value yourself. If `journeys` names the value, tell the maintainer.
+The maintainer examines the command and sets the value only for a trusted repository.
 The agent reads one entry point or two or three entries from a group.
 The prompt makes the writing profile mandatory for the identifier, label, and step sentences.
 The command rejects steps with unknown components or missing flows.

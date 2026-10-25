@@ -89,7 +89,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="7736ead0ee7e338e53c0357f4f5d67a99cb8e7d373d2b38acb76ad96df234483",
+        source_review="3bbcd05caf671418b54d1df18cb430cbd0fe24d58f7a012114570c232b76a8f0",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change. It writes the pages only in its directory and removes the pages of removed maps. The page servers do not supply a file that a symbolic link puts in a location that is not in the served directory.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=(
@@ -118,7 +118,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="0fff768ed02dec8427f37a49bc7f74e884b03204e439df52213c77edc9d35140",
+        source_review="98d4a9cb006e383156357cd7893f2435213b6f85faf11be88f55c5d116a86954",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. For TypeScript, selects the one source folder of the tsconfig include entries, then src, then the repository root. Finds the type-test files for test_patterns. Finds the configuration files that the language reads, with the tsconfig files that extends and references name. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile, the [rules] table and the decision provider. Reads model files as data and does not run their code. Reads the invariants and import rules of each map from its contract file. In the 2.x releases, also reads them from the model file, and rejects a map whose two files both give them. systemap refresh and systemap extract move them from the model file to the contract file one time. Reads a repository file only if the file is a regular file in the repository. Reads and writes a cache file or an output file only in the repository. A write replaces a link and does not write to the target of the link. Rejects a configured cache, output or model path that is not in the repository. Writes a cache file or an output file through a temporary file of each writer. A new file gets the mode of a usual write. A file that is present keeps its mode. Holds a lock on a cache file while one process reads or changes it. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file. In the 2.0 releases, systemap refresh and systemap extract record the source records of each flow review before source tracking one time. From 2.1.0, such a review is stale. In the 2.0 releases, they also write the current evidence digest of each answer from 2.0.0 that agrees with the source one time. Adds exact answers with citations to systemap.toml and keeps the other text of the file. Accepts the previous names of the decision finding kinds for one release and gives a warning for each previous name. Rejects a package root that is not in the repository. Rejects a model value that does not agree with the type of its field. Rejects a configured output file that is not in the output directory. Rejects a layer ID that is not a safe name and a component ID that is a key of the page data.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -158,7 +158,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="335b73131794cf8fef70b6c144327e1f6de3352eaf91e645721940b89976629f",
+        source_review="16523d564ba310a4999f4b3bc580646ac77158747e0de5121daf23ff706d95cd",
         does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. Such an import of a declaration file is a type-only dependency and not an unresolved import. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -242,7 +242,7 @@ COMPONENTS = (
     # ---- mean: the judgement ----
     Component(
         id="Skill",
-        source_review="f057f9612dae5bdb86e441c582bead301739098db668c382babb1daa9e4ca53a",
+        source_review="aeb2cb373ed65183ac155632b848d0e13b5881b310927d3727dc9abac5892914",
         does="Gives the procedure for the agent: extraction, model draft, check, judgement, render and second examination. Gives completion conditions, output requirements and maintenance instructions. Stores text files and references in the package. Writes no file if a symbolic link puts a skill file in a location that is not in the selected directory.",
         interface="files() -> the skill directory; write(dir, root) -> the installed SKILL.md",
         implemented_by=("systemap.skill",),
@@ -399,8 +399,8 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="dcf58ef9ca284329a16b97d63bc738023c6b873dddcb203d3e503647a5c75496",
-        does="Sends different questions about the map to a decision provider. Drift ordering sends questions only for a provider with a measured result. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts only with a different command or with an explicit option. Does not control map checks.",
+        source_review="cb6e9f88ec6469f6158ef69e92cb3dea7f1c35deb41ec3012b53537498fc0cf4",
+        does="Sends different questions about the map to a decision provider. Drift ordering sends questions only for a provider with a measured result. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts the agent command of the repository only if the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1. The component itself starts only with a different command or with an explicit option. Does not control map checks.",
         interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(
             "systemap.audit",
@@ -570,7 +570,7 @@ RELATIONS = {
     ("OpenAI", "SecondOpinion"): "OpenAI gives a probability, a choice with a distribution, or a refusal. The cache stores each answer by provider, model and question.",
     ("ChangeDetector", "SecondOpinion"): "For delta --decide, the delta lines give the removed modules without a match and the modules without a component claim. The decision provider gets one question for each. The answers are suggestions. They do not change the delta lines or the exit code.",
     ("Model", "SecondOpinion"): "Questions use the model components, flow explanations, flows and invariants.",
-    ("SecondOpinion", "Agent"): "The agent gets decision findings for correction or answers. If the configuration has a coding-agent command, the agent also gets text questions.",
+    ("SecondOpinion", "Agent"): "The agent gets decision findings for correction or answers. If the configuration has a coding-agent command and the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1, the agent also gets text questions.",
 }
 # fmt: on
 

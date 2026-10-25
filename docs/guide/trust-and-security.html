@@ -68,8 +68,25 @@ Then it writes the file again with literal values only.</li>
 A <code>source_review</code> value must be a 64-character hexadecimal digest before it goes to <code>git grep</code>.
 A commit or a ref goes after <code>--end-of-options</code>. Thus a value that starts with <code>-</code> is not a Git option.</p>
 <h2 id="the-agent-command">The agent command</h2>
-<p><code>systemap journeys</code> runs the command under <code>[agent] command</code> in <code>systemap.toml</code>, without a shell. No other command runs it.
-A repository can set this command. Examine the value before you run <code>systemap journeys</code>.
+<p><code>systemap journeys</code> runs the command under <code>[agent] command</code> in <code>systemap.toml</code>. No other command runs it.
+systemap does not give the command to a shell. The command can start a shell, for example <code>sh -c '...'</code>.
+A cloned repository can set this command. The command operates with your user permissions in the repository directory.</p>
+<ul>
+<li>systemap starts the command only if the environment of <code>systemap journeys</code> sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>.
+systemap does not read this value from a repository file. Only the value <code>1</code> gives the permission.</li>
+<li>Without this value, <code>systemap journeys</code> starts no program. It stops with exit 1 and names the value.
+It does not give the output for a repository without an agent.</li>
+<li><code>systemap journeys --dry-run</code> starts no program. It needs no value.
+If the environment does not set the value, the dry run tells you that a run needs the value.</li>
+<li><code>SYSTEMAP_TRUST_MODEL_CODE=1</code> does not give this permission. The two permissions are separate.</li>
+</ul>
+<p>Examine the agent command before you set the value. If you trust the repository, set the value. If you do not trust the repository, do not set the value.
+Set the value for one command only, for example <code>SYSTEMAP_TRUST_AGENT_COMMAND=1 systemap journeys</code>.
+Do not export the value in a shell profile, a CI environment, or a shared environment.
+The value is not specific to one repository. Thus an exported value permits the agent command of each repository.
+systemap does not remove environment variables from the agent process.
+A coding agent program needs its own keys, for example <code>OPENAI_API_KEY</code> for <code>codex</code>.
+Thus the agent command can read each key in your environment, for example <code>GH_TOKEN</code> or <code>TYPESAFE_API_KEY</code>.
 The question to the agent contains map text and source facts. The agent command can send this question to a model API.</p>
 <h2 id="what-systemap-sends">What systemap sends</h2>
 <p>Only the six commands in the table send data on the network.

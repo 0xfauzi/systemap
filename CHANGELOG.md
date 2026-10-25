@@ -9,6 +9,16 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+### Security
+
+- `systemap journeys` starts the `[agent] command` of the repository only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+  Previously, a cloned repository could set any command, and `journeys` started it with your permissions and environment variables.
+  Without the value, `systemap journeys` starts no program. It names the value and exits 1.
+  `journeys --dry-run` needs no value. `SYSTEMAP_TRUST_MODEL_CODE=1` does not give this permission.
+  Examine the agent command of the repository. If you trust the repository, set `SYSTEMAP_TRUST_AGENT_COMMAND=1` for one command only.
+
+### Changes
+
 - `judgement --order-by-drift` uses the provider selected by `[decisions] provider` or `--provider`.
   Previously, it always sent questions to Jev when `TYPESAFE_API_KEY` was set.
   OpenAI has no measured drift result. When OpenAI is selected, the command sends no data and gives the cause.

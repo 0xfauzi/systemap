@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from systemap import agent
+
 SOURCE = 'NAME = "Café"\n'
 SUBJECT = "Add the café reader"
 QUOTE = "the user’s file А Ł"
@@ -80,7 +82,8 @@ def test_git_log_subjects_are_read_as_utf8(repo: Path) -> None:
     assert in_c_locale(code) == SUBJECT + "\n"
 
 
-def test_agent_output_is_read_as_utf8(tmp_path: Path) -> None:
+def test_agent_output_is_read_as_utf8(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(agent.TRUST, "1")
     script = tmp_path / "agent.py"
     script.write_text(
         "import sys\n"
