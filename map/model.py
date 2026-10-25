@@ -399,7 +399,7 @@ COMPONENTS = (
     ),
     Component(
         id="SecondOpinion",
-        source_review="cb6e9f88ec6469f6158ef69e92cb3dea7f1c35deb41ec3012b53537498fc0cf4",
+        source_review="4cbab8621bc4f64ed4e9356157ed3f0aace8d4cebe3a3654fe7c263a67783beb",
         does="Sends different questions about the map to a decision provider. Drift ordering sends questions only for a provider with a measured result. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts the agent command of the repository only if the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1. The component itself starts only with a different command or with an explicit option. Does not control map checks.",
         interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(
