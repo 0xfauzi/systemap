@@ -553,8 +553,8 @@ The <code>delta</code> hint tells how to select Jev. It prints with a key and wi
 Each hint gives a result that was measured with earlier prompts on Python repositories.
 <code>[jev] enabled = false</code> stops the hints.</p>
 <h2 id="which-decision-provider-answers-the-questions">Which decision provider answers the questions?</h2>
-<p>A decision provider is the model API that answers the questions of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --decide</code>, and <code>delta --decide</code>.
-<code>judgement --order-by-drift</code> always uses Jev, also when the configuration selects OpenAI.
+<p>A decision provider is the model API that answers questions about source facts and map claims.
+The commands are <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>suggest --decide</code>, <code>delta --decide</code>, and <code>judgement --order-by-drift</code>.
 The default provider is TypeSafe's Jev.
 The second provider is OpenAI Decisions (<code>POST https://api.openai.com/v1/decisions</code>, model <code>gpt-6-luna</code>, public beta).</p>
 <p>To select OpenAI, give <code>--provider openai</code> to the command, or set <code>[decisions] provider = &quot;openai&quot;</code> in <code>systemap.toml</code>.
@@ -627,6 +627,12 @@ A question type that did not satisfy this rule has no OpenAI threshold. The comm
 </tr>
 <tr>
 <td><code>suggest --decide</code>, <code>delta --decide</code> moves</td>
+<td>not available</td>
+<td>not measured</td>
+<td>No holdout rows exist.</td>
+</tr>
+<tr>
+<td><code>judgement --order-by-drift</code></td>
 <td>not available</td>
 <td>not measured</td>
 <td>No holdout rows exist.</td>
@@ -1441,7 +1447,7 @@ Set <code>TYPESAFE_API_KEY</code> for this option. <code>--jev</code> is the pre
 OpenAI has no measured threshold for the pair question. Thus <code>--provider openai</code> sends nothing and exits 1.</p>
 </li>
 </ul>
-<h3 id="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></h3>
+<h3 id="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-provider-jev-openai"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]</code></h3>
 <p>Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
 sentences, thin layers, uncovered entry points, crossing imports, unreviewed
@@ -1500,7 +1506,8 @@ For a model without components, the lists are empty.
 The exit code is 1 with <code>--strict</code>, and 0 without it.</p>
 </li>
 <li>
-<p><code>--order-by-drift</code> sends one Jev question for each open <code>stale source review</code> line.
+<p><code>--order-by-drift</code> uses the selected provider only if it has a measured drift result.
+It sends one question for each open <code>stale source review</code> line.
 The answer is the drift score: the probability that the claims of the component agree with its changed source.
 The report puts the stale lines in sequence from the lowest drift score.
 The other lines do not move.
@@ -1510,9 +1517,13 @@ With <code>--json</code>, each stale row has <code>drift</code>, and the object 
 The open lines and the exit code are the same with and without the option.
 The score has no threshold, because no measurement gives one (<code>bench/jev/README.md</code>, test 7).
 Examine each stale component, also the components at the end of the sequence.
-Set <code>TYPESAFE_API_KEY</code> for this option. Without the option, <code>judgement</code> sends no request.
+Jev has a measured drift result (<code>bench/jev/README.md</code>, test 7). Set <code>TYPESAFE_API_KEY</code> to use it.
+OpenAI has no measured drift result. With OpenAI selected, the command sends no request and gives the cause.
+Each stale line then has <code>no score</code>. With <code>--json</code>, <code>drift_order.reason</code> gives the cause.
+Without the option, <code>judgement</code> sends no request.
 Without the key, or without an open <code>stale source review</code> line, the option also sends no request.
-The option always uses Jev. <code>[decisions] provider</code> does not apply to it.</p>
+<code>--provider</code> overrides <code>[decisions] provider</code>. The default provider is Jev.
+A missing key or a failed request gives no score. The command does not use another provider.</p>
 <p>The question gives the claims that the <code>source_review</code> digest contains, and one part of the source.
 Git finds the last commit that added the recorded <code>source_review</code> digest below the folder of the model file.
 The source part is the diff of the module files of the component, from that commit to the working tree.
@@ -1521,12 +1532,12 @@ Each source part has a limit of 12,000 characters.
 A new file that is not in Git is not in the diff.</p>
 <p>A refusal or a request error gives <code>no score</code>. A line without a score goes to the end of the stale lines.
 A <code>drift sequence:</code> row gives the quantity of questions without a score and the cause.
-The answers go into the Jev cache. Thus, the next command sends no question.
+Jev answers go into the Jev cache. Thus, the next command sends no question.
 It reads the model list one time, as each Jev command does.</p>
 </li>
 </ul>
 <p>The JSON object has these fields:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift">
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-provider-jev-openai">
 <table>
 <thead>
 <tr>
@@ -2523,7 +2534,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[decisions]</code></td>
 <td><code>provider = &quot;jev&quot;</code>, <code>max_contradicted = 3</code></td>
-<td><code>provider</code> is the decision provider of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta --decide</code>, and <code>suggest --decide</code>: <code>&quot;jev&quot;</code> or <code>&quot;openai&quot;</code>. The <code>--provider</code> option of a command replaces this value. A key in the environment does not select a provider. <a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a> gives the data that goes to OpenAI. <code>max_contradicted</code> is the quantity of <code>contradicted</code> verdicts for one target of <code>systemap decisions</code> before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A <code>[decision]</code> table gives a configuration error that tells you to use <code>[decisions] provider</code>.</td>
+<td><code>provider</code> is the decision provider of <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta --decide</code>, <code>suggest --decide</code>, and <code>judgement --order-by-drift</code>: <code>&quot;jev&quot;</code> or <code>&quot;openai&quot;</code>. The <code>--provider</code> option of a command replaces this value. A key in the environment does not select a provider. <a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a> gives the data that goes to OpenAI. <code>max_contradicted</code> is the quantity of <code>contradicted</code> verdicts for one target of <code>systemap decisions</code> before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A <code>[decision]</code> table gives a configuration error that tells you to use <code>[decisions] provider</code>.</td>
 </tr>
 <tr>
 <td><code>[jev]</code></td>
@@ -2666,7 +2677,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l3"><a href="#a-flow-review-from-systemap-2-0-0">A flow review from systemap 2.0.0</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#what-does-the-contract-contain">What does the contract contain?</a></li><li class="toc__l3"><a href="#the-rules-of-a-map-from-before-the-contract-file">The rules of a map from before the contract file</a></li><li class="toc__l2"><a href="#how-strong-is-the-evidence-for-each-claim">How strong is the evidence for each claim?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l3"><a href="#a-flow-review-from-systemap-2-0-0">A flow review from systemap 2.0.0</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#what-does-the-contract-contain">What does the contract contain?</a></li><li class="toc__l3"><a href="#the-rules-of-a-map-from-before-the-contract-file">The rules of a map from before the contract file</a></li><li class="toc__l2"><a href="#how-strong-is-the-evidence-for-each-claim">How strong is the evidence for each claim?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-provider-jev-openai"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-dry-run-kind-kind"><code>systemap audit [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-check-id-base-ref"><code>systemap plan &quot;&lt;task&gt;&quot; [--check ID] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-triage-text"><code>systemap triage TEXT</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">
