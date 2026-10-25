@@ -135,6 +135,7 @@ class Thresholds:
 
     None: the question type has no measured value for this provider.
     `triage` is False when the triage measurement of the provider failed.
+    `drift` is False without a measured result for drift ordering.
     """
 
     misfold_below: float | None
@@ -147,6 +148,7 @@ class Thresholds:
     plan_cut: float | None
     provider: str = "jev"
     triage: bool = True
+    drift: bool = False
 
 
 # The question type of each threshold, for the reason text.
@@ -199,6 +201,8 @@ JEV = Thresholds(
     # A card is in a plan projection when it gets at least this probability
     # (bench/jev/plan_eval.py).
     plan_cut=0.05,
+    # Test 7 in bench/jev/README.md measured agreement with agent drift labels.
+    drift=True,
 )
 
 # The OpenAI values came from the Jev bench rows (bench/jev/README.md, "Can OpenAI
@@ -226,6 +230,8 @@ OPENAI = Thresholds(
     provider="openai",
     # Not available: the top-1 rate was 82.5% on development and 69.2% on holdout.
     triage=False,
+    # No measurement of the drift question is available for OpenAI.
+    drift=False,
 )
 
 THRESHOLDS: dict[str, Thresholds] = {"jev": JEV, "openai": OPENAI}

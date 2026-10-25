@@ -16,6 +16,10 @@ A layer is a filtered view of the map.
   Separate a module comment with a blank line, or mark its documentation block with `@module` or `@packageDocumentation`.
   The description excludes the tag and its module name. Other file headers retain their descriptions.
   Tagged descriptions keep their text when the tag precedes, follows, or separates summary lines.
+- `judgement --order-by-drift` uses the provider selected by `[decisions] provider` or `--provider`.
+  Previously, it always sent questions to Jev when `TYPESAFE_API_KEY` was set.
+  OpenAI has no measured drift result. When OpenAI is selected, the command sends no data and gives the cause.
+  A missing key or a failed request gives no score. The command does not send data to another provider.
 
 ## 2.0.0 - 2026-10-13
 
