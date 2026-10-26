@@ -48,7 +48,8 @@ SCRIPT = r"""
       + list[list.length - 1];
   }
   function ids(mark){
-    return Object.keys(D).filter(function(id){ return id !== '_meta' && MARK[id] === mark; });
+    return Object.keys(D).filter(function(id){
+      return id !== '_meta' && own(MARK, id) === mark; });
   }
   var SOURCE = ids('changed'), TESTS = ids('tests'), IMPORTS = ids('imports');
   // A table with component IDs as keys has no prototype, and a lookup in a table from the
@@ -190,10 +191,11 @@ SCRIPT = r"""
   var KIND = {operations:'functions', types:'types', refusals:'exceptions',
     constants:'constants'};
   var CATEGORY = {type_alias:'type alias'};
+  // A type name such as `constructor` or `__proto__` has a category only if the facts give one.
   function named(surface, kind, name){
-    var found = kind === 'types' ? (surface.categories || {})[name] : null;
-    return found && found.length ? name + ' (' + found.map(function(c){
-      return CATEGORY[c] || c; }).join(', ') + ')' : name;
+    var found = kind === 'types' ? own(surface.categories, name) : null;
+    return Array.isArray(found) && found.length ? name + ' (' + found.map(function(c){
+      return own(CATEGORY, c) || c; }).join(', ') + ')' : name;
   }
   var ACTION = {added:'Added', removed:'Removed', changed:'Changed'};
   function sourceChanges(id){
@@ -207,7 +209,7 @@ SCRIPT = r"""
     ['added', 'removed', 'changed'].forEach(function(action){
       Object.keys(surface[action] || {}).forEach(function(kind){
         var list = surface[action][kind]; if(!list.length){ return; } count += list.length;
-        h += '<p><b>' + ACTION[action] + ' ' + esc(KIND[kind] || kind) + '</b>: <code>'
+        h += '<p><b>' + ACTION[action] + ' ' + esc(own(KIND, kind) || kind) + '</b>: <code>'
           + esc(list.map(function(n){ return named(surface, kind, n); }).join(', '))
           + '</code>.</p>';
       });
@@ -239,7 +241,7 @@ SCRIPT = r"""
   }
   // The rules for a component with changed source: the change must keep them.
   function rulesOf(id){
-    if(MARK[id] !== 'changed'){ return ''; }
+    if(own(MARK, id) !== 'changed'){ return ''; }
     var h = '';
     (META.rules || []).forEach(function(r){
       if((r.ids || []).indexOf(id) >= 0){
@@ -290,12 +292,12 @@ SCRIPT = r"""
     if(first && first.scrollIntoView){ first.scrollIntoView({block:'nearest'}); }
   }
   function pickCard(id){
-    var mark = MARK[id], d = D[id] || {};
+    var mark = own(MARK, id), d = own(D, id) || {};
     var card = document.createElement('article');
     card.setAttribute('class', 'chg-card'); card.setAttribute('id', 'chg-pick');
     card.setAttribute('aria-current', 'true');
     card.innerHTML = '<div class="chg-card__head"><span class="chg-tag chg-tag--'
-      + (TAG[mark] ? mark : 'none') + '">' + (TAG[mark] || 'NO CHANGE') + '</span><b>'
+      + (own(TAG, mark) ? mark : 'none') + '">' + (own(TAG, mark) || 'NO CHANGE') + '</span><b>'
       + esc(id) + '</b></div><p class="chg-card__note">' + esc(d.plain || '') + '</p>'
       + '<div class="chg-card__detail comparison-source">' + sourceChanges(id) + rulesOf(id)
       + '</div>';
@@ -322,8 +324,8 @@ SCRIPT = r"""
     var st = M.state, e = EDGES[st.edge];
     if(e){ return e.art + ' · ' + e.from + ' → ' + e.to + ' · ' + M.evidenceLabel(e.evidence); }
     if(st.focus){
-      var mark = MARK[st.focus];
-      return st.focus + ' · ' + (SAYS[mark] || 'no source change')
+      var mark = own(MARK, st.focus);
+      return st.focus + ' · ' + (own(SAYS, mark) || 'no source change')
         + (mark === 'changed' && lostOf(st.focus).length ? ' · source review necessary' : '');
     }
     if(holding){ return 'change marks hidden'; }
