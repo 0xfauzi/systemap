@@ -37,8 +37,9 @@ from itertools import accumulate
 from systemap.route_search import BEND_COST, USED_LANE_FACTOR, Entry, Found, Grid, Key, Port
 
 # Float sums in a different sequence can have a different last bit. The bound is lower
-# than the true cost by this value. For costs below 1e9 and paths of fewer than 1e5 steps,
-# the sum of such differences is less than this value.
+# than the true cost by this value. For path costs below 1e6 and paths of fewer than 1e5
+# steps, the sum of such differences is less than 1e6 * 2**-53 * 1e5, about 1.1e-5. This
+# sum is less than this value.
 MARGIN = 1e-3
 # A step: the next state, its column and row, the step costs of the segment, 1 for a
 # bend, and the set of crossed regions.
