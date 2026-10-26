@@ -301,6 +301,7 @@ the plugin shows one line above the prompt:
     map: not started · Start live map
 
 The live map reads `map/model.py` without running its code, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is in the environment of Claude Code.
+If the `command` option runs code of the repository, the code of the repository can run when the live map starts.
 To start it, select `Start live map` or type `/map`.
 The plugin then runs `systemap live --port 0 --json --no-watch`.
 
@@ -320,7 +321,9 @@ If the figure has more than 131,072 characters, the pane shows the link and no f
 The plugin has two options. Set them with `/plugin configure systemap@systemap` or in `/config`:
 
 - `command`: the command that starts systemap. The default is `systemap`.
-  Examples are `uv run systemap` and `uvx systemap`.
+  Another example is `uvx systemap`.
+  Do not use `uv run systemap`. That command builds the project of the repository,
+  and the build can run code of the repository.
 - `autostart`: if true, the live map starts with each session in a systemap repository.
   The default is false.
 

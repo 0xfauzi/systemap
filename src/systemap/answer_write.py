@@ -235,9 +235,18 @@ def add(root: Path, source: str, entries: list[dict[str, Any]]) -> Path:
 
 
 def _write(target: Path, raw: bytes, new: str) -> None:
-    """Write the new text. Keep the byte order mark of the file."""
+    """Write the new text. Keep the byte order mark of the file.
+
+    If UTF-8 cannot encode the text, the function writes nothing."""
     bom = "﻿" if raw.startswith(b"\xef\xbb\xbf") else ""
-    target.write_bytes((bom + new).encode("utf-8"))
+    try:
+        data = (bom + new).encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise AnswerWriteError(
+            f"{target.name}: the answers contain text that UTF-8 cannot encode, for example "
+            f"a lone surrogate at position {exc.start}. The command did not write {target.name}."
+        ) from None
+    target.write_bytes(data)
 
 
 def renew_evidence(root: Path, source: str, digests: dict[str, str]) -> Path:

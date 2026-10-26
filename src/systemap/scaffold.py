@@ -334,10 +334,12 @@ jobs:
           echo "$code" > delta.code
           if [ -s comment.md ]; then
             cat comment.md >> "$GITHUB_STEP_SUMMARY"
+            # The comment can contain repository text. A random delimiter is not equal to a line of it.
+            delimiter="SYSTEMAP_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \\n')"
             {
-              echo "comment<<SYSTEMAP_COMMENT"
+              echo "comment<<$delimiter"
               cat comment.md
-              echo "SYSTEMAP_COMMENT"
+              echo "$delimiter"
             } >> "$GITHUB_OUTPUT"
           fi
 

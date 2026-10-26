@@ -31,6 +31,15 @@ BINDING_FIELDS = {
     "optional_parameter": "pattern",
 }
 NAMES = ("identifier", "type_identifier", "this", "member_expression", "nested_type_identifier")
+# The property chains: the field of the head and the field of the last name.
+CHAINS = {
+    "member_expression": ("object", "property"),
+    "nested_type_identifier": ("module", "name"),
+}
+# A longer property chain has no name. The earlier recursive reader stopped with
+# RecursionError before 1000 links. Thus this limit changes no earlier result. Without a
+# limit, a chain of N links keeps names with a total length in proportion to N * N.
+MAX_LINKS = 1000
 
 Resolver = Callable[[str], str | None]
 Site = tuple[str, str, str, int]
@@ -45,26 +54,15 @@ def _line(node: Any) -> int:
 
 
 def _walk(node: Any) -> Iterator[Any]:
-    yield node
-    for child in node.named_children:
-        yield from _walk(child)
+    """Give the node and each named node below it, in source order.
 
-
-def _dotted(node: Any | None) -> str | None:
-    """Give `a.b.c` for a name or a property chain on a name, else None."""
-    if node is None:
-        return None
-    if node.type in ("identifier", "type_identifier", "this"):
-        return _text(node)
-    parts = {
-        "member_expression": ("object", "property"),
-        "nested_type_identifier": ("module", "name"),
-    }.get(node.type)
-    if parts is None:
-        return None
-    head = _dotted(node.child_by_field_name(parts[0]))
-    tail = _text(node.child_by_field_name(parts[1]))
-    return f"{head}.{tail}" if head and tail else None
+    The walk uses a list as its stack, not recursion. Thus a deep tree does not go
+    above the recursion limit of Python."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(reversed(current.named_children))
 
 
 def _source(node: Any) -> str:
@@ -124,41 +122,112 @@ def _export_sites(statement: Any) -> Iterator[tuple[str, str, str, int]]:
         yield alias or name, name, source, _line(spec)
 
 
+# The innermost named function that contains a node: the function node, its line, and
+# the frame of the next function that contains it.
+_Frame = tuple[Any, int, Any]
+
+
 class _Reader:
-    """Find the bindings and the uses in one parsed module."""
+    """Find the bindings and the uses in one parsed module.
+
+    One walk from the root records the parent, the innermost named function, and the
+    binding flag of each node. The reader then does not walk up the tree for each name.
+    In tree-sitter, `parent` also walks down from the root. Each property chain gets
+    its dotted name one time.
+    """
 
     def __init__(self, root: Any) -> None:
         self.root = root
+        self.nodes: list[Any] = []
+        self.parents: dict[int, Any] = {}
+        self.frames: dict[int, _Frame | None] = {}
+        self.bound: set[int] = set()
+        self._names: dict[int, tuple[str | None, int]] = {}
+        self._index()
 
-    def function_line(self, node: Any) -> int:
-        """Give the line of a named function, or 0 for a function without a name."""
-        if node.type in NAMED:
-            return _line(node)
-        if node.type in ANONYMOUS and node.parent is not None and node.parent.type in NAMING:
-            return _line(node.parent)
-        return 0
+    def _index(self) -> None:
+        stack: list[tuple[Any, Any, _Frame | None, bool]] = [(self.root, None, None, False)]
+        while stack:
+            node, parent, frame, imported = stack.pop()
+            self.nodes.append(node)
+            self.parents[node.id] = parent
+            self.frames[node.id] = frame
+            line = function_line(node, parent)
+            inner = (node, line, frame) if line else frame
+            field = BINDING_FIELDS.get(node.type)
+            made = node.child_by_field_name(field) if field else None
+            inside = imported or node.type == "import_statement"
+            for child in reversed(node.named_children):
+                if inside or (made is not None and child.id == made.id):
+                    self.bound.add(child.id)
+                stack.append((child, node, inner, inside))
 
-    def functions(self, node: Any) -> list[Any]:
-        """Give the named functions that contain the node, innermost first."""
-        out: list[Any] = []
-        current = node.parent
-        while current is not None:
-            if self.function_line(current):
-                out.append(current)
-            current = current.parent
-        return out
+    def parent(self, node: Any) -> Any | None:
+        return self.parents[node.id] if node.id in self.parents else node.parent
 
     def scope(self, node: Any) -> Any:
-        found = self.functions(node)
-        return found[0] if found else None
+        """Give the innermost named function that contains the node, or None.
+
+        Each call gives a new node object, as the `parent` walk of the earlier reader
+        did. `records` keys a binding by the identity of this object. Thus two bindings
+        of one name in one function stay two records, as before this change."""
+        frame = self.frames.get(node.id)
+        return frame[0].walk().node if frame else None
+
+    def function_line(self, node: Any) -> int:
+        """Give the line of the innermost named function that contains the node, or 0."""
+        frame = self.frames.get(node.id)
+        return frame[1] if frame else 0
 
     def in_scope(self, binding: Binding, node: Any) -> bool:
         if binding.scope is None:
             return True
-        return any(f.id == binding.scope.id for f in self.functions(node))
+        frame = self.frames.get(node.id)
+        while frame is not None:
+            if frame[0].id == binding.scope.id:
+                return True
+            frame = frame[2]
+        return False
+
+    def dotted(self, node: Any | None) -> str | None:
+        """Give `a.b.c` for a name or a property chain on a name, else None.
+
+        The function goes down the chain without recursion, and keeps the name of each
+        link of the chain. A chain with more than MAX_LINKS links gives None."""
+        chain: list[Any] = []
+        current = node
+        while current is not None and current.id not in self._names and current.type in CHAINS:
+            chain.append(current)
+            current = current.child_by_field_name(CHAINS[current.type][0])
+        head, links = self._known(current)
+        for link in reversed(chain):
+            tail = _text(link.child_by_field_name(CHAINS[link.type][1]))
+            links += 1
+            head = f"{head}.{tail}" if head and tail and links <= MAX_LINKS else None
+            self._names[link.id] = (head, links)
+        return head
+
+    def _known(self, node: Any | None) -> tuple[str | None, int]:
+        if node is None:
+            return None, 0
+        if node.id in self._names:
+            return self._names[node.id]
+        name = node.type in ("identifier", "type_identifier", "this")
+        return (_text(node), 0) if name else (None, 0)
 
 
-def _root(value: Any | None, imports: dict[str, Binding]) -> tuple[Binding, str] | None:
+def function_line(node: Any, parent: Any | None) -> int:
+    """Give the line of a named function, or 0 for a function without a name."""
+    if node.type in NAMED:
+        return _line(node)
+    if node.type in ANONYMOUS and parent is not None and parent.type in NAMING:
+        return _line(parent)
+    return 0
+
+
+def _root(
+    reader: _Reader, value: Any | None, imports: dict[str, Binding]
+) -> tuple[Binding, str] | None:
     """Give the import binding at the root of a value, and the imported name it gives."""
     while value is not None and value.type in (
         "await_expression",
@@ -167,7 +236,7 @@ def _root(value: Any | None, imports: dict[str, Binding]) -> tuple[Binding, str]
     ):
         inner = {"call_expression": "function", "new_expression": "constructor"}.get(value.type)
         value = value.child_by_field_name(inner) if inner else first_named(value)
-    text = _dotted(value)
+    text = reader.dotted(value)
     if text is None:
         return None
     for local, binding in imports.items():
@@ -179,11 +248,13 @@ def _root(value: Any | None, imports: dict[str, Binding]) -> tuple[Binding, str]
     return None
 
 
-def _type_root(annotation: Any | None, imports: dict[str, Binding]) -> tuple[Binding, str] | None:
+def _type_root(
+    reader: _Reader, annotation: Any | None, imports: dict[str, Binding]
+) -> tuple[Binding, str] | None:
     if annotation is None:
         return None
     for node in _walk(annotation):
-        found = _root(node, imports) if node.type in NAMES else None
+        found = _root(reader, node, imports) if node.type in NAMES else None
         if found:
             return found
     return None
@@ -205,7 +276,7 @@ def _field_target(node: Any) -> tuple[str, Any, Any] | None:
     return (f"{RECEIVER}.{name}", value, kind) if name else None
 
 
-def _value_target(node: Any) -> tuple[str, Any, Any] | None:
+def _value_target(reader: _Reader, node: Any) -> tuple[str, Any, Any] | None:
     """Give (local name, value, type) for a declaration, an assignment, or a parameter."""
     if node.type in PARAMETERS:
         return _parameter_target(node)
@@ -214,7 +285,7 @@ def _value_target(node: Any) -> tuple[str, Any, Any] | None:
     if node.type not in ("variable_declarator", "assignment_expression"):
         return None
     name, value = ("name", "value") if node.type == "variable_declarator" else ("left", "right")
-    local = _dotted(node.child_by_field_name(name))
+    local = reader.dotted(node.child_by_field_name(name))
     return (
         (local, node.child_by_field_name(value), node.child_by_field_name("type"))
         if local
@@ -228,12 +299,12 @@ def _value_bindings(
     """Give the bindings that get a value or a type from an import. `origins` gets the
     node that makes each binding."""
     out: list[Binding] = []
-    for node in _walk(reader.root):
-        found = _value_target(node)
+    for node in reader.nodes:
+        found = _value_target(reader, node)
         if found is None:
             continue
         local, value, kind = found
-        root = _root(value, imports) or _type_root(kind, imports)
+        root = _root(reader, value, imports) or _type_root(reader, kind, imports)
         if root is None or local in imports:
             continue
         scope = reader.scope(node) if "." not in local else None
@@ -242,41 +313,24 @@ def _value_bindings(
     return out
 
 
-def _is_binding(node: Any) -> bool:
-    """Find a name that a declaration, an assignment, a parameter, or an import makes."""
-    parent = node.parent
-    if parent is None:
-        return False
-    name = BINDING_FIELDS.get(parent.type)
-    if name and parent.child_by_field_name(name) is not None:
-        if parent.child_by_field_name(name).id == node.id:
-            return True
-    current = parent
-    while current is not None:
-        if current.type == "import_statement":
-            return True
-        current = current.parent
-    return False
-
-
 def _use(reader: _Reader, node: Any) -> tuple[int, int, str]:
-    parent = node.parent
+    parent: Any = reader.parent(node)
     obj = parent.child_by_field_name("object") if parent is not None else None
     member = ""
     if obj is not None and obj.id == node.id and parent.type == "member_expression":
         member = _text(parent.child_by_field_name("property"))
-    functions = reader.functions(node)
-    return _line(node), reader.function_line(functions[0]) if functions else 0, member
+    return _line(node), reader.function_line(node), member
 
 
 def _add_uses(reader: _Reader, bindings: dict[str, list[Binding]], origins: dict[int, Any]) -> None:
     """Add each use of each binding. A use where an inner declaration hides the name is
-    not a use of the binding (`typescript_scopes`)."""
-    scopes = Scopes()
-    for node in _walk(reader.root):
-        if node.type not in NAMES or _is_binding(node):
+    not a use of the binding (`typescript_scopes`). A name that a declaration, an
+    assignment, a parameter, or an import makes is not a use."""
+    scopes = Scopes(reader.parent)
+    for node in reader.nodes:
+        if node.type not in NAMES or node.id in reader.bound:
             continue
-        for binding in bindings.get(_dotted(node) or "", []):
+        for binding in bindings.get(reader.dotted(node) or "", []):
             origin = origins[id(binding)]
             if reader.in_scope(binding, node) and not scopes.hides(binding.local, origin, node):
                 binding.uses.add(_use(reader, node))

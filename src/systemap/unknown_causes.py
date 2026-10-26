@@ -23,6 +23,8 @@ ENCODING = "encoding"
 SIZE = "size"
 # The parser could not parse the source.
 SYNTAX = "syntax"
+# The syntax tree of the file has more levels than the reader can read.
+DEPTH = "depth"
 # The parser read the syntax, but it has no record for this declaration or export form.
 DECLARATION = "declaration"
 # A reference has a target that is not a module in the facts.
@@ -46,6 +48,7 @@ CAUSES = (
     ENCODING,
     SIZE,
     SYNTAX,
+    DEPTH,
     DECLARATION,
     TARGET,
     DECLARATION_FILE,
@@ -75,6 +78,12 @@ FIX = {
         "If the parser could not parse a file, examine the source at the line. If the "
         "source is not correct, correct the source. If the source is correct, the parser "
         "cannot read this syntax. Then record an answer for the line in [judgement] answered."
+    ),
+    DEPTH: (
+        "If the source syntax of a file has too many levels, some facts of the file are "
+        "not known. Examine the source. If the file is generated, record an answer for "
+        "the line in [judgement] answered. If not, divide its expressions into smaller "
+        "expressions."
     ),
     DECLARATION: (
         "If the parser has no record for a declaration form, examine the source at the "
@@ -123,6 +132,13 @@ _READ_CAUSES: tuple[tuple[type[BaseException], str], ...] = (
     (repo_files.TooLarge, SIZE),
     (UnicodeError, ENCODING),
 )
+
+
+# The errors that a parse or a walk gives when a file has too many levels. Python gives
+# RecursionError above its recursion limit. A parser can also give MemoryError.
+DEPTH_ERRORS = (RecursionError, MemoryError)
+# The fixed reason of a DEPTH problem. A finding line must not contain a changing value.
+DEPTH_REASON = "The source syntax has too many levels."
 
 
 def read_cause(exc: BaseException) -> str:

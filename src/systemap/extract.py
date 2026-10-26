@@ -17,6 +17,7 @@ import re
 import sys
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,7 @@ from systemap.extraction import drift as drift
 from systemap.extraction import language_for as language_for
 from systemap.extraction import mapping_drift as mapping_drift
 from systemap.pattern_match import matches_test_pattern
-from systemap.python_imports import python_unresolved
+from systemap.python_imports import NamespaceCache, python_unresolved
 from systemap.python_repo import PythonRepository
 from systemap.source_facts import standard_label
 
@@ -53,6 +54,13 @@ UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 PACKAGE_MODULE = "__init__.py"
 # The `type X = ...` statement exists from Python 3.12. An earlier parser cannot read it.
 TYPE_ALIAS: tuple[type, ...] = (ast.TypeAlias,) if hasattr(ast, "TypeAlias") else ()
+
+
+@dataclass
+class PythonContext(python_tests.PythonTests):
+    """The data of one Python extraction: the test data and the namespace packages."""
+
+    namespaces: NamespaceCache = field(default_factory=NamespaceCache)
 
 
 def _not_test(repo: Path, test_patterns: tuple[str, ...], path: Path) -> bool:
@@ -82,9 +90,9 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
-    ) -> python_tests.PythonTests:
+    ) -> PythonContext:
         del repo, paths, tests_dirs
-        return python_tests.PythonTests(test_patterns)
+        return PythonContext(test_patterns)
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         return module_of(path, root, name)
@@ -187,9 +195,13 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         context: Any,
     ) -> list[str]:
-        del repo, context
+        del repo
         is_package = self.is_package_module(paths[module])
-        return python_unresolved(raw, prefixes, known, module, is_package)
+        # One namespace set for each extraction. A set for each module made the
+        # extraction time grow with the square of the module count.
+        cache = context.namespaces if isinstance(context, PythonContext) else NamespaceCache()
+        namespaces = cache.of(known)
+        return python_unresolved(raw, prefixes, known, module, is_package, namespaces)
 
     def external_imports(
         self,
@@ -232,7 +244,11 @@ class PythonLanguage(PythonRepository):
         return python_entry.entry_points(repo, prefixes, components, sources), issues
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
-        return parse_surface(raw)
+        try:
+            return parse_surface(raw)
+        except unknown_causes.DEPTH_ERRORS:
+            # A surface with too many levels is not known, as for a parse error.
+            return None
 
     def test_names(self, raw: str, path: str = "") -> list[str]:
         return python_tests.test_names(raw)
@@ -564,6 +580,55 @@ def _hide_empty_type_params(tree: ast.AST) -> list[ast.AST]:
     return hidden
 
 
+def _surface_and_syntax(
+    raw: str, module: str, is_package: bool, prefixes: frozenset[str], read: bool
+) -> tuple[dict[str, Any] | None, str]:
+    """Give the public surface and the normalized syntax of a module text.
+
+    A text that was not `read`, or that does not parse, gives no surface. A text that
+    does not parse gives itself as the syntax. If the surface or the syntax has too many
+    levels, the tree cache refuses the text. Then no later step reads its tree, and the
+    module has no surface."""
+    try:
+        surface = (
+            parse_surface(raw, module=module, is_package=is_package, prefixes=prefixes)
+            if read
+            else None
+        )
+        return surface, _normalized(raw)
+    except unknown_causes.DEPTH_ERRORS:
+        python_tree.refuse(raw)
+        return None, raw
+
+
+def _normalized(raw: str) -> str:
+    try:
+        return _dump_python_syntax(python_tree.parse(raw))
+    except (SyntaxError, ValueError):
+        return raw
+
+
+def _parse_issue(raw: str) -> dict[str, Any] | None:
+    """Give the parse problem of a module text that has no surface, or None."""
+    try:
+        python_tree.parse(raw)
+    except python_tree.TooDeep:
+        return {
+            "line": 0,
+            "reason": unknown_causes.DEPTH_REASON,
+            "parser": sys.version.split()[0],
+            "cause": unknown_causes.DEPTH,
+        }
+    except (SyntaxError, ValueError) as exc:
+        return {
+            "line": getattr(exc, "lineno", 0) or 0,
+            "reason": f"source could not be parsed: {type(exc).__name__}",
+            "parser": sys.version.split()[0],
+            "cause": unknown_causes.SYNTAX,
+        }
+    return None
+
+
 def collect_module(
     path: Path, repo: Path, module: str = "", prefixes: frozenset[str] = frozenset()
 ) -> dict[str, Any] | None:
@@ -578,22 +643,10 @@ def collect_module(
             "parser": sys.version.split()[0],
             "cause": unknown_causes.read_cause(exc),
         }
-    surface = (
-        parse_surface(raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes)
-        if issue is None
-        else None
-    )
+    is_package = path.name == "__init__.py"
+    surface, normalized = _surface_and_syntax(raw, module, is_package, prefixes, issue is None)
     if surface is None:
-        if issue is None:
-            try:
-                python_tree.parse(raw)
-            except (SyntaxError, ValueError) as exc:
-                issue = {
-                    "line": getattr(exc, "lineno", 0) or 0,
-                    "reason": f"source could not be parsed: {type(exc).__name__}",
-                    "parser": sys.version.split()[0],
-                    "cause": unknown_causes.SYNTAX,
-                }
+        issue = issue or _parse_issue(raw)
         surface = {
             "docstring": "",
             "functions": [],
@@ -605,10 +658,6 @@ def collect_module(
             "api": [],
             "executes": False,
         }
-    try:
-        normalized = _dump_python_syntax(python_tree.parse(raw))
-    except (SyntaxError, ValueError):
-        normalized = raw
     record = {
         "file": path.relative_to(repo).as_posix(),
         "loc": len(raw.splitlines()),

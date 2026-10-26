@@ -34,7 +34,7 @@ from systemap.page_assets import CSS
 from systemap.page_icons import icon
 from systemap.page_script import JS
 from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
-from systemap.schematic import interactive_script, kind_rows, panel_css
+from systemap.schematic import interactive_script, kind_rows, line_safe, panel_css
 from systemap.schematic import render as render_schematic
 
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
@@ -608,7 +608,7 @@ def build(
         page_motion.keys_sheet(),
         page_palette.html(),
         "<script>window.systemapWorkspace="
-        + json.dumps(payload, ensure_ascii=False, sort_keys=True).replace("<", "\\u003c")
+        + line_safe(json.dumps(payload, ensure_ascii=False, sort_keys=True)).replace("<", "\\u003c")
         + ";</script>",
         _compact(interactive_script(t, "schematic", "panel", detail, variables=True)),
     ]
@@ -639,8 +639,10 @@ def build(
 def _compact(js: str) -> str:
     """Remove comment lines, indentation and empty lines from a page script.
 
-    The page scripts have no template literals, so no string continues on a second line."""
-    lines = (line.strip() for line in js.splitlines())
+    The page scripts have no template literals, so no string continues on a second line.
+    Only a line feed ends a line. The function does not use str.splitlines, because
+    str.splitlines also ends a line at characters that can be in a string of map text."""
+    lines = (line.strip(" \t") for line in js.split("\n"))
     return "\n".join(line for line in lines if line and not line.startswith("//"))
 
 

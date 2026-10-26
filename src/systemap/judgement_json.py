@@ -208,11 +208,12 @@ def payload(
 
 
 def _answer_row(answer: Answer, lines: list[str]) -> dict[str, Any]:
+    present = set(lines)
     return {
         "answer": answer.label,
         "items": list(answer.items),
         "reason": answer.reason,
-        "lines": [line for line in lines if judgement.answers(answer, line)],
+        "lines": [line for line in lines if judgement.answers(answer, line, present)],
     }
 
 

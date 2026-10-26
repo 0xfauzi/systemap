@@ -11,6 +11,24 @@ A layer is a filtered view of the map.
 
 ### Security
 
+- The page servers refuse a POST request from a page of a different web site with 403.
+  A browser identifies such a request with the `Sec-Fetch-Site` header or the `Origin` header.
+  A program without an `Origin` header can still send `POST /refresh`.
+- The page servers close a connection that does not send its request in 10 seconds.
+  `systemap live` accepts a maximum of 32 event connections and refuses more with 503.
+  When the process has no free file descriptor, the server stops for a short time before it accepts a connection again.
+- The delta step of the CI workflow and of the `systemap init` workflow uses a random delimiter for the `comment` output.
+  A comment line cannot end the output or set a different output.
+- The pull request summary shows each repository name in a gap detail as a code span.
+  A specifier or a module name does not make a mention, a link, an image, or a new line in the summary.
+- In terminal output, systemap shows each control character of untrusted text as a visible escape (`\uXXXX`).
+  This applies to model and agent text, decisions, commit subjects, and file and module names.
+- `systemap journeys` refuses an agent sequence id that is not a slug.
+  It also refuses a label, a step sentence, or an entry point name that contains a control character.
+- `systemap decisions submit` refuses a summary that contains a control character.
+- The plugin documentation gives `systemap` and `uvx systemap` as command examples.
+  Do not use `uv run systemap` for the plugin, because that command builds the repository project and can run its code.
+
 - `systemap journeys` starts the `[agent] command` of the repository only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
   Previously, a cloned repository could set any command, and `journeys` started it with your permissions and environment variables.
   Without the value, `systemap journeys` starts no program. It names the value and exits 1.
@@ -18,6 +36,34 @@ A layer is a filtered view of the map.
   Examine the agent command of the repository. If you trust the repository, set `SYSTEMAP_TRUST_AGENT_COMMAND=1` for one command only.
 
 ### Changes
+
+- The TypeScript call-site reader reads a deep syntax tree in linear time.
+  20 files of 1.8 KB take 1.0 s in `systemap extract`. Previously, they took 120.7 s.
+- If a source file has too many syntax levels, `systemap extract` does not stop.
+  The module stays in the facts with an unknown record of the new cause `depth`.
+  A test file with too many levels gives a `test_file_issues` record.
+- A package.json `exports` value with many levels gives its target. Previously, it gave a `RecursionError`.
+- Extraction of a Python repository calculates the set of namespace packages one time for each extraction.
+  Previously, the time increased with the square of the module count.
+  At 4161 modules, the extraction takes 4.0 s. Previously, it took 20.7 s. The facts do not change.
+- The commands examine the shape of the stored facts file.
+  If a type is incorrect, a key is missing, a file path is absolute, or the JSON value has more than 32 levels, the command gives an error and exit code 1.
+  Previously, the command stopped with a traceback.
+  If the stored facts file is not correct, run `systemap refresh` or `systemap extract`. These commands write a new facts file.
+- `systemap check` and `systemap refresh` calculate the flow paths, the label positions, the claims and the flow evidence one time for each set of inputs.
+  On this repository, `systemap check` takes 6.5 s. Previously, it took 13.1 s.
+  A refresh that writes all outputs takes 7.6 s. Previously, it took 32.4 s. The outputs do not change.
+- The map page script stays correct if map text contains U+2028, U+2029 or U+0085.
+- `systemap journeys` adds a sequence to the model also if the model source contains U+2028, U+0085, FF or a similar character.
+- `systemap decisions submit` refuses a result with text that UTF-8 cannot encode, for example a lone surrogate.
+  The command does not write the target file.
+- `systemap history` does not divide a commit subject at a Unicode line separator.
+- An answer migration pattern does not change a current finding line when a name or a reason contains the text of an earlier line form.
+  An exact answer for a current line selects only that line. The migration warnings do not tell you to change such an answer.
+- The answer migration patterns are linear in the length of the item.
+  Previously, an item of 132 KB in `[judgement] answered` made `systemap judgement` run for more than 9 minutes.
+  An item longer than 4096 characters is not migrated.
+- CI runs all pre-commit hooks on all files and the `gitleaks-tree` secret scan of the full tree.
 
 - `systemap extract` reads the JSONC text of a tsconfig file in linear time.
   Previously, an unclosed string or comment made the time quadratic: a file of 80 KB took 52 s.

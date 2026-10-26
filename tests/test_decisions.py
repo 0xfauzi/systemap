@@ -211,6 +211,37 @@ def test_an_incorrect_result_is_refused_and_nothing_changes(
     assert not (project / ".systemap" / "decisions.json").exists()
 
 
+@pytest.mark.parametrize("case", ["supported summary", "contradicted summary", "citation"])
+def test_text_that_utf8_cannot_encode_is_refused_and_nothing_changes(
+    project: Path, capsys: pytest.CaptureFixture[str], case: str
+) -> None:
+    """Acceptance 1 and 6 for a lone surrogate in a summary or in a citation.
+
+    Before the fix, the supported case wrote the review digests to map/model.py. Then the
+    command stopped with an uncaught UnicodeEncodeError (llm-3)."""
+    requests = pending(project, capsys)
+    line = next(r for r in requests if r["type"] == "judgement" and r["files"])
+    reviews = [
+        result(r, "supported", *[cite(project, f["file"]) for f in r["files"]])
+        for r in requests
+        if r["type"] in ("flow_review", "source_review")
+    ]
+    if case == "supported summary":
+        cited = cite(project, line["files"][0]["file"])
+        bad = {**result(line, "supported", cited), "summary": "x\ud800y"}
+    elif case == "contradicted summary":
+        bad, reviews = {**result(line, "contradicted"), "summary": "x\udc80y"}, []
+    else:
+        citation = {**cite(project, line["files"][0]["file"]), "file": "pkg/reader.py\ud800"}
+        bad, reviews = result(line, "contradicted", citation), []
+    before = snapshot(project)
+    code, _out, err = submit(project, capsys, *reviews, bad)
+    assert code == 1
+    assert "UTF-8 cannot encode" in err and "The command wrote nothing." in err
+    assert snapshot(project) == before
+    assert not (project / ".systemap" / "decisions.json").exists()
+
+
 def test_supported_needs_a_citation_in_a_file_of_the_claim(
     project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

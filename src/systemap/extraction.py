@@ -16,8 +16,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from systemap import file_names, repo_files, source_text
+from systemap import file_names, repo_files, source_text, unknown_causes
 from systemap import language as languages
+from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
 from systemap.model import Model, covers, is_symbol
@@ -133,6 +134,30 @@ def _module_facts(
         raw = source_text.read(cfg.root, path)
     except (OSError, UnicodeError):
         raw = ""
+    try:
+        uses = _import_facts(
+            cfg, language, (module, path, raw), record, (prefixes, known, paths), context
+        )
+    except unknown_causes.DEPTH_ERRORS:
+        # The import facts of the module are not known.
+        refuse_depth(record)
+        uses, record["uses"], record["external"] = {}, {}, []
+    return record, raw, set(uses)
+
+
+def _import_facts(
+    cfg: Config,
+    language: LanguageAdapter,
+    source: tuple[str, Path, str],
+    record: dict[str, Any],
+    known_names: tuple[set[str], set[str], dict[str, Path]],
+    context: Any,
+) -> dict[str, set[str]]:
+    """Write the `uses`, `external`, and `unresolved_imports` facts of one module.
+
+    The function gives the names that the module imports from each target module."""
+    module, path, raw = source
+    prefixes, known, paths = known_names
     uses = language.internal_uses(
         raw,
         prefixes,
@@ -157,7 +182,18 @@ def _module_facts(
         if record["completeness"]["parsed"]
         else None
     )
-    return record, raw, set(uses)
+    return uses
+
+
+def refuse_depth(record: dict[str, Any]) -> None:
+    """Record that a step of one module went above the recursion limit or the memory.
+
+    The module stays in the facts with an unknown record of the cause DEPTH. Its call
+    sites are then not known. Thus one module does not stop the extraction.
+    """
+    problem = {"line": 0, "reason": unknown_causes.DEPTH_REASON, "cause": unknown_causes.DEPTH}
+    record.setdefault("unknown", []).append(problem)
+    record["completeness"] = {**parse_state(problem), "unresolved_imports": None}
 
 
 def package_for(cfg: Config, language: LanguageAdapter, module: str, path: Path) -> str:
@@ -252,17 +288,20 @@ def _attach_call_sites(
     known = set(paths)
     for module, record in components.items():
         sites = None
-        if record["completeness"]["parsed"]:
-            sites = language.call_sites(
-                sources[module],
-                module,
-                prefixes,
-                known,
-                components,
-                is_package=language.is_package_module(paths[module]),
-                paths=paths,
-                context=context,
-            )
+        try:
+            if record["completeness"]["parsed"]:
+                sites = language.call_sites(
+                    sources[module],
+                    module,
+                    prefixes,
+                    known,
+                    components,
+                    is_package=language.is_package_module(paths[module]),
+                    paths=paths,
+                    context=context,
+                )
+        except unknown_causes.DEPTH_ERRORS:
+            refuse_depth(record)
         uses = record.get("uses", {})
         record["call_sites"] = None if sites is None else [s for s in sites if s["target"] in uses]
 

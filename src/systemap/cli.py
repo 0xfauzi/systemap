@@ -65,6 +65,7 @@ from systemap import (
     scaffold,
     serve,
     skill,
+    terminal_text,
     trend,
 )
 from systemap import facts as facts_mod
@@ -100,13 +101,15 @@ class Project:
 
 
 def say(*lines: str) -> None:
+    """Write the lines to stdout. A control character in a line shows as an escape."""
     for line in lines:
-        print(line)
+        print(terminal_text.lines(line))
 
 
 def warn(*lines: str) -> None:
+    """Write the lines to stderr. A control character in a line shows as an escape."""
     for line in lines:
-        print(line, file=sys.stderr)
+        print(terminal_text.lines(line), file=sys.stderr)
 
 
 def _root(args: argparse.Namespace) -> Path:
@@ -184,8 +187,10 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
     fresh = extraction.build(p.cfg)
-    stored = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if args.check:
+        # Only the comparison reads the stored facts. Thus an extraction can write a new
+        # facts file in place of an incorrect file.
+        stored = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code
@@ -601,7 +606,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*judgement.review_counts(p.tree, facts))
     say(*judgement_json.earlier_rows(judged, p.tree, not args.brief))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
-    warn(*answer_migrations.warnings(p.cfg.judgement_answered))
+    warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -624,7 +629,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
-    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered))
+    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE

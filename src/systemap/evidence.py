@@ -9,10 +9,13 @@ a module of the source component or the target component of the flow.
 
 from __future__ import annotations
 
+import hashlib
+import pickle
 import re
-from collections.abc import Iterable, Mapping
+from collections import OrderedDict
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from systemap import flow_review
 from systemap.model import (
@@ -264,6 +267,36 @@ def mechanism_of(flow: Flow, meaning: Meaning, observed_by: Iterable[str]) -> st
     return ""
 
 
+# The evidence of the last maps. One command renders the same map several times, and
+# each render gives the evidence. A key is the digest of the pickle of all inputs, so a
+# changed input gives a different key.
+EVIDENCE_KEEP = 8
+_T = TypeVar("_T")
+_evidence: OrderedDict[str, ByFlow] = OrderedDict()
+
+
+def remembered(
+    cache: OrderedDict[str, _T], keep: int, inputs: object, calculate: Callable[[], _T]
+) -> _T:
+    """Give the cached result for these inputs, or calculate it and keep it.
+
+    The key is the digest of the pickle of the inputs. If pickle cannot copy an input,
+    for example a MappingProxyType field of a Meaning, the function calculates the result
+    and does not keep it. The cache keeps the last `keep` results."""
+    try:
+        key = hashlib.blake2b(pickle.dumps(inputs, 5)).hexdigest()
+    except (TypeError, AttributeError, pickle.PicklingError):
+        return calculate()
+    found = cache.get(key)
+    if found is None:
+        found = calculate()
+        cache[key] = found
+        while len(cache) > keep:
+            cache.popitem(last=False)
+    cache.move_to_end(key)
+    return found
+
+
 def of_model(
     model: Model,
     meaning: Meaning,
@@ -273,11 +306,31 @@ def of_model(
     """This function gives each flow evidence state by flow identifier.
 
     The result keeps structural facts separate from source evidence, even if the flow
-    has a source review.
+    has a source review. If the inputs are equal to the inputs of an earlier call, the
+    function gives a copy of the earlier result. Each Evidence record is frozen.
     """
+    mechanisms = list(observed_by)
+    found = remembered(
+        _evidence,
+        EVIDENCE_KEEP,
+        (model, meaning, facts, mechanisms),
+        lambda: _of_model(model, meaning, facts, mechanisms),
+    )
+    out = ByFlow(model.flows)
+    out.update(found)
+    return out
+
+
+def clear_evidence() -> None:
+    """Remove all entries from the cache of of_model()."""
+    _evidence.clear()
+
+
+def _of_model(
+    model: Model, meaning: Meaning, facts: dict[str, Any], mechanisms: list[str]
+) -> ByFlow:
     joined = joined_by_import(model, facts)
     shared = sharing_a_module(model, facts)
-    mechanisms = list(observed_by)
     out = ByFlow(model.flows)
     for f in model.flows:
         import_present = frozenset(f.edge) in joined

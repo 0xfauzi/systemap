@@ -107,10 +107,9 @@ def _python_files(repo: Path, refused: list[Path]) -> Iterator[Path]:
 def test_names(raw: str) -> list[str]:
     """Get test function identities, including their enclosing definitions."""
     try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+        return _names(ast.parse(raw))
+    except (SyntaxError, ValueError, *unknown_causes.DEPTH_ERRORS):
         return []
-    return _names(tree)
 
 
 def _names(tree: ast.AST) -> list[str]:
@@ -175,13 +174,33 @@ def collect_tests(
     refused: list[Path] = []
     files = test_files(repo, tests_dirs, tests.test_patterns, refused)
     for path in [*files, *refused]:
-        tree = _parse_test(repo, path, tests.test_issues)
-        if tree is not None:
-            package = packages.get(path.parent, "")
-            module = f"{package}.{path.stem}" if package else ""
-            for target, entries in _references(repo, path, tree, prefixes, known, module).items():
-                guards[target].extend(entries)
+        try:
+            found = _test_guards(repo, path, tests, (prefixes, known, packages))
+        except unknown_causes.DEPTH_ERRORS:
+            # A test file with too many syntax levels gives a record, not a stop.
+            relative = file_names.shown(path.relative_to(repo).as_posix())
+            problem = (unknown_causes.DEPTH_REASON, unknown_causes.DEPTH)
+            tests.test_issues.append(_issue(relative, 0, problem))
+            continue
+        for target, entries in found.items():
+            guards[target].extend(entries)
     return guards
+
+
+def _test_guards(
+    repo: Path,
+    path: Path,
+    tests: PythonTests,
+    names: tuple[set[str], set[str], dict[Path, str]],
+) -> dict[str, list[dict[str, Any]]]:
+    """Give the test functions of one test file for each module that it imports."""
+    prefixes, known, packages = names
+    tree = _parse_test(repo, path, tests.test_issues)
+    if tree is None:
+        return {}
+    package = packages.get(path.parent, "")
+    module = f"{package}.{path.stem}" if package else ""
+    return _references(repo, path, tree, prefixes, known, module)
 
 
 def _packages(paths: Mapping[str, Path]) -> dict[Path, str]:

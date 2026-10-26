@@ -34,6 +34,7 @@ from systemap.config import ConfigError
 from systemap.evidence import owners
 from systemap.model import Journey, Meaning, Model, Step
 from systemap.source_facts import entry_identity, entry_label
+from systemap.terminal_text import has_control, printable
 
 QUESTION = """Examine the repository and write one sequence for its system map.
 
@@ -60,6 +61,9 @@ Requirements:
 - Write one sentence per step about the action and its result.
 - Write only steps that the source code supports.
 """
+
+# The refusal of agent text with a character that `terminal_text.printable` replaces.
+CONTROL = "contains a control character or a Unicode line separator. Write one line of text"
 
 # The earlier group experiment accepted all answers for 19 entry point groups.
 # `bench/jev/group_journeys.py` records those tests on mealie, paperless-ngx, and poetry.
@@ -225,6 +229,8 @@ def _step(raw: Any, model: Model, facts: dict[str, Any] | None) -> tuple[Step | 
     step = _parsed(raw)
     if step is None:
         return None, "must have lists of component identifiers and a sentence"
+    if has_control(step.say):
+        return None, f"has the sentence '{printable(step.say)}', which {CONTROL}"
     if len(step.edge) != 2:
         return (
             None,
@@ -290,17 +296,56 @@ def read_answer(
     steps = _steps(raw.get("steps"), model, problems, facts)
     if not steps:
         problems.append("no sequence step could be used")
+    given = raw.get("id")
+    ident = str(given or entry["name"]).strip()
+    label = str(raw.get("label") or group.label).strip()
+    problems += name_problems(ident, label) if given else fallback_problems(ident, label)
     if problems:
         return Draft(entry=entry, problems=tuple(problems), answer=text)
     journey = Journey(
-        id=str(raw.get("id") or entry["name"]).strip(),
-        label=str(raw.get("label") or group.label).strip(),
+        id=ident,
+        label=label,
         steps=steps,
         starts=group.starts,
         covers=tuple(entry_identity(point) for point in group.ways_in),
         drafted=True,
     )
     return Draft(entry=entry, journey=journey, answer=text)
+
+
+def name_problems(ident: str, label: str) -> list[str]:
+    """Refuse an id that is not a slug, and a label with a control character.
+
+    The id and the label go into finding lines, and the id is a part of a finding
+    identifier. A terminal can use a control character as a command."""
+    problems = []
+    if not ident:
+        problems.append("the answer has no sequence id. Give a short id, such as read-request")
+    elif not flow_ids.ID_FORM.fullmatch(ident):
+        problems.append(
+            f"the sequence id '{printable(ident)}' is not correct. An id contains only "
+            "letters, digits, '_', '.', and '-'. It starts with a letter, a digit, or '_'"
+        )
+    if has_control(label):
+        problems.append(f"the sequence label '{printable(label)}' {CONTROL}")
+    return problems
+
+
+def fallback_problems(name: str, label: str) -> list[str]:
+    """Refuse an entry name or a label with a control character.
+
+    If the agent gives no id, the sequence id is the name of the entry point.
+    This name comes from the source facts. It can contain spaces, '/', and ':'.
+    Thus the slug rule does not apply to it."""
+    problems = []
+    if has_control(name):
+        problems.append(
+            f"the entry point name '{printable(name)}' contains a control character or a "
+            "Unicode line separator. Give a short sequence id, such as read-request"
+        )
+    if has_control(label):
+        problems.append(f"the sequence label '{printable(label)}' {CONTROL}")
+    return problems
 
 
 def write_one(
@@ -370,7 +415,9 @@ def add_to_source(source: str, journey: Journey) -> str | None:
         tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
     except tokenize.TokenError:
         return None
-    lines = source.splitlines(keepends=True)
+    # The tokenizer reads the lines that this readline gives. str.splitlines also ends a
+    # line at characters such as U+2028 and FF, so its offsets do not agree with the rows.
+    lines = io.StringIO(source).readlines()
     for name in ("JOURNEYS", "journeys"):
         offset = _journey_assignment_offset(tokens, lines, name)
         if offset is not None:
@@ -398,7 +445,8 @@ def with_imports(source: str) -> str:
     missing = [name for name in SEQUENCE_CLASSES if name not in given]
     if not missing or "*" in given:
         return source
-    lines = source.splitlines(keepends=True)
+    # The Python parser ends a line only at CR LF, CR and LF, as this mode does.
+    lines = io.StringIO(source, newline="").readlines()
     anchor = _first_imports_end(body)
     added = f"from systemap import {', '.join(missing)}\n"
     return "".join([*lines[:anchor], added, *lines[anchor:]])

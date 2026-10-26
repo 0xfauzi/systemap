@@ -42,7 +42,7 @@ from systemap.model import (
     entry_module,
     reading,
 )
-from systemap.route import Placed, Route, path_d, place_labels, route_all
+from systemap.route import Placed, Route, path_d, routed
 from systemap.schematic_cards import (
     CARD_W as CARD_W,
 )
@@ -112,6 +112,7 @@ from systemap.schematic_change import (
     change_tag,
 )
 from systemap.schematic_script import interactive_script as interactive_script
+from systemap.schematic_script import line_safe as line_safe
 from systemap.schematic_style import _defs, _svg_style, layer_marker
 from systemap.schematic_style import panel_css as panel_css
 from systemap.theme import Palette
@@ -308,20 +309,23 @@ def render(
     # not do.
     actor_ids, region_of, region_boxes = geo.actors, geo.region_of, geo.region_boxes
     edges = [(src, dst) for src, dst, _art, _k in FLOWS]
-    routes = route_all(edges, boxes, actor_ids, blocks, region_boxes, region_of, CANVAS)
-    widths = {i: len(FLOWS[i][2]) * LABEL_CHAR_W + 6 for i in routes}
+    widths = {i: len(FLOWS[i][2]) * LABEL_CHAR_W + 6 for i in range(len(FLOWS))}
     # A collision names both labels: the one that could not be seated and
     # the one it landed on, each by its artifact and its edge.
     label_names = {i: f"label '{f.artifact}' ({f.name})" for i, f in enumerate(model.flows)}
-    seats = place_labels(
-        routes,
+    # One command renders the same geometry several times. routed() keeps the result.
+    routes, seats = routed(
+        edges,
+        boxes,
+        actor_ids,
+        blocks,
+        region_boxes,
+        region_of,
+        CANVAS,
         widths,
         LABEL_H,
         obstacles,
-        CANVAS,
-        names=label_names,
-        cards=boxes,
-        region_of=region_of,
+        label_names,
     )
 
     flow_parts: list[str] = []
