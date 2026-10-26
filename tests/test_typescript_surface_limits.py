@@ -59,7 +59,7 @@ def test_g1ts_1_namespace_at_the_depth_limit_is_read() -> None:
     assert "unread:" not in fingerprint
 
 
-def test_g1ts_1_namespace_below_the_depth_limit_gives_an_unknown_record() -> None:
+def test_g1ts_1_namespace_deeper_than_the_depth_limit_gives_an_unknown_record() -> None:
     """Acceptance: one more level gives one unknown record with the cause declaration,
     on the line of the namespace that the reader does not read.
     """
