@@ -1742,11 +1742,14 @@ After a good version, the command removes the pages of the maps that the version
 
 - Without `--no-watch`, the command scans the configuration files, the model files,
   and the source and test files one time each second.
+  If a scan takes more than half a second, the next scan starts after two times the time of that scan.
   The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
   It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
   The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name `build` or `dist`.
   The scan includes each test file that extraction reads, also a file that `test_patterns` selects out of the package roots and the test directories.
   When a scan finds a change and the next scan finds no more change, the command renders the page again.
+  If a scan fails, the command gives the error one time, and the scans continue.
+  The last page stays. Until a scan gives a result again, `GET /status` gives the error after each good version.
 
 - `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
 
@@ -1776,7 +1779,7 @@ for the working tree and the merge base. `action` is the action of the line kind
 | `{"event": "serving", "url": "...", "base": "...", "comparison_base": "..."}` | One time, when the server is ready. |
 | `{"event": "rendering", "version": N}` | When a version starts. |
 | `{"event": "rendered", "version": N, "seconds": S, "updates": K, "components": [...], "svg": "...", "svg_bytes": B}` | When a version is on the page. |
-| `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version. |
+| `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version, or when a scan of the files fails. |
 | `{"event": "stopped"}` | When the command stops after Ctrl-C or SIGTERM, or Ctrl-Break on Windows. The exit code is 0. |
 
 On this repository, one version takes about 7 to 8 seconds.

@@ -165,6 +165,22 @@ def resolved(path: Path) -> Path:
         return resolved(path.parent) / path.name
 
 
+# The live watcher reads each tsconfig file again at each scan. For each path, the cache
+# keeps the last text and the text without comments. Thus the JSONC scan occurs again
+# only after a change of the file. The cache has one entry for each path.
+_STRIPPED: dict[Path, tuple[str, str]] = {}
+
+
+def _stripped(path: Path, text: str) -> str:
+    """Give the text without JSONC comments. Use the cache if the path has the same text."""
+    known = _STRIPPED.get(path)
+    if known is not None and known[0] == text:
+        return known[1]
+    value = strip_jsonc(text)
+    _STRIPPED[path] = (text, value)
+    return value
+
+
 def _read_config(path: Path, repo: Path) -> dict[str, Any]:
     """This function reads a tsconfig file only if it is a regular file in the repository.
 
@@ -174,8 +190,9 @@ def _read_config(path: Path, repo: Path) -> dict[str, Any]:
     """
     try:
         text = repo_files.read_text(repo, repo_files.relative(repo, path))
-        value = json.loads(strip_jsonc(text))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        value = json.loads(_stripped(path, text))
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+        # A value with too many nested levels gives RecursionError.
         raise ValueError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(value, dict):
         raise ValueError(f"{path.as_posix()} must contain an object.")

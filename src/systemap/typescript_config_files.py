@@ -81,14 +81,31 @@ def _extends_targets(data: dict[str, Any], path: Path) -> list[Path]:
         return []
     out: list[Path] = []
     for reference in references:
-        try:
-            out.append(_config_reference(path.parent, reference))
-        except ValueError:
-            # A missing relative target: a new file at this path changes the settings.
-            if reference.startswith("."):
-                name = reference if reference.endswith(".json") else reference + ".json"
-                out.append((path.parent / name).resolve())
+        out += _extends_target(path, reference)
     return out
+
+
+def _extends_target(path: Path, reference: str) -> list[Path]:
+    try:
+        return [_config_reference(path.parent, reference)]
+    except ValueError:
+        pass
+    # A missing relative target: a new file at this path changes the settings.
+    if not reference.startswith("."):
+        return []
+    name = reference if reference.endswith(".json") else reference + ".json"
+    return _resolved(path.parent / name)
+
+
+def _resolved(path: Path) -> list[Path]:
+    """Give the resolved path in a list. If the path has a NUL character, give no path.
+
+    No file can have a name with a NUL character. Thus the watcher has no file to watch.
+    """
+    try:
+        return [path.resolve()]
+    except ValueError:
+        return []
 
 
 def _reference_targets(data: dict[str, Any], path: Path) -> list[Path]:
@@ -100,7 +117,7 @@ def _reference_targets(data: dict[str, Any], path: Path) -> list[Path]:
         raw = reference.get("path") if isinstance(reference, dict) else None
         if isinstance(raw, str):
             target = path.parent / raw
-            out.append((target if raw.endswith(".json") else target / "tsconfig.json").resolve())
+            out += _resolved(target if raw.endswith(".json") else target / "tsconfig.json")
     return out
 
 
