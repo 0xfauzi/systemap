@@ -116,7 +116,7 @@ def read_results(name: str) -> list[Any]:
         raise DecisionError(f"{name}: the command cannot read the file: {exc}") from exc
     except UnicodeError as exc:
         raise DecisionError(f"{name}: the file is not UTF-8 text: {exc}") from exc
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, RecursionError) as exc:
         raise DecisionError(f"{name}: the file is not JSON: {exc}") from exc
     if not isinstance(data, list):
         raise DecisionError(f"{name}: the file must contain a JSON list of results.")

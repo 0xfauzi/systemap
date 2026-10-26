@@ -173,6 +173,31 @@ def test_an_event_connection_after_the_limit_gets_503(
         second.close()
 
 
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Sec-Fetch-Site": "cross-site", "Origin": "http://evil.example"},
+        {"Sec-Fetch-Site": "same-site"},
+        {"Origin": "http://evil.example"},
+    ],
+)
+def test_an_event_connection_from_a_different_site_gets_403_and_no_slot(
+    live: tuple[Live, int], monkeypatch: pytest.MonkeyPatch, headers: dict[str, str]
+) -> None:
+    """Acceptance (post-server-1): before the repair, a page of a different site got an
+    event connection. Each such connection held one of the slots until the next write."""
+    monkeypatch.setattr(serve_guard, "MAX_READERS", 1)
+    _server, port = live
+    sent = "".join(f"{name}: {value}\r\n" for name, value in headers.items())
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as other:
+        other.sendall(f"GET /events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n{sent}\r\n".encode())
+        assert _read_until(other, b"\r\n\r\n").startswith(b"HTTP/1.0 403")
+    page = f"Sec-Fetch-Site: same-origin\r\nOrigin: http://127.0.0.1:{port}\r\n"
+    with socket.create_connection(("127.0.0.1", port), timeout=5) as own:
+        own.sendall(f"GET /events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n{page}\r\n".encode())
+        assert _read_until(own, b"\r\n\r\n").startswith(b"HTTP/1.0 200")
+
+
 class _NoDescriptors:
     """A listening socket whose accept fails as at the file descriptor limit."""
 

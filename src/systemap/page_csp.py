@@ -3,7 +3,10 @@
 The policy lets the browser run only the scripts and the style elements of the page.
 It contains the SHA-256 digest of each inline script and each style element. The
 digests come from the page text when the command makes the page. Thus a script that
-an injection adds to the page does not run.
+an injection adds after that time does not run, for example a script that a page script
+writes into the page. An event-handler attribute also does not run. A script element in
+the page text when the command makes the page gets a digest, also if model text adds
+it. Thus the page must escape the model text. The policy does not replace that escape.
 
 The page has no network request. Thus the policy permits no network source. It permits
 `data:` images and fonts, because the page contains its icon and its font as `data:`
@@ -14,7 +17,9 @@ style attribute cannot run a script.
 `systemap live` adds a script to each page, and this script reads events from the live
 server. For such a page, `with_live_script` adds the digest of the script and permits
 connections to the same origin. The server of `systemap serve` and of `systemap live`
-sends the policy of the page in the Content-Security-Policy header.
+sends the policy of the page in the Content-Security-Policy header. A file in the
+served folder can contain any meta element. Thus `of_page` gives a policy only if it has
+printable ASCII characters and no line break. Else the server sends no policy header.
 """
 
 from __future__ import annotations
@@ -34,6 +39,8 @@ _SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)
 _STYLE = re.compile(r"<style>(.*?)</style>", re.S)
 _META = re.compile(r'<meta http-equiv="Content-Security-Policy" content="([^"]*)">')
 _CHARSET = '<meta charset="utf-8">'
+# The characters of a policy that a server can send in a header: printable ASCII.
+_HEADER_TEXT = re.compile(r"[ -~]*")
 # The policy meta element is near the start of a page. The server reads only this part.
 _HEAD_BYTES = 64 * 1024
 # The policy of an SVG figure file. A figure has style elements and no script.
@@ -132,9 +139,13 @@ def _meta(value: str) -> str:
 
 
 def of_page(page: str) -> str:
-    """Give the policy in the meta element of `page`, or an empty string."""
+    """Give the policy in the meta element of `page`, or an empty string.
+
+    A policy with a character that is not printable ASCII, for example a line break,
+    also gives an empty string. A header cannot contain such a policy."""
     found = _META.search(page)
-    return found.group(1) if found else ""
+    value = found.group(1) if found else ""
+    return value if _HEADER_TEXT.fullmatch(value) else ""
 
 
 def of_file(root: Path, path: Path) -> str:

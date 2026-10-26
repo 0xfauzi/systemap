@@ -283,7 +283,7 @@ def _kept_module(
 ) -> tuple[dict[str, Any], str, set[str]] | None:
     """Give the kept facts of a module with the same text, or make them."""
     found: tuple[dict[str, Any], str, set[str]] | None
-    found = cache.remember("module", module, cache.digest(repo, path), make)
+    found = cache.remember_file("module", module, repo, path, make)
     return found
 
 

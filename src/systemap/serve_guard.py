@@ -6,6 +6,11 @@ sends `Sec-Fetch-Site: cross-site` or an `Origin` header of that site. The serve
 such a request that changes the state. A program that sends no such header, for example
 curl or the coding agent hook, can still send `POST /refresh`.
 
+A GET request for an event connection does not change the state, but it holds one of the
+`MAX_READERS` connections. A browser closes such a connection from a different site
+after the CORS check, but the server finds the closed connection only at its next write.
+Thus the servers also refuse an event connection from a different site.
+
 Each connection has a read time limit, so a client that does not complete its request
 cannot keep a thread. The full request line and headers must arrive in that time. Thus a
 client that sends one byte in each read time limit also loses its connection. The
@@ -35,6 +40,8 @@ PAUSE_ERRORS = frozenset({errno.EMFILE, errno.ENFILE, errno.ENOBUFS, errno.ENOME
 SAFE_METHODS = frozenset({"GET", "HEAD"})
 # The Sec-Fetch-Site values of a request from the page itself or from the person.
 OWN_SITE = frozenset({"same-origin", "none"})
+# The GET paths that hold a connection of the server.
+HELD_PATHS = frozenset({"/events"})
 
 
 class ReadersFull(Exception):
@@ -48,9 +55,10 @@ def readers_full() -> ReadersFull:
     )
 
 
-def other_site(method: str, headers: Message, port: int) -> bool:
-    """Tell if a request that changes the state comes from a page of a different site."""
-    if method in SAFE_METHODS:
+def other_site(method: str, path: str, headers: Message, port: int) -> bool:
+    """Tell if a request that changes the state, or that holds a connection, comes from a
+    page of a different site. `path` is the request path without the query."""
+    if method in SAFE_METHODS and path not in HELD_PATHS:
         return False
     fetch_site = headers.get("Sec-Fetch-Site")
     if fetch_site is not None and fetch_site not in OWN_SITE:

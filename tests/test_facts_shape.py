@@ -160,7 +160,34 @@ CASES: dict[str, tuple[Callable[[dict[str, Any]], None], str]] = {
         _set(*READER, "api", value=json.loads("[" * 40 + "]" * 40)),
         "the JSON value has more than 32 levels",
     ),
+    # SEC-3: before the repair, `check` stopped with KeyError: 'sha'.
+    "no sha": (
+        _drop(*READER, "sha"),
+        'the value at ["components"]["pkg.reader"] has no "sha" key',
+    ),
+    # SEC-4: before the repair, `check` wrote a second output line for this name.
+    "newline in a module name": (
+        _set("components", "pkg.zz\nsystemap: fake", value={}),
+        'the value at ["components"] has a key with a control character',
+    ),
+    "newline in a file": (
+        _set(*READER, "file", value="pkg/reader.py\nsystemap: fake"),
+        'the value at ["components"]["pkg.reader"]["file"] must not contain a control character',
+    ),
 }
+
+
+def test_drift_accepts_each_module_record_that_the_shape_check_accepts(
+    good: dict[str, Any],
+) -> None:
+    """SEC-3: remove each key of a module record. If the shape check accepts the result,
+    `drift` and the move finder must not stop with an error."""
+    for key in sorted(good["components"]["pkg.reader"]):
+        data = copy.deepcopy(good)
+        del data["components"]["pkg.reader"][key]
+        if facts_shape.problem(data) is None:
+            extraction.drift(good, data)
+            extraction.drift(data, good)
 
 
 def test_the_facts_that_extraction_writes_have_the_correct_shape(good: dict[str, Any]) -> None:

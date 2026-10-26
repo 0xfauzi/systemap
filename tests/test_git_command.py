@@ -317,3 +317,47 @@ def test_a_repository_of_a_different_owner_gives_the_git_cause(tmp_path: Path) -
             os.chown(Path(folder) / name, 4242, 4242)
     with pytest.raises(change.ChangeError, match="dubious ownership"):
         change.comparison_base(root, "HEAD")
+
+
+def _promisor(tmp: Path) -> tuple[Path, Path, str]:
+    """A repository with a missing blob and a promisor remote that names a marker program.
+
+    Git does a lazy fetch for a missing blob. The fetch runs `remote.origin.uploadpack`.
+    The result is the root, the marker file, and the commit that refers to the blob.
+    """
+    root, mark = tmp / "repo", tmp / "MARK"
+    root.mkdir()
+    (root / "f").write_text("lost\n", encoding="utf-8")
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "c")
+    blob = git(root, "rev-parse", "HEAD:f")
+    (root / ".git/objects" / blob[:2] / blob[2:]).unlink()
+    for key, value in (
+        ("core.repositoryformatversion", "1"),
+        ("extensions.partialClone", "origin"),
+        ("remote.origin.promisor", "true"),
+        ("remote.origin.url", str(tmp)),
+        ("remote.origin.uploadpack", f"touch {mark}; false"),
+    ):
+        git(root, "config", key, value)
+    return root, mark, git(root, "rev-parse", "HEAD")
+
+
+def test_the_fixture_does_a_lazy_fetch_with_plain_git(tmp_path: Path) -> None:
+    root, mark, head = _promisor(tmp_path)
+    subprocess.run(["git", "cat-file", "-p", f"{head}:f"], cwd=root, capture_output=True)
+    assert mark.exists()
+
+
+def test_a_missing_blob_does_not_start_a_lazy_fetch(tmp_path: Path) -> None:
+    """Acceptance (git-sec-1): a read of a missing blob does not run the upload program.
+
+    Before the repair, `git_command.run` and the `cat-file --batch` process of `delta`
+    did a lazy fetch, and the fetch made the marker file.
+    """
+    root, mark, head = _promisor(tmp_path)
+    git_command.run(root, "cat-file", "-p", f"{head}:f")
+    with pytest.raises(DeltaError, match="gave no blob"):
+        delta_git.blobs_at(root, head, ["f"])
+    assert not mark.exists()

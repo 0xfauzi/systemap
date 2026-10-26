@@ -61,6 +61,8 @@ BASES = ("origin/HEAD", "origin/main", "main", "origin/master", "master")
 # The time between two comment lines on an event connection. A write to a closed
 # connection gives an error, so the server finds closed connections.
 KEEP_SECONDS = 15.0
+# The pages that can show a served page in a frame: only the pages of this server.
+FRAMES = "frame-ancestors 'self'"
 
 
 def _listen(handler: Callable[..., BaseHTTPRequestHandler], port: int) -> ThreadingHTTPServer:
@@ -80,7 +82,13 @@ class PageHandler(SimpleHTTPRequestHandler):
     A web page can make its own domain name point at 127.0.0.1 (DNS rebinding). Then the
     browser sends that name in the Host header. The server refuses each request whose Host
     is not 127.0.0.1 or localhost with the server port, so such a page cannot read the map.
-    The server also refuses a POST request from a page of a different site.
+    The server also refuses a POST request and an event connection from a page of a
+    different site.
+
+    The Content-Security-Policy header also has `frame-ancestors 'self'`. Thus a page of
+    a different site cannot show the map in a frame. A meta element cannot give this
+    directive. With the `X-Content-Type-Options: nosniff` header, the browser uses only
+    the type that the server gives for a file.
     """
 
     # A client that does not send its request in this time loses the connection.
@@ -105,8 +113,9 @@ class PageHandler(SimpleHTTPRequestHandler):
         if self.headers.get("Host", "") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
             self.send_error(403, "The server answers only requests to 127.0.0.1 or localhost.")
             return False
-        if serve_guard.other_site(self.command, self.headers, port):
-            self.send_error(403, "The server refuses a POST request from a different web site.")
+        path = self.path.split("?", 1)[0]
+        if serve_guard.other_site(self.command, path, self.headers, port):
+            self.send_error(403, "The server refuses this request from a different web site.")
             return False
         return True
 
@@ -127,7 +136,8 @@ class PageHandler(SimpleHTTPRequestHandler):
         if served is not None:
             policy = page_csp.of_file(Path(self.directory), served)
             if policy:
-                self.send_header("Content-Security-Policy", policy)
+                self.send_header("Content-Security-Policy", f"{policy}; {FRAMES}")
+            self.send_header("X-Content-Type-Options", "nosniff")
         super().end_headers()
 
     def _inside(self) -> bool:
