@@ -25,7 +25,6 @@ def _module_record(mid: str, record: dict[str, Any]) -> dict[str, Any]:
         "id": mid,
         "file": record.get("file", ""),
         "docstring": record.get("docstring", ""),
-        "names": [n["name"] for n in names],
         "public_names": names,
         "imports": record.get("imports", []),
         "imported_by": record.get("imported_by", []),

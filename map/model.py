@@ -347,6 +347,7 @@ COMPONENTS = (
             "systemap.page_palette",
             "systemap.page_font",
             "systemap.page_live",
+            "systemap.page_csp",
         ),
         entry="build",
         region="draw",

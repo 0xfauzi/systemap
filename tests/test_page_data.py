@@ -48,7 +48,8 @@ def test_source_record_keeps_unknowns_and_public_name_provenance(sample: Sample)
     source = page_data.sources(sample.model, facts)["Reader"]["modules"][0]
     assert source["unknown"] == [issue]
     assert source["public_names"] == record["names"]
-    assert source["names"] == ["Request"]
+    # The page derives the names from public_names. The record has no copy of them.
+    assert "names" not in source
     assert source["external"] == ["other.package"]
     assert source["imported_by"] == ["pkg.writer"]
 
@@ -74,7 +75,7 @@ def test_older_facts_do_not_turn_public_names_into_an_empty_surface(sample: Samp
     record.pop("names")
     facts = {"components": {"pkg.reader": record}}
     source = page_data.sources(sample.model, facts)["Reader"]["modules"][0]
-    assert "read" in source["names"]
+    assert "read" in [n["name"] for n in source["public_names"]]
     assert {"name": "Request", "kind": "class"} in source["public_names"]
 
 

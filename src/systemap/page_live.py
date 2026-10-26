@@ -18,6 +18,8 @@ from __future__ import annotations
 import html
 import json
 
+from systemap import page_csp
+
 # The session storage key of the saved view.
 VIEW_KEY = "systemap-live-view"
 NOTICE_ID = "live-notice"
@@ -138,28 +140,34 @@ SCRIPT = r"""
 """
 
 
-def script(version: int) -> str:
-    """Give the script element for a page of the version number `version`."""
+def _body(version: int) -> str:
     head = (
         f"var VERSION = {int(version)}, KEY = {json.dumps(VIEW_KEY)}, "
         f"NOTICE = {json.dumps(NOTICE_ID)};"
     )
     body = SCRIPT.replace("(function(){\n", "(function(){\n" + head + "\n", 1)
-    return "<script>" + body.replace("</", "<\\/") + "</script>"
+    return body.replace("</", "<\\/")
+
+
+def script(version: int) -> str:
+    """Give the script element for a page of the version number `version`."""
+    return "<script>" + _body(version) + "</script>"
 
 
 def with_script(page: str, version: int) -> str:
-    """Put the script before the end of the body of a page."""
+    """Put the script before the end of the body of a page.
+
+    If the page has a Content-Security-Policy, the policy also permits this script and
+    its connection to the server (`page_csp.with_live_script`)."""
     end = page.rfind("</body>")
-    if end < 0:
-        return page + script(version)
-    return page[:end] + script(version) + page[end:]
+    added = page + script(version) if end < 0 else page[:end] + script(version) + page[end:]
+    return page_csp.with_live_script(added, _body(version))
 
 
 def notice_page(title: str, lines: list[str]) -> str:
     """Give a small page with a title and text lines. The caller adds the script."""
     text = "".join(f"<p>{html.escape(line)}</p>" for line in lines)
-    return (
+    return page_csp.with_policy(
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f"<title>{html.escape(title)}</title><style>:root{{color-scheme:light dark}}"

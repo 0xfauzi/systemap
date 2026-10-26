@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,23 @@ def no_agent_command(monkeypatch: pytest.MonkeyPatch) -> None:
     command does by default. A test that starts a fixture agent sets
     SYSTEMAP_TRUST_AGENT_COMMAND itself."""
     monkeypatch.delenv(agent.TRUST, raising=False)
+
+
+def page_detail_text(html: str) -> str:
+    """Give the detail JSON of the system map of a map page.
+
+    The map script gives the detail as a JavaScript string after `var FIRST = `. The
+    string is a JSON string, so a JSON decoder reads it."""
+    start = html.index("var FIRST = ") + len("var FIRST = ")
+    text, _end = json.JSONDecoder().raw_decode(html, start)
+    assert isinstance(text, str)
+    return text
+
+
+def page_detail(html: str) -> dict[str, Any]:
+    """Give the detail data of the system map of a map page."""
+    detail: dict[str, Any] = json.loads(page_detail_text(html))
+    return detail
 
 
 def write_tree(root: Path, files: dict[str, str]) -> None:

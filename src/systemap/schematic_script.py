@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from systemap.schematic_labels import LABEL_JS
@@ -53,26 +54,155 @@ def interactive_script(
     instead of literal values. The page uses `variables`, so the inspector
     then gives sequence buttons and leaves room for the drawer Clear button.
     `line_safe` escapes the characters that can end a line of the script."""
-    # The layout audit (label boxes, card boxes) is for checkers, not the
-    # page; it is dropped from the inlined copy to keep a figure small.
-    parsed = json.loads(detail_json)
+    return (
+        "<script>(function(){\n"
+        f"var DETAIL = JSON.parse({_detail_text(detail_json)});\n"
+        f"var PAL = {_palette(t, variables)};\n"
+        f"var svg = document.getElementById({json.dumps(svg_id)});\n"
+        f"var panel = document.getElementById({json.dumps(panel_id)});\n"
+        f"var PAGE = {json.dumps(variables)};\n" + _INTERACTIVE_JS + "})();</script>"
+    )
+
+
+def page_maps_script(t: dict[str, Any], maps: Sequence[tuple[str, str, str]]) -> str:
+    """Make one script for all maps of the map page.
+
+    Each item of `maps` gives the SVG ID, the panel ID and the detail JSON of one map.
+    The script contains the code of `interactive_script` one time, in a function. It
+    calls this function one time for each map, in the sequence of `maps`. Thus a page
+    with a change map does not contain two copies of the code. The colors use CSS
+    tokens, as with `variables`.
+
+    The detail of the first map is in the script one time. The detail of each other
+    map is the detail of the first map with a set of changes (`_changes`). If the
+    changes cannot give the same JSON, the script contains the full detail of that map.
+    Each call parses its own copy, so no two maps share an object."""
+    first = _audit_free(maps[0][2]) if maps else {}
+    calls = [_call(first, svg_id, panel_id, detail) for svg_id, panel_id, detail in maps]
+    changes = any(call.startswith("show(changed(") for call in calls)
+    return (
+        "<script>(function(){\n"
+        f"var PAL = {_palette(t, True)};\n"
+        "var PAGE = true;\n"
+        f"var FIRST = {_js_text(first)};\n"
+        + (_CHANGES_JS if changes else "")
+        + "function show(DETAIL, svgId, panelId){\n"
+        "var svg = document.getElementById(svgId);\n"
+        "var panel = document.getElementById(panelId);\n"
+        + _INTERACTIVE_JS
+        + "}\n"
+        + "".join(calls)
+        + "})();</script>"
+    )
+
+
+# Puts the changes of one map into a parsed copy of the detail of the first map. A
+# property definition, not an assignment, so that a key such as `__proto__` stays a
+# record and does not set the prototype.
+_CHANGES_JS = r"""
+function changed(c){
+  var d = JSON.parse(FIRST);
+  function put(o, k, v){
+    Object.defineProperty(o, k, {value:v, writable:true, enumerable:true, configurable:true});
+  }
+  Object.keys(c.records).forEach(function(k){
+    var r = c.records[k];
+    Object.keys(r).forEach(function(f){ put(d[k], f, r[f]); });
+  });
+  Object.keys(c.values).forEach(function(k){ put(d, k, c.values[k]); });
+  return d;
+}
+"""
+
+
+def _call(first: dict[str, Any], svg_id: str, panel_id: str, detail_json: str) -> str:
+    """Give the call of `show` for one map: with the first detail, changes or full data."""
+    ids = f"{json.dumps(svg_id)}, {json.dumps(panel_id)}"
+    detail = _audit_free(detail_json)
+    if _same_json(detail, first):
+        return f"show(JSON.parse(FIRST), {ids});\n"
+    changes = _changes(first, detail)
+    if changes is not None:
+        return f"show(changed(JSON.parse({_js_text(changes)})), {ids});\n"
+    return f"show(JSON.parse({_js_text(detail)}), {ids});\n"
+
+
+def _changes(first: dict[str, Any], other: dict[str, Any]) -> dict[str, Any] | None:
+    """Give the changes that make `first` into `other`, or None.
+
+    `records` gives new values and new fields of a record. `values` gives new values of
+    keys. The changes do not add or remove a key, and do not remove a field. Thus such a
+    difference gives None. The sequence of the records must be the same, because the
+    script reads the records in their sequence. The sequence of the fields in a record
+    can be different, because the script reads a field by its name. The function applies
+    the changes and compares the result with `other`. A difference gives None."""
+    if list(first) != list(other):
+        return None
+    records: dict[str, Any] = {}
+    values: dict[str, Any] = {}
+    for key, value in other.items():
+        fields = _new_fields(first[key], value)
+        if fields is None:
+            values[key] = value
+        elif fields:
+            records[key] = fields
+    result = dict(first)
+    for key, fields in records.items():
+        result[key] = {**first[key], **fields}
+    result.update(values)
+    if json.dumps(result, sort_keys=True) != json.dumps(other, sort_keys=True):
+        return None
+    return {"records": records, "values": values}
+
+
+def _new_fields(old: object, value: object) -> dict[str, Any] | None:
+    """Give the new and changed fields of a record, or None for a full new value.
+
+    The same values give an empty table. A value that is not a record, or a record that
+    does not have all fields of `old`, gives None if it is not the same value."""
+    if not (isinstance(value, dict) and isinstance(old, dict) and set(old) <= set(value)):
+        return {} if _same_json(value, old) else None
+    return {f: v for f, v in value.items() if f not in old or not _same_json(v, old[f])}
+
+
+def _same_json(a: object, b: object) -> bool:
+    return _compact_json(a) == _compact_json(b)
+
+
+def _compact_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _audit_free(detail_json: str) -> dict[str, Any]:
+    """Give the detail without the layout audit (label boxes, card boxes and paths).
+
+    The layout audit is for the checks. The script does not use it."""
+    parsed: dict[str, Any] = json.loads(detail_json)
     meta = dict(parsed.get("_meta") or {})
     meta.pop("labels", None)
     meta.pop("cards", None)
     meta.pop("paths", None)
     parsed["_meta"] = meta
-    data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
-    data = json.dumps(data, ensure_ascii=False)
-    data = line_safe(data.replace("</", "<\\/").replace("<!--", "\\u003c!--"))
-    palette = json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
-    return (
-        "<script>(function(){\n"
-        f"var DETAIL = JSON.parse({data});\n"
-        f"var PAL = {palette};\n"
-        f"var svg = document.getElementById({json.dumps(svg_id)});\n"
-        f"var panel = document.getElementById({json.dumps(panel_id)});\n"
-        f"var PAGE = {json.dumps(variables)};\n" + _INTERACTIVE_JS + "})();</script>"
-    )
+    return parsed
+
+
+def _js_text(value: object) -> str:
+    """Give the JSON of `value` as the text of a JavaScript string for `JSON.parse`.
+
+    In an object literal, the key `__proto__` sets the prototype. `JSON.parse` makes a
+    property of the object. Escaping `</` prevents artifact text from closing the
+    script. Escaping `<!--` prevents a change to the end of the script by artifact text."""
+    data = json.dumps(_compact_json(value), ensure_ascii=False)
+    return line_safe(data.replace("</", "<\\/").replace("<!--", "\\u003c!--"))
+
+
+def _detail_text(detail_json: str) -> str:
+    """Give the detail JSON, without the layout audit, as the text of a JavaScript string."""
+    return _js_text(_audit_free(detail_json))
+
+
+def _palette(t: dict[str, Any], variables: bool) -> str:
+    return json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
 
 
 _VIEW_JS = r"""
