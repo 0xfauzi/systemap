@@ -139,6 +139,8 @@ COMPONENTS = (
             "systemap.root_check",
             "systemap.typescript_config",
             "systemap.typescript_config_files",
+            "systemap.jsonc_text",
+            "systemap.tsconfig_glob",
             "systemap.typescript_roots",
             "systemap.config_walk",
             "systemap.config_decisions",

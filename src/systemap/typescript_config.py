@@ -9,12 +9,14 @@ import json
 import os
 import re
 from collections.abc import Collection, Iterable, Iterator
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import repo_files
 from systemap.config import ConfigError
+from systemap.jsonc_text import strip_jsonc
+from systemap.tsconfig_glob import GlobPattern, compile_glob
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
 DECLARATION_SUFFIXES = (".d.ts", ".d.mts", ".d.cts")
@@ -36,8 +38,6 @@ INPUT_KEYS = ("files", "include", "exclude")
 # 6.0.3 emits from the tsconfig folder and reports TS5011 asking for an
 # explicit `rootDir`, and 7.0.2 emits from the tsconfig folder.
 CONFIG_DIR_ROOT_SINCE = 6
-_JSONC_TOKEN = re.compile(r'"(?:\\.|[^"\\])*"|//[^\r\n]*|/\*[\s\S]*?\*/')
-_TRAILING_COMMA = re.compile(r'"(?:\\.|[^"\\])*"|,(?=\s*[}\]])')
 _GLOB_CHARS = re.compile(r"[*?]")
 
 # Each value with the folder of the file that declared it, because a relative
@@ -165,25 +165,6 @@ def resolved(path: Path) -> Path:
         return resolved(path.parent) / path.name
 
 
-def _strip_jsonc(text: str) -> str:
-    """This function removes JSONC comments and trailing commas without changing string
-    values.
-    """
-
-    def blank_comment(match: re.Match[str]) -> str:
-        token = match.group(0)
-        if token.startswith('"'):
-            return token
-        return "".join(char if char in "\r\n" else " " for char in token)
-
-    without_comments = _JSONC_TOKEN.sub(blank_comment, text.lstrip("\ufeff"))
-
-    def keep_string_remove_comma(match: re.Match[str]) -> str:
-        return match.group(0) if match.group(0).startswith('"') else ""
-
-    return _TRAILING_COMMA.sub(keep_string_remove_comma, without_comments)
-
-
 def _read_config(path: Path, repo: Path) -> dict[str, Any]:
     """This function reads a tsconfig file only if it is a regular file in the repository.
 
@@ -193,7 +174,7 @@ def _read_config(path: Path, repo: Path) -> dict[str, Any]:
     """
     try:
         text = repo_files.read_text(repo, repo_files.relative(repo, path))
-        value = json.loads(_strip_jsonc(text))
+        value = json.loads(strip_jsonc(text))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(value, dict):
@@ -237,28 +218,70 @@ def config_present(path: Path) -> bool:
     return os.path.lexists(path) and not path.is_dir()
 
 
-def _compiler_options(
-    path: Path,
-    repo: Path,
-    issues: list[tuple[Path, str]],
-    inputs: Options,
-    active: frozenset[Path] = frozenset(),
-) -> Options:
+@dataclass(frozen=True)
+class _Settings:
+    """This record gives the settings of one tsconfig file with its inherited settings.
+
+    The `inputs` are the files, include, and exclude values. The `issues` are the
+    `extends` references that the reader could not find, in the order that the reader
+    found them, without repeats.
+    """
+
+    options: Options
+    inputs: Options
+    issues: tuple[tuple[Path, str], ...]
+
+
+@dataclass
+class _Load:
+    """This record keeps the files that one load reads, and the settings of each file.
+
+    A file that two `extends` relations name, or that `extends` and `references` both
+    name, is read and calculated one time. Without this record, a chain of files that
+    each extend two files that extend the same next file had an exponential cost.
+    """
+
+    repo: Path
+    issues: list[tuple[Path, str]] = field(default_factory=list)
+    texts: dict[Path, dict[str, Any]] = field(default_factory=dict)
+    settings: dict[Path, _Settings] = field(default_factory=dict)
+
+    def read(self, path: Path) -> dict[str, Any]:
+        """Give the data of a resolved tsconfig path, and read the file only one time."""
+        if path not in self.texts:
+            self.texts[path] = _read_config(path, self.repo)
+        return self.texts[path]
+
+
+def _compiler_options(path: Path, load: _Load, active: frozenset[Path] = frozenset()) -> _Settings:
     """This function reads compiler options and inherited settings, and records input
     specifications.
+
+    The settings of a file do not change in one load. Thus the second request for a file
+    gives the recorded settings. A recorded file has no circular relation, so the cycle
+    check does not need its files again.
     """
     path = path.resolve()
     if path in active:
         raise ValueError(f"A circular tsconfig extends relation occurs at {path.as_posix()}")
-    data = _read_config(path, repo)
+    known = load.settings.get(path)
+    if known is not None:
+        return known
+    data = load.read(path)
     options: Options = {}
+    inputs: Options = {}
+    issues: dict[tuple[Path, str], None] = {}
     for reference in _extends_references(data, path):
-        options.update(_inherited_options(path, repo, reference, issues, inputs, active))
+        inherited = _inherited_options(path, load, reference, active)
+        options.update(inherited.options)
+        inputs.update(inherited.inputs)
+        issues.update(dict.fromkeys(inherited.issues))
     compiler = data.get("compilerOptions", {})
     if isinstance(compiler, dict):
         options.update({name: (value, path.parent) for name, value in compiler.items()})
     inputs.update({key: (data[key], path.parent) for key in INPUT_KEYS if key in data})
-    return options
+    load.settings[path] = _Settings(options, inputs, tuple(issues))
+    return load.settings[path]
 
 
 def _extends_references(data: dict[str, Any], path: Path) -> list[str]:
@@ -274,21 +297,15 @@ def _extends_references(data: dict[str, Any], path: Path) -> list[str]:
 
 
 def _inherited_options(
-    path: Path,
-    repo: Path,
-    reference: str,
-    issues: list[tuple[Path, str]],
-    inputs: Options,
-    active: frozenset[Path],
-) -> Options:
+    path: Path, load: _Load, reference: str, active: frozenset[Path]
+) -> _Settings:
     try:
         inherited = _config_reference(path.parent, reference)
     except ValueError:
         if reference.startswith(".") or Path(reference).is_absolute():
             raise
-        issues.append((path, reference))
-        return {}
-    return _compiler_options(inherited, repo, issues, inputs, active | {path})
+        return _Settings({}, {}, ((path, reference),))
+    return _compiler_options(inherited, load, active | {path})
 
 
 def load_typescript_config(repo: Path) -> TypeScriptConfig:
@@ -310,23 +327,24 @@ def load_project_config(path: Path, repo: Path, major: int | None) -> TypeScript
 
     The `issues` of the result include the issues of the referenced configurations.
     """
-    issues: list[tuple[Path, str]] = []
-    config = _project_config(path, repo, issues, major)
-    projects = tuple(_project_config(ref, repo, issues, major) for ref in _references(path, repo))
+    load = _Load(repo)
+    config = _project_config(path, load, major)
+    projects = tuple(_project_config(ref, load, major) for ref in _references(path, load))
     return replace(
         config,
         issues=tuple(
-            dict.fromkeys((_issue_path(source, repo), reference) for source, reference in issues)
+            dict.fromkeys(
+                (_issue_path(source, repo), reference) for source, reference in load.issues
+            )
         ),
         projects=projects,
     )
 
 
-def _project_config(
-    path: Path, repo: Path, issues: list[tuple[Path, str]], major: int | None
-) -> TypeScriptConfig:
-    inputs: Options = {}
-    options = _compiler_options(path, repo, issues, inputs)
+def _project_config(path: Path, load: _Load, major: int | None) -> TypeScriptConfig:
+    settings = _compiler_options(path, load)
+    load.issues.extend(settings.issues)
+    options, inputs, repo = settings.options, settings.inputs, load.repo
     config_dir = path.parent.resolve()
     return TypeScriptConfig(
         aliases=_configured_aliases(options, repo, config_dir),
@@ -341,7 +359,7 @@ def _project_config(
     )
 
 
-def _references(path: Path, repo: Path) -> list[Path]:
+def _references(path: Path, load: _Load) -> list[Path]:
     """This function gives the configurations that `references` names, and their own
     references, without repeats.
 
@@ -353,15 +371,15 @@ def _references(path: Path, repo: Path) -> list[Path]:
     found: dict[Path, None] = {}
     queue = [start]
     for current in queue:
-        for reference in _direct_references(current, repo):
+        for reference in _direct_references(current, load):
             if reference != start and reference not in found:
                 found[reference] = None
                 queue.append(reference)
     return list(found)
 
 
-def _direct_references(path: Path, repo: Path) -> list[Path]:
-    references = _read_config(path, repo).get("references")
+def _direct_references(path: Path, load: _Load) -> list[Path]:
+    references = load.read(path).get("references")
     if not isinstance(references, list):
         return []
     out: list[Path] = []
@@ -467,22 +485,15 @@ def _relative_pattern(entry: str, origin: Path, config_dir: Path) -> str:
     return Path(os.path.relpath(joined, config_dir)).as_posix()
 
 
-def _glob_regex(pattern: str, config_dir: Path) -> re.Pattern[str]:
-    """This function makes a regular expression for a directory-relative tsconfig pattern.
+def _glob_pattern(pattern: str, config_dir: Path) -> GlobPattern:
+    """This function makes a matcher for a directory-relative tsconfig pattern.
 
     The **/ pattern crosses directories. The * and ? patterns stay inside a directory. A
-    directory name includes its contents.
+    directory name includes its contents. The cost of a match is linear in the path
+    length (`tsconfig_glob`).
     """
-    escaped = re.escape(pattern.strip("/"))
-    regex = (
-        escaped.replace(r"\*\*/", "(?:[^/]+/)*")
-        .replace(r"\*\*", ".*")
-        .replace(r"\*", "[^/]*")
-        .replace(r"\?", "[^/]")
-    )
-    if not _GLOB_CHARS.search(pattern) and (config_dir / pattern).is_dir():
-        regex += "(?:/.*)?"
-    return re.compile(regex)
+    folder = not _GLOB_CHARS.search(pattern) and (config_dir / pattern).is_dir()
+    return compile_glob(pattern.strip("/"), folder)
 
 
 def input_files(config: TypeScriptConfig, repo: Path) -> list[Path]:
@@ -503,8 +514,8 @@ def input_files(config: TypeScriptConfig, repo: Path) -> list[Path]:
         if _is_input(root / entry) and (root / entry).resolve().is_relative_to(repo):
             found[(root / entry).resolve()] = None
     patterns = _include_patterns(spec)
-    wanted = [_glob_regex(pattern, root) for pattern in patterns]
-    unwanted = [_glob_regex(pattern, root) for pattern in _exclude_patterns(spec, config)]
+    wanted = [_glob_pattern(pattern, root) for pattern in patterns]
+    unwanted = [_glob_pattern(pattern, root) for pattern in _exclude_patterns(spec, config)]
     for path in _candidate_inputs(root, patterns, repo):
         if _selected(Path(os.path.relpath(path, root)).as_posix(), wanted, unwanted):
             found[path.resolve()] = None
@@ -529,9 +540,7 @@ def _exclude_patterns(spec: InputSpec, config: TypeScriptConfig) -> list[str]:
     return exclude
 
 
-def _selected(
-    relative: str, wanted: list[re.Pattern[str]], unwanted: list[re.Pattern[str]]
-) -> bool:
+def _selected(relative: str, wanted: list[GlobPattern], unwanted: list[GlobPattern]) -> bool:
     return any(w.fullmatch(relative) for w in wanted) and not any(
         u.fullmatch(relative) for u in unwanted
     )
