@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from systemap import file_write
+from systemap import facts_shape, file_write
 from systemap.config import ConfigError
 from systemap.source_facts import empty_markers
 
@@ -354,7 +354,9 @@ def read_facts(path: Path, root: Path) -> dict[str, Any]:
     Give an empty table if the file is missing, if it is not UTF-8 text, or if the JSON
     parser cannot read it. A link out of the root (at the file or at a folder), a FIFO,
     and a device give `file_write.RefusedFile` with the cause. They do not give an empty
-    table.
+    table. If the JSON object does not have the shape that extraction writes, the
+    function gives `facts_shape.FactsError` (`facts_shape.problem`). The readers can then
+    index each field that extraction writes.
     """
     try:
         text = file_write.read_text(root, path)
@@ -362,7 +364,23 @@ def read_facts(path: Path, root: Path) -> dict[str, Any]:
     except (OSError, ValueError):
         # ValueError includes json.JSONDecodeError and UnicodeDecodeError.
         return {}
-    return dict(data) if isinstance(data, dict) else {}
+    except RecursionError as exc:
+        raise _shape_error(
+            path, root, f"the JSON value has more than {facts_shape.MAX_DEPTH} levels"
+        ) from exc
+    if not isinstance(data, dict):
+        return {}
+    found = facts_shape.problem(data) if data else None
+    if found:
+        raise _shape_error(path, root, found)
+    return dict(data)
+
+
+def _shape_error(path: Path, root: Path, found: str) -> facts_shape.FactsError:
+    shown = path.relative_to(root).as_posix() if path.is_relative_to(root) else path.as_posix()
+    return facts_shape.FactsError(
+        f"The facts file {shown} does not have the shape that extraction writes: {found}."
+    )
 
 
 def dumps(facts: dict[str, Any]) -> str:

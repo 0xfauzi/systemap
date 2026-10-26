@@ -17,6 +17,7 @@ import re
 import sys
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,7 @@ from systemap.extraction import drift as drift
 from systemap.extraction import language_for as language_for
 from systemap.extraction import mapping_drift as mapping_drift
 from systemap.pattern_match import matches_test_pattern
-from systemap.python_imports import python_unresolved
+from systemap.python_imports import NamespaceCache, python_unresolved
 from systemap.python_repo import PythonRepository
 from systemap.source_facts import standard_label
 
@@ -53,6 +54,13 @@ UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 PACKAGE_MODULE = "__init__.py"
 # The `type X = ...` statement exists from Python 3.12. An earlier parser cannot read it.
 TYPE_ALIAS: tuple[type, ...] = (ast.TypeAlias,) if hasattr(ast, "TypeAlias") else ()
+
+
+@dataclass
+class PythonContext(python_tests.PythonTests):
+    """The data of one Python extraction: the test data and the namespace packages."""
+
+    namespaces: NamespaceCache = field(default_factory=NamespaceCache)
 
 
 def _not_test(repo: Path, test_patterns: tuple[str, ...], path: Path) -> bool:
@@ -82,9 +90,9 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
-    ) -> python_tests.PythonTests:
+    ) -> PythonContext:
         del repo, paths, tests_dirs
-        return python_tests.PythonTests(test_patterns)
+        return PythonContext(test_patterns)
 
     def module_of(self, path: Path, root: Path, name: str) -> str:
         return module_of(path, root, name)
@@ -187,9 +195,13 @@ class PythonLanguage(PythonRepository):
         paths: dict[str, Path],
         context: Any,
     ) -> list[str]:
-        del repo, context
+        del repo
         is_package = self.is_package_module(paths[module])
-        return python_unresolved(raw, prefixes, known, module, is_package)
+        # One namespace set for each extraction. A set for each module made the
+        # extraction time grow with the square of the module count.
+        cache = context.namespaces if isinstance(context, PythonContext) else NamespaceCache()
+        namespaces = cache.of(known)
+        return python_unresolved(raw, prefixes, known, module, is_package, namespaces)
 
     def external_imports(
         self,

@@ -23,6 +23,7 @@ from typing import Any
 from systemap import (
     extraction,
     facts_file,
+    facts_shape,
     figure,
     file_write,
     identifier,
@@ -604,7 +605,11 @@ def stale(
     generated output.
     """
     fresh = fresh if fresh is not None else extraction.build(cfg)
-    stored = facts_file.read_facts(cfg.facts_path, cfg.root)
+    try:
+        stored = facts_file.read_facts(cfg.facts_path, cfg.root)
+    except facts_shape.FactsError as exc:
+        # A refresh writes a new facts file in place of the incorrect file.
+        return [f"facts: {exc}"]
     if not stored:
         return ["No extracted facts are available."]
     # Only the drift is stale here: a claim of a module the tree does not
