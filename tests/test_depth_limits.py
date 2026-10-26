@@ -38,7 +38,7 @@ from systemap import (
 )
 from systemap.typescript_scopes import pattern_names
 from systemap.typescript_surface import parse_surface as ts_surface
-from systemap.typescript_syntax import _tree
+from systemap.typescript_syntax import _tree, parse_problem
 
 PYTHON = {
     "systemap.toml": 'language = "python"\n[package_roots]\n"pkg" = "pkg"\n',
@@ -148,6 +148,19 @@ def test_deep_typescript_walks_do_not_give_recursion_error() -> None:
         if node.type == "variable_declarator"
     )
     assert pattern_names(declarator.child_by_field_name("name")) == ["a"]
+    # Before the change, the surface reader gave RecursionError for this exported pattern.
+    surface = ts_surface("export " + pattern, "a.ts")
+    assert surface is not None
+    assert surface["names"] == [{"name": "a", "kind": "object"}]
+
+
+def test_a_deep_typescript_syntax_error_gives_its_line() -> None:
+    # Before the change, the search for the error node gave RecursionError. The module
+    # then got the cause `depth` with line 0.
+    depth = 5000
+    source = "\n\nexport const v = " + "[" * depth + "1 +" + "]" * depth + ";\n"
+    problem = parse_problem(source, "a.ts")
+    assert (problem["cause"], problem["line"]) == (unknown_causes.SYNTAX, 3)
 
 
 def test_a_deep_package_exports_value_gives_its_target() -> None:

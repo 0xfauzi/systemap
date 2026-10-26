@@ -12,6 +12,7 @@ from tree_sitter import Node
 from systemap import unknown_causes
 from systemap.typescript_imports import import_names
 from systemap.typescript_reexports import export_specifiers, reexport_api, reexports
+from systemap.typescript_scopes import pattern_names
 from systemap.typescript_syntax import _one_line, _root, _text, docstring, first_named
 from systemap.typescript_syntax import parse_problem as parse_problem
 from systemap.typescript_tests import test_names as test_names
@@ -122,21 +123,6 @@ def _type_entry(node: Node, name: str = "") -> tuple[str, dict[str, Any], str]:
     return ("errors" if is_error else "classes"), record, kind
 
 
-def _binding_names(node: Node | None) -> list[str]:
-    if node is None:
-        return []
-    if node.type in ("identifier", "shorthand_property_identifier_pattern"):
-        return [_text(node)]
-    if node.type == "pair_pattern":
-        return _binding_names(node.child_by_field_name("value"))
-    if node.type in ("assignment_pattern", "object_assignment_pattern"):
-        # `{ value = fallback }`: the name is `left`. `right` is an initializer.
-        return _binding_names(node.child_by_field_name("left"))
-    if node.type == "rest_pattern":
-        return _binding_names(first_named(node))
-    return [name for child in node.named_children for name in _binding_names(child)]
-
-
 def _declaration(node: Node) -> Node | None:
     declaration = node.child_by_field_name("declaration")
     if declaration is not None and declaration.type == "ambient_declaration":
@@ -193,7 +179,7 @@ def _variable_kinds(declaration: Node) -> dict[str, str]:
     for variable in (
         child for child in declaration.named_children if child.type == "variable_declarator"
     ):
-        names = _binding_names(variable.child_by_field_name("name"))
+        names = pattern_names(variable.child_by_field_name("name"))
         value = variable.child_by_field_name("value")
         found = _variable_record(value, names[0]) if len(names) == 1 else None
         kind = RECORD_KINDS[found[0]] if found is not None else "object"
@@ -228,7 +214,7 @@ def _declared_nodes(declaration: Node | None) -> list[tuple[str, Node]]:
     for variable in (
         child for child in declaration.named_children if child.type == "variable_declarator"
     ):
-        names = _binding_names(variable.child_by_field_name("name"))
+        names = pattern_names(variable.child_by_field_name("name"))
         if len(names) == 1:
             out.append((names[0], variable))
     return out
@@ -390,7 +376,7 @@ def _add_variable(
     constants: list[dict[str, str]],
     names: list[dict[str, str]],
 ) -> None:
-    bound_names = _binding_names(variable.child_by_field_name("name"))
+    bound_names = pattern_names(variable.child_by_field_name("name"))
     value = variable.child_by_field_name("value")
     if value is None or len(bound_names) != 1:
         names.extend({"name": name, "kind": "object"} for name in bound_names)
@@ -657,7 +643,7 @@ def _declaration_api(node: Node, context: _ApiContext) -> list[tuple[str, str, s
 def _lexical_api(node: Node) -> list[tuple[str, str, str]]:
     out: list[tuple[str, str, str]] = []
     for variable in (child for child in node.named_children if child.type == "variable_declarator"):
-        names = _binding_names(variable.child_by_field_name("name"))
+        names = pattern_names(variable.child_by_field_name("name"))
         is_function = _is_callable(variable.child_by_field_name("value"))
         definition = _syntax(variable, omit_body=is_function)
         out.extend(

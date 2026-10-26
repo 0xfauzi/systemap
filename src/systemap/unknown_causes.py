@@ -80,9 +80,10 @@ FIX = {
         "cannot read this syntax. Then record an answer for the line in [judgement] answered."
     ),
     DEPTH: (
-        "If the source syntax of a file has too many levels, systemap does not read the "
-        "file. Examine the source. If the file is generated, record an answer for the line "
-        "in [judgement] answered. If not, divide its expressions into smaller expressions."
+        "If the source syntax of a file has too many levels, some facts of the file are "
+        "not known. Examine the source. If the file is generated, record an answer for "
+        "the line in [judgement] answered. If not, divide its expressions into smaller "
+        "expressions."
     ),
     DECLARATION: (
         "If the parser has no record for a declaration form, examine the source at the "

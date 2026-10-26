@@ -1079,7 +1079,7 @@ The group gives one `fix:` line for each cause that occurs:
 | `encoding` | The file is not UTF-8 text, or the file name is not valid UTF-8. |
 | `size` | The file is larger than the source size limit of 16 MiB. systemap does not read it. |
 | `syntax` | The parser could not parse the source. |
-| `depth` | The source syntax has too many levels. The parse or a later step went above the recursion limit of Python or the available memory. The module stays in the facts, and its surface is not known. A test file gives a `test_file_issues` record. |
+| `depth` | The source syntax has too many levels. The parse or a later step went above the recursion limit of Python or the available memory. The module stays in the facts. If the parse or the surface step fails, the surface of the module is not known. If a later step fails, the surface stays, but the import facts or the call sites of the module are not known. A test file gives a `test_file_issues` record. |
 | `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
 | `target` | A reference has a target that is not a module in the facts. An example is a package bin target that is not in the repository. |
 | `declaration file` | A re-export target is a declaration file, such as a TypeScript `.d.ts` file. A declaration file gives only types and has no module. The line gives the names of the statement. |
