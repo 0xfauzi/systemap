@@ -64,15 +64,21 @@ def unique_names(found: list[str]) -> list[str]:
     return out
 
 
-def _visit(node: Node, suites: tuple[str, ...], found: list[str]) -> None:
-    if node.type == "call_expression":
-        function = node.child_by_field_name("function")
-        if _is_call(function, TEST_CALL, TABLE_CALL) and (name := _name(node)):
-            found.append(SEPARATOR.join((*suites, name)))
-        elif _is_call(function, SUITE_CALL, SUITE_TABLE):
-            suites = (*suites, _suite_name(node))
-    for child in node.named_children:
-        _visit(child, suites, found)
+def _visit(root: Node, suites: tuple[str, ...], found: list[str]) -> None:
+    """Add the test identities below the root to `found`, in source order.
+
+    A list is the stack, not recursion, because a file can have more suite levels than
+    the recursion limit of Python."""
+    stack = [(root, suites)]
+    while stack:
+        node, names = stack.pop()
+        if node.type == "call_expression":
+            function = node.child_by_field_name("function")
+            if _is_call(function, TEST_CALL, TABLE_CALL) and (name := _name(node)):
+                found.append(SEPARATOR.join((*names, name)))
+            elif _is_call(function, SUITE_CALL, SUITE_TABLE):
+                names = (*names, _suite_name(node))
+        stack.extend((child, names) for child in reversed(node.named_children))
 
 
 def _is_call(function: Node | None, plain: re.Pattern[str], table: re.Pattern[str]) -> bool:

@@ -22,7 +22,7 @@ file. The entry reader does the same step for package entry points.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -48,6 +48,8 @@ BASE_CONDITIONS = frozenset({"types", "node", "default"})
 DECLARATION_TO_SCRIPT = ((".d.ts", ".js"), (".d.mts", ".mjs"), (".d.cts", ".cjs"))
 # A JSON null in a condition object stops the search (PACKAGE_TARGET_RESOLVE).
 _BLOCKED = object()
+# A list or a condition object that `_target_value` did not complete.
+_OPEN = object()
 # A URL scheme, such as `node:` or `file:`.
 URL = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 
@@ -227,35 +229,47 @@ def _target(value: Any, matched: str, conditions: frozenset[str]) -> str | None:
 
 
 def _target_value(value: Any, matched: str, conditions: frozenset[str]) -> object:
-    """This function gives a target string, None for no target, or _BLOCKED for null."""
+    """This function gives a target string, None for no target, or _BLOCKED for null.
+
+    A list gives its first entry that gives a target string. A condition object gives
+    the first matched condition with a target or with null, in the order of the keys in
+    the file. The function keeps the open lists and objects in a stack, not in
+    recursion. Thus a value with many levels does not go above the recursion limit.
+    """
+    stack: list[tuple[bool, Iterator[Any]]] = []
+    found = _open(value, matched, conditions, stack)
+    while stack:
+        in_list, entries = stack[-1]
+        if found is not _OPEN and (isinstance(found, str) or (found is _BLOCKED and not in_list)):
+            # The open list or object gives this result to the level above it.
+            stack.pop()
+            continue
+        entry = next(entries, _OPEN)
+        if entry is _OPEN:
+            stack.pop()
+            found = None
+        else:
+            found = _open(entry, matched, conditions, stack)
+    return found
+
+
+def _open(value: Any, matched: str, conditions: frozenset[str], stack: list[Any]) -> object:
+    """Give the result of a string or null. Put a list or an object on the stack."""
     if value is None:
         return _BLOCKED
     if isinstance(value, str):
         return value.replace("*", matched)
     if isinstance(value, list):
-        return _first_string(value, matched, conditions)
+        stack.append((True, iter(value)))
+        return _OPEN
     if isinstance(value, dict):
-        return _first_condition(value, matched, conditions)
-    return None
-
-
-def _first_string(values: list[Any], matched: str, conditions: frozenset[str]) -> str | None:
-    """A list gives its first entry that gives a target."""
-    found = (_target_value(item, matched, conditions) for item in values)
-    return next((item for item in found if isinstance(item, str)), None)
-
-
-def _first_condition(table: dict[str, Any], matched: str, conditions: frozenset[str]) -> object:
-    """The first matched condition with a target, or with null, gives the result. The
-    order is the order of the keys in the file."""
-    for condition, nested in table.items():
-        found = (
-            _target_value(nested, matched, conditions)
+        entries = (
+            nested
+            for condition, nested in value.items()
             if condition == "default" or condition in conditions
-            else None
         )
-        if found is not None:
-            return found
+        stack.append((False, entries))
+        return _OPEN
     return None
 
 

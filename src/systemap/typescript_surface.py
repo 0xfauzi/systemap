@@ -564,23 +564,20 @@ def _syntax(node: Node, *, omit_body: bool = False) -> str:
     """
     body = node.child_by_field_name("body") if omit_body else None
     tokens: list[str] = []
-
-    def collect(part: Node) -> None:
+    stack = [node]  # A list is the stack, not recursion: a deep tree is permitted.
+    while stack:
+        part = stack.pop()
         if part == body or part.type == "comment":
-            return
+            continue
         if not part.children:
             tokens.append(_text(part))
-            return
+            continue
         callable_body = (
             part.child_by_field_name("body")
             if omit_body and part.type in EXPORTED_FUNCTION_NODES
             else None
         )
-        for child in part.children:
-            if child != callable_body:
-                collect(child)
-
-    collect(node)
+        stack.extend(child for child in reversed(part.children) if child != callable_body)
     return "\x1f".join(tokens)
 
 
