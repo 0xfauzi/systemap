@@ -197,6 +197,9 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _upgraded(p, args, say, fresh)
     facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     say(*facts_file.summary(fresh))
+    if not fresh.get("built_at_commit"):
+        cause = extraction.head_commit(p.cfg.root)[1]
+        say(f"  note: built_at_commit is empty, because Git gave no HEAD commit. Git gave: {cause}")
     for m in p.tree.maps:
         for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
             say(f"  warning: {m.prefix}{line}")

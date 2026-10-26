@@ -222,6 +222,7 @@ COMPONENTS = (
             "systemap.change_text",
             "systemap.delta",
             "systemap.delta_git",
+            "systemap.git_command",
             "systemap.delta_link",
             "systemap.delta_model",
             "systemap.pr_summary",

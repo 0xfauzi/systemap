@@ -11,12 +11,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from systemap import file_names, repo_files, source_text, unknown_causes
+from systemap import file_names, git_command, repo_files, source_text, unknown_causes
 from systemap import language as languages
 from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
@@ -368,6 +367,21 @@ def _provenance(cfg: Config, language: LanguageAdapter, context: Any) -> dict[st
     }
 
 
+def head_commit(root: Path) -> tuple[str, str]:
+    """This function gives the HEAD commit of the repository at `root`, and a cause.
+
+    If Git gives the commit, the cause is "". If Git gives no commit, the commit is ""
+    and the cause is the Git cause. The Git command has a time limit.
+    """
+    try:
+        proc = git_command.run(root, "rev-parse", "HEAD", timeout=git_command.SHORT)
+    except git_command.GitError as exc:
+        return "", str(exc)
+    if proc.returncode:
+        return "", git_command.cause(proc.stderr, proc.returncode)
+    return proc.stdout.decode("utf-8", "replace").strip(), ""
+
+
 def _facts_file(
     cfg: Config,
     language: LanguageAdapter,
@@ -378,12 +392,9 @@ def _facts_file(
     entry_issues: list[dict[str, Any]],
     context: Any,
 ) -> dict[str, Any]:
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=cfg.root, capture_output=True, text=True
-    )
     facts = {
         "version": FORMAT,
-        "built_at_commit": head.stdout.strip() if head.returncode == 0 else "",
+        "built_at_commit": head_commit(cfg.root)[0],
         "packages": sorted(prefixes),
         "provenance": _provenance(cfg, language, context),
         "tests_dirs": list(tests_dirs),

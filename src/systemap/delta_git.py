@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from systemap import extraction, nest, repo_files
+from systemap import extraction, git_command, nest, repo_files
 from systemap.config import Config, ConfigError
 
 # Git tree entry modes that this reader writes.
@@ -38,9 +38,7 @@ class DeltaError(Exception):
 
 
 def _git(repo: Path, *args: str, stdin: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        ["git", *args], cwd=repo, input=stdin, capture_output=True, timeout=300, check=False
-    )
+    return git_command.run(repo, *args, stdin=stdin, timeout=300, error=DeltaError)
 
 
 def _stderr(proc: subprocess.CompletedProcess[bytes]) -> str:
@@ -48,9 +46,16 @@ def _stderr(proc: subprocess.CompletedProcess[bytes]) -> str:
 
 
 def resolve(repo: Path, ref: str) -> str:
-    """This function resolves a Git ref to a full commit SHA, or raises DeltaError."""
+    """This function resolves a Git ref to a full commit SHA, or raises DeltaError.
+
+    If Git writes an error, for example because it refuses the repository, the error text
+    gives the Git cause.
+    """
     proc = _git(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}")
     if proc.returncode != 0 or not proc.stdout.strip():
+        if _stderr(proc):
+            found = git_command.cause(proc.stderr, proc.returncode)
+            raise DeltaError(f"Git cannot resolve the ref {ref}. Git gave: {found}")
         raise DeltaError(f"unknown ref {ref}. Give a commit, branch, or tag that Git can resolve.")
     return proc.stdout.decode("utf-8").strip()
 
@@ -107,7 +112,7 @@ class _Blobs:
     def __init__(self, repo: Path, oids: list[str]) -> None:
         self._errors = tempfile.TemporaryFile()
         self._proc = subprocess.Popen(
-            ["git", "cat-file", "--batch"],
+            git_command.command("cat-file", "--batch"),
             cwd=repo,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
