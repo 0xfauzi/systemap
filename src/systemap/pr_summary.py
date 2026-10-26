@@ -187,6 +187,21 @@ def _code(text: str) -> str:
     return "`" + " ".join(text.replace("`", "'").split()) + "`"
 
 
+def _plain(text: str) -> str:
+    """Give the text as one line in which "@" starts no mention.
+
+    A word joiner after each "@" stops a mention. Write repository names with `_code`.
+    """
+    return " ".join(text.split()).replace("@", "@\u2060")
+
+
+def _gap_detail(gap: import_rules.Gap) -> str:
+    """Give the detail of a gap. Each repository name in the detail is a code span."""
+    if gap.form:
+        return gap.form.format(", ".join(_code(name) for name in gap.names))
+    return _plain(gap.detail)
+
+
 def _plural(n: int, noun: str) -> str:
     return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
 
@@ -302,7 +317,8 @@ def _rule_detail(outcome: import_rules.Outcome) -> str:
         more = len(outcome.imports) - 1
     else:
         gap = outcome.gaps[0] if outcome.gaps else import_rules.Gap("", "", "")
-        found = f"{_code(gap.module)}: {gap.detail}" if gap.module else gap.detail
+        detail = _gap_detail(gap)
+        found = f"{_code(gap.module)}: {detail}" if gap.module else detail
         noun, more = "module", len(outcome.gaps) - 1
     return found + (f", and {_plural(more, 'other ' + noun)}" if more > 0 else "")
 

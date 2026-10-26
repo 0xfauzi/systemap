@@ -122,3 +122,85 @@ def test_each_check_step_obeys_the_mode(
     assert (result.returncode == 0) is passes, (result.stdout, result.stderr)
     if level:
         assert result.stdout.startswith(level), result.stdout
+
+
+def _outputs(text: str) -> dict[str, str]:
+    """Read a GITHUB_OUTPUT file with the rules of the Actions runner.
+
+    A line `key=value` gives one value. A line `key<<delimiter` gives the next lines up to
+    a line that is equal to the delimiter. A later key replaces an earlier one.
+    """
+    lines = text.split("\n")[:-1] if text.endswith("\n") else text.split("\n")
+    out: dict[str, str] = {}
+    while lines:
+        line = lines.pop(0)
+        if not line:
+            continue
+        key, eq, value = line.partition("=")
+        if eq and "<<" not in key:
+            out[key] = value
+            continue
+        key, _, delimiter = line.partition("<<")
+        end = lines.index(delimiter)
+        out[key], lines = "\n".join(lines[:end]), lines[end + 1 :]
+    return out
+
+
+HOSTILE_COMMENT = (
+    "<!-- systemap delta -->\n**Architecture**\n"
+    "  - unknown `app-alone`: The module has unresolved imports: ./x\n"
+    "SYSTEMAP_COMMENT\nexfil=attacker-chosen-value\ncomment<<SYSTEMAP_COMMENT\n"
+    "**Architecture:** all good.\nSYSTEMAP_COMMENT\n"
+)
+
+
+def _delta_outputs(body: str, tool: str, cwd: Path) -> dict[str, str]:
+    """Run a delta step with a fake tool that writes HOSTILE_COMMENT to comment.md."""
+    bash = shutil.which("bash")
+    assert bash is not None
+    (cwd / "bin").mkdir()
+    (cwd / "hostile.md").write_text(HOSTILE_COMMENT, encoding="utf-8")
+    fake = cwd / "bin" / tool
+    fake.write_text(f'#!/bin/sh\ncp "{cwd / "hostile.md"}" comment.md\n', encoding="utf-8")
+    fake.chmod(0o755)
+    env = {
+        **os.environ,
+        "PATH": f"{cwd / 'bin'}{os.pathsep}{os.environ['PATH']}",
+        "GITHUB_OUTPUT": str(cwd / "github_output"),
+        "GITHUB_STEP_SUMMARY": str(cwd / "summary.md"),
+        "BASE": "base",
+        "HEAD": "head",
+        "PR": "1",
+    }
+    subprocess.run([bash, "-e", "-c", body], cwd=cwd, env=env, check=True, timeout=30)
+    return _outputs((cwd / "github_output").read_text(encoding="utf-8"))
+
+
+@pytest.mark.skipif(os.name == "nt" or shutil.which("bash") is None, reason="needs a POSIX bash")
+def test_a_comment_line_cannot_end_the_comment_output(tmp_path: Path) -> None:
+    """Acceptance: a comment line that is equal to the old fixed delimiter does not end the
+    `comment` output and sets no other output. This is true for the workflow from init and
+    for the workflow of this repository. Before the change, the outputs were `comment` with
+    the first three lines and `exfil`."""
+    init = scaffold.files("demo", "pkg", [("pkg", "pkg")], language=languages.repository("python"))
+    repo = (Path(__file__).resolve().parent.parent / ".github/workflows/systemap.yml").read_text(
+        encoding="utf-8"
+    )
+    for name, body, tool in (
+        ("init", _steps(init[".github/workflows/systemap.yml"])["Map change results"], "uvx"),
+        ("repo", _steps(repo)["Show map changes"], "uv"),
+    ):
+        (tmp_path / name).mkdir()
+        outputs = _delta_outputs(body, tool, tmp_path / name)
+        assert outputs == {"comment": HOSTILE_COMMENT.removesuffix("\n")}, name
+
+
+def test_ci_runs_the_pre_commit_hooks_and_the_tree_secret_scan() -> None:
+    """The security hooks of .pre-commit-config.yaml run in CI, also the manual
+    gitleaks-tree hook. Before the change, no CI job ran pre-commit."""
+    text = (Path(__file__).resolve().parent.parent / ".github/workflows/systemap.yml").read_text(
+        encoding="utf-8"
+    )
+    job = text.split("\n  pre-commit:\n", 1)[1]
+    assert "run: uv run pre-commit run --all-files" in job
+    assert "run: uv run pre-commit run --hook-stage manual gitleaks-tree --all-files" in job
