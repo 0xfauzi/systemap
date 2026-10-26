@@ -25,7 +25,9 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # measured page (bench/jev/README.md, "Assurance levels on the page").
     # The fast route search of the group lines adds 3,465 bytes (bench/jev/README.md,
     # "The route search of the group lines on a large map").
-    assert len(html.encode("utf-8")) < 328 * 1024
+    # The movement layer, the line shapes and the load class add 2,504 bytes
+    # (bench/jev/README.md, "Map movement, layer switch and load").
+    assert len(html.encode("utf-8")) < 331 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched
     assert '<link rel="icon" href="data:image/svg+xml,' in html

@@ -41,6 +41,9 @@ def interactive_script(
     The map page and document figures use this same script. The page adds
     layer and sequence controls through `svg.systemap`. The interface
     `svg.systemap.view` gives fit, 100%, step, back and framing data.
+    During a wheel, pinch, drag or camera tween on the page, a CSS transform on the
+    HTML element around the map shows the view. At the end of the movement, the
+    script writes the drawing transform one time.
 
     The script contains the detail JSON as a string for `JSON.parse`. In an
     object literal, the key `__proto__` sets the prototype. `JSON.parse` makes a
@@ -74,6 +77,14 @@ def interactive_script(
 
 _VIEW_JS = r"""
 if(!svg){ return; }
+// At load, the page scripts change the classes of many lines and cards. On the page,
+// the class `booting` stops all transitions in the map until the second frame. Thus
+// these changes start no transitions.
+if(PAGE){
+  svg.classList.add('booting');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    svg.classList.remove('booting'); }); });
+}
 // A table of model IDs has no prototype. Thus an ID such as `__proto__`,
 // `constructor` or `toString` does not read or change an object prototype.
 function table(){ return Object.create(null); }
@@ -195,7 +206,67 @@ function whenStill(fn){
   // A line draws after the camera stops. The argument tells if it waited.
   if(anim){ stillQueue.push(fn); } else { fn(false); }
 }
-function base(){ var m = svg.getScreenCTM(); return m && m.a ? m.a : 1; }
+// ---- the movement layer ---------------------------------------------------
+// A change to the transform of the drawing causes a new layout of all of the map.
+// Thus, during a wheel, pinch, drag or camera tween, the page moves and scales the
+// HTML element around the map (`wrap`) on the compositor. `live` keeps the screen
+// matrix and the scale from the start of the movement. At the end, `land` writes
+// the drawing transform one time, and the labels change one time. The script uses
+// the wrapper only if its parent element clips it, as the map frame of the page does.
+// The present mode moves the wrapper to a different parent. Thus `clipsFor` keeps the
+// parent of the last check. `shown` is the view in the drawing transform.
+var wrap = PAGE && svg.parentNode && svg.parentNode.style ? svg.parentNode : null;
+var clips = false, clipsFor = null;
+var live = null, shown = {k:1, tx:0, ty:0}, gesture = false, landSoon = 0;
+var LAND_MS = 120;
+function canGlide(){
+  var c = wrap && wrap.parentNode;
+  if(c !== clipsFor){
+    var s = c && window.getComputedStyle ? getComputedStyle(c) : null;
+    clips = !!(s && (s.overflow === 'hidden' || s.overflowX === 'hidden'));
+    clipsFor = c;
+  }
+  return clips && !!view;
+}
+function glide(v){
+  // Show v with a CSS transform on the wrapper. Return false if the page cannot.
+  if(!canGlide()){ return false; }
+  if(!live){
+    var m = svg.getScreenCTM(), w = wrap.getBoundingClientRect();
+    if(!m || !m.a){ return false; }
+    live = {m:m, b:m.a, dx:m.e - w.left, dy:m.f - w.top};
+    wrap.style.setProperty('transform-origin', '0 0');
+    wrap.style.setProperty('will-change', 'transform');
+  }
+  var s = v.k / shown.k, a = live.b;
+  var x = a * (v.tx - s * shown.tx) + live.dx * (1 - s);
+  var y = a * (v.ty - s * shown.ty) + live.dy * (1 - s);
+  wrap.style.setProperty('transform', 'translate(' + x.toFixed(2) + 'px,' + y.toFixed(2)
+    + 'px) scale(' + s.toFixed(6) + ')');
+  return true;
+}
+function unglide(){
+  // Remove the wrapper transform. Then the drawing transform shows the view.
+  if(!live){ return; }
+  live = null;
+  ['transform', 'transform-origin', 'will-change'].forEach(function(n){
+    wrap.style.removeProperty(n); });
+  if(!wrap.getAttribute('style')){ wrap.removeAttribute('style'); }
+}
+function land(){
+  // The end of a movement: write the view on the screen to the drawing transform.
+  if(landSoon){ clearTimeout(landSoon); landSoon = 0; }
+  if(live){ apply(cur); }
+}
+function landLater(){
+  if(landSoon){ clearTimeout(landSoon); }
+  landSoon = setTimeout(function(){ landSoon = 0; land(); }, LAND_MS);
+}
+function base(){
+  if(live){ return live.b; }
+  var m = svg.getScreenCTM();
+  return m && m.a ? m.a : 1;
+}
 function reduced(){
   // The page setting decides when the page has one. A figure without the
   // setting follows the system setting.
@@ -226,7 +297,7 @@ function fit(instant){
 function centre(){ return {x:VB.x + VB.width / 2, y:VB.y + VB.height / 2}; }
 function toVb(clientX, clientY){
   // A client point in viewBox units.
-  var m = svg.getScreenCTM();
+  var m = live ? live.m : svg.getScreenCTM();
   if(!m){ return centre(); }
   var q = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
   return {x:q.x, y:q.y};
@@ -248,19 +319,27 @@ function clampView(v, kmin){
     Math.max(VB.y + my - k * (VB.y + VB.height), v.ty));
   return {k:k, tx:tx, ty:ty};
 }
-function apply(v){
+var drawn = view ? view.getAttribute('transform') : null;
+function apply(v, moving){
+  // With `moving`, the wrapper shows v. Without it, the drawing transform shows v.
+  // The script reads the scale before the write. It does not write the same transform
+  // again. Thus, a write does not cause a layout before the next frame.
   cur = v;
-  if(view){
-    view.setAttribute('transform', 'translate(' + v.tx.toFixed(2) + ' ' + v.ty.toFixed(2)
-      + ') scale(' + v.k.toFixed(4) + ')');
+  var b = base();
+  if(!(moving && glide(v))){
+    unglide();
+    shown = v;
+    var text = 'translate(' + v.tx.toFixed(2) + ' ' + v.ty.toFixed(2) + ') scale('
+      + v.k.toFixed(4) + ')';
+    if(view && text !== drawn){ drawn = text; view.setAttribute('transform', text); }
   }
   svg.dispatchEvent(new CustomEvent('systemap:view',
-    {detail:{zoom:base() * v.k, fit:isFit(v)}, bubbles:true}));
+    {detail:{zoom:b * v.k, fit:isFit(v), moving:!!live}, bubbles:true}));
 }
 function setView(v, instant, kmin){
   goal = clampView(v, kmin);
   if(anim){ cancelAnimationFrame(anim); anim = 0; }
-  if(instant || !booted || reduced()){ apply(goal); flushStill(); return; }
+  if(instant || !booted || reduced()){ apply(goal, gesture); flushStill(); return; }
   var from = cur, to = goal, t0 = 0;
   function tick(now){
     // 300 ms, ease-in-out: the camera moves to the step and stops.
@@ -268,7 +347,7 @@ function setView(v, instant, kmin){
     var u = Math.min(1, (now - t0) / ANIM_MS);
     var e = u === 1 ? 1 : easeCamera(u);
     apply({k:from.k + (to.k - from.k) * e, tx:from.tx + (to.tx - from.tx) * e,
-      ty:from.ty + (to.ty - from.ty) * e});
+      ty:from.ty + (to.ty - from.ty) * e}, u < 1);
     anim = u < 1 ? requestAnimationFrame(tick) : 0;
     if(!anim){ flushStill(); }
   }
@@ -306,6 +385,8 @@ function visibleArea(cover, fitting){
   // the box the page lays over one side of it (`cover`: {rect, side}, the
   // drawer), or the whole viewBox where the figure has no box yet. A figure
   // wholly off screen is framed in its own box: the page scrolls it into view.
+  // A movement on the wrapper ends first, because the wrapper transform moves the box.
+  land();
   var whole = {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
   var s = svg.getBoundingClientRect ? svg.getBoundingClientRect() : null;
   if(!s || !(s.width > 0) || !(s.height > 0)){ return whole; }
@@ -402,7 +483,9 @@ svg.addEventListener('wheel', function(e){
   if(e.deltaMode === 1){ d *= 16; } else if(e.deltaMode === 2){ d *= 400; }
   var f = Math.max(0.5, Math.min(2, Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0022))));
   var c = toVb(e.clientX, e.clientY);
-  zoomAt(f, c.x, c.y, true);
+  gesture = true;
+  try { zoomAt(f, c.x, c.y, true); } finally { gesture = false; }
+  landLater();
 }, {passive:false});
 var ptrs = {}, drag = null, pinch = null;
 function ptrList(){ return Object.keys(ptrs).map(function(k){ return ptrs[k]; }); }
@@ -429,7 +512,9 @@ svg.addEventListener('pointermove', function(e){
     var m = toVb((list[0].x + list[1].x) / 2, (list[0].y + list[1].y) / 2);
     var k = clampView({k:pinch.k * dist(list[0], list[1]) / pinch.d, tx:0, ty:0}).k;
     dragged = true;
-    userView({k:k, tx:m.x - k * pinch.px, ty:m.y - k * pinch.py}, true);
+    gesture = true;
+    try { userView({k:k, tx:m.x - k * pinch.px, ty:m.y - k * pinch.py}, true); }
+    finally { gesture = false; }
   } else if(drag){
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if(!drag.moved){
@@ -439,7 +524,9 @@ svg.addEventListener('pointermove', function(e){
       if(svg.setPointerCapture){ try { svg.setPointerCapture(e.pointerId); } catch(_x){} }
     }
     var b = base();
-    userView({k:goal.k, tx:drag.tx + dx / b, ty:drag.ty + dy / b}, true);
+    gesture = true;
+    try { userView({k:goal.k, tx:drag.tx + dx / b, ty:drag.ty + dy / b}, true); }
+    finally { gesture = false; }
   }
 });
 function endPointer(e){
@@ -448,6 +535,7 @@ function endPointer(e){
   if(drag && drag.moved){ dragged = true; }
   drag = null; pinch = null;
   svg.classList.remove('panning');
+  land();
   var list = ptrList();
   if(list.length === 1){ startDrag(list[0]); drag.moved = true; }
 }
