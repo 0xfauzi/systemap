@@ -8,7 +8,6 @@ UnicodeEncodeError. Each acceptance value is in the docstring of its test.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -31,7 +30,9 @@ TS_TREE = {
     "tsconfig.json": '{"compilerOptions":{}}',
     "src/index.ts": "export function run(): void {}\n",
 }
-BAD = os.fsdecode(b"bad\xff\xfe")
+# The name that os.fsdecode gives for b"bad\xff\xfe" on a POSIX system. A literal value
+# lets Windows collect the module: there, fsdecode refuses bytes that are not UTF-8.
+BAD = "bad\udcff\udcfe"
 REASON = f"source could not be read: {file_names.REASON}"
 
 
@@ -107,8 +108,8 @@ def test_a_typescript_file_name_that_is_not_utf8_is_a_record_with_a_cause(tmp_pa
     with `parsed` false and the cause `encoding`. A test file with such a name gives a
     `test_file_issues` record. The facts write does not stop."""
     write_tree(tmp_path, TS_TREE)
-    _bad_file(tmp_path / "src" / os.fsdecode(b"b\xff.ts"), "export const B = 1;\n")
-    _bad_file(tmp_path / "test" / os.fsdecode(b"t\xff.test.ts"), "import '../src/index';\n")
+    _bad_file(tmp_path / "src" / "b\udcff.ts", "export const B = 1;\n")
+    _bad_file(tmp_path / "test" / "t\udcff.test.ts", "import '../src/index';\n")
     facts = _written(tmp_path, _facts(tmp_path))
     record = facts["components"]["web.b\\xff"]
     assert record["file"] == "src/b\\xff.ts"
