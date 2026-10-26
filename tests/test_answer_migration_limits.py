@@ -12,6 +12,10 @@ Acceptance values:
    the change, they took more than 100 s (7.5 s, 15.2 s, and 83.4 s for three lines).
 4. An item that is longer than `LONGEST_MIGRATED` stays the same. The patterns operate
    one time for each item, also if the answer is compared with many lines.
+5. If the callers give the current lines, an exact answer for a negative case gets no
+   warning. Before the change, 4 cases got the warning "Change it to" a different line.
+6. The earlier `entry point` group line for a component name with a space changes to the
+   current line. Before the change, it stayed the same.
 """
 
 from __future__ import annotations
@@ -108,6 +112,7 @@ HOSTILE = (
     "unknown surface: module m (" + "): the re-export target x" * 5500,
     "unknown surface: module m (a): source could not be read: " + " Source excerpt: x" * 8250,
     "entry point 7 " + "a_" * 66000 + " into A",
+    "entry point 7 a_s into " + "a " * 66000 + "have no sequence (component b)",
 )
 
 
@@ -164,3 +169,28 @@ def test_a_long_item_stays_the_same_and_each_item_is_read_one_time() -> None:
     lines = [f"single module: C{i} contains only m{i}" for i in range(50)]
     judgement.apply_answers(lines, [Answer(items=(earlier,), reason="r")], {})
     assert answer_migrations._migrated.cache_info().misses == 1
+
+
+@pytest.mark.parametrize("name", sorted(NEGATIVE))
+def test_an_exact_current_line_gets_no_warning(name: str) -> None:
+    """Acceptance 5."""
+    line, other = NEGATIVE[name]
+    answer = Answer(items=(line,), reason="known")
+    assert answer_migrations.warnings([answer], {line, other}) == []
+
+
+def test_an_earlier_line_gets_a_warning_also_with_the_current_lines() -> None:
+    """Acceptance 5: the current lines do not stop the warning for an earlier item."""
+    earlier = "crossing import: A imports B in 3 modules and no flow connects them"
+    current = "crossing import: A imports B and no flow connects them"
+    answer = Answer(items=(earlier,), reason="known")
+    found = answer_migrations.warnings([answer], {current})
+    assert len(found) == 1
+    assert f'Change it to "{current}"' in found[0]
+
+
+def test_an_entry_group_line_for_a_component_name_with_a_space_changes() -> None:
+    """Acceptance 6."""
+    earlier = "entry point 7 public_functions into My Api have no sequence (component My Api)"
+    current = "entry point 7 public functions into My Api have no sequence (component My Api)"
+    assert answer_migrations.current_line(earlier) == current

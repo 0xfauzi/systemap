@@ -601,7 +601,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*judgement.review_counts(p.tree, facts))
     say(*judgement_json.earlier_rows(judged, p.tree, not args.brief))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
-    warn(*answer_migrations.warnings(p.cfg.judgement_answered))
+    warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
     if args.strict and result.open:
         say(STRICT_ACTION)
@@ -624,7 +624,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
     say(json.dumps(obj, indent=2))
-    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered))
+    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE

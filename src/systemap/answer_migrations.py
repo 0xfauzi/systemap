@@ -32,7 +32,8 @@ form has one pattern in `EARLIER_FORMS`. These lines changed:
 For one release, an answer item in an earlier form selects the line in the current form.
 `current_line` applies the patterns in their sequence. Thus an item can change in two or
 more steps. `warnings` gives one warning for each item in an earlier form, and also the
-warnings for the previous decision kind names.
+warnings for the previous decision kind names. An item that is a current line gets no
+warning: the callers give the current lines as `present`.
 
 A name or a reason in a current line can contain the text of an earlier form. Thus each
 pattern has its fixed text at its fixed position. An item that is a current line stays
@@ -160,7 +161,8 @@ EARLIER_FORMS = (
         "entry kind identifier",
         re.compile(
             rf"^(?P<head>{_MAP}entry point \d+ )(?P<kind>(?=[^\W_]*_)\w+?)s"
-            r"(?P<rest> into \S+ have no sequence \(component \S+\))$"
+            # The component name can contain a space. It is the same in the two positions.
+            r"(?P<rest> into (?P<card>[^()]+) have no sequence \(component (?P=card)\))$"
         ),
         _group_kind,
     ),
@@ -243,9 +245,28 @@ def retired(item: str) -> str:
     return next((cause for pattern, cause in _RETIRED if pattern.match(item)), "")
 
 
-def warnings(answers: Iterable[Answered]) -> list[str]:
-    """Give one warning for each previous kind name and each item in an earlier form."""
-    given = list(answers)
+class _Unmatched(NamedTuple):
+    """The items of an answer that are not current lines, and the kind of the answer."""
+
+    items: tuple[str, ...]
+    kind: str
+    reviewed: tuple[str, ...]
+
+
+def _unmatched(answer: Answered, present: Container[str]) -> _Unmatched:
+    return _Unmatched(
+        tuple(item for item in answer.items if item not in present),
+        answer.kind,
+        tuple(item for item in answer.reviewed if item not in present),
+    )
+
+
+def warnings(answers: Iterable[Answered], present: Container[str] = ()) -> list[str]:
+    """Give one warning for each previous kind name and each item in an earlier form.
+
+    `present` contains the current lines. An item that is a current line gets no warning,
+    because the item is correct."""
+    given = [_unmatched(answer, present) for answer in answers]
     items = (item for answer in given for item in (*answer.items, *answer.reviewed))
     now = {item: current_line(item) for item in items}
     earlier = [
