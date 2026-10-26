@@ -8,6 +8,8 @@ A repository can also publish the map page of each pull request, for example wit
 `systemap render --base REF`. `[delta] page_url` gives the URL of that page, with
 `{number}` in the place of the pull request number. Then the comment also has a link to
 the Changes view of the page, and `--pr` must give the pull request number.
+`systemap delta` reads `page_url` at the base commit (`delta_git.page_url_at`). In CI, a
+fork can change the configuration of the pull request, but not of the base commit.
 """
 
 from __future__ import annotations

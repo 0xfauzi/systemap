@@ -2,6 +2,8 @@
 # The PyPI publisher identity includes this repository, workflow.yml, and the pypi environment.
 # If an identity field changes, change the PyPI publisher configuration also.
 # Release execution must not restore a cache that another job can write.
+# The uv version, the locked project dependencies, and the build dependencies are fixed.
+# .github/build-constraints.txt gives the version and the file hashes of each build dependency.
 name: release
 
 on:
@@ -20,17 +22,22 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # The two uv commands build the package. Each build dependency must have a fixed hash.
+    env:
+      UV_BUILD_CONSTRAINT: .github/build-constraints.txt
+      UV_REQUIRE_HASHES: "1"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
+          version: "0.11.29"
           enable-cache: false
       - name: Compare the tag and package version
         run: |
           tagged="${GITHUB_REF_NAME#v}"
-          built="$(uv run python -c 'import systemap; print(systemap.__version__)')"
+          built="$(uv run --locked python -c 'import systemap; print(systemap.__version__)')"
           if [ "$tagged" != "$built" ]; then
             echo "::error title=Version mismatch::the tag says $tagged and the package says $built"
             exit 1

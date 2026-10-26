@@ -218,7 +218,7 @@ COMPONENTS = (
     Component(
         id="ChangeDetector",
         source_review="ed9fba1142c47cde2625864010538c2b15a960e9c3a843f89274f09e2e6b9e49",
-        does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With --comment, it writes the architecture summary of a pull request: the contract changes, the map changes and the rule results, with the assurance level of each item. With a page URL in the configuration, the comment also has a link to the Changes view. systemap history shows changes to the software structure through time. Resolves each revision from a person to a commit SHA before the other Git commands use it.",
+        does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With --comment, it writes the architecture summary of a pull request: the contract changes, the map changes and the rule results, with the assurance level of each item. With a page URL in the configuration of the base commit, the comment also has a link to the Changes view. systemap history shows changes to the software structure through time. Resolves each revision from a person to a commit SHA before the other Git commands use it.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
             "systemap.change",
@@ -415,7 +415,7 @@ COMPONENTS = (
     Component(
         id="SecondOpinion",
         source_review="bb99de9d0bbe36af69a7237ecbf6bb01b878cb5c579a23c8205ad10af7e5e0b7",
-        does="Sends different questions about the map to a decision provider. Drift ordering sends questions only for a provider with a measured result. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Can tell a coding agent to read the source and write text. Starts the agent command of the repository only if the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1. The component itself starts only with a different command or with an explicit option. Does not control map checks.",
+        does="Sends different questions about the map to a decision provider. Drift ordering sends questions only for a provider with a measured result. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Does not read or write a cache file that Git tracks, unless the environment sets SYSTEMAP_TRUST_TRACKED_CACHE=1. Can tell a coding agent to read the source and write text. Starts the agent command of the repository only if the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1. The component itself starts only with a different command or with an explicit option. Does not control map checks.",
         interface="run(tree, facts, cfg, provider) -> lines; commands return 1 when an optional request fails, but delta and judgement --order-by-drift keep their exit codes",
         implemented_by=(
             "systemap.audit",

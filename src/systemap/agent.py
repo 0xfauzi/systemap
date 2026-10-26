@@ -9,6 +9,7 @@ Every question includes the language policy of the configured writing profile.
 The "plain" profile gets the policy without its ASD-STE100 section.
 The cache key includes the command, policy, question, and context.
 A policy or profile change makes old answers unavailable to new requests.
+A cache file that Git tracks is not used without SYSTEMAP_TRUST_TRACKED_CACHE=1 (`jev.Cache`).
 Without a configured agent, systemap shows facts and the missing configuration.
 
 The agent command comes from the repository configuration. A cloned repository can set

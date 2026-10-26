@@ -7,6 +7,8 @@ name: systemap
 # Plugin validation rejects all errors and warnings except the documented root CLAUDE.md warning.
 # The plugin tests run the hooks module of the live map with a fake systemap live process.
 # The pre-commit job runs the pre-commit hooks on all files. They include the security hooks.
+# Each setup-uv step uses a fixed uv version. The release workflow uses the same version.
+# For a pull request from a fork, the base-render job renders the page with the base code.
 
 
 on:
@@ -34,7 +36,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
           enable-cache: true
 
       - name: Install project
@@ -68,6 +70,48 @@ jobs:
             exit 1
           }
 
+  # The page output check of the systemap job uses the renderer of the pull request.
+  # A pull request from a fork can change the renderer and the committed page together.
+  # Then that check passes, and the page script is not easy to examine in the diff.
+  # This job renders the page of the pull request with the code of the base commit.
+  # If the two pages are different, a maintainer must examine the renderer change.
+  base-render:
+    if: >-
+      ${{ github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: pr
+
+      - name: Check out the base commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: "0.11.29"
+          enable-cache: false
+
+      - name: Install the base code
+        working-directory: base
+        run: uv sync --frozen
+
+      - name: Do the page output check with the base code
+        run: |
+          base/.venv/bin/systemap --root pr render --check || {
+            echo "::error title=Page from the base code::The renderer of the base commit does not make the committed index.html of this pull request. A maintainer must examine the renderer change and the page."
+            exit 1
+          }
+
   delta:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -83,7 +127,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
           enable-cache: true
 
       - name: Install project
@@ -160,7 +204,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
           enable-cache: true
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -203,10 +247,14 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
 
       # The release makes the wheel from the source archive, so this job does the same.
+      # It also uses the same fixed build dependencies.
       - name: Make the wheel from the source archive
+        env:
+          UV_BUILD_CONSTRAINT: .github/build-constraints.txt
+          UV_REQUIRE_HASHES: "1"
         run: uv build
 
       - name: Install the wheel in an empty environment
@@ -285,7 +333,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
           enable-cache: true
 
       - name: Install project
