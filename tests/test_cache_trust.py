@@ -77,15 +77,60 @@ def test_an_untracked_cache_file_is_used(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.delenv(jev.TRUST_TRACKED, raising=False)
     path = planted_cache(tmp_path, commit=False)
     assert jev.Cache(path, root=tmp_path).entries == PLANTED["entries"]
-    assert not jev.tracked(tmp_path, path)
+    assert not jev.tracked(path)
 
 
 def test_outside_a_repository_the_cache_file_is_used(tmp_path: Path) -> None:
     path = tmp_path / "c.json"
     path.write_text(json.dumps(PLANTED), encoding="utf-8")
-    missing = tmp_path / "no-folder"
-    assert not jev.tracked(missing, path)
+    assert not jev.tracked(path)
+    assert not jev.tracked(tmp_path / "no-folder" / "c.json")
     assert jev.Cache(path, root=tmp_path).entries == PLANTED["entries"]
+
+
+def submodule_cache(tmp_path: Path) -> Path:
+    """A repository `top` has the submodule `vendor`. The submodule tracks c.json."""
+    sub, top = tmp_path / "sub", tmp_path / "top"
+    sub.mkdir()
+    top.mkdir()
+    git(sub, "init", "-q")
+    (sub / "c.json").write_text(json.dumps(PLANTED), encoding="utf-8")
+    git(sub, "add", "c.json")
+    git(sub, "commit", "-q", "-m", "sub")
+    git(top, "init", "-q")
+    git(top, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(sub), "vendor")
+    git(top, "commit", "-q", "-m", "top")
+    return top
+
+
+def test_a_cache_file_that_a_submodule_tracks_is_not_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance: before the change, the check ran only in `top`. The cache then read
+    the planted entry from the submodule file, and from a link to that file."""
+    monkeypatch.delenv(jev.TRUST_TRACKED, raising=False)
+    top = submodule_cache(tmp_path)
+    assert jev.tracked(top / "vendor" / "c.json")
+    cache = jev.Cache(top / "vendor" / "c.json", root=top)
+    assert cache.refused
+    assert cache.entries == {}
+    assert "remove the file from Git: git -C vendor rm --cached c.json" in capsys.readouterr().err
+    link = top / ".systemap" / "link.json"
+    link.parent.mkdir()
+    link.symlink_to(top / "vendor" / "c.json")
+    assert jev.tracked(link)
+    assert jev.Cache(link, root=top).entries == {}
+
+
+def test_a_different_case_of_a_tracked_name_is_tracked_only_if_it_is_the_same_file(
+    tmp_path: Path,
+) -> None:
+    """The name comparison ignores the case of letters. On a file system that ignores the
+    case, the two names are one file, and the result is True. Here they are two files."""
+    path = planted_cache(tmp_path, commit=True)
+    other = path.with_name("AGENT-CACHE.json")
+    other.write_text(json.dumps(PLANTED), encoding="utf-8")
+    assert jev.tracked(other) == other.samefile(path)
 
 
 def answer(ident: str) -> str:

@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 import threading
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -308,26 +308,59 @@ def page_url_at(cfg: Config, sha: str) -> str:
     The delta comment gets its link from the base commit, not from the working tree.
     In CI, the working tree is the pull request, and a fork can change its configuration.
     A commit without the configuration or without the value gives "". An incorrect
-    committed configuration gives DeltaError.
+    committed configuration gives DeltaError. Its text names the file and the commit.
     """
     blobs = blobs_at(cfg.root, sha, (CONFIG_FILE, "pyproject.toml"))
-    where = f"{CONFIG_FILE} at {sha[:7]}"
+    raw, where = _committed_table(blobs, sha[:7])
     try:
-        raw = _committed_table(blobs)
         return page_url(raw, where)
     except ValueError as exc:
-        raise DeltaError(f"{where}: {exc}") from exc
+        raise DeltaError(str(exc)) from exc
 
 
-def _committed_table(blobs: dict[str, bytes | None]) -> dict[str, Any]:
-    """Give the configuration table of the committed files, as `config.read_raw` does."""
+def comment_page_url(cfg: Config, sha: str) -> tuple[str, list[str]]:
+    """Give the link value for the delta comment, and the warning lines.
+
+    An incorrect value at the base commit does not stop the comment. The comment then
+    has no link, and the warning gives the cause. Thus a pull request that corrects the
+    value also gets its comment."""
+    try:
+        return page_url_at(cfg, sha), []
+    except DeltaError as exc:
+        return "", [
+            str(exc),
+            "The comment does not have a link to the Changes view. "
+            "After the merge of a correct value, the comment has the link.",
+        ]
+
+
+def _committed_table(blobs: dict[str, bytes | None], short: str) -> tuple[dict[str, Any], str]:
+    """Give the configuration table of the committed files, as `config.read_raw` does.
+
+    The second value names the file of the table and the commit, for an error text."""
     own = blobs.get(CONFIG_FILE)
     if own is not None:
-        return tomllib.loads(own.decode("utf-8-sig"))
+        where = f"{CONFIG_FILE} at {short}"
+        return _toml(own, where), where
+    where = f"pyproject.toml [tool.systemap] at {short}"
     project = blobs.get("pyproject.toml")
     if project is None:
-        return {}
-    return tool_table.section(tomllib.loads(project.decode("utf-8-sig"))) or {}
+        return {}, where
+    return _toml(project, where, tool_table.section), where
+
+
+Part = Callable[[dict[str, Any]], dict[str, Any] | None]
+
+
+def _toml(data: bytes, where: str, part: Part | None = None) -> dict[str, Any]:
+    """Read a committed TOML file, and with `part`, one table of it.
+
+    A file that is not UTF-8 TOML, or a `part` that is not a table, gives DeltaError."""
+    try:
+        table = tomllib.loads(data.decode("utf-8-sig"))
+        return (part(table) or {}) if part else table
+    except ValueError as exc:
+        raise DeltaError(f"{where}: {exc}") from exc
 
 
 def _records(refused: list[tuple[str, str]]) -> list[dict[str, str]]:

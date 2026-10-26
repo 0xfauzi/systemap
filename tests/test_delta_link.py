@@ -223,8 +223,58 @@ def test_the_base_page_url_can_come_from_pyproject(tmp_path: Path) -> None:
     (tmp_path / "systemap.toml").write_text('[delta]\npage_url = "x"\n', encoding="utf-8")
     git(tmp_path, "add", "-A")
     git(tmp_path, "commit", "-q", "-m", "two")
-    with pytest.raises(delta_git.DeltaError, match="systemap.toml at .*must start with https"):
+    with pytest.raises(delta_git.DeltaError) as raised:
         delta_git.page_url_at(cfg, git(tmp_path, "rev-parse", "HEAD"))
+    # Before the change, the text had the prefix two times.
+    said = str(raised.value)
+    assert said.count(" at ") == 1
+    assert said.startswith("systemap.toml at ")
+    assert "must start with https" in said
+
+
+def test_an_incorrect_pyproject_value_names_pyproject(tmp_path: Path) -> None:
+    """Before the change, the error named systemap.toml for a pyproject.toml value."""
+    (tmp_path / "pyproject.toml").write_text(
+        '[tool.systemap.delta]\npage_url = "x"\n', encoding="utf-8"
+    )
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-q", "-m", "one")
+    cfg = config.Config(tmp_path, "demo", (("pkg", "pkg"),), language="python")
+    with pytest.raises(delta_git.DeltaError) as raised:
+        delta_git.page_url_at(cfg, git(tmp_path, "rev-parse", "HEAD"))
+    said = str(raised.value)
+    assert said.startswith("pyproject.toml [tool.systemap] at ")
+    assert "systemap.toml at" not in said
+    (tmp_path / "pyproject.toml").write_text("[tool]\nsystemap = 3\n", encoding="utf-8")
+    git(tmp_path, "commit", "-q", "-am", "two")
+    with pytest.raises(delta_git.DeltaError, match="tool.systemap must be a table"):
+        delta_git.page_url_at(cfg, git(tmp_path, "rev-parse", "HEAD"))
+
+
+def test_an_incorrect_base_page_url_gives_the_comment_without_the_link(
+    two_cards: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The base commit has an incorrect page_url, and the pull request corrects it.
+    The comment has no link, and a warning gives the cause. Before the change, delta
+    stopped with an error and wrote no comment."""
+    add_config(two_cards, '[delta]\npage_url = "x"\n')
+    repo = commits(two_cards)
+    fork_sets_from(repo, 'page_url = "x"', f'page_url = "{URL}"')
+    out = repo / "comment.md"
+    assert delta(repo, "--base", "HEAD~2", "--pr", "5", "--comment", str(out)) == 1
+    text = out.read_text(encoding="utf-8")
+    assert UPDATE in text
+    assert "#changes" not in text
+    err = capsys.readouterr().err
+    assert "must start with https" in err
+    assert "The comment does not have a link to the Changes view." in err
+
+
+def fork_sets_from(repo: Path, old: str, new: str) -> None:
+    path = repo / "systemap.toml"
+    path.write_text(path.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+    git(repo, "commit", "-q", "-am", "fix")
 
 
 def test_a_comment_without_a_pull_request_number_is_an_option_error(

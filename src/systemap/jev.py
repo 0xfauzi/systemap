@@ -35,6 +35,7 @@ import json
 import math
 import os
 import random
+import shlex
 import subprocess
 import sys
 import threading
@@ -286,37 +287,61 @@ def _read_cache(root: Path, path: Path | None) -> tuple[dict[str, Any], dict[str
 TRUST_TRACKED = "SYSTEMAP_TRUST_TRACKED_CACHE"
 
 
-def tracked(root: Path, path: Path) -> bool:
-    """Tell if Git tracks the file at `path` in the repository at `root`.
+def tracked(path: Path) -> bool:
+    """Tell if Git tracks the file at `path`.
 
+    The check runs in the folder of the real file, after the links are followed. Thus
+    it finds a file that a submodule or a nested repository tracks, and a link to a
+    tracked file. The name comparison ignores the case of letters, and the result is
+    True only for a listed file that is the same file as `path`. Thus a different case
+    of the name is also found on a file system that ignores the case of letters.
     If Git cannot do the check, for example outside a repository, the result is False."""
+    real = path.resolve()
     try:
         proc = subprocess.run(
-            ["git", "ls-files", "--error-unmatch", "--", str(path)],
-            cwd=root,
+            ["git", "ls-files", "-z", "--", f":(literal,icase){real.name}"],
+            cwd=real.parent,
             capture_output=True,
             timeout=60,
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return False
-    return proc.returncode == 0
+    if proc.returncode != 0:
+        return False
+    names = [n for n in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if n]
+    return any(_same(real.parent / n, real) for n in names)
+
+
+def _same(one: Path, other: Path) -> bool:
+    """Tell if the two paths are the same file. A missing file gives False."""
+    try:
+        return os.path.samefile(one, other)
+    except OSError:
+        return False
 
 
 def tracked_note(root: Path, path: Path) -> str:
-    """Give the warning for a cache file that Git tracks and that the cache does not use."""
+    """Give the warning for a cache file that Git tracks and that the cache does not use.
+
+    The command in the warning operates in the repository of the real file. This can be
+    a submodule. For a link, the real file is the target of the link."""
     rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+    real = path.resolve()
+    top = root.resolve()
+    folder = real.parent.relative_to(top) if real.parent.is_relative_to(top) else real.parent
+    command = shlex.join(["git", "-C", folder.as_posix(), "rm", "--cached", real.name])
     return (
         f"systemap did not read or write the cache file {rel}, because Git tracks it. "
         "A cloned repository can supply the answers in such a file. "
         f"If you trust the answers in this file, set {TRUST_TRACKED}=1. "
-        f"If you do not trust them, remove the file from Git: git rm --cached {rel}"
+        f"If you do not trust them, remove the file from Git: {command}"
     )
 
 
 def _refused(root: Path, path: Path) -> bool:
     """Tell if the cache must not use a file that Git tracks. If so, give the warning."""
-    if os.environ.get(TRUST_TRACKED) == "1" or not tracked(root, path):
+    if os.environ.get(TRUST_TRACKED) == "1" or not tracked(path):
         return False
     print(tracked_note(root, path), file=sys.stderr)
     return True
