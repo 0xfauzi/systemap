@@ -9,7 +9,7 @@ JavaScript file in the repository, with no source module, has the cause `script 
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
@@ -43,6 +43,12 @@ class Package:
     source_roots: tuple[Path, ...]
     # The text before each target in an issue. It is empty for the top-level package.
     label: str = ""
+    # The cache of `typescript_package_imports`: the indexed `exports` and `imports`
+    # tables, and the result of each import under each set of conditions.
+    tables: dict[str, Any] = field(default_factory=dict, compare=False, repr=False)
+    imports: dict[tuple[str, frozenset[str]], Any] = field(
+        default_factory=dict, compare=False, repr=False
+    )
 
 
 def entry_points(

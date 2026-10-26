@@ -112,6 +112,10 @@ class ConfigError(Exception):
     """The configuration has an error. The message gives the necessary correction."""
 
 
+class PackageError(ConfigError):
+    """A package.json file has an error. The message gives the path of the file."""
+
+
 class ArgumentError(ConfigError):
     """A command option has a value that the command cannot use. The message gives the reason."""
 

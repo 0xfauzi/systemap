@@ -129,6 +129,37 @@ def test_a_tsconfig_error_names_the_tsconfig_file(
     assert "systemap.toml" not in err
 
 
+@pytest.mark.parametrize(
+    "package",
+    ['{"name": ', "[1, 2]\n", "[" * 5000 + "]" * 5000],
+    ids=["bad-json", "not-an-object", "nested-5000"],
+)
+def test_a_package_json_error_names_the_package_json_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], package: str
+) -> None:
+    pytest.importorskip("tree_sitter_typescript")
+    write_tree(
+        tmp_path,
+        {
+            "systemap.toml": 'language = "typescript"\n[package_roots]\n"src" = "web"\n',
+            "tsconfig.json": '{"compilerOptions": {}}\n',
+            "src/index.ts": "export function start(): void {}\n",
+        },
+    )
+    assert run("--root", str(tmp_path), "init", "--no-ci") == 0
+    (tmp_path / "package.json").write_text(package, encoding="utf-8")
+    capsys.readouterr()
+    assert run("--root", str(tmp_path), "extract") == 2
+    err = capsys.readouterr().err
+    # Before the fix, the last line told the person to correct the tsconfig file
+    # or systemap.toml.
+    assert "package.json" in err
+    assert err.rstrip().endswith(
+        "Correct the package.json file in the message. Then run the command again."
+    )
+    assert "Traceback" not in err
+
+
 def test_refresh_has_a_short_quiet_option_with_help(
     two_cards: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

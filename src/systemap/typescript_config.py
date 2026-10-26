@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import file_names, repo_files, tree_walk
-from systemap.config import ConfigError
+from systemap.config import PackageError
 from systemap.jsonc_text import strip_jsonc
 from systemap.tsconfig_glob import GlobPattern, compile_glob
 
@@ -111,10 +111,11 @@ def package_json(root: Path, repo: Path | None = None) -> dict[str, Any]:
     try:
         text = repo_files.read_text(base, repo_files.relative(base, path))
         data = json.loads(text)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ConfigError(f"The parser could not read {path.as_posix()}: {exc}") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError, MemoryError) as exc:
+        # A value with too many nested levels gives RecursionError or MemoryError.
+        raise PackageError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(data, dict):
-        raise ConfigError(f"{path.as_posix()} must contain a JSON object.")
+        raise PackageError(f"{path.as_posix()} must contain a JSON object.")
     return data
 
 
