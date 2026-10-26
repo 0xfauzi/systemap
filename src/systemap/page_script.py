@@ -422,7 +422,7 @@ JS = r"""
         + '<p class="file">' + esc(m.file || 'Source path not recorded') + '</p><p>'
         + esc(m.docstring || 'No module description was recorded.') + '</p>'
         + '<p>Public names in this module: '
-        + esc((surface.length ? surface : m.names).join(', ') || 'none recorded') + '</p>'
+        + esc(surface.join(', ') || 'none recorded') + '</p>'
         + '<p>Imports: ' + esc(m.imports.join(', ') || 'none recorded') + '</p>'
         + '<p>Imported by: ' + esc((m.imported_by || []).join(', ') || 'none recorded') + '</p>'
         + '<p>External imports: ' + esc((m.external || []).join(', ') || 'none recorded') + '</p>'

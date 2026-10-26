@@ -400,6 +400,9 @@ def _check_values(t: dict[str, Any]) -> None:
 # contain ".
 UNSAFE_MARKS = '<>&";{}'
 FONT_UNSAFE_MARKS = "<>&;{}"
+# These marks start or end a CSS comment. A comment start in a value makes the page
+# remove all CSS until the next comment end.
+COMMENT_MARKS = ("/*", "*/")
 
 
 def _texts(value: object, key: str) -> Iterator[tuple[str, str]]:
@@ -415,10 +418,11 @@ def _texts(value: object, key: str) -> Iterator[tuple[str, str]]:
 
 
 def _check_text(t: dict[str, Any]) -> None:
-    """Reject a theme value that contains a mark that can change the HTML of the page."""
+    """Reject a theme value that contains a mark that can change the HTML or the CSS of
+    the page."""
     for key, text in _texts(t, ""):
         marks = FONT_UNSAFE_MARKS if key.startswith("font_") else UNSAFE_MARKS
-        found = [mark for mark in marks if mark in text]
+        found = [mark for mark in (*marks, *COMMENT_MARKS) if mark in text]
         if found:
             raise ValueError(
                 f"The theme value {key} contains {' '.join(found)}. The page uses theme "

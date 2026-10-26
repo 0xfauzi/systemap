@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import page_detail_text, write_tree
 from test_keyboard import DRIVER, needs_node
 
 from systemap import nest, place, source_facts
@@ -522,7 +522,12 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
 
 
 def _detail_json(html: str) -> str:
-    """The detail JSON the page inlines for the map's script, as a string for JSON.parse."""
+    """The detail JSON the page or the figure inlines for the map's script.
+
+    The page gives it after `var FIRST = ` (`page_detail_text`). The figure gives it
+    after `var DETAIL = JSON.parse(`."""
+    if "var FIRST = " in html:
+        return page_detail_text(html)
     start = html.index("var DETAIL = JSON.parse(") + len("var DETAIL = JSON.parse(")
     end = html.index(");\nvar PAL = ", start)
     text: str = json.loads(html[start:end])

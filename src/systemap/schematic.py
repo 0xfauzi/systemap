@@ -113,6 +113,7 @@ from systemap.schematic_change import (
 )
 from systemap.schematic_script import interactive_script as interactive_script
 from systemap.schematic_script import line_safe as line_safe
+from systemap.schematic_script import page_maps_script as page_maps_script
 from systemap.schematic_style import _defs, _svg_style, layer_marker
 from systemap.schematic_style import panel_css as panel_css
 from systemap.theme import Palette

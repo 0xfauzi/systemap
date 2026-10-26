@@ -3203,6 +3203,98 @@ The earlier limit of 325 KiB (332,800 bytes) had 810 bytes of space. Thus the ch
 The new limit, 328 KiB (335,872 bytes), is the next whole KiB above the measured page (327.6 KiB).
 The maintainer must accept or refuse this new limit.
 
+## Map page bytes and the security policy (2026-10-26)
+
+This change is for four findings of the audit at commit 65e5464:
+
+- uiperf-6: the page with `--base` contained the map script two times: one copy for the system map and one copy for the change map.
+- perf-8: each module record of the page data contained `names` and `public_names` with the same names. The page data had a space after each comma and colon.
+- xss-1: the map page, the figures and the two servers gave no Content-Security-Policy.
+- regex-5: a theme value with `/*` removed the page CSS until the next `*/`, with no error.
+
+The change:
+
+- The page has one map script. The script contains the map code one time, in a function. It calls the function for the system map and for the change map.
+- The script contains the detail of the system map one time. The change map gets that detail with a set of changes: new fields of records and new values of keys. If the changes do not give the same detail, the script contains the full detail of the change map.
+- The module records do not contain `names`. The page script makes the names from `public_names`. The page data uses compact JSON separators.
+- The page scripts have no line feed after a line that ends with `;`, `{` or `,`, if the line has no `//` and no `/*`.
+- Each page has a policy meta element (`page_csp.py`). The policy contains the SHA-256 digest of each inline script and style element. It gives `'none'` to `default-src`, `object-src`, `base-uri` and `form-action`. It permits `data:` images and fonts, and frames from the same origin. It permits style attributes, because the map uses them. It permits no network source.
+- `systemap live` adds the digest of its script and `connect-src 'self'` to the policy of each page.
+- The page server and the live server send the policy of an HTML page in the Content-Security-Policy header. An SVG file gets a fixed policy without scripts.
+- A theme value that contains `/*` or `*/` gives a ValueError. Through the configuration, it gives a ConfigError.
+
+Acceptance, written before the measurement:
+
+- uiperf-6: the size of the `--base` page minus the size of the page without `--base` is less than 50% of the same difference before the change.
+- perf-8: the page of this repository gets at least 15 KB smaller.
+- The three SVG figures, an interactive figure and `map.json` are byte-identical.
+- The interaction snapshots of a Playwright smoke test are identical before and after: select, layer change, sequence, Changes view, and a child map.
+- The pages have 0 CSP violations: this repository page, the `--base` page, the nested pages of `tests/test_nested.py` from a file and from the page server, the figures, and the live page.
+- regex-5: `#888 /*` in `ink_2` gives an error. Before the change, it removed characters of the page CSS.
+
+Method: the scripts are in the scratch folder `p3-pagebytes`.
+`render.py` renders the page, the page with `--base HEAD~10`, the three configured figures and an interactive figure into a temporary folder.
+For the change, `render.py` reads the facts of the base run and uses the model file of 65e5464. Thus the comparison does not include the new source module.
+`smoke.js`, `smoke2.sh`, `figure.js` and `live.js` operate headless Chromium. They record each `securitypolicyviolation` event.
+At the end, `smoke.js` adds an inline script to the page. With the policy, that script must not run.
+
+### Page bytes
+
+| page | 65e5464 (bytes) | change (bytes) | difference |
+|---|---|---|---|
+| this repository | 931,784 | 889,244 | -42,540 (-4.6%) |
+| `--base HEAD~10` | 1,323,157 | 1,114,431 | -208,726 (-15.8%) |
+| `--base` minus the page without `--base` | 391,373 | 225,187 | -166,186 (-42.5%) |
+| sample page of `tests/test_render.py` | 335,455 | 333,356 | -2,099 |
+
+The parts of the change on the `--base` page:
+
+| part | 65e5464 (bytes) | change (bytes) | difference |
+|---|---|---|---|
+| map scripts (code and detail) | 331,787 | 166,855 | -164,932 |
+| page data | 466,610 | 424,033 | -42,577 |
+| other scripts | 166,426 | 163,883 | -2,543 |
+| policy meta element | 0 | 1,344 | +1,344 |
+
+On the page of this repository, the page data changes from 395,122 bytes to 354,362 bytes (-40,760).
+The change map gets 1,706 bytes of changes in place of a second detail. The detail of the system map is 121,288 bytes.
+
+The acceptance value of uiperf-6 is not satisfied: the difference is 57.5% of the earlier difference, not less than 50%.
+The duplicate map script is removed. The remaining 225 KB are the change map SVG, its styles and the comparison data. These parts are not copies.
+The acceptance value of perf-8 is satisfied.
+
+The sample page has a size limit. The policy meta element adds 1,182 bytes. The line feed removal and the compact JSON remove more bytes.
+The limit goes down from 328 KiB to 326 KiB, the next whole KiB above the measured page (325.5 KiB).
+
+### Outputs and interaction
+
+The three SVG figures, the interactive figure and `map.json` are byte-identical (`cmp`).
+The interaction snapshots are identical for this repository page (16 steps), the `--base` page (17 steps) and the nested top page (15 steps).
+
+### Security policy
+
+| page | CSP violations | page errors | added script ran |
+|---|---|---|---|
+| this repository, file | 0 | 0 | no |
+| `--base`, file | 0 | 0 | no |
+| nested top page and child page, file | 0 | 0 | no |
+| nested top page, page server, child map open in the frame | 0 | 0 | no |
+| this repository and `--base`, page server | 0 | 0 | no |
+| three figures, file and page server | 0 | 0 | not tested |
+| live page, before and after `POST /refresh` | 0 | 0 | no |
+| live `change.svg` | 0 | 0 | not tested |
+
+On 65e5464, the added script ran on the file pages of this repository, the `--base` page and the nested top page.
+The live page loaded again after `POST /refresh` and kept the selected component and the layer. Thus the event connection operates with the policy.
+A figure SVG file cannot contain a policy meta element. A file that a person opens from the disk thus has no policy. The figures contain no script.
+The interactive figure goes into a different document. The policy of that document applies to it.
+
+### Theme values
+
+Before the change, `#888 /*` in `ink_2` removed 5,707 characters of the page CSS, with no error.
+`#888 */` and `/* x */ #888` gave no error.
+After the change, each of the three values gives "The theme value ink_2 contains ...".
+
 ## TypeScript module descriptions, issue #91 (2026-10-14)
 
 `bench/typescript_descriptions.py` compares three rules on all tracked TypeScript source files, including tests but excluding declaration files.

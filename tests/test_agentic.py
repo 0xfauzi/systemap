@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import init_two_cards, write_tree
+from conftest import init_two_cards, page_detail, write_tree
 from test_layers import agent_model
 
 from systemap import check, judgement, skill
@@ -36,9 +36,7 @@ def run(*argv: str) -> int:
 
 def detail_of(page: str) -> dict[str, Any]:
     """The detail data of the map script. The page gives it as a string for JSON.parse."""
-    start = page.index("var DETAIL = JSON.parse(") + len("var DETAIL = JSON.parse(")
-    detail: dict[str, Any] = json.loads(json.loads(page[start : page.index(");\nvar PAL", start)]))
-    return detail
+    return page_detail(page)
 
 
 def with_call_site(tmp_path: Path) -> tuple[Config, dict, dict]:  # type: ignore[type-arg]

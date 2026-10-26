@@ -47,6 +47,7 @@ from systemap import (
     nest,
     out_paths,
     page,
+    page_csp,
     page_live,
     repo_files,
     serve_guard,
@@ -108,6 +109,15 @@ class PageHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "File not found")
             return None
         return super().send_head()
+
+    def end_headers(self) -> None:
+        """Send the Content-Security-Policy of the requested file (`page_csp.of_file`)."""
+        if hasattr(self, "path") and self._inside():
+            served = Path(self.translate_path(self.path))
+            policy = page_csp.of_file(Path(self.directory), served)
+            if policy:
+                self.send_header("Content-Security-Policy", policy)
+        super().end_headers()
 
     def _inside(self) -> bool:
         """Tell if the requested file, and the index file of a directory, are in the
