@@ -3295,6 +3295,20 @@ Before the change, `#888 /*` in `ink_2` removed 5,707 characters of the page CSS
 `#888 */` and `/* x */ #888` gave no error.
 After the change, each of the three values gives "The theme value ink_2 contains ...".
 
+A review found that a quote mark or a backslash also changed the page CSS with no error.
+The page CSS is on one line. Thus, `#888 '` in `ink_2` started a CSS string that continued for 1,108 characters to the next `'`.
+In Chromium, the stylesheet went from 228 rules to 227 rules. The lost rule was the dark theme rule `:root[data-theme="dark"]`.
+Before this second change, `#888 '` and `#888 \` in `ink_2`, `Inter',sans-serif` and `Inter",sans-serif` in `font_ui`, and `x\` in `font_mono` gave no error.
+After the change, each of these five values gives "The theme value ... contains ...".
+`'Inter',sans-serif`, `"Inter",sans-serif` and `#888` give no error before and after. A font stack can contain quote marks in pairs.
+
+### Refused requests
+
+The page server sends the policy only for a request that it accepts.
+Before this change, a request with `Host: evil.example:PORT` got status 403 with a policy header of 1,153 characters. The server read the page file to make that header.
+After the change, the same request gets status 403 with no policy header.
+The figures and the interactive figure are byte-identical before and after this change. The page and `map.json` change only in the source facts of the changed files and tests.
+
 ## TypeScript module descriptions, issue #91 (2026-10-14)
 
 `bench/typescript_descriptions.py` compares three rules on all tracked TypeScript source files, including tests but excluding declaration files.

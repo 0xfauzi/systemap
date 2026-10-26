@@ -92,6 +92,8 @@ class PageHandler(SimpleHTTPRequestHandler):
     timeout = serve_guard.READ_SECONDS
 
     def parse_request(self) -> bool:
+        # A connection can send more than one request. Each request starts without a file.
+        self._served: Path | None = None
         if not super().parse_request():
             return False
         port = int(self.server.server_address[1])  # type: ignore[index] # a TCP server: (host, port)
@@ -108,12 +110,16 @@ class PageHandler(SimpleHTTPRequestHandler):
         if not self._inside():
             self.send_error(404, "File not found")
             return None
+        self._served = Path(self.translate_path(self.path))
         return super().send_head()
 
     def end_headers(self) -> None:
-        """Send the Content-Security-Policy of the requested file (`page_csp.of_file`)."""
-        if hasattr(self, "path") and self._inside():
-            served = Path(self.translate_path(self.path))
+        """Send the Content-Security-Policy of the requested file (`page_csp.of_file`).
+
+        The server reads the file only for a request that it accepts. A refused request
+        gets no policy, because its answer must not change with the file content."""
+        served = getattr(self, "_served", None)
+        if served is not None:
             policy = page_csp.of_file(Path(self.directory), served)
             if policy:
                 self.send_header("Content-Security-Policy", policy)

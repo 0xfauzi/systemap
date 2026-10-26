@@ -6,7 +6,8 @@
 - perf-8: the source records contained `names` and `public_names` with the same names,
   and the page data had a space after each comma and colon.
 - xss-1: the page, the figures and the servers gave no Content-Security-Policy.
-- regex-5: a theme value with /* removed the page CSS until the next */, with no error.
+- regex-5: a theme value with /*, an unpaired quote or a backslash removed page CSS with
+  no error.
 """
 
 from __future__ import annotations
@@ -234,6 +235,21 @@ def test_the_page_server_sends_the_policy_of_the_page(sample: Sample, tmp_path: 
         assert _headers(port, "/missing.html")[0] == 404
 
 
+def test_a_refused_request_gets_no_policy(sample: Sample, tmp_path: Path) -> None:
+    """Before the fix, a 403 answer for a wrong Host had the policy of the page file."""
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "index.html").write_text(_build(sample, {"has_change": False}), encoding="utf-8")
+    for port in _running(serve.make_server(out, 0)):
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        connection.request("GET", "/index.html", headers={"Host": f"evil.example:{port}"})
+        response = connection.getresponse()
+        response.read()
+        connection.close()
+        assert response.status == 403
+        assert response.getheader("Content-Security-Policy") is None
+
+
 def test_the_live_server_sends_the_policy_with_the_live_script(tmp_path: Path) -> None:
     def rendered() -> serve.Rendered:
         return serve.Rendered(files={"index.html": "<html>map</html>"})
@@ -254,9 +270,10 @@ def test_the_live_server_sends_the_policy_with_the_live_script(tmp_path: Path) -
 # ---- regex-5: comment marks in theme values ----------------------------------------
 
 
-@pytest.mark.parametrize("value", ["#888 /*", "#888 */", "/* x */ #888"])
+@pytest.mark.parametrize("value", ["#888 /*", "#888 */", "/* x */ #888", "#888 '", "#888 \\"])
 def test_a_theme_value_with_a_css_comment_mark_is_refused(sample: Sample, value: str) -> None:
-    """Before the fix, "#888 /*" in ink_2 removed 5,707 characters of page CSS."""
+    """Before the fix, "#888 /*" in ink_2 removed 5,707 characters of page CSS. The
+    value "#888 '" started a CSS string that removed the dark theme rule."""
     with pytest.raises(ValueError, match="theme value ink_2 contains"):
         theme_mod.resolve({"ink_2": value}, [])
     cfg = dataclasses.replace(sample.cfg, theme={"ink_2": value})
@@ -267,3 +284,14 @@ def test_a_theme_value_with_a_css_comment_mark_is_refused(sample: Sample, value:
 def test_page_detail_reads_the_system_map(sample: Sample) -> None:
     detail = page_detail(_build(sample, copy.deepcopy(COMPARISON)))
     assert "change" not in detail["_meta"]
+
+
+@pytest.mark.parametrize("value", ["Inter',sans-serif", 'Inter",sans-serif', "Inter\\,serif"])
+def test_a_font_stack_with_an_unpaired_quote_or_a_backslash_is_refused(value: str) -> None:
+    with pytest.raises(ValueError, match="theme value font_ui contains"):
+        theme_mod.resolve({"font_ui": value}, [])
+
+
+@pytest.mark.parametrize("value", ["'Inter',sans-serif", '"Inter",sans-serif'])
+def test_a_font_stack_with_quotes_in_pairs_is_accepted(value: str) -> None:
+    assert theme_mod.resolve({"font_ui": value}, [])["font_ui"] == value
