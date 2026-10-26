@@ -2,8 +2,9 @@
 
 Each known error type has a correction sentence for the person who runs the command.
 The correction names the input that gives the error: a command option, systemap.toml or
-the model module, a tsconfig file, or a Git ref. Exit code 1 means that the command could
-not make its output. Exit code 2 means a configuration, model, option, or revision error.
+the model module, a tsconfig file, a package.json file, or a Git ref. Exit code 1 means
+that the command could not make its output. Exit code 2 means a configuration, model,
+option, or revision error.
 """
 
 from __future__ import annotations
@@ -25,12 +26,13 @@ from systemap import (
     terminal_text,
 )
 from systemap import language as languages
-from systemap.config import ArgumentError, ConfigError
+from systemap.config import ArgumentError, ConfigError, PackageError
 
 STALE, BAD_CONFIG = 1, 2
 
 CONFIG_FIX = "Correct systemap.toml or the model module. Then run the command again."
 TSCONFIG_FIX = "Correct the tsconfig file in the message. Then run the command again."
+PACKAGE_FIX = "Correct the package.json file in the message. Then run the command again."
 OPTION_FIX = "Correct the command option. Then run the command again."
 # systemap refresh and systemap extract do not read the stored facts. Thus they can
 # write a new facts file in place of an incorrect file.
@@ -44,6 +46,7 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (ArgumentError, OPTION_FIX, BAD_CONFIG),
     (delta_link.LinkError, OPTION_FIX, BAD_CONFIG),
     (facts_shape.FactsError, FACTS_FIX, STALE),
+    (PackageError, PACKAGE_FIX, BAD_CONFIG),
     (ConfigError, CONFIG_FIX, BAD_CONFIG),
     (languages.LanguageError, CONFIG_FIX, BAD_CONFIG),
     (figure.FigureError, "", STALE),
