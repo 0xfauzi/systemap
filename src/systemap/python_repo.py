@@ -12,10 +12,10 @@ import re
 import sys
 import tomllib
 from collections.abc import Iterable, Iterator, Sequence
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Any
 
-from systemap import config, config_walk, file_names, identifier, repo_files
+from systemap import config, config_walk, file_names, identifier, repo_files, tree_walk
 from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 
 # Below a Python package root or test directory, these folders hold no source of the
@@ -61,7 +61,7 @@ def python_paths(
     `followup-python-paths`). `fnmatch` gives the same case rule as `rglob`: on Windows,
     the name match ignores case. If a path below the root is not valid UTF-8, the walk
     does not give the file. If `refused` is a list, the walk adds the file to it."""
-    for current, names, files in os.walk(root):
+    for current, names, files in tree_walk.walk(root):
         names[:] = sorted(name for name in names if name not in PYTHON_SKIP)
         matched = (name for name in sorted(files) if fnmatch.fnmatch(name, pattern))
         for name in file_names.files(root, current, matched, refused):
@@ -95,16 +95,56 @@ def pyproject(root: Path) -> dict[str, Any]:
         raise config.ConfigError(f"The parser could not read {path}: {exc}") from exc
 
 
-def workspace_members(root: Path) -> list[Path]:
-    """Find the directories that `[tool.uv.workspace] members` patterns select."""
-    workspace = pyproject(root).get("tool", {}).get("uv", {}).get("workspace", {})
-    members = workspace.get("members", []) if isinstance(workspace, dict) else []
-    patterns = [pattern for pattern in members if isinstance(pattern, str)]
-    out: list[Path] = []
-    for path in (path for pattern in patterns for path in _valid_paths(root, root.glob(pattern))):
-        if path.is_dir() and path.resolve() != root.resolve() and path not in out:
-            out.append(path)
+def table(data: dict[str, Any], *keys: str) -> dict[str, Any]:
+    """Give the table at the keys in the pyproject.toml data. A missing key gives an empty
+    table.
+
+    A value that is not a table gives a ConfigError with the key, such as `project` in
+    `project = "name"`. An empty table would hide the incorrect setting."""
+    out = data
+    for index, key in enumerate(keys):
+        found = out.get(key, {})
+        if not isinstance(found, dict):
+            dotted = ".".join(keys[: index + 1])
+            raise config.ConfigError(f"{PYPROJECT}: the value of {dotted} must be a table.")
+        out = found
     return out
+
+
+def workspace_members(root: Path) -> list[Path]:
+    """Find the directories that `[tool.uv.workspace] members` patterns select.
+
+    The function gives only the directories in the resolved root. A pattern that is an
+    absolute path or that contains `..` gives a ConfigError. A link to a folder out of the
+    root gives no member. Thus no name of a folder out of the root goes into the facts."""
+    members = table(pyproject(root), "tool", "uv", "workspace").get("members", [])
+    if not isinstance(members, list):
+        raise config.ConfigError(
+            f"{PYPROJECT}: the value of tool.uv.workspace.members must be an array."
+        )
+    out: list[Path] = []
+    for pattern in (pattern for pattern in members if isinstance(pattern, str)):
+        for path in _member_paths(root, pattern):
+            if path.is_dir() and path.resolve() != root.resolve() and path not in out:
+                out.append(path)
+    return out
+
+
+def _member_paths(root: Path, pattern: str) -> list[Path]:
+    """Give the paths in the root that one workspace member pattern selects."""
+    posix = PurePosixPath(pattern.replace("\\", "/"))
+    if PurePath(pattern).is_absolute() or posix.is_absolute() or ".." in posix.parts:
+        raise config.ConfigError(
+            f"{PYPROJECT}: the workspace member pattern {pattern!r} must be a relative path "
+            "in the repository. Remove an absolute path or a '..' part."
+        )
+    try:
+        found = _valid_paths(root, root.glob(pattern))
+    except (OSError, ValueError, NotImplementedError) as exc:
+        raise config.ConfigError(
+            f"{PYPROJECT}: the workspace member pattern {pattern!r} is not correct: {exc}"
+        ) from exc
+    return [path for path in found if repo_files.inside(root, path)]
 
 
 def discover_roots(root: Path) -> list[tuple[str, str]]:
@@ -119,7 +159,8 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
     ]
     for child in (child for parent in parents for child in _valid_paths(root, parent.iterdir())):
         entry = (child.relative_to(root).as_posix(), child.name)
-        if _root_dir(child) and entry not in found:
+        # A link to a folder out of the root is not a package root of the repository.
+        if _root_dir(child) and repo_files.inside(root, child) and entry not in found:
             found.append(entry)
     return found
 
@@ -235,8 +276,7 @@ class PythonRepository:
         )
 
     def project_name(self, root: Path) -> str:
-        project = pyproject(root).get("project", {})
-        name = project.get("name") if isinstance(project, dict) else None
+        name = table(pyproject(root), "project").get("name")
         return name.strip() if isinstance(name, str) else ""
 
     def parser_version(self) -> str:

@@ -25,7 +25,7 @@ import re
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
-from systemap import config, file_names
+from systemap import config, file_names, repo_files, tree_walk
 from systemap.config import ConfigError
 from systemap.typescript_config import (
     SOURCE_SKIP,
@@ -51,7 +51,7 @@ def discover_typescript_roots(root: Path) -> list[tuple[str, str]]:
     if not (root / TSCONFIG).is_file():
         return []
     folder = _include_folder(root) or next(
-        (candidate for candidate in (root / "src", root) if _has_source(candidate)), None
+        (candidate for candidate in (root / "src", root) if _source_in(root, candidate)), None
     )
     if folder is None:
         return []
@@ -75,7 +75,7 @@ def _include_folder(root: Path) -> Path | None:
         folder = _fixed_folder(settings.config_dir, pattern)
         if folder is None:
             return None
-        if not _test_folder(folder.name) and _has_source(folder):
+        if not _test_folder(folder.name) and _source_in(root, folder):
             folders.add(folder)
     return next(iter(folders)) if len(folders) == 1 else None
 
@@ -90,6 +90,12 @@ def _fixed_folder(config_dir: Path, pattern: str) -> Path | None:
     folder = Path(os.path.normpath(config_dir.joinpath(*parts)))
     inside = folder != config_dir and folder.is_relative_to(config_dir)
     return folder if inside and folder.is_dir() else None
+
+
+def _source_in(root: Path, folder: Path) -> bool:
+    """Tell if the folder is in the resolved root and has TypeScript source. A link to a
+    folder out of the root is not a root of the repository."""
+    return repo_files.inside(root, folder) and _has_source(folder)
 
 
 def _has_source(folder: Path) -> bool:
@@ -130,7 +136,7 @@ def _walk(root: Path) -> Iterator[tuple[list[str], list[str]]]:
     with a name that starts with a period, or folders with a name that is not valid UTF-8.
     It does not give a file name that is not valid UTF-8."""
     skip = SOURCE_SKIP | config.SKIP_WALK
-    for here, names, files in os.walk(root):
+    for here, names, files in tree_walk.walk(root):
         found = file_names.folders(names)
         names[:] = sorted(name for name in found if name not in skip and name[0] != ".")
         yield names, file_names.files(root, here, files, None)

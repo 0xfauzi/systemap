@@ -8,7 +8,6 @@ evidence mechanisms. The reference document lists the keys and defaults.
 from __future__ import annotations
 
 import dataclasses
-import os
 import re
 import subprocess
 import tomllib
@@ -27,6 +26,7 @@ from systemap import (
     model_load,
     repo_files,
     tool_table,
+    tree_walk,
 )
 from systemap import language as languages
 from systemap.config_paths import names as written_names
@@ -336,7 +336,7 @@ def skipped(directory: Path, names: Collection[str], package_dir: PackageDir) ->
 def walk(root: Path, package_dir: PackageDir, depth: int | None = None) -> list[Path]:
     """This function lists directories under the root, except for excluded directories."""
     out: list[Path] = []
-    for dirpath, dirnames, _files in os.walk(root):
+    for dirpath, dirnames, _files in tree_walk.walk(root):
         here = Path(dirpath)
         level = len(here.relative_to(root).parts)
         dirnames[:] = sorted(d for d in dirnames if not skipped(here / d, SKIP_WALK, package_dir))
@@ -358,7 +358,7 @@ def discover_tests(root: Path, package_dir: PackageDir) -> list[str]:
     inside a discovered test directory.
     """
     out: list[str] = []
-    for dirpath, dirnames, _files in os.walk(root):
+    for dirpath, dirnames, _files in tree_walk.walk(root):
         here = Path(dirpath)
         keep: list[str] = []
         for d in sorted(dirnames):

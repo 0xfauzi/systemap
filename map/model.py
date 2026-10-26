@@ -146,6 +146,7 @@ COMPONENTS = (
             "systemap.tsconfig_glob",
             "systemap.typescript_roots",
             "systemap.config_walk",
+            "systemap.tree_walk",
             "systemap.config_decisions",
             "systemap.config_paths",
             "systemap.tool_table",

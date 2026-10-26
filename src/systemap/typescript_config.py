@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import file_names, repo_files
+from systemap import file_names, repo_files, tree_walk
 from systemap.config import ConfigError
 from systemap.jsonc_text import strip_jsonc
 from systemap.tsconfig_glob import GlobPattern, compile_glob
@@ -628,7 +628,7 @@ def source_files(
     include declaration files. If a path below the directory is not valid UTF-8, the
     walk does not give the file. If `refused` is a list, the walk adds the file to it.
     """
-    for current, names, files in os.walk(directory):
+    for current, names, files in tree_walk.walk(directory):
         names[:] = sorted(name for name in names if name not in skip)
         found = (name for name in sorted(files) if _source_name(name))
         for name in file_names.files(directory, current, found, refused):

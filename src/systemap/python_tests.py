@@ -13,14 +13,13 @@ folder is the package of the source modules in that folder.
 from __future__ import annotations
 
 import ast
-import os
 from collections import defaultdict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import file_names, python_calls, python_repo, unknown_causes
+from systemap import file_names, python_calls, python_repo, tree_walk, unknown_causes
 from systemap.pattern_match import matches_test_pattern
 from systemap.source_text import read_problems
 
@@ -97,7 +96,7 @@ def _python_files(repo: Path, refused: list[Path]) -> Iterator[Path]:
     """Give the `.py` files of the repository in a stable sequence, without skipped folders.
 
     A file with a path that is not valid UTF-8 goes to `refused`."""
-    for current, names, files in os.walk(repo):
+    for current, names, files in tree_walk.walk(repo):
         names[:] = sorted(name for name in names if name not in python_repo.PYTHON_SKIP)
         found = (name for name in sorted(files) if name.endswith(".py"))
         for name in file_names.files(repo, current, found, refused):
