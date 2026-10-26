@@ -248,6 +248,11 @@ def _check(
         return None, [
             f"{where}: a result must be an object with the keys {', '.join(RESULT_KEYS)}."
         ]
+    if not _encodable(item):
+        return None, [
+            f"{where}: the result contains text that UTF-8 cannot encode, for example a lone "
+            "surrogate. Remove this text from the summary and from the citations."
+        ]
     request, errors = _request(item, snap, where)
     verdict, summary = item["verdict"], item["summary"]
     if verdict not in VERDICTS:
@@ -264,6 +269,18 @@ def _check(
         errors += _supported_errors(request, cited, where, verdicts, snap)
         errors += _dry_run(request, snap, where)
     return (None if errors else Result(request, verdict, tuple(cited), summary.strip())), errors
+
+
+def _encodable(item: dict[str, Any]) -> bool:
+    """Give True if UTF-8 can encode all text in the result.
+
+    JSON can give a lone surrogate, for example "\\ud800". The command writes the summary
+    and the citations as UTF-8. Thus the command examines them before it writes a file."""
+    try:
+        json.dumps(item, ensure_ascii=False).encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def _target(request: Request) -> review.Target:

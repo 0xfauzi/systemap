@@ -9,6 +9,21 @@ from systemap.schematic_labels import LABEL_JS
 from systemap.schematic_relations import RELATION_JS
 from systemap.theme import Palette
 
+# JSON keeps these characters in a string without an escape. Python
+# str.splitlines and some JavaScript parsers read them as the end of a line.
+_LINE_ENDS = {"\u2028": "\\u2028", "\u2029": "\\u2029", "\u0085": "\\u0085"}
+
+
+def line_safe(text: str) -> str:
+    """Escape U+2028, U+2029 and U+0085 in JSON text or in JavaScript string text.
+
+    The escape gives the same character to `JSON.parse` and to the script. Thus each
+    line of the script stays one line. If a page compacts the script by lines, the
+    script stays correct."""
+    for char, escape in _LINE_ENDS.items():
+        text = text.replace(char, escape)
+    return text
+
 
 def interactive_script(
     t: dict[str, Any], svg_id: str, panel_id: str, detail_json: str, variables: bool = False
@@ -33,7 +48,8 @@ def interactive_script(
     text from closing the script. Escaping `<!--` prevents a change to the
     end of the script by artifact text. With `variables`, colors use CSS tokens
     instead of literal values. The page uses `variables`, so the inspector
-    then gives sequence buttons and leaves room for the drawer Clear button."""
+    then gives sequence buttons and leaves room for the drawer Clear button.
+    `line_safe` escapes the characters that can end a line of the script."""
     # The layout audit (label boxes, card boxes) is for checkers, not the
     # page; it is dropped from the inlined copy to keep a figure small.
     parsed = json.loads(detail_json)
@@ -44,7 +60,7 @@ def interactive_script(
     parsed["_meta"] = meta
     data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
     data = json.dumps(data, ensure_ascii=False)
-    data = data.replace("</", "<\\/").replace("<!--", "\\u003c!--")
+    data = line_safe(data.replace("</", "<\\/").replace("<!--", "\\u003c!--"))
     palette = json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
     return (
         "<script>(function(){\n"

@@ -8,7 +8,8 @@ Acceptance values:
    get a second answer for the same line.
 3. A configuration with an answer without citations stays correct, and an answer with
    citations keeps them.
-4. If the writer cannot keep the other values, it writes nothing.
+4. If the writer cannot keep the other values, it writes nothing. If UTF-8 cannot encode
+   the text of an answer, the writer also writes nothing.
 5. The writer keeps the line end that the file uses (result `followup-answer-newlines`).
    For each form, a file with CRLF line ends has 0 LF without a CR after the write, and a
    file with LF line ends has 0 CR after the write.
@@ -107,6 +108,16 @@ def test_a_table_of_arrays_form_is_refused_and_nothing_changes(tmp_path: Path) -
     (tmp_path / "systemap.toml").write_text(text, encoding="utf-8")
     with pytest.raises(answer_write.AnswerWriteError, match="It wrote no file"):
         answer_write.add(tmp_path, "systemap.toml", [ENTRY])
+    assert (tmp_path / "systemap.toml").read_text(encoding="utf-8") == text
+
+
+def test_text_that_utf8_cannot_encode_is_refused_and_nothing_changes(tmp_path: Path) -> None:
+    """Acceptance 4: a lone surrogate gives AnswerWriteError, not UnicodeEncodeError (llm-3)."""
+    text = FORMS["empty"]
+    (tmp_path / "systemap.toml").write_text(text, encoding="utf-8")
+    entry = {**ENTRY, "reason": "x\ud800y"}
+    with pytest.raises(answer_write.AnswerWriteError, match="UTF-8 cannot encode"):
+        answer_write.add(tmp_path, "systemap.toml", [entry])
     assert (tmp_path / "systemap.toml").read_text(encoding="utf-8") == text
 
 
