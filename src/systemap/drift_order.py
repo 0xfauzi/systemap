@@ -41,6 +41,7 @@ from systemap import (
     decision,
     delta,
     flow_ids,
+    git_command,
     history,
     jev,
     judgement,
@@ -192,7 +193,10 @@ def reviewed_commit(root: Path, folder: str, digest: str) -> str | None:
     if not _DIGEST.fullmatch(digest):
         return None
     try:
-        sha = history.git(root, "log", f"-S{digest}", "-1", "--format=%H", "--", folder).strip()
+        # `git log -S` reads the content of each diff. Thus it gets `git_command.CONTENT`.
+        sha = history.git(
+            root, "log", f"-S{digest}", *git_command.CONTENT, "-1", "--format=%H", "--", folder
+        ).strip()
         if not _SHA.fullmatch(sha):
             return None
         # The sha agrees with _SHA, so Git cannot read it as an option. Git 2.43 and earlier
@@ -219,6 +223,7 @@ def _diff(root: Path, sha: str, paths: list[str]) -> str:
             sha,
             "--",
             *paths,
+            worktree=True,
         )
     except (delta.DeltaError, OSError):
         return ""

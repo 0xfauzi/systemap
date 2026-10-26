@@ -16,11 +16,12 @@ import os
 import subprocess
 import tempfile
 import threading
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from systemap import extraction, nest, repo_files
+from systemap import extraction, git_command, nest, repo_files
 from systemap.config import Config, ConfigError
 
 # Git tree entry modes that this reader writes.
@@ -28,6 +29,8 @@ REGULAR = ("100644", "100755")
 SYMLINK = "120000"
 # The tree reader writes a blob in parts of this size.
 CHUNK = 1 << 20
+# If `git cat-file --batch` gives no bytes for this number of seconds, the reader stops it.
+BLOB_LIMIT = git_command.TIMEOUT
 # The version of the facts at a commit. Version 2 adds `refused_paths`. The facts cache
 # scope contains this value, so a cache of version 1 is not read.
 TREE_READER = 2
@@ -38,9 +41,7 @@ class DeltaError(Exception):
 
 
 def _git(repo: Path, *args: str, stdin: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        ["git", *args], cwd=repo, input=stdin, capture_output=True, timeout=300, check=False
-    )
+    return git_command.run(repo, *args, stdin=stdin, timeout=300, error=DeltaError)
 
 
 def _stderr(proc: subprocess.CompletedProcess[bytes]) -> str:
@@ -48,9 +49,16 @@ def _stderr(proc: subprocess.CompletedProcess[bytes]) -> str:
 
 
 def resolve(repo: Path, ref: str) -> str:
-    """This function resolves a Git ref to a full commit SHA, or raises DeltaError."""
+    """This function resolves a Git ref to a full commit SHA, or raises DeltaError.
+
+    If Git writes an error, for example because it refuses the repository, the error text
+    gives the Git cause.
+    """
     proc = _git(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}")
     if proc.returncode != 0 or not proc.stdout.strip():
+        if _stderr(proc):
+            found = git_command.cause(proc.stderr, proc.returncode)
+            raise DeltaError(f"Git cannot resolve the ref {ref}. Git gave: {found}")
         raise DeltaError(f"unknown ref {ref}. Give a commit, branch, or tag that Git can resolve.")
     return proc.stdout.decode("utf-8").strip()
 
@@ -102,12 +110,15 @@ class _Blobs:
     A thread sends the requests. Thus the process does not stop for each request. The
     caller reads each blob in the order of the list. `copy` writes a blob in parts of
     `CHUNK` bytes. Thus a large blob is not in memory at one time.
+
+    A second thread stops the process if it gives no bytes for `BLOB_LIMIT` seconds.
+    Then the reader gives DeltaError with the time limit.
     """
 
     def __init__(self, repo: Path, oids: list[str]) -> None:
         self._errors = tempfile.TemporaryFile()
         self._proc = subprocess.Popen(
-            ["git", "cat-file", "--batch"],
+            git_command.command("cat-file", "--batch"),
             cwd=repo,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -115,6 +126,23 @@ class _Blobs:
         )
         self._sender = threading.Thread(target=self._send, args=(oids,), daemon=True)
         self._sender.start()
+        self._limit, self._progress, self._expired = BLOB_LIMIT, time.monotonic(), False
+        self._stopped = threading.Event()
+        threading.Thread(target=self._watch, daemon=True).start()
+
+    def _watch(self) -> None:
+        """This method stops the process if it gives no bytes in the time limit."""
+        while not self._stopped.wait(self._limit / 10):
+            if time.monotonic() - self._progress > self._limit:
+                self._expired = True
+                self._proc.kill()
+                return
+
+    def _error(self, problem: str) -> DeltaError:
+        """This method gives the error. If the watch thread stopped Git, it gives the limit."""
+        if self._expired:
+            problem = f"git cat-file did not stop in the time limit of {self._limit:g} s"
+        return DeltaError(problem)
 
     def _send(self, oids: list[str]) -> None:
         stdin = self._proc.stdin
@@ -131,6 +159,7 @@ class _Blobs:
 
     def __exit__(self, kind: type[BaseException] | None, *_rest: object) -> None:
         proc = self._proc
+        self._stopped.set()
         if kind is not None:
             proc.kill()
         self._sender.join(timeout=60)
@@ -145,20 +174,22 @@ class _Blobs:
         problem = self._errors.read().decode("utf-8", "replace").strip()
         self._errors.close()
         if kind is None and proc.returncode != 0:
-            raise DeltaError(f"git cat-file gave an error: {problem}")
+            raise self._error(f"git cat-file gave an error: {problem}")
 
     def copy(self, out: BinaryIO) -> None:
         """This method writes the next blob to `out` in parts."""
         stdout = self._proc.stdout
         assert stdout is not None
         header = stdout.readline().decode("utf-8", "replace").split()
+        self._progress = time.monotonic()
         if len(header) != 3 or header[1] != "blob":
-            raise DeltaError(f"git cat-file gave no blob: {' '.join(header)}")
+            raise self._error(f"git cat-file gave no blob: {' '.join(header)}")
         left = int(header[2])
         while left:
             part = stdout.read(min(CHUNK, left))
             if not part:
-                raise DeltaError(f"git cat-file stopped before the end of the blob {header[0]}")
+                raise self._error(f"git cat-file stopped before the end of the blob {header[0]}")
+            self._progress = time.monotonic()
             out.write(part)
             left -= len(part)
         stdout.read(1)

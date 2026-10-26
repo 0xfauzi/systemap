@@ -10,7 +10,6 @@ from __future__ import annotations
 import dataclasses
 import os
 import re
-import subprocess
 import tomllib
 from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
@@ -23,6 +22,7 @@ from systemap import (
     decision_kinds,
     file_names,
     flow_ids,
+    git_command,
     model_fields,
     model_load,
     repo_files,
@@ -383,17 +383,12 @@ def default_name(root: Path, language: str) -> str:
     if name:
         return name
     try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "--git-common-dir"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):
-        proc = None
-    if proc is not None and proc.returncode == 0 and proc.stdout.strip():
-        common = (root / proc.stdout.strip()).resolve()
+        proc = git_command.run(root, "rev-parse", "--git-common-dir", timeout=10)
+        found = "" if proc.returncode else proc.stdout.decode("utf-8", "replace").strip()
+    except git_command.GitError:
+        found = ""
+    if found:
+        common = (root / found).resolve()
         holder = common.parent.name if common.name == ".git" else common.name.removesuffix(".git")
         if holder:
             return holder

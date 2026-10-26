@@ -24,6 +24,7 @@ from systemap import (
     delta_git,
     delta_model,
     extraction,
+    git_command,
     history,
     nest,
 )
@@ -45,18 +46,28 @@ class ChangeError(Exception):
     """The program cannot make the requested source comparison."""
 
 
-def _run(args: list[str], cwd: Path) -> str:
+def _git(repo: Path, *args: str, worktree: bool = False) -> subprocess.CompletedProcess[bytes]:
+    """This function runs Git through `git_command` with a time limit of 90 seconds."""
+    return git_command.run(repo, *args, timeout=90, worktree=worktree, error=ChangeError)
+
+
+def _run(repo: Path, *args: str) -> str:
+    """This function gives the output of a Git command, or "" if Git gives an error."""
     # Git gives file contents and paths as bytes. Source is UTF-8, whatever the locale.
-    proc = subprocess.run(
-        args,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=90,
-    )
-    return proc.stdout if proc.returncode == 0 else ""
+    proc = _git(repo, *args)
+    return _text(proc.stdout, "replace") if proc.returncode == 0 else ""
+
+
+def _text(raw: bytes, errors: str) -> str:
+    """This function decodes UTF-8 with universal newlines, as the text mode of `subprocess`."""
+    return raw.decode("utf-8", errors).replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _git_cause(proc: subprocess.CompletedProcess[bytes]) -> str:
+    """This function gives " Git gave: <cause>." if Git wrote an error, or "" if not."""
+    if not proc.stderr.strip():
+        return ""
+    return f" Git gave: {git_command.cause(proc.stderr, proc.returncode)}."
 
 
 def pr_meta(repo: Path, pr: str) -> dict[str, Any]:
@@ -106,20 +117,18 @@ def _no_meta(pr: str, cause: str) -> dict[str, Any]:
 def _changed_files(repo: Path, merge_base: str, *head: str) -> list[str]:
     """This function lists changed paths. NUL delimiters keep spaces in path names.
 
-    Without a head commit, Git compares the merge base with the working tree.
+    Without a head commit, Git compares the merge base with the working tree. Then the
+    command also gets the settings that stop the filters of the repository configuration.
     """
-    proc = subprocess.run(
-        ["git", "diff", "--name-only", "-z", merge_base, *head, "--no-renames"],
-        cwd=repo,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="surrogateescape",
-        timeout=90,
+    proc = _git(
+        repo, "diff", "--name-only", "-z", merge_base, *head, "--no-renames", worktree=not head
     )
     if proc.returncode:
-        raise ChangeError(f"Git could not compare {merge_base} and {''.join(head) or WORKING_TREE}")
-    return [f for f in proc.stdout.split("\0") if f]
+        raise ChangeError(
+            f"Git could not compare {merge_base} and {''.join(head) or WORKING_TREE}."
+            f"{_git_cause(proc)}"
+        )
+    return [f for f in _text(proc.stdout, "surrogateescape").split("\0") if f]
 
 
 def _untracked_files(repo: Path) -> list[str]:
@@ -127,30 +136,35 @@ def _untracked_files(repo: Path) -> list[str]:
 
     The list does not include the systemap cache directory `.systemap/`.
     """
-    out = _run(
-        ["git", "ls-files", "--others", "--exclude-standard", "--exclude=/.systemap/", "-z"],
-        repo,
-    )
+    out = _run(repo, "ls-files", "--others", "--exclude-standard", "--exclude=/.systemap/", "-z")
     return [f for f in out.split("\0") if f]
 
 
 def _resolve(repo: Path, ref: str) -> str:
-    revision = _run(
-        ["git", "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"],
-        repo,
-    ).strip()
-    if not revision:
-        raise ChangeError(
-            f"unknown revision {ref}. Give a commit, branch, or tag that Git can resolve."
-        )
-    return revision
+    """This function gives the full commit SHA of `ref`, or raises ChangeError.
+
+    If Git writes an error, for example because it refuses the repository, the error text
+    gives the Git cause.
+    """
+    proc = _git(repo, "rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}")
+    revision = _text(proc.stdout, "replace").strip() if proc.returncode == 0 else ""
+    if revision:
+        return revision
+    if _git_cause(proc):
+        raise ChangeError(f"Git cannot resolve the revision {ref}.{_git_cause(proc)}")
+    raise ChangeError(
+        f"unknown revision {ref}. Give a commit, branch, or tag that Git can resolve."
+    )
 
 
 def _comparison_revisions(repo: Path, base: str, head: str) -> tuple[str, str, str]:
     base_revision, head_revision = _resolve(repo, base), _resolve(repo, head)
-    shared = _run(["git", "merge-base", base_revision, head_revision], repo).strip()
+    proc = _git(repo, "merge-base", base_revision, head_revision)
+    shared = _text(proc.stdout, "replace").strip() if proc.returncode == 0 else ""
     if not shared:
-        raise ChangeError(f"{base} and {head} have no common ancestor for the comparison.")
+        raise ChangeError(
+            f"{base} and {head} have no common ancestor for the comparison.{_git_cause(proc)}"
+        )
     return base_revision, head_revision, shared
 
 
