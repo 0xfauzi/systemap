@@ -3454,6 +3454,78 @@ Before this change, a request with `Host: evil.example:PORT` got status 403 with
 After the change, the same request gets status 403 with no policy header.
 The figures and the interactive figure are byte-identical before and after this change. The page and `map.json` change only in the source facts of the changed files and tests.
 
+## The A* route search of a strict search (2026-10-26)
+
+Finding scale-5: after the P3 change, `route_all` took 2.65 s on s72 (450 flows) and 10.9 s on s144 (900 flows).
+The search of each flow was a Dijkstra search. The time grows with the square of the number of flows.
+
+The change adds `route_astar.py`. A strict search now uses an A* search with a cut bound.
+A path from a node to a target crosses each row interval and each column interval between them.
+The bound adds the lowest cost of an allowed segment in each such interval.
+If all allowed segments of an interval are used, that cost is five times the length.
+The router counts the unused segments of each interval for each set of crossed regions.
+The non-strict search (the fallback) does not change.
+
+The result of the Dijkstra search is a function of the exact float distances.
+The A* search keeps the same tie rules for the end port and for the step before each state.
+Its bound is lower than the true cost by at least 0.001. Thus it calculates the exact distance of each state on a path of lowest cost.
+A state is not necessary if the other state of its node is lower by 40.001 or more.
+A first version used 40 without the 0.001. On 13 of 400 random layouts it gave a different route, because two float sums in a different sequence were different in the last bit.
+
+Other parts of the change:
+- The router finds the regions of all grid segments one time, with bisect. The comparisons are those of `_crosses`.
+- The router keeps the regions of each port stub.
+- The step lists of each state are made one time for each router.
+
+Acceptance, written before the measurement: `route_all` on s144 takes less than 4 s, the growth exponent from s72 to s144 is less than 2, and the routes are byte-identical to those of 154e395 for this repository, s36, s72, s144 and perf/huge.
+
+Method: the inputs of `route_all` for each map are written one time to a file with the placement of 154e395.
+Then `rt.py` times `route_all` and writes the routes. The base runs and the change runs take turns.
+The scripts are in the scratch folder `post-router`: `dump.py`, `rt.py`, `run.sh`, `final.sh`, `fuzz.py`, `kinds_check.py` and `figs_cmp.py`.
+The computer has 4 cores. Other processes operated during the measurements.
+
+### route_all (s)
+
+Each cell gives the values of three runs.
+
+| map | flows | 154e395 | change |
+|---|---|---|---|
+| repo | 80 | 0.41, 0.39, 0.38 | 0.14, 0.22, 0.15 |
+| s36 | 200 | 0.54, 0.54, 0.58 | 0.25, 0.28, 0.26 |
+| s72 | 450 | 2.43, 2.39, 2.41 | 1.10, 1.07, 0.95 |
+| s144 | 900 | 9.19, 9.28, 9.00 | 4.25, 4.18, 4.19 |
+| perf/huge | 450 | 2.29, 2.23, 2.29 | 1.03, 1.03, 1.02 |
+
+The growth exponent log2(t144 / t72) is 1.93 to 2.16 for the change (1.89 to 1.96 for 154e395).
+
+### States taken from the heap
+
+| map | 154e395 | change |
+|---|---|---|
+| repo | 258723 | 56701 |
+| s36 | 412877 | 155251 |
+| s72 | 1738062 | 690991 |
+| s144 | 6720106 | 3102114 |
+
+### Identity
+
+- The routes files are byte-identical to the files of 154e395 for repo, s36, s72, s144 and perf/huge, in all runs.
+- The pages and the configured figures of repo, s36 and s72 are byte-identical to those of 154e395.
+- On 2900 random layouts (50177 flows in the last 2500), the A* search and the Dijkstra search give equal routes.
+- The regions of each grid segment are equal to the result of `Router._segment` on the five maps.
+
+### Result
+
+The acceptance value for s144 is not satisfied: 4.18 to 4.25 s. The growth exponent is not less than 2.
+The change halves the time, but the time still grows with the square of the number of flows.
+The s144 map is a strip of 2 region columns. Each flow crosses a band of rows, and the path length grows with the number of flows.
+Thus also a perfect bound gives a quadratic growth. A measurement showed that a perfect bound keeps 4.3% of the states of the Dijkstra search on s72. The cut bound keeps about 40%.
+Many states are on paths that cost only a little more than the best path, for example in a parallel lane.
+These bounds did not decrease the time in a measurement:
+- A reverse search from each target card, kept between flows: the kept fields became too low after other routes used lanes, and new fields cost as much as the Dijkstra search.
+- A row DP bound with lane changes: it keeps 32% of the states, but its own cost is near the cost that it removes.
+- A zone bound with columns grouped at region edges: 35% of the states.
+
 ## TypeScript module descriptions, issue #91 (2026-10-14)
 
 `bench/typescript_descriptions.py` compares three rules on all tracked TypeScript source files, including tests but excluding declaration files.
