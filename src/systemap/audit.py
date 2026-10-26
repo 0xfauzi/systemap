@@ -39,7 +39,7 @@ Exact answers must have reviewed-evidence digests. Family answers must have
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Container, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -404,12 +404,13 @@ def run(
 # ---- answers, shared with judgement ---------------------------------------------
 
 
-def migrated(line: str) -> str:
+def migrated(line: str, present: Container[str] = ()) -> str:
     """Change a line in an earlier form to the current form (`answer_migrations`).
 
     An earlier form has the pick of the provider at the end, or a previous kind name.
+    A line in `present` is a current line, so it stays the same.
     """
-    return answer_migrations.current_line(line)
+    return answer_migrations.current_line(line, present)
 
 
 def _bare(line: str) -> str:
@@ -424,15 +425,16 @@ def is_audit_answer(answer: Answer) -> bool:
     return bool(answer.items) and all(decision_kinds.kind_of(i) in KINDS for i in answer.items)
 
 
-def _covers(answer: Answer, line: str) -> bool:
+def _covers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
     if answer.items:
-        return any(migrated(item) == line for item in answer.items)
+        return any(migrated(item, present) == line for item in answer.items)
     return decision_kinds.kind_of(line) == decision_kinds.current(answer.kind)
 
 
 def _stale(mine: list[Answer], texts: list[str]) -> list[str]:
     """Give the configured items and kinds that match no current line."""
-    stale = [i for a in mine for i in a.items if migrated(i) not in texts]
+    present = set(texts)
+    stale = [i for a in mine for i in a.items if migrated(i, present) not in present]
     return stale + [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
 
 
@@ -458,8 +460,9 @@ def _with_earlier_lines(evidence: Mapping[str, str], mine: list[Answer]) -> dict
     """
     out = dict(evidence)
     for item in (i for a in mine for i in a.items):
-        if migrated(item) in evidence:
-            out.setdefault(item, evidence[migrated(item)])
+        line = migrated(item, evidence)
+        if line in evidence:
+            out.setdefault(item, evidence[line])
     return out
 
 
@@ -476,7 +479,8 @@ def apply(
     kinds = tuple(kinds)
     mine = [a for a in given if is_audit_answer(a) and _asked_about(a, kinds)]
     texts = [x.text for x in found]
-    open_lines = [x for x in found if not any(_covers(a, x.text) for a in mine)]
+    present = set(texts)
+    open_lines = [x for x in found if not any(_covers(a, x.text, present) for a in mine)]
     return open_lines, len(found) - len(open_lines), _stale(mine, texts)
 
 
@@ -504,7 +508,8 @@ def apply_reviewed(
     accepted, pending, policies = _reviewed_audit_answers(
         mine, texts, _with_earlier_lines(evidence, mine)
     )
-    open_lines = [x for x in found if not any(_covers(a, x.text) for a in accepted)]
+    present = set(texts)
+    open_lines = [x for x in found if not any(_covers(a, x.text, present) for a in accepted)]
     stale = _stale(mine, texts)
     return Reviewed(open_lines, len(found) - len(open_lines), stale, pending, policies)
 
@@ -515,8 +520,9 @@ def _reviewed_audit_answers(
     accepted: list[Answer] = []
     pending: list[str] = []
     policies: list[str] = []
+    present = set(texts)
     for answer in mine:
-        matches = [line for line in texts if _covers(answer, line)]
+        matches = [line for line in texts if _covers(answer, line, present)]
         if not matches:
             continue
         issue = reviewed_answer_issue(answer, evidence)
@@ -530,7 +536,7 @@ def _reviewed_audit_answers(
 
 
 def _audit_policy_line(answer: Answer, matches: list[str]) -> str:
-    reviewed = {migrated(line) for line in answer.reviewed}
+    reviewed = {migrated(line, matches) for line in answer.reviewed}
     new = sum(line not in reviewed for line in matches)
     return (
         f"{answer.label} covers {len(matches)} lines at this snapshot. {new} lines are "

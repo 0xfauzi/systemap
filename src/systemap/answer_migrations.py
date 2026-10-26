@@ -34,6 +34,11 @@ For one release, an answer item in an earlier form selects the line in the curre
 more steps. `warnings` gives one warning for each item in an earlier form, and also the
 warnings for the previous decision kind names.
 
+A name or a reason in a current line can contain the text of an earlier form. Thus each
+pattern has its fixed text at its fixed position. An item that is a current line stays
+the same: the callers give the current lines as `present`. An item that is longer than
+`LONGEST_MIGRATED` also stays the same.
+
 Two earlier forms need the current lines. `current_lines` reads them:
 
 - A line that moved to a nested map. Before, the top map gave an `unknown surface` line
@@ -53,8 +58,9 @@ a line. The report gives the item as a stale answer with this cause.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Container, Iterable
 from typing import NamedTuple
 
 from systemap import decision_kinds
@@ -75,21 +81,41 @@ def _group_kind(found: re.Match[str]) -> str:
     return f"{found['head']}{kind_words(found['kind'])}s{found['rest']}"
 
 
+def _parsed(found: re.Match[str]) -> str:
+    return f"{found['line']}{found['syntax'] or found['error']}"
+
+
 _PREVIOUS_KINDS = "|".join(re.escape(name) for name in PREVIOUS)
 
-# Each earlier form, and its current form. A nested-map prefix can come before a line.
+# The parts of a line. Each pattern has its fixed text at its fixed position, and each
+# variable part has a limit. Thus a match is linear in the length of the line, and the
+# text of a name or of a reason cannot move the fixed text to a different position.
+# A nested-map prefix can come before a line.
+_MAP = r"(?:\S+: )?"
+# A file in a location: no ":", and parentheses only in pairs, as in "app/(shop)/a.ts".
+_FILE = r"[^():]*(?:\([^():]*\)[^():]*)*"
+# The location of a module record or of a test file, with the earlier line number.
+_WHERE = rf"(?:module \S+ \({_FILE}(?::\d+)?\)|test file [^:]+(?::\d+)?)"
+# A quoted value as Python `repr` gives it.
+_QUOTED = r"""(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
+# The reason of an earlier module record: a parse error, a read error, or an error name.
+_ERROR = r"(?:source could not be parsed: \w+|source could not be read: .*?|\w+)"
+_SYNTAX = "The parser could not parse the source syntax."
+
+# Each earlier form, and its current form.
 EARLIER_FORMS = (
     EarlierForm(
         "parser name",
         re.compile(
-            r"^(?P<line>(?:\S+: )?unknown surface: module \S+ .+) under Python (?P<parser>\S+)$"
+            rf"^(?P<line>{_MAP}unknown surface: module \S+ \({_FILE}(?::\d+)?\): {_ERROR})"
+            r" under Python (?P<parser>\S+)$"
         ),
         r"\g<line> (parser version \g<parser>)",
     ),
     EarlierForm(
         "npm package",
         re.compile(
-            r"^(?P<line>(?:\S+: )?unknown surface: .+ extends .+): "
+            rf"^(?P<line>{_MAP}unknown surface: [^'\"]+? extends {_QUOTED}): "
             r"the npm tsconfig package could not be read$"
         ),
         r"\g<line>: the configuration package could not be read",
@@ -97,51 +123,51 @@ EARLIER_FORMS = (
     EarlierForm(
         "language syntax",
         re.compile(
-            r"^(?P<line>(?:\S+: )?unknown surface: .+: )"
-            r"The parser could not parse the TypeScript syntax\.(?P<rest>.*)$"
+            rf"^(?P<line>{_MAP}unknown surface: {_WHERE}: )"
+            r"The parser could not parse the TypeScript syntax\."
+            r"(?P<rest>(?: Source excerpt: .*| \(parser version [^()]*\))?)$"
         ),
         r"\g<line>The parser could not parse the source syntax.\g<rest>",
     ),
     EarlierForm(
         "parser version",
         re.compile(
-            r"^(?P<line>(?:\S+: )?unknown surface: (?:module|test file) .+?)"
-            r"(?: Source excerpt: .*?)? \(parser version [^()]*\)$"
+            rf"^(?P<line>{_MAP}unknown surface: {_WHERE}: )"
+            rf"(?:(?P<syntax>{re.escape(_SYNTAX)})(?: Source excerpt: .*?)?|(?P<error>{_ERROR}))"
+            r" \(parser version [^()]*\)$"
         ),
-        r"\g<line>",
+        _parsed,
     ),
     EarlierForm(
         "source excerpt",
         re.compile(
-            r"^(?P<line>(?:\S+: )?unknown surface: (?:module|test file) .+?: "
-            r"The parser could not parse the source syntax\.) Source excerpt: .*$"
+            rf"^(?P<line>{_MAP}unknown surface: {_WHERE}: {re.escape(_SYNTAX)})"
+            r" Source excerpt: .*$"
         ),
         r"\g<line>",
     ),
     EarlierForm(
         "module line number",
-        re.compile(
-            r"^(?P<head>(?:\S+: )?unknown surface: module \S+ \([^():]+):\d+(?P<tail>\): .*)$"
-        ),
+        re.compile(rf"^(?P<head>{_MAP}unknown surface: module \S+ \({_FILE}):\d+(?P<tail>\): .*)$"),
         r"\g<head>\g<tail>",
     ),
     EarlierForm(
         "test file line number",
-        re.compile(r"^(?P<head>(?:\S+: )?unknown surface: test file [^:]+):\d+(?P<tail>: .*)$"),
+        re.compile(rf"^(?P<head>{_MAP}unknown surface: test file [^:]+):\d+(?P<tail>: .*)$"),
         r"\g<head>\g<tail>",
     ),
     EarlierForm(
         "entry kind identifier",
         re.compile(
-            r"^(?P<head>(?:\S+: )?entry point \d+ )(?P<kind>\w*_\w*)s"
-            r"(?P<rest> into .+ have no sequence.*)$"
+            rf"^(?P<head>{_MAP}entry point \d+ )(?P<kind>(?=[^\W_]*_)\w+?)s"
+            r"(?P<rest> into \S+ have no sequence \(component \S+\))$"
         ),
         _group_kind,
     ),
     EarlierForm(
         "provider pick",
         re.compile(
-            r"^(?P<line>(?:\S+: )?(?:jev|decision) "
+            rf"^(?P<line>{_MAP}(?:jev|decision) "
             r"(?:mis-fold: \S+ claims \S+|owner: \S+ is claimed by no card))"
             r"(?:, which reads like .+|; it reads like .+|; closest: .+)$"
         ),
@@ -155,7 +181,7 @@ EARLIER_FORMS = (
     EarlierForm(
         "crossing count",
         re.compile(
-            r"^(?P<head>(?:\S+: )?crossing import: \S+ imports \S+) in \d+ modules?"
+            rf"^(?P<head>{_MAP}crossing import: \S+ imports \S+) in \d+ modules?"
             r"(?P<tail> and no flow connects them)$"
         ),
         r"\g<head>\g<tail>",
@@ -163,7 +189,7 @@ EARLIER_FORMS = (
     EarlierForm(
         "package export count",
         re.compile(
-            r"^(?P<head>(?:\S+: )?unknown surface: package_export .+? -> .+?)"
+            rf"^(?P<head>{_MAP}unknown surface: package_export \S+ -> .+?)"
             r"(?: \(\+\d+ more\))?: \d+ (?P<reason>package\.json export targets have no "
             r"resolved TypeScript modules\.)$"
         ),
@@ -180,8 +206,25 @@ _RETIRED = (
 )
 
 
-def current_line(line: str) -> str:
-    """Give the current form of a line. A line in the current form stays the same."""
+# The length limit of an item that a migration can change. The longest item in
+# `[judgement] answered` of this repository has 57 characters, and the longest finding
+# line in the tests has fewer than 600 characters. A longer item stays the same.
+LONGEST_MIGRATED = 4096
+
+
+def current_line(line: str, present: Container[str] = ()) -> str:
+    """Give the current form of a line. A line in the current form stays the same.
+
+    A line in `present` is a current line, so it also stays the same. A line that is
+    longer than `LONGEST_MIGRATED` stays the same."""
+    if line in present or len(line) > LONGEST_MIGRATED:
+        return line
+    return _migrated(line)
+
+
+@functools.lru_cache(maxsize=1024)
+def _migrated(line: str) -> str:
+    """Apply each earlier form in sequence. The cache makes the work one time for each item."""
     for form in EARLIER_FORMS:
         found = form.pattern.match(line)
         if found:
@@ -190,9 +233,9 @@ def current_line(line: str) -> str:
     return line
 
 
-def current_items(items: Iterable[str]) -> tuple[str, ...]:
-    """Give the current form of each configured item."""
-    return tuple(current_line(item) for item in items)
+def current_items(items: Iterable[str], present: Container[str] = ()) -> tuple[str, ...]:
+    """Give the current form of each configured item. An item in `present` stays the same."""
+    return tuple(current_line(item, present) for item in items)
 
 
 def retired(item: str) -> str:
@@ -203,19 +246,20 @@ def retired(item: str) -> str:
 def warnings(answers: Iterable[Answered]) -> list[str]:
     """Give one warning for each previous kind name and each item in an earlier form."""
     given = list(answers)
+    items = (item for answer in given for item in (*answer.items, *answer.reviewed))
+    now = {item: current_line(item) for item in items}
     earlier = [
         item
-        for answer in given
-        for item in (*answer.items, *answer.reviewed)
-        if current_line(item) != item
+        for item, line in now.items()
+        if line != item
         and not retired(item)
         # `decision_kinds.warnings` gives the warning for a decision line.
         and decision_kinds.kind_of(item) is None
     ]
     return decision_kinds.warnings(given) + [
         f'warning: [judgement] answered uses the earlier line "{item}". Change it to '
-        f'"{current_line(item)}". Only this release reads the earlier line.'
-        for item in dict.fromkeys(earlier)
+        f'"{now[item]}". Only this release reads the earlier line.'
+        for item in earlier
     ]
 
 
@@ -226,8 +270,8 @@ MOVED_KIND = "unknown surface: "
 # A re-export target line, in the earlier form or in the current form. The key is the
 # line without the line number of the location and without the names.
 TARGET_LINE = re.compile(
-    r"^(?P<head>(?:\S+: )?unknown surface: module \S+ \(.+?)(?::\d+)?\): "
-    r"(?P<reason>the re-export target .+ is outside the extracted module set\.)"
+    rf"^(?P<head>{_MAP}unknown surface: module \S+ \({_FILE})(?::\d+)?\): "
+    rf"(?P<reason>the re-export target {_QUOTED} is outside the extracted module set\.)"
     r"(?: Names: .*)?$"
 )
 _PREFIXED = re.compile(rf"^\S+: (?P<rest>{MOVED_KIND}.*)$")
@@ -262,7 +306,7 @@ def _bare(line: str) -> str:
 def _current(item: str, present: set[str], by_bare: dict[str, list[str]]) -> str:
     # An item can also be in an earlier text form. Compare its current form. A moved item
     # becomes the current line, so the text migration does not change it.
-    now = current_line(item)
+    now = current_line(item, present)
     if now in present:
         return item
     found = by_bare.get(_bare(now), [])
