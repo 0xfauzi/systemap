@@ -26,8 +26,8 @@ shows that the name is a type. Its `defined_in` and `defined_as` stay `null`.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import Any, NamedTuple, TypeVar
 
 from systemap import unknown_causes
 from systemap.source_facts import WHOLE_MODULE, package_of
@@ -35,6 +35,9 @@ from systemap.source_facts import WHOLE_MODULE, package_of
 # The kind, the defining module, and the defining symbol of one public name.
 Definition = tuple[str, str | None, str | None]
 NOT_KNOWN: Definition = ("unknown", None, None)
+# A module and a public name of it.
+Key = tuple[str, str]
+Value = TypeVar("Value")
 
 
 def resolve_reexports(components: dict[str, Any]) -> None:
@@ -62,15 +65,53 @@ def _typed(entry: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
+class _Star(NamedTuple):
+    """The names that a `*` re-export of a module gives.
+
+    `uncertain` is true when the adapter does not know if a name is in the `*` re-export.
+    """
+
+    names: list[str]
+    known: frozenset[str]
+    uncertain: bool
+
+
+_NO_NAMES = _Star([], frozenset(), False)
+_UNREAD_NAMES = _Star([], frozenset(), True)
+
+
+class _Ref:
+    """A request for the value of another pair of a module and a name."""
+
+    __slots__ = ("key",)
+
+    def __init__(self, key: Key) -> None:
+        self.key = key
+
+
 class _Resolver:
     """This class reads the adapter records before any change, so the order of the
-    modules does not change a result."""
+    modules does not change a result.
+
+    The resolver keeps each value that it calculates, so a diamond of `*` re-exports
+    does not make the work exponential. It does not use recursive calls, so a long
+    chain of re-exports does not stop it."""
 
     def __init__(self, components: dict[str, Any]) -> None:
         self.components = components
         self.raw = {m: [dict(e) for e in r.get("names", [])] for m, r in components.items()}
         self.problems: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        self.given: dict[tuple[str, frozenset[str]], tuple[list[str], bool]] = {}
+        self.found: dict[Key, Definition] = {}
+        self.only: dict[Key, bool] = {}
+        self.star: dict[str, _Star] = {}
+        self.group: dict[str, int] = {}
+        self.members: list[list[str]] = []
+        self.cut: dict[str, dict[str, _Star]] = {}
+        self.graph = {
+            m: [e["reexport_of"] for e in names if e.get("star") and e["reexport_of"] in self.raw]
+            for m, names in self.raw.items()
+        }
+        self._star_groups()
 
     def names(self, module: str) -> list[dict[str, Any]]:
         """This function gives the public names of a module with the defining symbols."""
@@ -82,10 +123,10 @@ class _Resolver:
                 _bind(module, out, _typed(self._resolved(module, entry)), rebinds)
                 continue
             source = entry["reexport_of"]
-            given, uncertain = self.star_names(source, frozenset({module}))
-            if uncertain:
+            given = self.star_names(source, module)
+            if given.uncertain:
                 self._uncertain(module, source)
-            for name in given:
+            for name in given.names:
                 if not rebinds and name in explicit:
                     continue
                 found = self._entry(name, source, name, bool(entry.get("type_only")))
@@ -115,7 +156,7 @@ class _Resolver:
         self, name: str, source: str, symbol: str, type_only: bool = False
     ) -> dict[str, Any]:
         """Give the resolved record. A type-only link in the chain makes it type-only."""
-        kind, defined_in, defined_as = self.hop(source, symbol, frozenset())
+        kind, defined_in, defined_as = self.hop(source, symbol)
         found: dict[str, Any] = {
             "name": name,
             "kind": kind,
@@ -125,63 +166,64 @@ class _Resolver:
         }
         if kind == "module" and defined_in == f"{source}.{symbol}":
             found["reexport_of"] = defined_in
-        if type_only or self.type_only(source, symbol, frozenset()):
+        if type_only or self.type_only(source, symbol):
             found["type_only"] = True
         return found
 
-    def hop(self, source: str, symbol: str, visited: frozenset[tuple[str, str]]) -> Definition:
+    def hop(self, source: str, symbol: str) -> Definition:
         """This function follows one re-export to the symbol that defines `symbol` of
         `source`."""
+        step = self._hop(source, symbol)
+        if isinstance(step, _Ref):
+            return _evaluate(step.key, self._lookup_steps, _one_definition, NOT_KNOWN, self.found)
+        return step
+
+    def _hop(self, source: str, symbol: str) -> Definition | _Ref:
         if self._submodule(source, symbol):
             return ("module", f"{source}.{symbol}", WHOLE_MODULE)
-        return self.lookup(source, symbol, visited)
+        return _Ref((source, symbol))
 
-    def lookup(self, module: str, name: str, visited: frozenset[tuple[str, str]]) -> Definition:
-        """This function gives the defining symbol of the public name `name` of `module`."""
-        if (module, name) in visited or module not in self.raw:
-            return NOT_KNOWN
-        visited = visited | {(module, name)}
-        found = [self._definition(module, e, name, visited) for e in self._bindings(module, name)]
-        if not found:
-            return NOT_KNOWN
-        if _rebinds(self.raw[module]):
-            return found[-1][1]
-        explicit = [d for star, d in found if not star]
-        if explicit:
-            return explicit[0]
-        definitions = {d for _star, d in found}
-        return definitions.pop() if len(definitions) == 1 else NOT_KNOWN
-
-    def type_only(self, module: str, name: str, visited: frozenset[tuple[str, str]]) -> bool:
+    def type_only(self, module: str, name: str) -> bool:
         """Tell if the binding of `name` in `module` is type-only at a link of its chain.
 
-        The selected binding follows the rules of `lookup`. A type-only name has no value
-        in the emitted code, so it is not an entry point.
+        The selected binding follows the rules of `_selected`. A type-only name has no
+        value in the emitted code, so it is not an entry point.
         """
-        if (module, name) in visited or module not in self.raw:
-            return False
-        visited = visited | {(module, name)}
-        found = [
-            (bool(e.get("star")), self._type_only_link(e, name, visited))
-            for e in self._bindings(module, name)
-        ]
-        if not found:
-            return False
-        if _rebinds(self.raw[module]):
-            return found[-1][1]
-        explicit = [only for star, only in found if not star]
-        return explicit[0] if explicit else all(only for _star, only in found)
+        return bool(_evaluate((module, name), self._type_only_steps, _all_true, False, self.only))
 
-    def _type_only_link(
-        self, entry: dict[str, Any], name: str, visited: frozenset[tuple[str, str]]
-    ) -> bool:
+    def _selected(self, module: str, name: str) -> list[dict[str, Any]]:
+        """Give the bindings of `name` in `module` that select its definition.
+
+        With the source-order rule, the last binding replaces the other bindings. Without
+        it, the first named binding hides the `*` bindings. If no named binding occurs,
+        each `*` binding must give the same definition."""
+        bindings = self._bindings(module, name)
+        if _rebinds(self.raw[module]):
+            return bindings[-1:]
+        explicit = [e for e in bindings if not e.get("star")]
+        return explicit[:1] if explicit else bindings
+
+    def _lookup_steps(self, key: Key) -> list[Definition | _Ref]:
+        """Give the definition, or the next link, of each selected binding."""
+        module, name = key
+        if module not in self.raw:
+            return []
+        return [self._definition(module, e, name) for e in self._selected(module, name)]
+
+    def _type_only_steps(self, key: Key) -> list[bool | _Ref]:
+        module, name = key
+        if module not in self.raw:
+            return []
+        return [self._type_only_link(e, name) for e in self._selected(module, name)]
+
+    def _type_only_link(self, entry: dict[str, Any], name: str) -> bool | _Ref:
         if entry.get("type_only"):
             return True
         source = entry.get("reexport_of")
         if entry.get("star"):
-            return self.type_only(str(source), name, visited)
+            return _Ref((str(source), name))
         if source and entry.get("kind") == "reexport":
-            return self.type_only(str(source), str(entry.get("defined_as", name)), visited)
+            return _Ref((str(source), str(entry.get("defined_as", name))))
         return False
 
     def _bindings(self, module: str, name: str) -> list[dict[str, Any]]:
@@ -189,53 +231,108 @@ class _Resolver:
         out = []
         for entry in self.raw[module]:
             if entry.get("star"):
-                if name in self.star_names(entry["reexport_of"], frozenset({module}))[0]:
+                if name in self.star_names(entry["reexport_of"], module).known:
                     out.append(entry)
             elif entry["name"] == name and not _refers_to_itself(module, entry):
                 out.append(entry)
         return out
 
-    def _definition(
-        self, module: str, entry: dict[str, Any], name: str, visited: frozenset[tuple[str, str]]
-    ) -> tuple[bool, Definition]:
+    def _definition(self, module: str, entry: dict[str, Any], name: str) -> Definition | _Ref:
         source = entry.get("reexport_of")
         if entry.get("star"):
-            return True, self.hop(str(source), name, visited)
+            return self._hop(str(source), name)
         if not source:
-            return False, (str(entry["kind"]), module, str(entry.get("defined_as", name)))
+            return (str(entry["kind"]), module, str(entry.get("defined_as", name)))
         if entry.get("kind") == "reexport":
-            return False, self.hop(str(source), str(entry.get("defined_as", name)), visited)
+            return self._hop(str(source), str(entry.get("defined_as", name)))
         if entry.get("kind") == "unknown":
-            return False, NOT_KNOWN
-        return False, (str(entry["kind"]), str(source), WHOLE_MODULE)
+            return NOT_KNOWN
+        return (str(entry["kind"]), str(source), WHOLE_MODULE)
 
-    def star_names(self, module: str, visited: frozenset[str]) -> tuple[list[str], bool]:
-        """This function gives the names that a `*` re-export of `module` gives.
+    def star_names(self, module: str, start: str) -> _Star:
+        """This function gives the names that a `*` re-export of `module` in `start` gives.
 
-        The second value is true when the adapter does not know if a name is in the
-        `*` re-export."""
-        if module not in self.raw or module in visited:
-            return [], False
+        The names come from the modules that a chain of `*` re-exports from `module`
+        reaches. The chain does not go through `start`."""
+        if module not in self.raw or module == start:
+            return _NO_NAMES
+        if self.group[module] != self.group.get(start):
+            return self.star[module]
+        if start not in self.cut:
+            self.cut[start] = self._without(start)
+        return self.cut[start][module]
+
+    def _without(self, start: str) -> dict[str, _Star]:
+        """Give the `*` names of the modules that `start` re-exports from, in the same
+        loop as `start`. A chain of `*` re-exports that goes through `start` gives no name."""
+        group = [m for m in self.members[self.group[start]] if m != start]
+        kept = set(group)
+        graph = {m: [s for s in self.graph[m] if s in kept] for m in group}
+        settled: dict[str, _Star] = {}
+        self._fill(graph, start, settled)
+        targets = {e["reexport_of"] for e in self.raw[start] if e.get("star")}
+        return {m: settled[m] for m in targets if m in settled}
+
+    def _star_groups(self) -> None:
+        """Calculate the groups of the `*` graph and the `*` names of each module.
+
+        A loop of `*` re-exports connects the modules of a group."""
+        for members in _strong_groups(self.graph):
+            for module in members:
+                self.group[module] = len(self.members)
+            self.members.append(members)
+        self._fill(self.graph, None, self.star)
+
+    def _fill(
+        self, graph: Mapping[str, list[str]], start: str | None, out: dict[str, _Star]
+    ) -> None:
+        """Put the `*` names of each module of `graph` into `out`.
+
+        The function calculates one group at a time. Each group comes after the groups
+        that it reaches. A module that is not in `graph` gets its names from `self.star`."""
+        for members in _strong_groups(graph):
+            if len(members) > 1 or members[0] in graph[members[0]]:
+                self._settle(members, start, out)
+            else:
+                out[members[0]] = self._gather(members[0], out, start)
+
+    def _settle(self, members: list[str], start: str | None, out: dict[str, _Star]) -> None:
+        """Give the `*` names of the modules of one loop. Repeat until no set changes."""
+        for module in members:
+            out[module] = _NO_NAMES
+        changed = True
+        while changed:
+            changed = False
+            for module in members:
+                value = self._gather(module, out, start)
+                old = out[module]
+                changed = changed or value.known != old.known or value.uncertain != old.uncertain
+                out[module] = value
+
+    def _gather(self, module: str, current: Mapping[str, _Star], start: str | None) -> _Star:
+        """Give the `*` names of `module` from the names of the modules that it reaches."""
         if _unread(self.components[module]):
-            return [], True
-        if (module, visited) not in self.given:
-            self.given[module, visited] = self._star_names(module, visited)
-        return self.given[module, visited]
-
-    def _star_names(self, module: str, visited: frozenset[str]) -> tuple[list[str], bool]:
+            return _UNREAD_NAMES
         names: list[str] = []
         uncertain = False
         for entry in self.raw[module]:
             if entry.get("star"):
-                given, unsure = self.star_names(entry["reexport_of"], visited | {module})
-                kept = [name for name in given if _star_policy(entry, name) == {}]
-                names.extend(kept)
-                uncertain = uncertain or unsure or entry.get("star_export", True) is None
+                given = self._given(entry["reexport_of"], current, start)
+                names.extend(_kept(entry, given.names))
+                uncertain = uncertain or given.uncertain or entry.get("star_export", True) is None
             elif entry.get("star_export", True) is None:
                 uncertain = True
             elif entry.get("star_export", True) is not False:
                 names.append(entry["name"])
-        return list(dict.fromkeys(names)), uncertain
+        names = list(dict.fromkeys(names))
+        return _Star(names, frozenset(names), uncertain)
+
+    def _given(self, source: str, current: Mapping[str, _Star], start: str | None) -> _Star:
+        if source == start or source not in self.raw:
+            return _NO_NAMES
+        if source in current:
+            return current[source]
+        return self.star[source]
 
     def _submodule(self, source: str, name: str) -> bool:
         """This function tells if `source.name` is a module that the name refers to.
@@ -304,6 +401,17 @@ def _star_policy(entry: dict[str, Any], name: str) -> dict[str, Any]:
     return {}
 
 
+def _kept(entry: dict[str, Any], names: list[str]) -> list[str]:
+    """Give the names for which `_star_policy` gives `{}`, in the same order."""
+    if entry.get("star_export", True) is None:
+        return []
+    allowed = entry.get("star_export_names")
+    if allowed is None:
+        return names
+    listed = set(allowed)
+    return [name for name in names if name in listed]
+
+
 def _unread(record: Mapping[str, Any]) -> bool:
     """Tell if the adapter could not read or parse all of the module. Its names are then
     not known."""
@@ -362,3 +470,105 @@ def definitions(record: Mapping[str, Any], module: str, name: str) -> list[tuple
         if defined_in is not None and defined_as is not None:
             out.append((str(defined_in), str(defined_as)))
     return list(dict.fromkeys(out))
+
+
+def _one_definition(found: list[Definition]) -> Definition:
+    """Give the definition when all selected bindings give the same definition."""
+    definitions = set(found)
+    return definitions.pop() if len(definitions) == 1 else NOT_KNOWN
+
+
+def _all_true(found: list[bool]) -> bool:
+    return bool(found) and all(found)
+
+
+def _evaluate(
+    root: Key,
+    steps: Callable[[Key], Sequence[Value | _Ref]],
+    combine: Callable[[list[Value]], Value],
+    loop: Value,
+    cache: dict[Key, Value],
+) -> Value:
+    """Give the value of `root`. Use a list of open pairs, not recursive calls.
+
+    `steps` gives the values and the `_Ref` links of a pair. `combine` makes one value
+    from them. A link to an open pair is a loop and gives the value `loop`. This value
+    makes the value of each pair in the loop `loop`, so each value goes into `cache`.
+    A value is not `None`.
+    """
+    if root in cache:
+        return cache[root]
+    stack: list[tuple[Key, Iterator[Value | _Ref], list[Value]]] = [(root, iter(steps(root)), [])]
+    open_keys = {root}
+    while stack:
+        key, links, values = stack[-1]
+        link = next(links, None)
+        if link is None:
+            stack.pop()
+            open_keys.discard(key)
+            cache[key] = combine(values)
+            if stack:
+                stack[-1][2].append(cache[key])
+        elif not isinstance(link, _Ref):
+            values.append(link)
+        elif link.key in cache:
+            values.append(cache[link.key])
+        elif link.key in open_keys:
+            values.append(loop)
+        else:
+            open_keys.add(link.key)
+            stack.append((link.key, iter(steps(link.key)), []))
+    return cache[root]
+
+
+class _Groups:
+    """The strongly connected groups of a graph, with the Tarjan method and no recursion."""
+
+    def __init__(self, graph: Mapping[str, list[str]]) -> None:
+        self.graph = graph
+        self.index: dict[str, int] = {}
+        self.low: dict[str, int] = {}
+        self.stack: list[str] = []
+        self.on_stack: set[str] = set()
+        self.out: list[list[str]] = []
+
+    def visit(self, root: str) -> None:
+        self._open(root)
+        work = [(root, iter(self.graph[root]))]
+        while work:
+            node, children = work[-1]
+            child = next(children, None)
+            if child is None:
+                work.pop()
+                self._close(node, work[-1][0] if work else None)
+            elif child not in self.index:
+                self._open(child)
+                work.append((child, iter(self.graph[child])))
+            elif child in self.on_stack:
+                self.low[node] = min(self.low[node], self.index[child])
+
+    def _open(self, node: str) -> None:
+        self.index[node] = self.low[node] = len(self.index)
+        self.stack.append(node)
+        self.on_stack.add(node)
+
+    def _close(self, node: str, parent: str | None) -> None:
+        if parent is not None:
+            self.low[parent] = min(self.low[parent], self.low[node])
+        if self.low[node] != self.index[node]:
+            return
+        members: list[str] = []
+        while not members or members[-1] != node:
+            members.append(self.stack.pop())
+            self.on_stack.discard(members[-1])
+        self.out.append(members)
+
+
+def _strong_groups(graph: Mapping[str, list[str]]) -> list[list[str]]:
+    """Give the groups of modules that loops connect. A group comes after the groups
+    that it reaches."""
+    groups = _Groups(graph)
+    for node in graph:
+        if node not in groups.index:
+            groups.visit(node)
+    return groups.out
