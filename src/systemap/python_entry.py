@@ -554,8 +554,10 @@ def _module_bindings(source: str) -> dict[str, list[tuple[str, int]]] | None:
     A source that does not parse gives None.
     """
     tree = python_tree.tree(source)
-    if tree is None:
-        return None
+    return None if tree is None else _bindings_in(tree)
+
+
+def _bindings_in(tree: ast.Module) -> dict[str, list[tuple[str, int]]]:
     out: dict[str, list[tuple[str, int]]] = {}
     pending: list[ast.stmt] = list(tree.body)
     while pending:

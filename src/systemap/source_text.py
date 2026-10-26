@@ -52,9 +52,14 @@ def read(repo: Path, path: Path) -> str:
     UnicodeError.
     """
     data = repo_files.read_bytes(repo, repo_files.relative(repo, path), MAX_BYTES + 1)
+    return decode(_not_too_large(data))
+
+
+def _not_too_large(data: bytes) -> bytes:
+    """Give the bytes. More than MAX_BYTES bytes give `repo_files.TooLarge`."""
     if len(data) > MAX_BYTES:
         raise repo_files.TooLarge(repo_files.TOO_LARGE)
-    return decode(data)
+    return data
 
 
 def read_problems(path: Path, repo: Path) -> tuple[str, list[tuple[str, str]]]:

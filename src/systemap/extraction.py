@@ -312,13 +312,25 @@ def _facts_file(
 
 
 def build(cfg: Config) -> dict[str, Any]:
-    """Make facts for the tree at `cfg.root`, ready for JSON output."""
-    repo = cfg.root
+    """Make facts for the tree at `cfg.root`, ready for JSON output.
+
+    When the extraction is complete, or when it fails, the adapter removes the data that
+    it kept during the extraction.
+    """
     language = language_for(cfg)
-    roots = cfg.roots
-    prefixes = {name for _, name in roots}
     paths = _source_paths(cfg, language)
-    context = language.context(repo, paths, cfg.test_dirs, cfg.test_patterns)
+    context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
+    try:
+        return _build(cfg, language, paths, context)
+    finally:
+        language.release(context)
+
+
+def _build(
+    cfg: Config, language: LanguageAdapter, paths: dict[str, Path], context: Any
+) -> dict[str, Any]:
+    repo = cfg.root
+    prefixes = {name for _, name in cfg.roots}
     components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context)
     # Re-export kinds require every defining module to have been parsed.
     resolve_reexports(components)

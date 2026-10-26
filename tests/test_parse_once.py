@@ -159,7 +159,8 @@ def test_the_cache_gives_the_same_tree_and_the_same_error(monkeypatch: pytest.Mo
     with pytest.raises(SyntaxError) as two:
         python_tree.parse("def (:\n")
     assert one.value.lineno == two.value.lineno == 1
-    monkeypatch.setattr(python_tree, "KEPT", 10)
+    # Each of the two texts gives a tree of 5 nodes. Thus the second tree goes above 8.
+    monkeypatch.setattr(python_tree, "KEPT", 8)
     python_tree.clear()
     kept = python_tree.parse("b = 2\n")
     python_tree.parse("c = 3\n")
@@ -187,3 +188,58 @@ def test_the_syntax_digest_does_not_change_the_shared_tree() -> None:
     extract._dump_python_syntax(tree)
     assert ast.dump(tree, include_attributes=True) == before
     assert not any("_fields" in vars(node) for node in ast.walk(tree))
+
+
+def test_the_limit_counts_nodes_not_characters(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The text has 1006 characters and 5 nodes. Before the review fix, the limit counted
+    # characters, and the cache did not keep this tree.
+    monkeypatch.setattr(python_tree, "KEPT", 20)
+    python_tree.clear()
+    text = "a = '" + "x" * 1000 + "'\n"
+    assert python_tree.parse(text) is python_tree.parse(text)
+    python_tree.clear()
+
+
+def test_a_tree_larger_than_the_limit_is_removed_before_the_next_parse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Acceptance (review fix): two trees larger than the limit are not kept at one time.
+
+    Before the review fix, the cache kept 4 trees of 1 Mi nodes each. The extraction of
+    4 modules of 256Ki lines then used 2527 MB, and the base used 1211 MB.
+    """
+    monkeypatch.setattr(python_tree, "KEPT", 3)
+    python_tree.clear()
+    large = python_tree.parse("b = 2\n")
+    assert python_tree.parse("b = 2\n") is large, "the cache keeps the large tree"
+    kept_at_parse: list[int] = []
+    real = python_tree._parse
+
+    def counting(raw: str) -> Any:
+        kept_at_parse.append(len(python_tree._trees))
+        return real(raw)
+
+    monkeypatch.setattr(python_tree, "_parse", counting)
+    python_tree.parse("c = 3\n")
+    assert kept_at_parse == [0]
+    python_tree.clear()
+
+
+def test_the_extraction_removes_its_trees(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, parses: collections.Counter[str]
+) -> None:
+    """Acceptance (review fix): the cache holds 0 trees after an extraction, also after a
+    failed extraction. Before the review fix, it held all the trees (162 for systemap)."""
+    write_tree(tmp_path, ALIAS_TREE)
+    cfg = config.load(tmp_path)
+    extract.build(cfg)
+    assert sum(parses.values()) > 0
+    assert len(python_tree._trees) == 0
+
+    def fail(*args: Any) -> Any:
+        raise RuntimeError("stop")
+
+    monkeypatch.setattr(extract.PythonLanguage, "entry_points", fail)
+    with pytest.raises(RuntimeError):
+        extract.build(cfg)
+    assert len(python_tree._trees) == 0

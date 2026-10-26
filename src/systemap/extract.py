@@ -116,6 +116,11 @@ class PythonLanguage(PythonRepository):
         lists = {"entry_point_issues": entry_issues, "test_file_issues": test_issues}
         return {key: value for key, value in lists.items() if value}
 
+    def release(self, context: Any) -> None:
+        """Remove the cached syntax trees of the extraction."""
+        del context
+        python_tree.clear()
+
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         if not path.endswith(".py"):
             return None
