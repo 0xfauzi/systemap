@@ -136,7 +136,8 @@ def test_a_file_larger_than_the_limit_gives_a_size_record_and_no_parse(
 
 
 def test_a_file_at_the_limit_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    # write_bytes keeps the size at 6 bytes. write_text writes "\r\n" on Windows.
+    (tmp_path / "a.py").write_bytes(b"x = 1\n")
     monkeypatch.setattr(source_text, "MAX_BYTES", 6)
     assert source_text.read(tmp_path, tmp_path / "a.py") == "x = 1\n"
     monkeypatch.setattr(source_text, "MAX_BYTES", 5)
