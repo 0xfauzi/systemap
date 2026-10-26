@@ -184,8 +184,10 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _project(args)
     _require_roots(p)
     fresh = extraction.build(p.cfg)
-    stored = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if args.check:
+        # Only the comparison reads the stored facts. Thus an extraction can write a new
+        # facts file in place of an incorrect file.
+        stored = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
         lines, code = extract_check.report(fresh, stored, p.tree, p.cfg.prefixes)
         say(*lines)
         return code

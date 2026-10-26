@@ -171,6 +171,7 @@ COMPONENTS = (
             "systemap.extraction",
             "systemap.facts",
             "systemap.facts_file",
+            "systemap.facts_shape",
             "systemap.language",
             "systemap.python_calls",
             "systemap.python_exports",

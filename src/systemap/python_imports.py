@@ -48,23 +48,64 @@ def _python_targets(
             yield written, relative_source(module, is_package, node.level, node.module or "")
 
 
+def namespace_packages(known: Iterable[str]) -> frozenset[str]:
+    """Give each dotted package prefix of the known modules.
+
+    For the module `a.b.c`, the prefixes are `a` and `a.b`. A directory without
+    `__init__.py` is a namespace package, and a module below it resolves it. The work
+    is proportional to the length of the names, thus an extraction calculates the set
+    one time and gives it to `python_unresolved` for each module.
+    """
+    out: set[str] = set()
+    for name in known:
+        end = name.rfind(".")
+        while end >= 0:
+            out.add(name[:end])
+            end = name.rfind(".", 0, end)
+    return frozenset(out)
+
+
+class NamespaceCache:
+    """Keep the namespace packages of one module set for one extraction.
+
+    The cache calculates the set again only for a different module set object. Thus
+    the caller must not change the module set during the extraction.
+    """
+
+    def __init__(self) -> None:
+        self._known: set[str] | None = None
+        self._namespaces: frozenset[str] = frozenset()
+
+    def of(self, known: set[str]) -> frozenset[str]:
+        """Give `namespace_packages(known)`."""
+        if known is not self._known:
+            self._known = known
+            self._namespaces = namespace_packages(known)
+        return self._namespaces
+
+
 def python_unresolved(
-    raw: str, prefixes: set[str], known: set[str], module: str, is_package: bool
+    raw: str,
+    prefixes: set[str],
+    known: set[str],
+    module: str,
+    is_package: bool,
+    namespaces: frozenset[str] | None = None,
 ) -> list[str]:
     """List the local Python imports that have no module in the facts.
 
     A local import names a package root, or it is a relative import. A directory
     without `__init__.py` is a namespace package, and a module below it resolves it.
-    Third-party and standard-library imports are not in the list, because the
+    `namespaces` is `namespace_packages(known)`. If it is None, the function calculates
+    it. Third-party and standard-library imports are not in the list, because the
     extractor does not examine the installed packages. Extraction does not use this
     function for source that does not parse, because that import list is not known.
     """
     tree = python_tree.tree(raw)
     if tree is None:
         return []
-    namespaces = {
-        ".".join(name.split(".")[:end]) for name in known for end in range(1, len(name.split(".")))
-    }
+    if namespaces is None:
+        namespaces = namespace_packages(known)
     out: set[str] = set()
     for node in python_tree.walk(tree):
         for written, source in _python_targets(node, module, is_package):

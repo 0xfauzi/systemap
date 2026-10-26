@@ -12,7 +12,17 @@ import argparse
 import sys
 from collections.abc import Callable
 
-from systemap import change, decisions_submit, delta, delta_link, figure, file_write, place, review
+from systemap import (
+    change,
+    decisions_submit,
+    delta,
+    delta_link,
+    facts_shape,
+    figure,
+    file_write,
+    place,
+    review,
+)
 from systemap import language as languages
 from systemap.config import ArgumentError, ConfigError
 
@@ -21,6 +31,9 @@ STALE, BAD_CONFIG = 1, 2
 CONFIG_FIX = "Correct systemap.toml or the model module. Then run the command again."
 TSCONFIG_FIX = "Correct the tsconfig file in the message. Then run the command again."
 OPTION_FIX = "Correct the command option. Then run the command again."
+# systemap refresh and systemap extract do not read the stored facts. Thus they can
+# write a new facts file in place of an incorrect file.
+FACTS_FIX = "Use systemap refresh or systemap extract to write a new facts file."
 # The module that reads tsconfig.json files. Its errors are about those files.
 TSCONFIG_READER = "systemap.typescript_config"
 
@@ -29,6 +42,7 @@ TSCONFIG_READER = "systemap.typescript_config"
 FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (ArgumentError, OPTION_FIX, BAD_CONFIG),
     (delta_link.LinkError, OPTION_FIX, BAD_CONFIG),
+    (facts_shape.FactsError, FACTS_FIX, STALE),
     (ConfigError, CONFIG_FIX, BAD_CONFIG),
     (languages.LanguageError, CONFIG_FIX, BAD_CONFIG),
     (figure.FigureError, "", STALE),
