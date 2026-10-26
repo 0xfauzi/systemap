@@ -3218,8 +3218,10 @@ The change has these parts:
 - `drawLines` reads all lengths and boxes before the first write. It keeps the length and the box of each path for its path data.
 - The class `booting` stops all transitions in the map until the second frame after load.
 - `apply` does not write a transform that is equal to the current transform.
+- The script examines the parent of the wrapper again when the parent changes. The present mode moves the wrapper to a parent that does not clip it.
+  In that parent, the script does not move the wrapper. `tests/test_map_movement.py` examines this.
 
-Acceptance, written before the measurement: at 4x CPU on f72, the median frame interval during wheel input and during a camera tween is less than 33 ms.
+The acceptance values were written before the measurement. At 4x CPU on f72, the median frame interval during wheel input and during a camera tween is less than 33 ms.
 At 1x CPU on f72, a layer switch takes less than 150 ms. The longest task of the load is lower than before.
 After each interaction, the view transform, the label transforms and the classes are equal to the values before the change.
 
@@ -3249,7 +3251,13 @@ A tween with mouse moves over the map has them. Thus the cause is the input with
 `pointer-events: none` on the map or on the wrapper did not remove the layouts. A wheel step in the next animation frame did not remove them.
 An investigation of the Chrome layout of SVG text under a scaled wrapper is necessary.
 
-The acceptance value for the layer switch is satisfied for the median at 1x on f72, but not for the maximum of one run (163 ms).
+Thus the change fixes the camera tween (perf-2, perf-6, uiperf-2 and perf-5). For the wheel, uiperf-1 is improved, but it is not fixed. It stays an open item.
+A review run of `p3.js` on f72 at 4x CPU used pages that it made again from 65e5464 and from the change.
+During the wheel, the median rAF interval fell from 99.9 ms to 66.7 ms, and the 90th percentile fell from 133.4 ms to 100 ms. The layout count fell from 49 to 26.
+During the tweens, the median fell from 83.3 ms to 16.7 ms, and the layout count fell from 38 to 10.
+The changelog line for this change must use the word "improved" for the wheel. It can use the word "fixed" only for the camera tween.
+
+At 1x on f72, the median of the layer switch satisfies the acceptance value. The maximum of one run (163 ms) does not satisfy it.
 The longest task of a switch at 1x on f72 is 65 to 127 ms. Most of the click time is the style and the layout of the map after the class changes on about 900 lines and labels.
 The first visit to a layer also includes the route search of the group lines.
 
@@ -3271,7 +3279,8 @@ The load reads (12 `getBoundingClientRect`, 29 `getScreenCTM` and 475 `getBBox` 
 
 ### The final state is the same
 
-`dump.js` does 17 or 18 interactions on each page: wheel in and out, ctrl+wheel, drag, a two-finger pinch, two tweens, a selection, a clear, each layer, and a wheel with a selection.
+`dump.js` does 17 or 18 interactions on each page.
+These are wheel in and out, ctrl+wheel, drag, a two-finger pinch, two tweens, a selection, a clear, each layer, and a wheel with a selection.
 After each interaction, it records the view transform, the label transforms, the classes, the masks and the zoom readout. It also takes two screenshots of the map frame.
 For repo, f36 and f72, all records are equal. The screenshots after a full repaint of the map are byte-identical.
 The screenshots at the end of each gesture are byte-identical, except the load screenshot of each page and the tween to Fit on f72.

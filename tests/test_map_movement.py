@@ -30,10 +30,10 @@ function movement(page) {
     v.setAttribute = (n, x) => { if (n === 'transform') c.n++; set(n, x); };
     return c;
   }
-  function wheel(s, w) {
+  function wheel(s, w, d = -10) {
     for (let i = 0; i < 20; i++) {
       const ev = new EventImpl('wheel', {bubbles: true});
-      ev.deltaY = -10; ev.deltaMode = 0; ev.clientX = 300 + i; ev.clientY = 200;
+      ev.deltaY = d; ev.deltaMode = 0; ev.clientX = 300 + i; ev.clientY = 200;
       s.dispatchEvent(ev); runFrames(w);
     }
   }
@@ -79,6 +79,16 @@ function movement(page) {
     equal: view().getAttribute('transform') === ref.svg.querySelector('.view').getAttribute('transform'),
     labelsEqual: JSON.stringify(labels(svg)) === JSON.stringify(labels(ref.svg)),
     wrapperAfter: svg.parentNode.getAttribute('style') || ''};
+  // The present mode moves the wrapper to a parent that does not clip it, and then back.
+  const frame = svg.parentNode.parentNode, other = win.document.createElement('div');
+  frame.appendChild(other); other.appendChild(svg.parentNode);
+  c.n = 0; wheel(svg, win, 10);
+  out.moved = {during: c.n, wrapper: svg.parentNode.style.transform || ''};
+  flush();
+  frame.appendChild(svg.parentNode);
+  c.n = 0; wheel(svg, win, 10);
+  out.moved.backDuring = c.n; out.moved.backWrapper = svg.parentNode.style.transform || '';
+  flush();
   // A line reveal: the order of the layout reads and the writes.
   const log = [];
   const proto = Object.getPrototypeOf(svg);
@@ -129,6 +139,15 @@ def test_a_movement_writes_the_drawing_transform_one_time(sample: Sample, tmp_pa
     # Before the change, the tween wrote the transform at each frame of 20 ms.
     assert tween["writes"] == 1 and tween["refWrites"] > 10
     assert tween["equal"] and tween["labelsEqual"] and tween["wrapperAfter"] == ""
+
+
+@needs_node
+def test_the_wrapper_moves_only_in_a_parent_that_clips_it(sample: Sample, tmp_path: Path) -> None:
+    moved = drive(sample_page(sample, tmp_path), tmp_path)["moved"]
+    # Before the change, the page kept the result of the first check. Thus the
+    # wrapper moved also in a parent that does not clip it.
+    assert moved["during"] == 20 and moved["wrapper"] == ""
+    assert moved["backDuring"] == 0 and "scale(" in moved["backWrapper"]
 
 
 @needs_node

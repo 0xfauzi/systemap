@@ -213,14 +213,18 @@ function whenStill(fn){
 // matrix and the scale from the start of the movement. At the end, `land` writes
 // the drawing transform one time, and the labels change one time. The script uses
 // the wrapper only if its parent element clips it, as the map frame of the page does.
-// `shown` is the view in the drawing transform.
+// The present mode moves the wrapper to a different parent. Thus `clipsFor` keeps the
+// parent of the last check. `shown` is the view in the drawing transform.
 var wrap = PAGE && svg.parentNode && svg.parentNode.style ? svg.parentNode : null;
-var clips = null, live = null, shown = {k:1, tx:0, ty:0}, gesture = false, landSoon = 0;
+var clips = false, clipsFor = null;
+var live = null, shown = {k:1, tx:0, ty:0}, gesture = false, landSoon = 0;
 var LAND_MS = 120;
 function canGlide(){
-  if(clips === null){
-    var c = wrap && wrap.parentNode, s = c && window.getComputedStyle ? getComputedStyle(c) : null;
+  var c = wrap && wrap.parentNode;
+  if(c !== clipsFor){
+    var s = c && window.getComputedStyle ? getComputedStyle(c) : null;
     clips = !!(s && (s.overflow === 'hidden' || s.overflowX === 'hidden'));
+    clipsFor = c;
   }
   return clips && !!view;
 }
