@@ -1,27 +1,32 @@
 """Tests for the route search (audit finding scale-5).
 
 Acceptance:
-- The new search gives the same routes as the earlier Dijkstra search of commit 65e5464.
+- The search gives the same routes as the earlier Dijkstra search of commit 65e5464.
   The test compares a SHA-256 digest of the routes with the digest of that commit. The
   maps have used lanes, used ports, a block, and flows that must cross an unrelated
   region.
-- The search examines the regions of each grid segment one time for each router. The
-  earlier search examined them for each step of each search.
-
-This change makes each step of the search faster. It does not decrease the number of
-states that the search examines. Thus scale-5 is only partly fixed.
+- The router finds the regions of each grid segment one time, with the comparisons of
+  Router._segment.
+- The A* search of a strict search gives the same routes as the Dijkstra search on
+  random layouts. Some of these layouts have two paths whose float costs are different
+  only in the last bit.
+- The A* search takes fewer states from the heap than the Dijkstra search.
 """
 
 from __future__ import annotations
 
 import hashlib
+import heapq
+import random
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 
-from systemap import route
+from systemap import route, route_search
 from systemap.route import Box, Router, route_all
+from systemap.route_astar import Cuts
+from systemap.route_search import Found, Port
 
 Layout = tuple[
     list[tuple[str, str]],
@@ -100,7 +105,7 @@ def test_the_search_gives_the_routes_of_the_earlier_search(
     assert _digest(layout) == EARLIER[name]
 
 
-def test_the_search_examines_the_regions_of_a_segment_one_time(
+def test_the_router_finds_the_regions_of_each_segment_one_time(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = [0]
@@ -111,16 +116,96 @@ def test_the_search_examines_the_regions_of_a_segment_one_time(
         return segment(self, orient, key)
 
     monkeypatch.setattr(Router, "_segment", counted)
-    routers: list[Router] = []
-
-    def made(*args: Any) -> Router:
-        routers.append(Router(*args))
-        return routers[-1]
-
-    monkeypatch.setattr(route, "Router", made)
     layout = _regions_layout()
+    router = Router(*layout[1:])
     route_all(*layout)
     # The earlier search called _segment 428362 times on this layout: one call for
-    # each open step of each search. The new search calls it one time for each segment.
-    # The grid has fewer than 2 * nx * ny segments.
-    assert calls[0] <= 2 * routers[0]._nx * routers[0]._ny
+    # each open step of each search. The router now finds all regions at the start.
+    assert calls[0] == 0
+    grid = router.grid
+    found = [frozenset(segment(router, orient, key)) for orient, key in grid.segments]
+    assert [grid.regions[kind] for kind in grid.kind] == found
+    assert sum(1 for regions in found if regions) > 100
+
+
+def _random_cards(rng: random.Random) -> tuple[dict[str, Box], tuple[float, float]]:
+    """Give cards in a grid with random gaps, and the canvas."""
+    cols, rows = rng.randint(2, 6), rng.randint(2, 6)
+    gx, gy = rng.choice([40.0, 60.0, 80.0, 120.0]), rng.choice([36.0, 50.0, 80.0, 140.0])
+    cards: dict[str, Box] = {}
+    for c in range(cols):
+        for r in range(rows):
+            if rng.random() < 0.15:
+                continue
+            x = 40.0 + c * (150.0 + gx) + rng.choice([0.0, 3.5, 7.25])
+            cards[f"c{c}_{r}"] = (x, 60.0 + r * (56.0 + gy), 150.0, 56.0)
+    return cards, (80.0 + cols * (150.0 + gx), 120.0 + rows * (56.0 + gy))
+
+
+def _random_regions(
+    rng: random.Random, cards: dict[str, Box]
+) -> tuple[dict[str, Box], dict[str, str]]:
+    """Give regions around random groups of cards. The regions can overlap."""
+    regions: dict[str, Box] = {}
+    region_of: dict[str, str] = {}
+    for k in range(rng.randint(0, 4)):
+        members = rng.sample(sorted(cards), min(len(cards), rng.randint(1, 4)))
+        x0 = min(cards[m][0] for m in members)
+        y0 = min(cards[m][1] for m in members)
+        x1 = max(cards[m][0] for m in members) + 150.0
+        y1 = max(cards[m][1] for m in members) + 56.0
+        pad = rng.choice([10.0, 20.0, 25.5])
+        regions[f"r{k}"] = (x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad)
+        region_of.update((m, f"r{k}") for m in members)
+    return regions, region_of
+
+
+def _random_layout(seed: int) -> Layout:
+    """Give a random layout with cards in a grid, regions, a block, and flows."""
+    rng = random.Random(seed)
+    cards, canvas = _random_cards(rng)
+    ids = sorted(cards)
+    regions, region_of = _random_regions(rng, cards)
+    pairs = [(rng.choice(ids), rng.choice(ids)) for _ in range(rng.randint(5, 40))]
+    edges = [(a, b) for a, b in pairs if a != b]
+    blocks: list[Box] = []
+    if rng.random() < 0.3:
+        blocks.append((rng.uniform(0, 300), rng.uniform(0, 300), 60.0, 20.0))
+    actors = set(rng.sample(ids, min(len(ids), rng.randint(0, 2))))
+    return edges, cards, actors, blocks, regions, region_of, canvas
+
+
+def _dijkstra(cuts: Cuts, allowed: set[str], ports: tuple[list[Port], list[Port]]) -> Found | None:
+    return route_search.search(cuts.grid, lambda orient, key: set(), allowed, True, ports)
+
+
+# Seeds 27, 56 and 93 have paths whose float costs are different only in the last bit.
+# A search that does not keep the exact float sums gives a different route for them.
+@pytest.mark.parametrize("seed", [27, 56, 93, 97, 168, *range(12)])
+def test_the_astar_search_gives_the_routes_of_the_dijkstra_search(
+    seed: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    layout = _random_layout(seed)
+    found = repr(route_all(*layout))
+    monkeypatch.setattr(route, "astar", _dijkstra)
+    assert found == repr(route_all(*layout))
+
+
+def test_the_astar_search_takes_fewer_states_from_the_heap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pops = [0]
+    pop = heapq.heappop
+
+    def counted(heap: list[Any]) -> Any:
+        pops[0] += 1
+        return pop(heap)
+
+    monkeypatch.setattr(heapq, "heappop", counted)
+    layout = _cards_layout()
+    route_all(*layout)
+    astar = pops[0]
+    pops[0] = 0
+    monkeypatch.setattr(route, "astar", _dijkstra)
+    route_all(*layout)
+    assert astar * 2 < pops[0]

@@ -296,7 +296,12 @@ COMPONENTS = (
         source_review="a2ec0b08c28fd3f680af81012af8c144916fa387268e10fc58653c1a73047aa2",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
-        implemented_by=("systemap.route", "systemap.route_search", "systemap.seat_grid"),
+        implemented_by=(
+            "systemap.route",
+            "systemap.route_astar",
+            "systemap.route_search",
+            "systemap.seat_grid",
+        ),
         entry="route_all",
         region="draw",
         x=698,
