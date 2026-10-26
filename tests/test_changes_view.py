@@ -132,6 +132,34 @@ def test_a_selected_component_with_changed_source_gives_its_rules(
     assert "Rules for this component" not in report["Reader"]
 
 
+SOURCE_CARD = r"""
+function sourcecard(page) {
+  const {doc} = page, A = doc.getElementById('changemap').systemap;
+  A.select('Reader');
+  return {text: doc.getElementById('change-panel').textContent};
+}
+"""
+
+
+def test_a_type_name_that_is_an_object_key_gives_the_source_card(
+    sample: Sample, tmp_path: Path
+) -> None:
+    """Audit finding g1page-2. Before the change, the type name `constructor` without a
+    category stopped the card script with a TypeError."""
+    surface = {
+        "added": {"types": ["constructor", "__proto__", "toString", "Plain"]},
+        "categories": {"Plain": ["type_alias"], "toString": ["hasOwnProperty"]},
+    }
+    ch = {**COMPARISON, "per_component": {"Reader": {**COMPARISON["per_component"]["Reader"]}}}
+    ch["per_component"]["Reader"]["surface"] = surface
+    html = page.build(sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, ch)
+    report = drive(html, tmp_path, "#changes", "sourcecard", SOURCE_CARD)
+    assert (
+        "Added types: constructor, __proto__, toString (hasOwnProperty), Plain (type alias)."
+        in report["text"]
+    )
+
+
 # ---- the map changes: the model at the comparison base against the page model ---------
 
 CONFIG = """

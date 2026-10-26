@@ -27,7 +27,10 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # "The route search of the group lines on a large map").
     # The movement layer, the line shapes and the load class add 2,504 bytes
     # (bench/jev/README.md, "Map movement, layer switch and load").
-    assert len(html.encode("utf-8")) < 331 * 1024
+    # The grid and the number limit of the sequence marks add 1,851 bytes
+    # (bench/jev/README.md, "The step numbers of a long sequence").
+    # The page with both changes is 339,850 bytes. The limit is the next whole KiB.
+    assert len(html.encode("utf-8")) < 332 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched
     assert '<link rel="icon" href="data:image/svg+xml,' in html

@@ -488,6 +488,7 @@ all('path.flow', svg).forEach(function(p){
     stroke:p.getAttribute('stroke'), head:p.getAttribute('marker-end'),
     pts:polyline(p.getAttribute('d'))};
 });
+var CARDS = Object.keys(CARD);
 function walk(pts, step, trim){
   // Points along a path, every `step` units, without `trim` units at each end.
   var segs = [], total = 0, out = [];
@@ -538,12 +539,13 @@ function textWidth(text, cls, size){
 }
 
 // ---- marks ------------------------------------------------------------------
-var placed = [];
+var placed = grid();
 function clearMarks(){
   // The step numbers keep off the region and container labels at their layout size.
   empty(lines); empty(marks);
-  placed = [].map.call(svg.querySelectorAll('.zone__h,.box__h'), function(g){
-    var b = g.getBBox(); return {x:b.x, y:b.y, w:b.width, h:b.height}; });
+  placed = grid();
+  [].forEach.call(svg.querySelectorAll('.zone__h,.box__h'), function(g){
+    var b = g.getBBox(); placed.add({x:b.x, y:b.y, w:b.width, h:b.height}); });
 }
 function showMarks(on){
   lines.style.display = on ? '' : 'none'; marks.style.display = on ? '' : 'none'; }
@@ -569,22 +571,25 @@ function tag(id, word, kind, shift){
   g.appendChild(mk('rect', {width:w, height:h, rx:3}));
   g.appendChild(mk('text', {x:w / 2, y:14}, word));
   marks.appendChild(g);
-  placed.push({x:x, y:y, w:w, h:h});
+  placed.add({x:x, y:y, w:w, h:h});
   return w + 6;
 }
 function pillScore(rect, c, spec, ctx){
   var sc = c.mid * 6 + Math.abs(c.t - 0.5) * 8 - Math.min(c.run, 200) / 25;
   if(spec.label && !c.flat){ sc += 6; }
-  Object.keys(CARD).forEach(function(id){
+  CARDS.forEach(function(id){
     if(hit(rect, CARD[id], 3)){ sc += ctx.ids[id] ? 1000 : 400; } });
   // A number over another label hides both: worse than a number on a card border.
-  placed.forEach(function(q){ if(hit(rect, q, 3)){ sc += 1500; } });
-  ctx.dots.forEach(function(p){ if(p.edge !== spec.edge && inside(p, rect)){ sc += 3; } });
-  return sc;
+  sc = addEach(sc, 1500, placed.count(rect, 3, function(q){ return hit(rect, q, 3); }));
+  return addEach(sc, 3, ctx.dots.count(rect, 0, function(p){
+    return p.edge !== spec.edge && inside(p, rect); }));
 }
 function bestSpot(spec, ctx){
-  var best = null;
-  walk(PATH[spec.edge].pts, 6, 16).forEach(function(c){
+  var best = null, spots = walk(PATH[spec.edge].pts, 6, 16);
+  // On a sequence with more than LONG steps, the script examines about 40 places on a line.
+  var every = ctx.long ? Math.ceil(spots.length / 40) : 1;
+  spots.forEach(function(c, k){
+    if(k % every){ return; }
     (spec.label ? ['r', 'l'] : ['r']).forEach(function(side){
       var x = side === 'r' ? c.x - spec.h / 2 : c.x - spec.w + spec.h / 2;
       var rect = {x:x, y:c.y - spec.h / 2, w:spec.w, h:spec.h};
@@ -623,7 +628,7 @@ function pill(spec, ctx){
       'text-anchor':at.side === 'r' ? 'start' : 'end'}, spec.label));
   }
   marks.appendChild(g);
-  placed.push(at.rect);
+  placed.add(at.rect);
   return g;
 }
 function calloutBox(no, e, say){
@@ -638,12 +643,12 @@ function calloutBox(no, e, say){
 }
 function calloutScore(r, c, leader, ctx){
   var sc = Math.abs(c.t - 0.5) * 10;
-  Object.keys(CARD).forEach(function(id){
+  CARDS.forEach(function(id){
     if(hit(r, CARD[id], 6)){ sc += ctx.step[id] ? 5000 : (ctx.ids[id] ? 300 : 120); }
     if(inside(leader, CARD[id])){ sc += 200; }
   });
-  placed.forEach(function(q){ if(hit(r, q, 4)){ sc += 400; } });
-  ctx.dots.forEach(function(p){ if(inside(p, r)){ sc += 4; } });
+  sc = addEach(sc, 400, placed.count(r, 4, function(q){ return hit(r, q, 4); }));
+  sc = addEach(sc, 4, ctx.dots.count(r, 0, function(p){ return inside(p, r); }));
   if(VB && (r.x < VB.x + 8 || r.y < VB.y + 8 || r.x + r.w > VB.x + VB.width - 8
     || r.y + r.h > VB.y + VB.height - 8)){ sc += 3000; }
   var a = ctx.area;
@@ -680,9 +685,16 @@ function callout(no, st, ctx){
     y2:best.end.y}), made.obj);
   g.insertBefore(mk('circle', {'class':'seq-leader-dot', cx:best.c.x, cy:best.c.y, r:3.2}),
     made.obj);
-  placed.push(best.r);
+  placed.add(best.r);
   return {g:g, rect:best.r};
 }
+// A sequence with more than LONG steps has numbers on LONG steps only: the steps near the
+// current step, or the first steps of the whole route. Each number also examines fewer
+// places. The time to place a number increases with the quantity of numbers and lines.
+// On a map with 72 components and 450 flows, a route with 40 steps took 96 to 117 ms.
+// A route with 200 steps took 199 to 504 ms with all numbers.
+var LONG = 40;
+function numbered(n, s){ return n > LONG ? Math.max(0, Math.min(s - LONG / 2, n - LONG)) : 0; }
 function lineKind(k, s){ return s < 0 ? 'route' : (k < s ? 'was' : (k > s ? 'later' : 'now')); }
 function drawRoute(o){
   // o: {j, s (the current step, or -1 for the whole route), present, area}
@@ -702,16 +714,16 @@ function drawRoute(o){
     if(!PATH[st.edge] || (o.present && kind === 'later')){ return; }
     if(!kinds[st.edge] || rank[kind] > rank[kinds[st.edge]]){ kinds[st.edge] = kind; }
   });
-  var drawn = [], dots = [];
+  var drawn = [], dots = grid(), seen = Object.create(null);
   ['later', 'was', 'route'].forEach(function(kind){
     steps.forEach(function(st){
-      if(kinds[st.edge] !== kind || drawn.some(function(d){ return d.edge === st.edge; })){
-        return; }
+      if(kinds[st.edge] !== kind || seen[st.edge]){ return; }
+      seen[st.edge] = true;
       drawn.push({edge:st.edge, path:drawLine(st.edge, kind)});
     });
   });
   Object.keys(kinds).forEach(function(edge){
-    walk(PATH[edge].pts, 8, 0).forEach(function(p){ p.edge = +edge; dots.push(p); }); });
+    walk(PATH[edge].pts, 8, 0).forEach(function(p){ p.edge = +edge; dots.add(p); }); });
   var tagged = Object.create(null), first = steps[0], start = first ? ((first.acts || [])[0]
     || (A.edges[first.edge] || {}).from) : '';
   if(cur){
@@ -721,13 +733,14 @@ function drawRoute(o){
       'MEASURES', 'meas', tagged[id] || 0); });
   }
   if(start && !tagged[start]){ tag(start, 'START', s < 0 ? 'first' : 'start', 0); }
-  var ctx = {ids:ids, step:step, dots:dots, area:o.area}, note = null, pills = [];
+  var ctx = {ids:ids, step:step, dots:dots, area:o.area, long:steps.length > LONG};
+  var note = null, pills = [];
   if(cur && !o.present){ note = callout(s + 1, cur, ctx); }
-  var specs = [];
+  var specs = [], from = numbered(steps.length, s);
   if(cur && o.present){ specs.push({edge:cur.edge, n:s + 1, kind:'now', label:''}); }
   steps.forEach(function(st, k){
     var kind = lineKind(k, s), e = A.edges[st.edge];
-    if(k === s || (o.present && kind === 'later')){ return; }
+    if(k === s || (o.present && kind === 'later') || k < from || k >= from + LONG){ return; }
     specs.push({edge:st.edge, n:k + 1, kind:kind, label:e ? e.art : ''});
   });
   // The shortest lines have the fewest places for a number: they go first.

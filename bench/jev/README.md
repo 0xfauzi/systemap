@@ -3294,7 +3294,57 @@ Outside the script and style elements, the three pages are byte-identical.
 The sample page of `tests/test_render.py` changes from 335,455 bytes to 337,959 bytes, an increase of 2,504 bytes.
 The earlier limit of 328 KiB (335,872 bytes) had 417 bytes of space. Thus the change cannot pass the earlier limit.
 The new limit, 331 KiB (338,944 bytes), is the next whole KiB above the measured page (330.0 KiB).
+
+## The step numbers of a long sequence (2026-10-26)
+
+Finding g1page-1: at commit 65e5464, the place of each step number on the map was a scan of all line points and all marks on the map.
+The work increased with the square of the route length, and the sequence script had no step limit.
+
+The change puts the line points and the marks in a grid of 32-unit cells (`GRID_JS` in `page_sequence_script.py`).
+A score reads only the items near the box. The score adds the same values in the same order as before.
+A sequence with more than 40 steps has numbers on 40 steps only: the first 40 steps of the whole route, or the 40 steps near the current step.
+The legend gives these steps. For such a sequence, a number examines about 40 places on its line.
+
+Acceptance, written before the change: at 1x CPU on the page with 72 components and 450 flows, a click on a route of 200 steps takes less than 300 ms.
+The marks of each sequence of this repository are byte-identical to the marks of 65e5464.
+
+Method: headless Chromium at 1600 by 900 pixels. A synthetic sequence of N steps uses N different flows.
+The time is the synchronous time of `P.journey.route`, `P.journey.start` and one `P.journey.stepBy(1)`.
+The scripts are in the scratch folder `p3-pageseq`: `seqperf.js`, `marks.js`, `cmpmarks.py` and `incl.js`.
+
+### Click times (ms)
+
+Each cell gives route / start / step. The change has three runs.
+
+| N | 65e5464 | change, run 1 | change, run 2 | change, run 3 |
+|---|---|---|---|---|
+| 6 | 134 / 220 / 130 | 85 / 85 / 82 | 95 / 99 / 73 | 82 / 58 / 74 |
+| 50 | 2614 / 1483 / 1637 | 75 / 85 / 107 | 86 / 102 / 122 | 66 / 78 / 91 |
+| 100 | 6615 / 6521 / 7096 | 120 / 102 / 108 | 125 / 76 / 128 | 83 / 81 / 102 |
+| 200 | 27261 / 26186 / 28309 | 187 / 111 / 105 | 128 / 93 / 135 | 117 / 87 / 168 |
+| 1000 | not measured | 361 / 228 / 290 | 367 / 198 / 199 | 286 / 185 / 235 |
+
+With the grid only, 200 steps took 828 / 579 / 517 ms.
+With the grid and fewer places, but with all numbers, 200 steps took 199 to 504 ms in six runs. Thus the number limit is necessary.
+With the grid only, 40 steps took 112 / 96 / 102 ms. This is the limit of 40 steps.
+
+### The marks are the same
+
+`marks.js` writes the lines and marks of the whole route and of each step of each sequence.
+For the 15 sequences of this repository (78 views), the data of the change is byte-identical to the data of 65e5464.
+On the page with 450 flows, the views of the four sequences of the page and of synthetic sequences of 6 and 25 steps are byte-identical.
+The views of a synthetic sequence of 50 steps are different, because of the number limit.
+The map.json file and the three SVG figures of this repository are byte-identical. On the page, the only changed lines are lines of the sequence script.
+
+### Page size
+
+The sample page of `tests/test_render.py` changes from 335,455 bytes to 337,306 bytes, an increase of 1,851 bytes.
+The earlier limit of 328 KiB (335,872 bytes) had 417 bytes of space. Thus the change cannot pass the earlier limit.
+The new limit, 330 KiB (337,920 bytes), is the next whole KiB above the measured page (329.4 KiB).
 The maintainer must accept or refuse this new limit.
+
+After the merge with the change of "Map movement, layer switch and load", the sample page is 339,850 bytes (331.9 KiB).
+Thus the merged limit is 332 KiB (339,968 bytes).
 
 ## TypeScript module descriptions, issue #91 (2026-10-14)
 
