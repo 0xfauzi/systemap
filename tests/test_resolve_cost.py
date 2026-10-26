@@ -160,8 +160,10 @@ def test_the_method_names_do_not_change(signature: str, name: str) -> None:
 
 
 def test_a_deeply_nested_package_json_gives_a_configuration_error(tmp_path: Path) -> None:
-    # Before the change, 5000 nested arrays gave RecursionError, not ConfigError.
-    value = "[" * 5000 + '"./a.js"' + "]" * 5000
+    # Before the change, deep nested arrays gave RecursionError, not ConfigError.
+    # Python 3.13 parses 5000 levels. 200000 levels give RecursionError on 3.11 and 3.13.
+    depth = 200_000
+    value = "[" * depth + '"./a.js"' + "]" * depth
     (tmp_path / "package.json").write_text('{"name": "web", "exports": ' + value + "}")
     with pytest.raises(ConfigError, match="could not read .*package.json"):
         package_json(tmp_path)

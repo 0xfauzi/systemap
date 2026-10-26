@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import write_tree
@@ -126,9 +127,16 @@ def deep() -> Iterator[Deep]:
 
     def make(root: Path, levels: int) -> Path:
         folder = root
-        for _ in range(levels):
+        for level in range(levels):
             folder = folder / "d"
-            folder.mkdir(parents=True)
+            try:
+                folder.mkdir(parents=True)
+            except OSError as exc:
+                # macOS (1024 bytes) and Windows limit the length of a full path. Such
+                # a system cannot hold this chain, so the test does not apply there.
+                if level < 100:
+                    raise
+                pytest.skip(f"the system refuses a path of {level + 1} levels: {exc}")
             made.append(folder)
         return folder
 
@@ -173,14 +181,32 @@ def test_a_walk_that_stops_above_the_limit_gives_no_error(
     assert len(config.walk(root, python_repo.package_dir, depth=3)) == 3
 
 
-def test_a_recursive_member_pattern_over_a_very_deep_tree_is_a_config_error(
-    tmp_path: Path, deep: Deep
+def test_a_recursion_error_from_a_member_pattern_is_a_config_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Before the change, Path.glob("pkgs/**") gave RecursionError at about 985 levels.
+    # Python 3.11 Path.glob("pkgs/**") calls itself for each level and gave RecursionError
+    # at about 985 levels. Python 3.13 does not recurse. Thus the error is injected here.
     root = _repo(tmp_path, '[tool.uv.workspace]\nmembers = ["pkgs/**"]\n')
-    deep(root / "pkgs", 1000)
+    (root / "pkgs").mkdir(parents=True, exist_ok=True)
+
+    def recursing(self: Path, pattern: str) -> Any:
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(Path, "glob", recursing)
     with pytest.raises(config.ConfigError, match="is not correct"):
         python_repo.discover_roots(root)
+
+
+def test_a_recursive_member_pattern_over_a_very_deep_tree_gives_no_traceback(
+    tmp_path: Path, deep: Deep
+) -> None:
+    # Python 3.11 gives a ConfigError. Python 3.13 reads the tree. Neither gives a traceback.
+    root = _repo(tmp_path, '[tool.uv.workspace]\nmembers = ["pkgs/**"]\n')
+    deep(root / "pkgs", 1000)
+    try:
+        python_repo.discover_roots(root)
+    except config.ConfigError as exc:
+        assert "is not correct" in str(exc)
 
 
 def test_the_walk_gives_the_steps_of_os_walk(tmp_path: Path) -> None:
