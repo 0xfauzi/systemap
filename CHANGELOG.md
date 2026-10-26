@@ -19,6 +19,14 @@ A layer is a filtered view of the map.
 
 ### Changes
 
+- `systemap extract` resolves `*` re-exports in a time that increases slowly with the size of the `*` graph.
+  Previously, a diamond of 40 files with `export *` made extraction run for 108 s.
+  A chain of 300 files with `export *` stopped extraction with a `RecursionError`.
+  In a loop of `*` re-exports, each module now examines each module of the loop one time.
+- In a loop of `*` re-exports, the order of the names of a module in `map.json` can change one time.
+  The names come in the order of the records that give them. The names and the unknown records do not change.
+  Thus the evidence digests of these modules can change one time.
+
 - `judgement --order-by-drift` uses the provider selected by `[decisions] provider` or `--provider`.
   Previously, it always sent questions to Jev when `TYPESAFE_API_KEY` was set.
   OpenAI has no measured drift result. When OpenAI is selected, the command sends no data and gives the cause.

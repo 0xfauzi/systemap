@@ -14,6 +14,11 @@ Acceptance values:
 - A chain of 3000 `*` re-exports: the resolver completes without a `RecursionError`.
 - A loop of `*` re-exports: each module gets the names of the other modules of the
   loop, with their defining modules.
+- A two-way loop of 100 modules: the resolver examines the records of a module not
+  more than 2 * 100 * 100 times in total. The resolver of commit cd5fb1d calculated
+  the loop again for each module, with full passes until no set changed.
+- In a loop, a `*` record with `star_export_names` limits the names that go through it,
+  and the names have the order of the records.
 """
 
 from __future__ import annotations
@@ -142,3 +147,83 @@ def test_a_loop_of_named_reexports_gives_no_definition() -> None:
                 "defined_as": None,
             }
         ]
+
+
+def _ring(count: int, steps: tuple[int, ...]) -> dict[str, Any]:
+    """Give a loop of `count` modules. Module `i` defines `x<i>` and re-exports `*` from
+    module `i + step` for each step."""
+    components: dict[str, Any] = {}
+    for index in range(count):
+        names: list[dict[str, Any]] = [{"name": f"x{index}", "kind": "function"}]
+        for step in steps:
+            names.append(_star(f"p.m{(index + step) % count}", False))
+        components[f"p.m{index}"] = {"package": "p", "names": names}
+    return components
+
+
+class _VisitingResolver(reexports._Resolver):
+    """This resolver counts the calls that examine the records of one module."""
+
+    def __init__(self, components: dict[str, Any]) -> None:
+        self.visits = 0
+        super().__init__(components)
+
+    def _gather(self, *args: Any) -> Any:
+        self.visits += 1
+        return super()._gather(*args)
+
+    def _steps(self, *args: Any) -> Any:
+        self.visits += 1
+        return super()._steps(*args)
+
+
+def test_a_two_way_star_loop_examines_each_module_a_fixed_number_of_times() -> None:
+    count = 100
+    resolver = _VisitingResolver(_ring(count, (1, -1)))
+    names = {module: resolver.names(module) for module in resolver.raw}
+    # The resolver of commit cd5fb1d calculated the loop again for each module, with
+    # full passes until no set changed: 752601 calls for 100 modules, and 100.74 s
+    # for 200 modules. Each module now examines each module of the loop one time.
+    assert resolver.visits <= 2 * count * count
+    # Each name comes through two `*` records, so the names other than x0 are ambiguous.
+    assert {entry["name"] for entry in names["p.m0"]} == {f"x{index}" for index in range(count)}
+
+
+def test_the_names_of_a_star_loop_have_the_order_of_the_records() -> None:
+    count = 50
+    components = _ring(count, (1,))
+    reexports.resolve_reexports(components)
+    order = [entry["name"] for entry in components["p.m0"]["names"]]
+    assert order == [f"x{index}" for index in range(count)]
+
+
+def test_a_limited_star_record_in_a_loop_limits_the_names_that_go_through_it() -> None:
+    limited = {**_star("p.c", False), "star_export_names": ["xc"]}
+    components: dict[str, Any] = {
+        "p.a": {"package": "p", "names": [_name("xa"), _star("p.b", False)]},
+        "p.b": {"package": "p", "names": [_name("xb"), limited]},
+        "p.c": {"package": "p", "names": [_name("xc"), _name("xd"), _star("p.a", False)]},
+    }
+    reexports.resolve_reexports(components)
+
+    def summary(module: str) -> list[tuple[str, Any, Any]]:
+        names = components[module]["names"]
+        return [(e["name"], e.get("defined_in"), e.get("star_export", True)) for e in names]
+
+    assert summary("p.a") == [("xa", None, True), ("xb", "p.b", True), ("xc", "p.c", True)]
+    assert summary("p.b") == [
+        ("xb", None, True),
+        ("xc", "p.c", True),
+        ("xd", "p.c", False),
+        ("xa", "p.a", False),
+    ]
+    assert summary("p.c") == [
+        ("xc", None, True),
+        ("xd", None, True),
+        ("xa", "p.a", True),
+        ("xb", "p.b", True),
+    ]
+
+
+def _name(name: str) -> dict[str, Any]:
+    return {"name": name, "kind": "function"}

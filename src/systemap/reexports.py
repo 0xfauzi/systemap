@@ -25,8 +25,9 @@ shows that the name is a type. Its `defined_in` and `defined_as` stay `null`.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from typing import Any, NamedTuple, TypeVar
 
 from systemap import unknown_causes
@@ -77,7 +78,6 @@ class _Star(NamedTuple):
 
 
 _NO_NAMES = _Star([], frozenset(), False)
-_UNREAD_NAMES = _Star([], frozenset(), True)
 
 
 class _Ref:
@@ -265,73 +265,60 @@ class _Resolver:
     def _without(self, start: str) -> dict[str, _Star]:
         """Give the `*` names of the modules that `start` re-exports from, in the same
         loop as `start`. A chain of `*` re-exports that goes through `start` gives no name."""
-        group = [m for m in self.members[self.group[start]] if m != start]
-        kept = set(group)
-        graph = {m: [s for s in self.graph[m] if s in kept] for m in group}
-        settled: dict[str, _Star] = {}
-        self._fill(graph, start, settled)
-        targets = {e["reexport_of"] for e in self.raw[start] if e.get("star")}
-        return {m: settled[m] for m in targets if m in settled}
+        inside = set(self.members[self.group[start]]) - {start}
+        targets = [e["reexport_of"] for e in self.raw[start] if e.get("star")]
+        return _Loop(self, inside, start).names([m for m in targets if m in inside])
 
     def _star_groups(self) -> None:
         """Calculate the groups of the `*` graph and the `*` names of each module.
 
-        A loop of `*` re-exports connects the modules of a group."""
+        A loop of `*` re-exports connects the modules of a group. Each group comes after
+        the groups that it reaches."""
         for members in _strong_groups(self.graph):
             for module in members:
                 self.group[module] = len(self.members)
             self.members.append(members)
-        self._fill(self.graph, None, self.star)
-
-    def _fill(
-        self, graph: Mapping[str, list[str]], start: str | None, out: dict[str, _Star]
-    ) -> None:
-        """Put the `*` names of each module of `graph` into `out`.
-
-        The function calculates one group at a time. Each group comes after the groups
-        that it reaches. A module that is not in `graph` gets its names from `self.star`."""
-        for members in _strong_groups(graph):
-            if len(members) > 1 or members[0] in graph[members[0]]:
-                self._settle(members, start, out)
+            if len(members) > 1 or members[0] in self.graph[members[0]]:
+                self.star.update(_Loop(self, set(members), None).names(members))
             else:
-                out[members[0]] = self._gather(members[0], out, start)
+                self.star[members[0]] = self._gather(members[0])
 
-    def _settle(self, members: list[str], start: str | None, out: dict[str, _Star]) -> None:
-        """Give the `*` names of the modules of one loop. Repeat until no set changes."""
-        for module in members:
-            out[module] = _NO_NAMES
-        changed = True
-        while changed:
-            changed = False
-            for module in members:
-                value = self._gather(module, out, start)
-                old = out[module]
-                changed = changed or value.known != old.known or value.uncertain != old.uncertain
-                out[module] = value
-
-    def _gather(self, module: str, current: Mapping[str, _Star], start: str | None) -> _Star:
-        """Give the `*` names of `module` from the names of the modules that it reaches."""
-        if _unread(self.components[module]):
-            return _UNREAD_NAMES
-        names: list[str] = []
-        uncertain = False
-        for entry in self.raw[module]:
-            if entry.get("star"):
-                given = self._given(entry["reexport_of"], current, start)
-                names.extend(_kept(entry, given.names))
-                uncertain = uncertain or given.uncertain or entry.get("star_export", True) is None
-            elif entry.get("star_export", True) is None:
-                uncertain = True
-            elif entry.get("star_export", True) is not False:
-                names.append(entry["name"])
-        names = list(dict.fromkeys(names))
+    def _gather(self, module: str) -> _Star:
+        """Give the `*` names of a module that is not in a loop of `*` re-exports."""
+        steps, uncertain = self._steps(module, set(), None)
+        names = list(dict.fromkeys(step for step in steps if isinstance(step, str)))
         return _Star(names, frozenset(names), uncertain)
 
-    def _given(self, source: str, current: Mapping[str, _Star], start: str | None) -> _Star:
+    def _steps(
+        self, module: str, inside: AbstractSet[str], start: str | None
+    ) -> tuple[list[str | _Go], bool]:
+        """Give the `*` names of the records of `module` in source order.
+
+        A `*` re-export from a module in `inside` gives a `_Go` in place of the names.
+        The second value is true when the adapter does not know if a name is in the
+        `*` re-export."""
+        if _unread(self.components[module]):
+            return [], True
+        steps: list[str | _Go] = []
+        uncertain = False
+        for entry in self.raw[module]:
+            policy = entry.get("star_export", True)
+            if policy is None:
+                uncertain = True
+            elif not entry.get("star"):
+                if policy is not False:
+                    steps.append(entry["name"])
+            elif entry["reexport_of"] in inside:
+                steps.append(_Go(entry["reexport_of"], _allowed(entry)))
+            else:
+                given = self._given(entry["reexport_of"], start)
+                steps.extend(_kept(entry, given.names))
+                uncertain = uncertain or given.uncertain
+        return steps, uncertain
+
+    def _given(self, source: str, start: str | None) -> _Star:
         if source == start or source not in self.raw:
             return _NO_NAMES
-        if source in current:
-            return current[source]
         return self.star[source]
 
     def _submodule(self, source: str, name: str) -> bool:
@@ -388,6 +375,96 @@ class _Resolver:
                     }
                 )
         return kept
+
+
+class _Go(NamedTuple):
+    """A `*` re-export from a module of the same loop. `allowed` limits the names."""
+
+    source: str
+    allowed: frozenset[str] | None
+
+
+class _Loop:
+    """The `*` names of the modules of one loop of `*` re-exports.
+
+    A chain of `*` re-exports goes only through the modules in `inside`. A module that is
+    not in `inside` gives the names in `resolver.star`, and `start` gives no name.
+
+    The names of a module come from one walk of the modules that it reaches, in the
+    order of the records. Each module is examined one time, so the work does not
+    increase with the length of the loop for each pass. The order of the names does
+    not depend on the order of the calculation."""
+
+    def __init__(self, resolver: _Resolver, inside: AbstractSet[str], start: str | None):
+        self.resolver = resolver
+        self.inside = inside
+        self.start = start
+        self.steps: dict[str, tuple[list[str | _Go], bool]] = {}
+
+    def names(self, roots: list[str]) -> dict[str, _Star]:
+        """Give the `*` names of each module in `roots`."""
+        limits = self._limits()
+        out: dict[str, _Star] = {}
+        for root in roots:
+            names, uncertain = self._walk(root)
+            if limits is not None:
+                names = [name for name in names if name in limits[root]]
+            out[root] = _Star(names, frozenset(names), uncertain)
+        return out
+
+    def _of(self, module: str) -> tuple[list[str | _Go], bool]:
+        if module not in self.steps:
+            self.steps[module] = self.resolver._steps(module, self.inside, self.start)
+        return self.steps[module]
+
+    def _walk(self, root: str) -> tuple[list[str], bool]:
+        """Give the names of the modules that `root` reaches, without the limits of the
+        `*` records in the loop. Use a list of open modules, not recursive calls."""
+        steps, uncertain = self._of(root)
+        names: list[str] = []
+        seen = {root}
+        work = [iter(steps)]
+        while work:
+            step = next(work[-1], None)
+            if step is None:
+                work.pop()
+            elif isinstance(step, str):
+                names.append(step)
+            elif step.source not in seen:
+                seen.add(step.source)
+                more, unsure = self._of(step.source)
+                uncertain = uncertain or unsure
+                work.append(iter(more))
+        return list(dict.fromkeys(names)), uncertain
+
+    def _limits(self) -> dict[str, set[str]] | None:
+        """Give the set of names of each module of the loop when a `*` record in the loop
+        limits its names. Otherwise give `None`.
+
+        The calculation adds each name to each module one time. A module that gets new
+        names sends only these names to the modules that re-export from it."""
+        found = {module: self._of(module)[0] for module in self.inside}
+        links = [(m, s) for m, steps in found.items() for s in steps if isinstance(s, _Go)]
+        if all(go.allowed is None for _, go in links):
+            return None
+        sets = {m: {s for s in steps if isinstance(s, str)} for m, steps in found.items()}
+        users: dict[str, list[tuple[str, frozenset[str] | None]]] = defaultdict(list)
+        for module, go in links:
+            users[go.source].append((module, go.allowed))
+        work = deque((module, set(names)) for module, names in sets.items())
+        while work:
+            source, added = work.popleft()
+            for module, allowed in users[source]:
+                new = (added if allowed is None else added & allowed) - sets[module]
+                if new:
+                    sets[module] |= new
+                    work.append((module, new))
+        return sets
+
+
+def _allowed(entry: dict[str, Any]) -> frozenset[str] | None:
+    allowed = entry.get("star_export_names")
+    return None if allowed is None else frozenset(allowed)
 
 
 def _star_policy(entry: dict[str, Any], name: str) -> dict[str, Any]:
