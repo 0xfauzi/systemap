@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Container, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -552,9 +552,10 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
     """This function gives the evidence digest for an exact answer or group of exact items."""
     chosen = list(items)
     if len(chosen) == 1:
-        return evidence.get(answer_migrations.current_line(chosen[0]), "unavailable")
+        return evidence.get(answer_migrations.current_line(chosen[0], evidence), "unavailable")
     state = [
-        (line, evidence.get(answer_migrations.current_line(line), "unavailable")) for line in chosen
+        (line, evidence.get(answer_migrations.current_line(line, evidence), "unavailable"))
+        for line in chosen
     ]
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
@@ -575,14 +576,15 @@ def unprefixed(line: str) -> str:
     return line
 
 
-def answers(answer: Answer, line: str) -> bool:
+def answers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
     """This function selects a diagnostic with one answer.
 
     Exact items include the printed map prefix. Family selectors use the diagnostic
-    without that prefix.
+    without that prefix. `present` contains the current lines. An item that is a current
+    line selects only that line (`answer_migrations.current_line`).
     """
     if answer.items:
-        return line in answer_migrations.current_items(answer.items)
+        return line in answer_migrations.current_items(answer.items, present)
     line = unprefixed(line)
     if answer.crossing is not None:
         found = CROSSING_LINE.match(line)
@@ -623,7 +625,8 @@ def apply_answers(
     """
     given = list(answer_list)
     accepted, pending, policies = _accepted_answers(lines, given, evidence)
-    covered = [line for line in lines if any(answers(a, line) for a in accepted)]
+    present = set(lines)
+    covered = [line for line in lines if any(answers(a, line, present) for a in accepted)]
     stale = _stale_answers(given, lines)
     return Answered(
         open=[line for line in lines if line not in covered],
@@ -641,22 +644,23 @@ def _accepted_answers(
     pending: list[str] = []
     policies: list[str] = []
     accepted: list[Answer] = []
+    present = set(lines)
     for a in given:
-        matches = [line for line in lines if answers(a, line)]
+        matches = [line for line in lines if answers(a, line, present)]
         if not matches:
             continue
         issue = _answer_issue(a, evidence)
         if issue is None:
             accepted.append(a)
             if evidence is not None and not a.items:
-                policies.append(_policy_line(a, matches))
+                policies.append(_policy_line(a, matches, present))
         else:
             pending.append(issue)
     return accepted, pending, policies
 
 
-def _policy_line(answer: Answer, matches: list[str]) -> str:
-    reviewed = answer_migrations.current_items(answer.reviewed)
+def _policy_line(answer: Answer, matches: list[str], present: Container[str]) -> str:
+    reviewed = answer_migrations.current_items(answer.reviewed, present)
     new = sum(line not in reviewed for line in matches)
     return (
         f"{answer.label} covers {len(matches)} lines at this snapshot. {new} lines are "
@@ -681,10 +685,13 @@ def _answer_issue(answer: Answer, evidence: Mapping[str, str] | None) -> str | N
 
 def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
     stale: list[str] = []
+    present = set(lines)
     for answer in given:
         if answer.items:
             stale.extend(
-                item for item in answer.items if answer_migrations.current_line(item) not in lines
+                item
+                for item in answer.items
+                if answer_migrations.current_line(item, present) not in present
             )
         elif not any(answers(answer, line) for line in lines):
             stale.append(answer.label)
