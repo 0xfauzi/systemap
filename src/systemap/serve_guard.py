@@ -7,13 +7,16 @@ such a request that changes the state. A program that sends no such header, for 
 curl or the coding agent hook, can still send `POST /refresh`.
 
 Each connection has a read time limit, so a client that does not complete its request
-cannot keep a thread. The number of event connections has a limit. If the process has no
+cannot keep a thread. The full request line and headers must arrive in that time. Thus a
+client that sends one byte in each read time limit also loses its connection. The
+number of event connections has a limit. If the process has no
 more file descriptors, the server stops for a short time before the next accept.
 """
 
 from __future__ import annotations
 
 import errno
+import io
 import socket
 import time
 from email.message import Message
@@ -69,3 +72,35 @@ class Server(ThreadingHTTPServer):
             if exc.errno in PAUSE_ERRORS:
                 time.sleep(ACCEPT_PAUSE)
             raise
+
+
+class HeadReader(io.RawIOBase):
+    """Read a connection with one time limit for the full head of each request.
+
+    `start` sets the limit before the request line. `stop` removes it after the headers.
+    Then each read and write has the time limit of the socket again."""
+
+    def __init__(self, connection: socket.socket, seconds: float | None) -> None:
+        super().__init__()
+        self._connection = connection
+        self._seconds = seconds
+        self._end: float | None = None
+
+    def readable(self) -> bool:
+        return True
+
+    def start(self) -> None:
+        if self._seconds is not None:
+            self._end = time.monotonic() + self._seconds
+
+    def stop(self) -> None:
+        self._end = None
+        self._connection.settimeout(self._seconds)
+
+    def readinto(self, buffer: Any) -> int:
+        if self._end is not None:
+            left = self._end - time.monotonic()
+            if left <= 0:
+                raise TimeoutError("The request head did not arrive in the time limit.")
+            self._connection.settimeout(left)
+        return self._connection.recv_into(buffer)

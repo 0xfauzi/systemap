@@ -20,11 +20,13 @@ gives None for a text that does not parse.
 from __future__ import annotations
 
 import dataclasses
+import json
 import tempfile
 from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
 
-from systemap import change_text, delta_git, extraction
+from systemap import change_text, delta_git, extraction, fact_cache
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
 
@@ -49,6 +51,7 @@ def compare(
     language: LanguageAdapter,
     texts: tuple[Mapping[str, change_text.Text], Mapping[str, change_text.Text]],
     revisions: tuple[str, str | None],
+    cache: fact_cache.FactCache | None = None,
 ) -> tuple[dict[str, set[str]], dict[str, set[str]], list[str]]:
     """Give the added tests and the removed tests of each target module, and the problems.
 
@@ -56,8 +59,8 @@ def compare(
     `revisions` gives the base commit and the head commit. A head of None is the working
     tree. A test file with a problem is in the third list, as `path: problem`.
     """
-    before = _side(cfg, language, texts[0], revisions[0], "base")
-    after = _side(cfg, language, texts[1], revisions[1], "head")
+    before = _kept_side(cache, (cfg, language), texts[0], revisions[0], "base")
+    after = _kept_side(cache, (cfg, language), texts[1], revisions[1], "head")
     added: dict[str, set[str]] = {}
     removed: dict[str, set[str]] = {}
     problems: list[str] = []
@@ -68,6 +71,23 @@ def compare(
             continue
         _add_changes(old, new, added, removed)
     return added, removed, problems
+
+
+def _kept_side(
+    cache: fact_cache.FactCache | None,
+    reader: tuple[Config, LanguageAdapter],
+    texts: Mapping[str, change_text.Text],
+    revision: str | None,
+    side: str,
+) -> dict[str, Found]:
+    """Give the kept tests of one side for the same texts and revision, or find them.
+
+    The module paths of the working tree are in the generation of the cache."""
+    cfg, language = reader
+    make = partial(_side, cfg, language, texts, revision, side)
+    found = sorted((path, text.raw, text.problem) for path, text in texts.items())
+    key = fact_cache.text_digest(json.dumps([revision, found]))
+    return fact_cache.kept(cache, "tests", side, key, make)
 
 
 def _add_changes(

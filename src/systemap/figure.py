@@ -231,13 +231,15 @@ def make(
     layer: str = "",
     map_id: str = "",
     opens: Mapping[str, Mapping[str, Any]] | None = None,
+    source: change_mod.SourceChange | None = None,
 ) -> tuple[str, list[str]]:
     """This function gives figure HTML and label or header diagnostics.
 
     An empty mode selects change if a base ref or component IDs are given; otherwise, it
     selects system. Unknown component IDs give ArgumentError. An empty Git range gives
     FigureError. The bare option gives SVG only. The layer and map_id arguments select a
-    layer and nested map.
+    layer and nested map. A `source` from `change.source_change` with the same base and
+    head replaces the source comparison of a change figure.
     """
     _check_svg_id(svg_id)
     # The configuration and the model give these names, so the caption has them as text.
@@ -278,7 +280,7 @@ def make(
     elif mode == "change":
         if not base:
             raise FigureError("A change figure must have a base ref.")
-        ch = change_mod.compute(cfg, model, base, facts, head)
+        ch = change_mod.compute(cfg, model, base, facts, head, source=source)
         if not ch["has_change"]:
             raise FigureError(
                 f"No change occurs between {base} and {head}. No change figure is necessary."
