@@ -67,6 +67,22 @@ Then it writes the file again with literal values only.</li>
 <p>systemap runs <code>git</code> with values from the model and from the command line.
 A <code>source_review</code> value must be a 64-character hexadecimal digest before it goes to <code>git grep</code>.
 A commit or a ref goes after <code>--end-of-options</code>. Thus a value that starts with <code>-</code> is not a Git option.</p>
+<p>A repository configuration (<code>.git/config</code>) can name programs that Git starts during a read.
+systemap gives these settings to each Git command, so that Git does not start such a program:</p>
+<ul>
+<li><code>-c core.fsmonitor=false</code> and <code>-c core.hooksPath=</code> with the null device of the platform.</li>
+<li><code>-c log.showSignature=false</code>. Thus Git does not start <code>gpg.program</code>.</li>
+<li><code>-c diff.external=</code>, and <code>--no-textconv</code> and <code>--no-ext-diff</code> for each command that reads the content of a diff.</li>
+<li>For a command that compares the working tree, an empty <code>clean</code>, <code>smudge</code>, and <code>process</code> program for each filter of the repository configuration.</li>
+<li>For a command that compares the working tree, <code>--ignore-submodules=dirty</code>. A submodule has its own configuration, and that configuration can name a filter. With this option, Git does not read the files of a submodule.</li>
+</ul>
+<p>The filter settings apply only to a filter of the <code>local</code> and <code>worktree</code> scopes.
+A filter of your user or system configuration, for example the <code>git-lfs</code> filter, operates as usual.
+If the repository configuration defines the filter of a large file program, systemap also stops that filter.
+Then a comparison with the working tree can show a file of that program as changed.
+If a filter name contains <code>=</code>, Git cannot read the setting. Then the command stops with an error and starts no filter.
+A comparison with the working tree shows a new commit of a submodule as a change. It does not show a changed file in a submodule.
+Each Git command has a time limit. The reader of <code>git cat-file --batch</code> stops Git if Git gives no bytes in the time limit. If Git refuses the repository, for example because of dubious ownership, the error gives the Git cause.</p>
 <h2 id="the-agent-command">The agent command</h2>
 <p><code>systemap journeys</code> runs the command under <code>[agent] command</code> in <code>systemap.toml</code>. No other command runs it.
 systemap does not give the command to a shell. The command can start a shell, for example <code>sh -c '...'</code>.

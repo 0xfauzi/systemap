@@ -37,13 +37,15 @@ systemap gives these settings to each Git command, so that Git does not start su
 - `-c log.showSignature=false`. Thus Git does not start `gpg.program`.
 - `-c diff.external=`, and `--no-textconv` and `--no-ext-diff` for each command that reads the content of a diff.
 - For a command that compares the working tree, an empty `clean`, `smudge`, and `process` program for each filter of the repository configuration.
+- For a command that compares the working tree, `--ignore-submodules=dirty`. A submodule has its own configuration, and that configuration can name a filter. With this option, Git does not read the files of a submodule.
 
 The filter settings apply only to a filter of the `local` and `worktree` scopes.
 A filter of your user or system configuration, for example the `git-lfs` filter, operates as usual.
 If the repository configuration defines the filter of a large file program, systemap also stops that filter.
 Then a comparison with the working tree can show a file of that program as changed.
 If a filter name contains `=`, Git cannot read the setting. Then the command stops with an error and starts no filter.
-Each Git command has a time limit. If Git refuses the repository, for example because of dubious ownership, the error gives the Git cause.
+A comparison with the working tree shows a new commit of a submodule as a change. It does not show a changed file in a submodule.
+Each Git command has a time limit. The reader of `git cat-file --batch` stops Git if Git gives no bytes in the time limit. If Git refuses the repository, for example because of dubious ownership, the error gives the Git cause.
 
 ## The agent command
 

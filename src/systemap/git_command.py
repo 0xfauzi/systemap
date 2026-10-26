@@ -5,8 +5,10 @@ runs some of these programs during a read: `core.fsmonitor`, the hooks, an exter
 diff, a `textconv` program, a filter, and `gpg.program`. Each Git command of systemap
 goes through this module. The module adds `SAFE_CONFIG` before the Git command. A
 command that compares the working tree also gets `filter.<name>.clean=` and the other
-filter settings for each filter that the repository configuration defines. The caller
-adds `CONTENT` to a command that gives the content of a diff.
+filter settings for each filter that the repository configuration defines. It also gets
+`--ignore-submodules=dirty`. Thus Git does not read the files of a submodule, and does
+not start a filter that the configuration of the submodule names. The caller adds
+`CONTENT` to a command that gives the content of a diff.
 
 Each command has a time limit. If Git cannot start or does not stop in the time limit,
 the result is the error class of the caller. The error text gives the Git cause.
@@ -37,6 +39,11 @@ CONTENT = ("--no-textconv", "--no-ext-diff")
 TIMEOUT = 300.0
 # The time limit of a Git command that reads only the configuration, in seconds.
 SHORT = 30.0
+# This option stops the status command of Git in each submodule. A submodule has its own
+# configuration, and that configuration can name a filter that `_no_filters` does not see.
+# A new commit of a submodule is still a change. Changed files in a submodule are not.
+# The option on the command line has priority over `submodule.<name>.ignore`.
+_NO_SUBMODULE_STATUS = "--ignore-submodules=dirty"
 # The configuration scopes that a repository can supply. Git reads the other scopes
 # from the files of the user and the system, or from the command line.
 _REPOSITORY_SCOPES = ("local", "worktree")
@@ -63,30 +70,15 @@ def run(
     """This function runs Git in `cwd` and gives the completed process.
 
     If `worktree` is true, the command also gets the settings that stop each filter of
-    the repository configuration. Use it for a command that compares the working tree.
+    the repository configuration, and `--ignore-submodules=dirty` after the first argument.
+    Use it only for a command of the diff family that compares the working tree.
     If Git cannot start or does not stop in `timeout` seconds, the result is `error`.
     A Git exit code that is not zero is not an error here. The caller examines it.
     """
-    extra = _no_filters(cwd, error) if worktree else []
-    return _start(cwd, list(args), stdin, timeout, error, extra)
-
-
-def text(
-    cwd: Path,
-    *args: str,
-    timeout: float = TIMEOUT,
-    worktree: bool = False,
-    error: type[Exception] = GitError,
-    errors: str = "replace",
-) -> str:
-    """This function gives the output of a Git command as UTF-8 text, whatever the locale.
-
-    If Git gives an exit code that is not zero, the result is `error` with the Git cause.
-    """
-    proc = run(cwd, *args, timeout=timeout, worktree=worktree, error=error)
-    if proc.returncode:
-        raise error(f"git {args[0]} gave an error: {cause(proc.stderr, proc.returncode)}")
-    return proc.stdout.decode("utf-8", errors)
+    if not worktree:
+        return _start(cwd, list(args), stdin, timeout, error)
+    line = [args[0], _NO_SUBMODULE_STATUS, *args[1:]]
+    return _start(cwd, line, stdin, timeout, error, _no_filters(cwd, error))
 
 
 def cause(stderr: bytes, code: int) -> str:

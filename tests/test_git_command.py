@@ -157,6 +157,35 @@ def test_the_git_commands_of_systemap_run_no_repository_program(tmp_path: Path) 
     assert lines(hits) == []
 
 
+def test_a_filter_of_a_submodule_configuration_does_not_run(tmp_path: Path) -> None:
+    """Acceptance (exec-4): a submodule has its own configuration in the `.git` folder.
+
+    Before the repair, `git diff` ran the status command of Git in the submodule. Then Git
+    started the `clean` program that the configuration of the submodule names.
+    """
+    folder, hits = _markers(tmp_path)
+    inner, root = tmp_path / "inner", tmp_path / "repo"
+    inner.mkdir()
+    root.mkdir()
+    (inner / ".gitattributes").write_text("* filter=evil diff=evil\n", encoding="utf-8")
+    (inner / "a.txt").write_text("one\n", encoding="utf-8")
+    git(inner, "init", "-q")
+    git(inner, "add", "-A")
+    git(inner, "commit", "-qm", "inner")
+    (root / "top.txt").write_text("top\n", encoding="utf-8")
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "top")
+    git(root, "-c", "protocol.file.allow=always", "submodule", "add", "-q", str(inner), "sub")
+    git(root, "commit", "-qm", "sub")
+    for key, name in (("filter.evil.clean", "clean"), ("core.fsmonitor", "fsmonitor")):
+        git(root / "sub", "config", key, str(folder / name))
+    (root / "sub/a.txt").write_text("two\n", encoding="utf-8")
+    assert change._changed_files(root, "HEAD") == []
+    assert drift_order._diff(root, "HEAD", ["sub"]) == ""
+    assert lines(hits) == []
+
+
 def test_a_filter_of_the_user_configuration_is_not_changed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -208,6 +237,28 @@ def test_a_git_command_that_does_not_stop_gives_the_module_error(
         history.git(tmp_path, "log", "-1")
     with pytest.raises(change.ChangeError, match="did not stop"):
         git_command.run(tmp_path, "status", timeout=1.0, error=change.ChangeError)
+
+
+def test_a_cat_file_process_that_does_not_answer_gives_the_time_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Before the repair, the blob reader had no time limit. It waited 60 s until the fake
+    process stopped, and then gave "gave no blob". Now the time limit of 0.5 s stops it."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "a.txt").write_text("a\n", encoding="utf-8")
+    git(root, "init", "-q")
+    git(root, "add", "-A")
+    git(root, "commit", "-qm", "c")
+    real = git_command.command
+
+    def hang(*args: str) -> list[str]:
+        return ["sleep", "60"] if args[:1] == ("cat-file",) else real(*args)
+
+    monkeypatch.setattr(git_command, "command", hang)
+    monkeypatch.setattr(delta_git, "BLOB_LIMIT", 0.5, raising=False)
+    with pytest.raises(DeltaError, match="did not stop in the time limit of 0.5 s"):
+        delta_git.blobs_at(root, "HEAD", ["a.txt"])
 
 
 def test_a_git_program_that_cannot_start_gives_the_module_error(
