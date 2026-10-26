@@ -122,6 +122,31 @@ def test_a_pattern_with_many_stars_costs_little(tmp_path: Path) -> None:
     assert time.perf_counter() - start < 10
 
 
+def test_a_long_pattern_of_mixed_repeats_costs_little() -> None:
+    # The tokens of "***/" are `*` and `**/`, and the two are not merged. The earlier
+    # matcher kept a list of all later positions for each token. With 4000 repeats, it
+    # took 4.4 s to make and 2.1 s for each path, with 1246 MB of memory. Time and memory
+    # grew 4 times when the repeats doubled, thus 16000 repeats took more than 100 s.
+    start = time.perf_counter()
+    matcher = compile_glob("***/" * 16000 + "z", False)
+    assert not matcher.fullmatch("src/aaaaaaaaaaaaaaaaaaaaaaaa.ts")
+    assert matcher.fullmatch("src/a/b/c/z")
+    assert time.perf_counter() - start < 10
+
+
+def test_long_random_patterns_give_the_matches_of_the_earlier_expression() -> None:
+    rng = random.Random(9)
+    pattern_chars = ["*", "*", "*", "?", "/", "a", "/"]
+    for _ in range(300):
+        pattern = "".join(rng.choice(pattern_chars) for _ in range(rng.randint(8, 13)))
+        pattern = pattern.strip("/")
+        folder = rng.random() < 0.2
+        old, new = _old_glob(pattern, folder), compile_glob(pattern, folder)
+        for _ in range(20):
+            path = "".join(rng.choice("a/a") for _ in range(rng.randint(0, 12)))
+            assert new.fullmatch(path) == bool(old.fullmatch(path)), (pattern, path)
+
+
 def _diamond(root: Path, depth: int) -> None:
     """Make a chain: each file extends two files, and the two files extend one file."""
     for level in range(depth):

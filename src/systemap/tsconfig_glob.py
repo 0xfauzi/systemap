@@ -5,7 +5,8 @@ before: `**/` is `(?:[^/]+/)*`, a different `**` is `.*`, `*` is `[^/]*`, and `?
 `[^/]`. A regular expression goes back to try each split of the path between its
 wildcards, so a pattern with many wildcards took seconds for each file. The matcher
 reads the path one time from start to end, and keeps the set of possible pattern
-positions. Thus the cost is linear in the path length for each pattern position.
+positions. A pattern with n tokens has 2 * n + 1 positions at most. Thus the cost to
+make a matcher is linear in n, and the cost of each path character is linear in n.
 """
 
 from __future__ import annotations
@@ -20,8 +21,9 @@ ANY = 3  # `**` without "/" after it: zero or more characters that are not a lin
 FOLDERS = 4  # `**/`: zero or more folder names, each with "/" after it.
 _REPEATS = frozenset({SEGMENT, ANY, FOLDERS})
 _RUN = re.compile(r"(\*+)(/?)|(.)", re.DOTALL)
-# The number of cached steps for each pattern. If there are more, the cache starts again.
-_CACHE_LIMIT = 4096
+# The number of positions in the cached steps for each pattern. If there are more, the
+# cache starts again. Thus a pattern with many tokens does not keep too much memory.
+_CACHE_LIMIT = 1 << 16
 
 Token = tuple[int, str]
 State = frozenset[int]
@@ -80,17 +82,35 @@ class GlobPattern:
             self._items += [(LITERAL, "/"), (ANY, "")]
             accept.add(2 * len(self._items))
         self._accept = frozenset(accept)
-        self._closures = [self._closure(index) for index in range(len(self._items) + 1)]
-        self._start: State = frozenset(self._closures[0])
+        self._ends = self._closure_ends()
+        self._start: State = self._fill({0}, set())
         self._steps: dict[tuple[State, str], State] = {}
+        self._cached = 0
 
-    def _closure(self, index: int) -> tuple[int, ...]:
-        """Give the positions from position `index` that do not read a character."""
-        out = [2 * index]
-        while index < len(self._items) and self._items[index][0] in _REPEATS:
-            index += 1
-            out.append(2 * index)
-        return tuple(out)
+    def _closure_ends(self) -> list[int]:
+        """Give, for each token index, the last index that the closure reaches.
+
+        The closure of position 2 * i is 2 * i, 2 * (i + 1), ..., 2 * end. Each repeated
+        token can match no characters, thus the closure goes past it.
+        """
+        ends = list(range(len(self._items) + 1))
+        for index in range(len(self._items) - 1, -1, -1):
+            if self._items[index][0] in _REPEATS:
+                ends[index] = ends[index + 1]
+        return ends
+
+    def _fill(self, starts: set[int], out: set[int]) -> State:
+        """Add the closures of the token indexes in `starts` to `out`.
+
+        The closures of two indexes overlap at their end. Each position is added one time
+        only, so the cost is linear in the number of tokens.
+        """
+        high = 0
+        for index in sorted(starts):
+            end = self._ends[index]
+            out.update(range(2 * max(index, high), 2 * end + 1, 2))
+            high = end + 1
+        return frozenset(out)
 
     def fullmatch(self, text: str) -> bool:
         """Tell if the full text matches the pattern."""
@@ -99,9 +119,11 @@ class GlobPattern:
             following = self._steps.get((state, char))
             if following is None:
                 following = self._step(state, char)
-                if len(self._steps) >= _CACHE_LIMIT:
+                if self._cached >= _CACHE_LIMIT:
                     self._steps.clear()
+                    self._cached = 0
                 self._steps[(state, char)] = following
+                self._cached += len(following) + 1
             if not following:
                 return False
             state = following
@@ -109,26 +131,32 @@ class GlobPattern:
 
     def _step(self, state: State, char: str) -> State:
         out: set[int] = set()
+        starts: set[int] = set()
         for number in state:
-            out.update(self._next(number, char))
-        return frozenset(out)
+            move = self._next(number, char)
+            if move is not None:
+                (starts if move[0] else out).add(move[1])
+        return self._fill(starts, out)
 
-    def _next(self, number: int, char: str) -> tuple[int, ...]:
+    def _next(self, number: int, char: str) -> tuple[bool, int] | None:
+        """Give the move from one position: (True, i) is the closure of token index i, and
+        (False, p) is the position p only.
+        """
         index, in_folder = divmod(number, 2)
         if in_folder:
-            return self._closures[index] if char == "/" else (number,)
+            return (True, index) if char == "/" else (False, number)
         if index == len(self._items):
-            return ()
+            return None
         kind, literal = self._items[index]
         if kind == LITERAL:
             matched = char == literal
         else:
             matched = char != ("\n" if kind == ANY else "/")
         if not matched:
-            return ()
+            return None
         if kind in (LITERAL, ONE):
-            return self._closures[index + 1]
-        return (number + 1,) if kind == FOLDERS else self._closures[index]
+            return (True, index + 1)
+        return (False, number + 1) if kind == FOLDERS else (True, index)
 
 
 def compile_glob(pattern: str, folder_suffix: bool) -> GlobPattern:

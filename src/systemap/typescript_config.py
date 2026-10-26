@@ -490,7 +490,7 @@ def _glob_pattern(pattern: str, config_dir: Path) -> GlobPattern:
 
     The **/ pattern crosses directories. The * and ? patterns stay inside a directory. A
     directory name includes its contents. The cost of a match is linear in the path
-    length (`tsconfig_glob`).
+    length multiplied by the number of pattern tokens (`tsconfig_glob`).
     """
     folder = not _GLOB_CHARS.search(pattern) and (config_dir / pattern).is_dir()
     return compile_glob(pattern.strip("/"), folder)
