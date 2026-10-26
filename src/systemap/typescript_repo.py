@@ -44,9 +44,12 @@ PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
 # The method name in a recorded method header. A header starts with optional modifiers
 # and an optional `*`. The name can contain Unicode letters (`identifier.complete`). A
 # quoted name, such as `"get"`, gives the value of the string.
+# Each whitespace group and the unquoted name are possessive (`++`, `*+`). A shorter
+# match of these groups cannot give a match, thus the result does not change. Without
+# this, a long whitespace sequence makes the time of the match quadratic.
 METHOD = re.compile(
-    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    rf"\*?\s*({QUOTED}|[^\s?!<(]+)\s*[?!]?\s*[<(]"
+    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s++)*"
+    rf"\*?\s*+({QUOTED}|[^\s?!<(]++)\s*+[?!]?\s*+[<(]"
 )
 # npm package names of model SDKs and agent frameworks. A scope such as `@ai-sdk`
 # matches each package in that scope. A name matches as a prefix of the import name.

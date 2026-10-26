@@ -111,7 +111,8 @@ def package_json(root: Path, repo: Path | None = None) -> dict[str, Any]:
     try:
         text = repo_files.read_text(base, repo_files.relative(base, path))
         data = json.loads(text)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError, MemoryError) as exc:
+        # A value with too many nested levels gives RecursionError or MemoryError.
         raise ConfigError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(data, dict):
         raise ConfigError(f"{path.as_posix()} must contain a JSON object.")

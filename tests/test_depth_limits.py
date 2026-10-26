@@ -171,11 +171,15 @@ def test_a_deep_package_exports_value_gives_its_target() -> None:
         value = [value]
     table["./c"] = value
     conditions = frozenset({"import", "default"})
-    assert typescript_package_imports._match("./c", table, conditions) == "./src/b.js"
+    index = typescript_package_imports._indexed
+    assert typescript_package_imports._match("./c", index(table), conditions) == "./src/b.js"
     # A null in a condition object stops that object and the objects that contain it. A
     # list then tries its next entry.
     blocked = {"import": None, "default": "./x.js"}
-    match = typescript_package_imports._match
+
+    def match(key: str, entries: dict[str, Any], conditions: frozenset[str]) -> str | None:
+        return typescript_package_imports._match(key, index(entries), conditions)
+
     assert match("./d", {"./d": [blocked, "./y.js"]}, conditions) == "./y.js"
     assert match("./d", {"./d": {"import": blocked, "default": "./z.js"}}, conditions) is None
     assert match("./d", {"./d": {"import": [blocked], "default": "./z.js"}}, conditions) == (

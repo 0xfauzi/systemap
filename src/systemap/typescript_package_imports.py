@@ -81,6 +81,18 @@ def resolve(specifier: str, importer: Path, context: TypeScriptContext) -> Packa
         # Node.js stops with an error for a subpath import without package.json.
         return PackageImport(None) if specifier.startswith("#") else None
     conditions = _conditions(importer)
+    # The package record keeps each result. Many imports in a package name the same
+    # specifier, and each import asks for its result more than one time.
+    key = (specifier, conditions)
+    if key not in scope.imports:
+        scope.imports[key] = _resolve_in(specifier, scope, conditions, context)
+    found: PackageImport | None = scope.imports[key]
+    return found
+
+
+def _resolve_in(
+    specifier: str, scope: Package, conditions: frozenset[str], context: TypeScriptContext
+) -> PackageImport | None:
     if specifier.startswith("#"):
         return _subpath_import(specifier, scope, conditions, context)
     return _self_import(specifier, scope, conditions, context)
@@ -113,8 +125,8 @@ def declaration_file(specifier: str, importer: Path | None, context: TypeScriptC
 def _subpath_import(
     specifier: str, scope: Package, conditions: frozenset[str], context: TypeScriptContext
 ) -> PackageImport:
-    imports = scope.data.get("imports")
-    target = _match(specifier, imports, conditions) if isinstance(imports, dict) else None
+    imports = _table(scope, "imports")
+    target = _match(specifier, imports, conditions)
     if target is None:
         return PackageImport(None)
     if target.startswith("./"):
@@ -138,7 +150,7 @@ def _self_import(
     if specifier != name and not specifier.startswith(name + "/"):
         return None
     subpath = "." + specifier[len(name) :]
-    table = _subpaths(exports)
+    table = _table(scope, "exports")
     target = _match(subpath, table, conditions)
     if target is None or not target.startswith("./"):
         return PackageImport(None)
@@ -147,7 +159,7 @@ def _self_import(
 
 def _file_import(
     target: str,
-    key: tuple[str, Mapping[str, Any] | None],
+    key: tuple[str, _Table | None],
     scope: Package,
     conditions: frozenset[str],
     context: TypeScriptContext,
@@ -176,6 +188,51 @@ def _file_import(
     return PackageImport(None, declaration=path.relative_to(repo).as_posix())
 
 
+@dataclass(frozen=True)
+class _Table:
+    """This record gives a subpath table and an index of its pattern keys.
+
+    `patterns` gives each pattern key under its text before `*` and its text after `*`.
+    `before` gives the lengths of the texts before `*`, longest first. `after` gives the
+    lengths of the texts after `*` for each text before `*`, longest first.
+    """
+
+    entries: Mapping[str, Any]
+    patterns: dict[str, dict[str, str]]
+    before: tuple[int, ...]
+    after: dict[str, tuple[int, ...]]
+
+
+def _table(scope: Package, name: str) -> _Table | None:
+    """This function gives the indexed `exports` or `imports` table of the package.
+
+    The package record keeps the table. Thus the index is made one time for each package.
+    """
+    if name not in scope.tables:
+        value = scope.data.get(name)
+        if name == "exports":
+            entries = _subpaths(value)
+        else:
+            entries = value if isinstance(value, dict) else None
+        scope.tables[name] = None if entries is None else _indexed(entries)
+    table: _Table | None = scope.tables[name]
+    return table
+
+
+def _indexed(entries: Mapping[str, Any]) -> _Table:
+    patterns: dict[str, dict[str, str]] = {}
+    for pattern in entries:
+        if pattern.count("*") == 1:
+            before, _star, after = pattern.partition("*")
+            patterns.setdefault(before, {})[after] = pattern
+    after_lengths = {
+        start: tuple(sorted({len(end) for end in ends}, reverse=True))
+        for start, ends in patterns.items()
+    }
+    before_lengths = tuple(sorted({len(start) for start in patterns}, reverse=True))
+    return _Table(entries, patterns, before_lengths, after_lengths)
+
+
 def _subpaths(exports: Any) -> dict[str, Any] | None:
     """This function gives the subpath table of `exports`.
 
@@ -190,7 +247,7 @@ def _subpaths(exports: Any) -> dict[str, Any] | None:
     return None if any(dotted) else {".": exports}
 
 
-def _match(key: str, table: Mapping[str, Any] | None, conditions: frozenset[str]) -> str | None:
+def _match(key: str, table: _Table | None, conditions: frozenset[str]) -> str | None:
     """This function gives the target of a key, with PACKAGE_IMPORTS_EXPORTS_RESOLVE.
 
     An exact key has priority. Otherwise, the pattern key with the longest text before
@@ -199,28 +256,37 @@ def _match(key: str, table: Mapping[str, Any] | None, conditions: frozenset[str]
     """
     if table is None:
         return None
-    if key in table and "*" not in key and not key.endswith("/"):
-        return _target(table[key], "", conditions)
-    patterns = sorted(
-        (pattern for pattern in table if pattern.count("*") == 1 and _matches(key, pattern)),
-        key=lambda pattern: (pattern.index("*"), len(pattern)),
-        reverse=True,
-    )
-    if not patterns:
+    entries = table.entries
+    if key in entries and "*" not in key and not key.endswith("/"):
+        return _target(entries[key], "", conditions)
+    pattern = _pattern(key, table)
+    if pattern is None:
         return None
-    before, _star, after = patterns[0].partition("*")
-    matched = key[len(before) : len(key) - len(after)]
-    return _target(table[patterns[0]], matched, conditions)
-
-
-def _matches(key: str, pattern: str) -> bool:
     before, _star, after = pattern.partition("*")
-    return (
-        key.startswith(before)
-        and key != before
-        and key.endswith(after)
-        and len(key) >= len(pattern)
-    )
+    matched = key[len(before) : len(key) - len(after)]
+    return _target(entries[pattern], matched, conditions)
+
+
+def _pattern(key: str, table: _Table) -> str | None:
+    """This function gives the first pattern key in the order of PATTERN_KEY_COMPARE that
+    matches the key, or None.
+
+    A pattern key matches if the key starts with the text before `*` and ends with the
+    text after `*`. The text that `*` matches must contain one or more characters. The
+    function uses the index and does not examine each pattern key. Thus the time
+    increases with the length of the key, not with the number of pattern keys.
+    """
+    for size in table.before:
+        before = key[:size]
+        afters = table.patterns.get(before) if size < len(key) else None
+        if afters is None:
+            continue
+        longest = len(key) - size - 1
+        ends = (key[len(key) - length :] for length in table.after[before] if length <= longest)
+        found = next((afters[end] for end in ends if end in afters), None)
+        if found is not None:
+            return found
+    return None
 
 
 def _target(value: Any, matched: str, conditions: frozenset[str]) -> str | None:
@@ -309,6 +375,11 @@ def _find_scope(directory: Path, context: TypeScriptContext) -> Package | None:
     found = next((folder for folder in folders if config_present(folder / "package.json")), None)
     if found is None:
         return None
+    if found in context.package_scopes:
+        # The nearest package.json above the folder of a package.json is that file. Thus
+        # the folders of one package share one package record and its cache.
+        known: Package | None = context.package_scopes[found]
+        return known
     try:
         return package_at(found, context, package_json(found, repo))
     except ConfigError:
