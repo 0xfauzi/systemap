@@ -90,7 +90,8 @@ Then, in Claude Code, type:</p>
 <pre class="out"><code class="language-text"><span class="ln" style="--i:0"><span class="l">map:</span> not started · Start live map</span></code></pre>
 <p>To start the <a href="live-map.html">live map</a>, select <code>Start live map</code>, or type <code>/map</code>.
 The plugin runs <code>systemap live --port 0 --json --no-watch</code> in the repository.
-The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.</p>
+The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.
+If the <code>command</code> option runs code of the repository, the code of the repository can run when the live map starts.</p>
 <p>After a turn that called Edit, Write, MultiEdit, NotebookEdit, or Bash, the plugin asks <code>systemap live</code> to render the map again.
 A read-only Bash call does not count. The line then shows the state:</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-live-map-in-claude-code">
@@ -138,12 +139,12 @@ A read-only Bash call does not count. The line then shows the state:</p>
 <tr>
 <td><code>command</code></td>
 <td><code>systemap</code></td>
-<td>The command that starts systemap, for example <code>uv run systemap</code> or <code>uvx systemap</code>. The plugin adds <code>live --port 0 --json --no-watch</code> to it.</td>
+<td>The command that starts systemap, for example <code>systemap</code> or <code>uvx systemap</code>. The plugin adds <code>live --port 0 --json --no-watch</code> to it. Do not use <code>uv run systemap</code>. That command builds the project of the repository, and the build can run code of the repository.</td>
 </tr>
 <tr>
 <td><code>autostart</code></td>
 <td><code>false</code></td>
-<td>If true, the live map starts when a session starts in a systemap repository. The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code.</td>
+<td>If true, the live map starts when a session starts in a systemap repository. The live map reads <code>map/model.py</code> without running its code, unless <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> is in the environment of Claude Code. If the <code>command</code> option runs code of the repository, the code of the repository can run when the live map starts.</td>
 </tr>
 </tbody>
 </table>

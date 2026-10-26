@@ -301,7 +301,7 @@ the plugin shows one line above the prompt:
     map: not started · Start live map
 
 The live map reads `map/model.py` without running its code, unless `SYSTEMAP_TRUST_MODEL_CODE=1` is in the environment of Claude Code.
-If the `command` option runs code of the repository, this sentence is not true.
+If the `command` option runs code of the repository, the code of the repository can run when the live map starts.
 To start it, select `Start live map` or type `/map`.
 The plugin then runs `systemap live --port 0 --json --no-watch`.
 
