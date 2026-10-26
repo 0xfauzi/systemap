@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from test_place_route_repairs import _unplaced
 
-from systemap import model_load, model_write
+from systemap import model_load, model_write, place_source
 from systemap.cli import main
 
 # On Windows, os.replace cannot replace a file that is open.
@@ -69,4 +69,19 @@ def test_place_restores_the_previous_bytes_with_a_replacement(
     assert path.read_bytes() == before
     # One replacement writes the positions. One replacement restores the previous bytes.
     assert replaced == ["model.py", "model.py"]
+    assert [p.name for p in path.parent.iterdir() if p.name.startswith(".model.py-")] == []
+
+
+def test_place_does_not_change_the_file_if_the_new_text_does_not_compile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = _unplaced(tmp_path)
+    before = path.read_bytes()
+    monkeypatch.setattr(place_source, "written", lambda source, placement: "MODEL = (\n")
+    assert main(["--root", str(tmp_path), "place"]) == 1
+    err = capsys.readouterr().err
+    assert "The command could not compile the new text of map/model.py: " in err
+    assert "The command did not change the file." in err
+    assert "after the change" not in err
+    assert path.read_bytes() == before
     assert [p.name for p in path.parent.iterdir() if p.name.startswith(".model.py-")] == []

@@ -257,6 +257,6 @@ def _replace(path: Path, label: str, text: str) -> None:
         model_write.write_models({path: text})
     except (SyntaxError, ValueError) as exc:
         raise PlaceError(
-            f"The command could not load {label} after the change: {exc} "
+            f"The command could not compile the new text of {label}: {exc} "
             "The command did not change the file."
         ) from exc

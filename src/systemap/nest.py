@@ -7,6 +7,7 @@ ancestor model.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -153,20 +154,30 @@ def _walk(cfg: Config, top: Map, maps: list[Map]) -> None:
     """Load the nested maps below the top map in depth-first order.
 
     The walk uses a stack, not recursion. Each stack item has three parts: a map, its
-    components that the walk did not examine, and the model files above it. The order
+    components that open a nested map and that the walk did not examine, and the model
+    files above it. The order
     of the maps and of the errors is the order of a recursive walk.
     """
     loaded = {top.path.resolve(): top.id}
-    stack = [(top, iter(top.model.opening), [top.path.resolve()])]
+    stack = [(top, _openers(top), [top.path.resolve()])]
     while stack:
         parent, cards, above = stack[-1]
-        c = next(cards, None)
-        if c is None:
+        found = next(cards, None)
+        if found is None:
             stack.pop()
-        elif c.kind != "actor" and c.map is not None:
-            child = _child(cfg, parent, c, c.map, above, loaded)
+        else:
+            child = _child(cfg, parent, *found, above, loaded)
             maps.append(child)
-            stack.append((child, iter(child.model.opening), [*above, child.path]))
+            stack.append((child, _openers(child), [*above, child.path]))
+
+
+def _openers(m: Map) -> Iterator[tuple[Component, str]]:
+    """Give each component of the map that opens a nested map, with its map path.
+
+    An actor does not open a nested map."""
+    for c in m.model.opening:
+        if c.kind != "actor" and c.map is not None:
+            yield c, c.map
 
 
 def _child(
@@ -194,9 +205,9 @@ def _within_limit(cfg: Config, parent: Map, card: str, path: Path, above: list[P
         chain = " -> ".join(cfg.rel(p) for p in [*above, path])
         raise ConfigError(
             f"{parent.rel}: {card} opens {cfg.rel(path)} at nesting level {len(above)}. "
-            f"The maximum nesting level is {MAX_NESTING} ({chain}). Remove map from a "
-            "component in this chain. Or put the components of a nested map in its parent "
-            "map."
+            f"The maximum nesting level is {MAX_NESTING} ({chain}). Remove the map "
+            "argument from a component in this chain. Or put the components of a nested map "
+            "in its parent map."
         )
 
 

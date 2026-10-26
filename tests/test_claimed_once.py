@@ -49,7 +49,9 @@ def count_claimed(monkeypatch: pytest.MonkeyPatch) -> list[str]:
         return original(component, modules)
 
     for user in USERS:
-        monkeypatch.setattr(user, "claimed", counted)
+        # raising=False: on the earlier source, some users do not import `claimed`.
+        # Then the test fails on the number of calls, not on the patch.
+        monkeypatch.setattr(user, "claimed", counted, raising=False)
     return calls
 
 

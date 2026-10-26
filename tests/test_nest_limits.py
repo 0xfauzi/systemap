@@ -68,6 +68,7 @@ def test_a_chain_of_1000_nested_maps_gives_a_config_error_that_names_the_chain(
         "(map/model.py -> map/n1.py -> map/n2.py -> "
     )
     assert f"-> map/n{nest.MAX_NESTING + 1}.py)" in message
+    assert "Remove the map argument from a component in this chain." in message
     # The loader stops at the limit. It does not read the remaining model files.
     assert len(loads) == nest.MAX_NESTING + 1
 
