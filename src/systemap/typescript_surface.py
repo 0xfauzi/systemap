@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from tree_sitter import Node
@@ -37,6 +37,12 @@ TYPE_CATEGORIES = {
 TYPE_NODES = CLASS_NODES | set(TYPE_CATEGORIES)
 # `namespace N {}` and `module N {}` declare the same kind of object.
 NAMESPACE_NODES = {"internal_module", "module"}
+# The deepest namespace nesting that the API reader reads. 1226 real files have 3 or less.
+NAMESPACE_DEPTH = 16
+DEEP_NAMESPACE = (
+    f"The namespace nesting is deeper than {NAMESPACE_DEPTH} levels. "
+    "The reader does not read the declarations in this namespace."
+)
 
 
 def _header(node: Node) -> str:
@@ -602,13 +608,41 @@ def _type_definition(node: Node) -> str:
     return _syntax(node, omit_body=True) + "\n" + "\n".join(members)
 
 
-def _namespace_definition(node: Node, source: bytes) -> str:
+@dataclass(frozen=True)
+class _ApiContext:
+    """The facts for the export identities of one module. `definitions` keeps the
+    definition of each namespace node, thus the reader reads each namespace one time."""
+
+    source: bytes
+    definitions: dict[tuple[str, int, int], str] = field(default_factory=dict)
+    unknown: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _namespace_definition(node: Node, context: _ApiContext) -> str:
+    """This function gives the header and the body export identities of a namespace. If
+    the nesting is too deep, it gives the body text and records an unknown declaration."""
+    key = (node.type, node.start_byte, node.end_byte)
+    if key in context.definitions:
+        return context.definitions[key]
     body = node.child_by_field_name("body")
-    exports = _exported_api(body, source) if body is not None else []
-    return _syntax(node, omit_body=True) + "\n" + json.dumps(exports, sort_keys=True)
+    if body is not None and _namespace_depth(node) >= NAMESPACE_DEPTH:
+        context.unknown.append(_unknown(node, DEEP_NAMESPACE))
+        exports = "unread:" + _text(body)
+    else:
+        exports = json.dumps(_exported_api(body, context) if body else [], sort_keys=True)
+    context.definitions[key] = _syntax(node, omit_body=True) + "\n" + exports
+    return context.definitions[key]
 
 
-def _declaration_api(node: Node, source: bytes) -> list[tuple[str, str, str]]:
+def _namespace_depth(node: Node) -> int:
+    """This function gives the number of namespaces that contain the node."""
+    depth, parent = 0, node.parent
+    while parent is not None:
+        depth, parent = depth + int(parent.type in NAMESPACE_NODES), parent.parent
+    return depth
+
+
+def _declaration_api(node: Node, context: _ApiContext) -> list[tuple[str, str, str]]:
     if node.type in FUNCTION_NODES:
         name = _text(node.child_by_field_name("name"))
         return [(name, "operations", _syntax(node, omit_body=True))] if name else []
@@ -616,7 +650,7 @@ def _declaration_api(node: Node, source: bytes) -> list[tuple[str, str, str]]:
         record, is_error = _type_record(node)
         return [(record["name"], "refusals" if is_error else "types", _type_definition(node))]
     if node.type in NAMESPACE_NODES:
-        definition = _namespace_definition(node, source)
+        definition = _namespace_definition(node, context)
         return [(name, "constants", definition) for name in _namespace_kinds(node)]
     if node.type != "lexical_declaration":
         return []
@@ -639,22 +673,22 @@ def _lexical_api(node: Node) -> list[tuple[str, str, str]]:
 LocalApi = dict[str, list[tuple[str, str]]]
 
 
-def _local_api(root: Node, source: bytes) -> LocalApi:
+def _local_api(root: Node, context: _ApiContext) -> LocalApi:
     local: LocalApi = {}
     for statement in root.named_children:
         declaration = _declaration(statement) if statement.type == "export_statement" else statement
         if declaration is None:
             continue
-        for name, bucket, definition in _declaration_api(declaration, source):
+        for name, bucket, definition in _declaration_api(declaration, context):
             local.setdefault(name, []).append((bucket, definition))
     return local
 
 
-def _exported_api(root: Node, source: bytes) -> list[dict[str, str]]:
-    local = _import_api(root) | _local_api(root, source)
+def _exported_api(root: Node, context: _ApiContext) -> list[dict[str, str]]:
+    local = _import_api(root) | _local_api(root, context)
     out: list[dict[str, str]] = []
     for statement in (node for node in root.named_children if node.type == "export_statement"):
-        out.extend(_export_statement_api(statement, local, source))
+        out.extend(_export_statement_api(statement, local, context))
     return out
 
 
@@ -672,25 +706,27 @@ def _import_api(root: Node) -> LocalApi:
     }
 
 
-def _export_statement_api(statement: Node, local: LocalApi, source: bytes) -> list[dict[str, str]]:
-    found = reexports(statement, source)
+def _export_statement_api(
+    statement: Node, local: LocalApi, context: _ApiContext
+) -> list[dict[str, str]]:
+    found = reexports(statement, context.source)
     if found:
         return reexport_api(found)
-    declared = _declared_export_api(statement, local, source)
+    declared = _declared_export_api(statement, local, context)
     if declared is not None:
         return declared
     return _clause_export_api(statement, local)
 
 
 def _declared_export_api(
-    statement: Node, local: LocalApi, source: bytes
+    statement: Node, local: LocalApi, context: _ApiContext
 ) -> list[dict[str, str]] | None:
     declaration = _declaration(statement)
     default = any(child.type == "default" for child in statement.children)
     if declaration is not None:
         return [
             {"name": "default" if default else name, "bucket": bucket, "fingerprint": definition}
-            for name, bucket, definition in _declaration_api(declaration, source)
+            for name, bucket, definition in _declaration_api(declaration, context)
         ]
     value = statement.child_by_field_name("value")
     if not default or value is None:
@@ -749,6 +785,7 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     }
     for export in (node for node in root.named_children if node.type == "export_statement"):
         _record_export(export, surface, module)
+    api = _exported_api(root, _ApiContext(source, unknown=unknown))
     return {
         "docstring": docstring(root),
         "functions": functions,
@@ -758,5 +795,5 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
         "constants": constants,
         "names": names,
         "unknown": unknown,
-        "api": _exported_api(root, source),
+        "api": api,
     }
