@@ -164,7 +164,28 @@ def test_a_string_export_name_with_a_control_character_is_a_record(tmp_path: Pat
     assert [entry["name"] for entry in record["names"]] == ["z"]
     assert [entry["name"] for entry in record["api"]] == ["z"]
     (problem,) = [item for item in record["unknown"] if item["cause"] == unknown_causes.NAME]
-    assert problem["reason"] == "the export name 'x\\ny' contains a control character."
+    assert problem["reason"] == "the export name 'x\\u000ay' contains a control character."
+
+
+def test_a_hostile_name_keeps_the_record_of_its_missing_target(tmp_path: Path) -> None:
+    """Acceptance: a re-export whose only name has a control character and whose target is
+    missing gives a `name` record and a `target` record. Before the repair, the `target`
+    record was not there, and the `name` record showed the name in the repr form `\\n`."""
+    write_tree(tmp_path, {"systemap.toml": TS_CONFIG, "tsconfig.json": "{}"})
+    text = 'const a = 1;\nexport { a as "x\\n\\x1b[31m" } from "./missing";\n'
+    write_tree(tmp_path, {"src/a.ts": text})
+    record = _facts(tmp_path)["components"]["web.a"]
+    found = sorted((item["cause"], item["reason"]) for item in record["unknown"])
+    assert found == [
+        (
+            unknown_causes.NAME,
+            "the export name 'x\\u000a\\u001b[31m' contains a control character.",
+        ),
+        (
+            unknown_causes.TARGET,
+            "the re-export target './missing' is outside the extracted module set.",
+        ),
+    ]
 
 
 def test_each_unresolved_star_reexport_gives_its_own_record(tmp_path: Path) -> None:

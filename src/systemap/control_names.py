@@ -61,7 +61,7 @@ def _removed(record: dict[str, Any], key: str) -> list[str]:
 def _name_problem(name: str) -> dict[str, Any]:
     return {
         "line": 0,
-        "reason": f"the export name {printable(repr(name))} contains a control character.",
+        "reason": f"the export name '{printable(name)}' contains a control character.",
         "source": "",
         "cause": unknown_causes.NAME,
     }

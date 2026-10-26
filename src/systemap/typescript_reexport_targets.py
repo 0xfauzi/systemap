@@ -13,7 +13,8 @@ its names. A name without a module has the kind `unknown` here. The re-export re
 
 Two `export * from` statements give the same public name `*`. Thus each target without
 a module is kept in a set, and each statement of such a target gives its own record. A
-public name with a control character is not in a record (`control_names`).
+public name with a control character is not in a record (`control_names`), but the
+record of its target stays.
 """
 
 from __future__ import annotations
@@ -58,9 +59,8 @@ def resolve_reexports(surface: dict[str, Any], raw: str, path: str, targets: Tar
             if targets.package(source):
                 if star:
                     continue
-            elif not has_control(entry["name"]):
-                missing.names[entry["name"]] = source
-                missing.targets.add(source)
+            else:
+                _add_missing(missing, entry["name"], source)
         kept.append(entry)
     surface["names"] = kept
     surface["unknown"].extend(_problems(raw, path, missing, targets.declaration))
@@ -73,6 +73,14 @@ class _Missing:
 
     names: dict[str, str]
     targets: set[str]
+
+
+def _add_missing(missing: _Missing, name: str, source: str) -> None:
+    """Add a target without a module. A name with a control character is not in the
+    names, but its statement keeps the record of its target."""
+    if not has_control(name):
+        missing.names[name] = source
+    missing.targets.add(source)
 
 
 def _resolved(entry: dict[str, Any], source: str, targets: Targets) -> bool:
