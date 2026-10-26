@@ -97,6 +97,7 @@ COMPONENTS = (
             "systemap.__main__",
             "systemap.failures",
             "systemap.serve",
+            "systemap.serve_guard",
             "systemap.live_watch",
         ),
         entry="main",
