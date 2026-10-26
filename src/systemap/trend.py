@@ -18,6 +18,7 @@ from systemap import history
 from systemap.config import Config
 from systemap.evidence import owners
 from systemap.model import Model
+from systemap.terminal_text import printable
 
 # How many modules of the window's new files are named to git at once: a
 # command line has a limit, and sixty files is already more than a reader
@@ -170,7 +171,9 @@ def with_causes(root: Path, window: Window, cap: int = 5) -> Window:
         )
     except Exception:  # noqa: BLE001 - a window whose commits cannot be read is still a window
         return window
-    found = tuple(line for line in out.splitlines() if line)[:cap]
+    # Git ends each subject with a newline. `str.splitlines` also divides a subject at
+    # U+2028 and at other separators, so the split uses only the newline.
+    found = tuple(line for line in out.split("\n") if line)[:cap]
     return Window(
         base=window.base,
         head=window.head,
@@ -228,7 +231,7 @@ def _window_lines(window: Window) -> list[str]:
         out.append(f"      components: {moved}")
     out += _crossing_line("new", window.new_crossings)
     out += _crossing_line("removed", window.gone_crossings)
-    out += [f"      added by commit: {title[:100]}" for title in window.caused_by]
+    out += [f"      added by commit: {printable(title[:100])}" for title in window.caused_by]
     return out
 
 

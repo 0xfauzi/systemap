@@ -48,8 +48,12 @@ from systemap.decisions import (
     VERDICTS,
     Request,
 )
+from systemap.terminal_text import has_control, printable
 
 RESULT_KEYS = ("request_id", "verdict", "citations", "summary")
+# A summary goes into the configuration and into the output of later commands. A terminal
+# can use a control character as a command.
+CONTROL = "contains a control character or a Unicode line separator. Write the summary on one line"
 
 
 class DecisionError(Exception):
@@ -122,11 +126,12 @@ def read_results(name: str) -> list[Any]:
 def _citation_errors(root: Path, files: set[str], cited: Citation, where: str) -> list[str]:
     """Examine one citation against the repository and the current file content."""
     name, start, end, digest = cited
+    shown = printable(name)
     full, cause = decisions.confined(root, name)
     if full is None:
-        return [f"{where}: {name} {cause}."]
+        return [f"{where}: {shown} {cause}."]
     if PurePosixPath(name).as_posix() not in files:
-        return [f"{where}: {name} is not a source file or a test file in the facts."]
+        return [f"{where}: {shown} is not a source file or a test file in the facts."]
     content = full.read_bytes()
     count = len(content.splitlines())
     errors = []
@@ -172,8 +177,8 @@ def _request(item: dict[str, Any], snap: Snapshot, where: str) -> tuple[Request 
     request = snap.requests.get(rid) if isinstance(rid, str) else None
     if request is None:
         return None, [
-            f"{where}: {rid} is not a current decision request. The claim changed, or the ID is "
-            "incorrect. Use systemap decisions pending."
+            f"{where}: {printable(str(rid))} is not a current decision request. The claim "
+            "changed, or the ID is incorrect. Use systemap decisions pending."
         ]
     if decisions_store.state(snap.records, request) == decisions_store.UNKNOWN:
         return None, [
@@ -249,6 +254,8 @@ def _check(
         errors.append(f"{where}: the verdict must be one of {', '.join(VERDICTS)}.")
     if not isinstance(summary, str) or not summary.strip():
         errors.append(f"{where}: the summary must be a sentence about the examined source.")
+    elif has_control(summary):
+        errors.append(f"{where}: the summary {CONTROL}.")
     cited, problems = _citations(item, snap, where)
     errors += problems
     if request is None or errors:

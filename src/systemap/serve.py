@@ -49,6 +49,7 @@ from systemap import (
     page,
     page_live,
     repo_files,
+    terminal_text,
 )
 from systemap.config import ArgumentError, Config, ConfigError
 from systemap.live_watch import watch, watched
@@ -625,7 +626,7 @@ def printer(as_json: bool) -> Callable[[dict[str, Any]], None]:
         text = json.dumps(event) if as_json else HUMAN[event["event"]](event)
         with lock:
             try:
-                print(text, flush=True)
+                print(terminal_text.lines(text), flush=True)
             except OSError:
                 return
 

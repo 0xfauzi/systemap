@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from systemap import explain
+from systemap.terminal_text import printable
 
 if TYPE_CHECKING:
     from systemap.delta import Delta, Line
@@ -113,7 +114,7 @@ def _lines_taught(lines: list[Line], teach: bool, taught: set[str]) -> list[str]
     """This function gives diagnostic lines and one explanation for each kind."""
     out: list[str] = []
     for line in lines:
-        out.append(f"  {line.text}")
+        out.append(f"  {printable(line.text)}")
         if teach and line.kind not in taught:
             taught.add(line.kind)
             out += explain.rows(line.kind)

@@ -12,7 +12,17 @@ import argparse
 import sys
 from collections.abc import Callable
 
-from systemap import change, decisions_submit, delta, delta_link, figure, file_write, place, review
+from systemap import (
+    change,
+    decisions_submit,
+    delta,
+    delta_link,
+    figure,
+    file_write,
+    place,
+    review,
+    terminal_text,
+)
 from systemap import language as languages
 from systemap.config import ArgumentError, ConfigError
 
@@ -64,7 +74,7 @@ def report(exc: Exception) -> int:
     _kind, fix, code = next(entry for entry in FAILURES if isinstance(exc, entry[0]))
     if fix == CONFIG_FIX and from_tsconfig(exc):
         fix = TSCONFIG_FIX
-    print(f"systemap: {exc}", file=sys.stderr)
+    print(terminal_text.lines(f"systemap: {exc}"), file=sys.stderr)
     if fix:
         print(fix, file=sys.stderr)
     return code

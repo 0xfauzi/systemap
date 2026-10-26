@@ -47,6 +47,7 @@ from systemap.decision import (
     PredicateQuestion,
 )
 from systemap.model import Model
+from systemap.terminal_text import printable, show
 
 OK, STALE = 0, 1
 
@@ -83,7 +84,7 @@ def _one(provider: DecisionProvider, question: decision.Question, label: str) ->
 def _facts(cfg: config.Config) -> dict[str, Any] | None:
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not facts:
-        print(f"No facts are available at {cfg.rel(cfg.facts_path)}\nrun: systemap extract")
+        show(f"No facts are available at {cfg.rel(cfg.facts_path)}\nrun: systemap extract")
         return None
     return facts
 
@@ -119,13 +120,13 @@ def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
 def hint(cfg: config.Config, text: str) -> None:
     """Print a Jev hint to stderr without an API key, unless `[jev] enabled = false`."""
     if cfg.jev_enabled is not False and not jev.has_key():
-        print(text, file=sys.stderr)
+        show(text, file=sys.stderr)
 
 
 def delta_hint(cfg: config.Config) -> None:
     """Print the delta hint to stderr, with or without a key, unless `[jev] enabled = false`."""
     if cfg.jev_enabled is not False:
-        print(DELTA_HINT, file=sys.stderr)
+        show(DELTA_HINT, file=sys.stderr)
 
 
 # ---- audit -------------------------------------------------------------------------
@@ -139,7 +140,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     tree = nest.load(cfg)
     for line in decision_kinds.warnings(cfg.judgement_answered):
-        print(line, file=sys.stderr)
+        show(line, file=sys.stderr)
     kinds = _measured_kinds(cfg, _kinds(args.kind) if args.kind else audit.DEFAULT_KINDS)
     if not kinds:
         return STALE
@@ -151,13 +152,13 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         answers = client.decide(plan.questions)
         found = audit.lines(plan, answers, decision.thresholds(client.name))
     except DecisionError as exc:
-        print(f"audit: {exc}")
+        show(f"audit: {exc}")
         return STALE
     texts = [line.text for line in found]
     current_evidence = audit.evidence(tree, facts, cfg.root, texts)
     result = audit.apply_reviewed(found, cfg.judgement_answered, current_evidence, kinds)
     open_lines = [x for x in result.open if decision_kinds.kind_of(x.text) in kinds]
-    print(
+    show(
         *audit.report(
             open_lines,
             result.answered,
@@ -178,7 +179,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
 def _kinds(given: list[str]) -> tuple[str, ...]:
     """Give the current kind names. Print a warning for each previous name."""
     for name in dict.fromkeys(k for k in given if k in decision_kinds.PREVIOUS):
-        print(decision_kinds.option_warning(name), file=sys.stderr)
+        show(decision_kinds.option_warning(name), file=sys.stderr)
     return tuple(dict.fromkeys(decision_kinds.current(k) for k in given))
 
 
@@ -186,7 +187,7 @@ def _measured_kinds(cfg: config.Config, kinds: tuple[str, ...]) -> tuple[str, ..
     """Give the question types with a measured value. Print the reason for each other type."""
     skipped = providers.missing(cfg, kinds)
     for kind in skipped:
-        print(f"audit: {decision.unmeasured(cfg.decision_provider, kind)}")
+        show(f"audit: {decision.unmeasured(cfg.decision_provider, kind)}")
     return tuple(k for k in kinds if k not in skipped)
 
 
@@ -198,9 +199,9 @@ def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None) -> int
         try:
             pending = _client(cfg, send).pending(plan.questions)
         except DecisionError as exc:
-            print(*audit.dry_run(plan, f"unknown: {exc}", chars), sep="\n")
+            show(*audit.dry_run(plan, f"unknown: {exc}", chars), sep="\n")
             return STALE
-    print(*audit.dry_run(plan, pending, chars), sep="\n")
+    show(*audit.dry_run(plan, pending, chars), sep="\n")
     return OK
 
 
@@ -221,7 +222,7 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     text = sys.stdin.read() if args.text == "-" else args.text
     if not text.strip():
-        print("triage: give the issue text, or - to read it from stdin")
+        show("triage: give the issue text, or - to read it from stdin")
         return STALE
     top = nest.load(cfg).top
     try:
@@ -230,21 +231,21 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         answer = _one(client, triage_question(cfg, top, text), "triage")
         spread = decision.spread(answer)
     except DecisionError as exc:
-        print(f"triage: {exc}")
+        show(f"triage: {exc}")
         return STALE
     by = audit.modules_by_card(top.model, facts)
     cut = " (the command used only the first 2,000 characters)" if len(text) > REPORT_CAP else ""
     sure = "no confidence" if answer.confidence is None else f"confidence {answer.confidence:.2f}"
-    print(f"triage: {sure}{cut}")
+    show(f"triage: {sure}{cut}")
     for cid, p in audit._top(spread, 3):
         if cid == audit.NONE:
-            print(f"  {p:.2f}  none of the components")
+            show(f"  {p:.2f}  none of the components")
             continue
         mods = by.get(cid, [])
         more = f" and {len(mods) - 5} more" if len(mods) > 5 else ""
-        print(f"  {p:.2f}  {cid}: {', '.join(mods[:5]) or 'no modules'}{more}")
-        print(f"        on the map: {_neighbours(top.model, cid)}")
-    print(client.usage.line())
+        show(f"  {p:.2f}  {cid}: {', '.join(mods[:5]) or 'no modules'}{more}")
+        show(f"        on the map: {_neighbours(top.model, cid)}")
+    show(client.usage.line())
     return OK
 
 
@@ -282,10 +283,10 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
         )
         left.extend((current, group) for group in groups)
     if not left:
-        print("journeys: every entry point has an examined sequence")
+        show("journeys: every entry point has an examined sequence")
         return OK
     if args.dry_run or not agent.has_agent(cfg):
-        print(*_would_write(left, cfg), sep="\n")
+        show(*_would_write(left, cfg), sep="\n")
         return OK
     return _write_journeys(cfg, facts, left[: args.limit], run_command)
 
@@ -303,7 +304,10 @@ def _would_write(left: list[tuple[nest.Map, journeys.Group]], cfg: config.Config
         walks = "sequence" if len(left) == 1 else "sequences"
         head += f", {len(left)} {walks} to write: one for each component group"
     out = [head + ":"]
-    out += [f"  {current.prefix}{group.label} ({current.rel})" for current, group in left[:20]]
+    out += [
+        f"  {current.prefix}{printable(group.label)} ({current.rel})"
+        for current, group in left[:20]
+    ]
     if len(left) > 20:
         out.append(f"  and {len(left) - 20} more")
     if note := agent.setup_note(cfg):
@@ -321,7 +325,7 @@ def _write_journeys(
     try:
         writer = agent.from_cfg(cfg, run_command)
     except agent.AgentError as exc:
-        print(f"journeys: {exc}")
+        show(f"journeys: {exc}")
         return STALE
     sources: dict[Path, str] = {}
     written: dict[Path, list[str]] = {}
@@ -343,7 +347,7 @@ def _write_journeys(
         return STALE
     if failed:
         out.append(f"journeys: {failed} of {len(take)} requests did not complete")
-    print(*out, sep="\n")
+    show(*out, sep="\n")
     writer_usage(writer)
     return _written_code(take, written, failed)
 
@@ -365,8 +369,8 @@ def _record_journey(
 ) -> bool:
     """Add the accepted sequence to the proposed model source. Tell if it was added."""
     if draft.journey is None:
-        out.append(f"journeys: no sequence written for {group.label}")
-        out += [f"      {p}" for p in draft.problems]
+        out.append(f"journeys: no sequence written for {printable(group.label)}")
+        out += [f"      {printable(p)}" for p in draft.problems]
         return False
     source = sources.get(current.path)
     if source is None:
@@ -379,10 +383,10 @@ def _record_journey(
     sources[current.path] = grown
     written.setdefault(current.path, []).append(draft.journey.id)
     out.append(
-        f"journeys: wrote {draft.journey.id} ({draft.journey.label}) "
-        f"for {current.prefix}{group.label}"
+        f"journeys: wrote {printable(draft.journey.id)} ({printable(draft.journey.label)}) "
+        f"for {current.prefix}{printable(group.label)}"
     )
-    out += [f"      {p}" for p in draft.problems]
+    out += [f"      {printable(p)}" for p in draft.problems]
     return True
 
 
@@ -401,12 +405,12 @@ def _commit_journeys(
         sources[path] = source = journeys.with_imports(source)
         problem = journeys.proposal_problem(path, cfg.rel(path), source, written[path], cfg.root)
         if problem:
-            print(f"journeys: the command wrote no file. {problem}")
+            show(f"journeys: the command wrote no file. {problem}")
             return False
     try:
         model_write.write_models(sources)
     except (SyntaxError, OSError) as exc:
-        print(f"journeys: the command could not write the proposed model: {exc}")
+        show(f"journeys: the command could not write the proposed model: {exc}")
         return False
     for path, ids in written.items():
         out.append(f"  {len(ids)} written into {cfg.rel(path)}, each marked drafted=True")
@@ -422,7 +426,7 @@ def _atomic_model_write(path: Path, source: str) -> None:
 
 def writer_usage(writer: agent.Agent) -> None:
     if writer.usage.called or writer.usage.cached:
-        print(writer.usage.line(), file=sys.stderr)
+        show(writer.usage.line(), file=sys.stderr)
 
 
 # ---- suggest --decide: groups from the provider answers about module pairs --------
@@ -511,13 +515,13 @@ def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
         providers.require(cfg, "same_at")
         client = _client(cfg)
     except DecisionError as exc:
-        print(f"{SUGGEST}: {exc}")
+        show(f"{SUGGEST}: {exc}")
         return STALE
     try:
         lines, code = suggest_groups(cfg, facts, client), OK
     except DecisionError as exc:
         lines, code = [f"{SUGGEST}: {exc}"], STALE
-    print(*lines, client.usage.line(), sep="\n")
+    show(*lines, client.usage.line(), sep="\n")
     return code
 
 
@@ -531,7 +535,7 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return _check_plan(cfg, args)
     text = sys.stdin.read() if args.task == "-" else (args.task or "")
     if not text.strip():
-        print("plan: give the task in your own words, or - to read it from stdin")
+        show("plan: give the task in your own words, or - to read it from stdin")
         return STALE
     top = nest.load(cfg).top
     try:
@@ -539,7 +543,7 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         client = _client(cfg, send)
         spread = decision.spread(_one(client, plan_question(cfg, top, text), "plan"))
     except DecisionError as exc:
-        print(f"plan: {exc}")
+        show(f"plan: {exc}")
         return STALE
     made = plan_mod.project(top.model, top.meaning, text.strip(), spread, cut=cut)
     # A projection that names nothing is not written down: there would be
@@ -547,9 +551,9 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     try:
         where = plan_mod.save(cfg, made) if made.cards else None
     except plan_mod.PlanError as exc:
-        print(f"plan: {exc}")
+        show(f"plan: {exc}")
         return STALE
-    print(*_plan_lines(made, cfg, where), sep="\n")
+    show(*_plan_lines(made, cfg, where), sep="\n")
     providers.usage_to_stderr(client)
     return OK
 
@@ -597,18 +601,18 @@ def _check_plan(cfg: config.Config, args: argparse.Namespace) -> int:
     found = plan_mod.load(cfg, args.check)
     if found is None:
         known = ", ".join(plan_mod.saved(cfg)) or "none yet"
-        print(f"plan: no plan has the ID {args.check} (saved plans: {known})")
+        show(f"plan: no plan has the ID {args.check} (saved plans: {known})")
         return STALE
     try:
         base_facts, head_facts, base_model = _plan_snapshots(cfg, args.base)
     except delta.DeltaError as exc:
-        print(f"plan: {exc}")
+        show(f"plan: {exc}")
         return STALE
     top = nest.load(cfg).top
     owner = plan_mod.owners(top.model, base_model, base_facts, head_facts)
     changed = plan_mod.touched(base_facts, head_facts, owner)
     missed, untouched = plan_mod.check(list(found.get("cards", [])), changed)
-    print(*_check_lines(found, changed, missed, untouched, args.base), sep="\n")
+    show(*_check_lines(found, changed, missed, untouched, args.base), sep="\n")
     return STALE if missed else OK
 
 

@@ -65,6 +65,7 @@ from systemap import (
     scaffold,
     serve,
     skill,
+    terminal_text,
     trend,
 )
 from systemap import facts as facts_mod
@@ -100,13 +101,15 @@ class Project:
 
 
 def say(*lines: str) -> None:
+    """Write the lines to stdout. A control character in a line shows as an escape."""
     for line in lines:
-        print(line)
+        print(terminal_text.lines(line))
 
 
 def warn(*lines: str) -> None:
+    """Write the lines to stderr. A control character in a line shows as an escape."""
     for line in lines:
-        print(line, file=sys.stderr)
+        print(terminal_text.lines(line), file=sys.stderr)
 
 
 def _root(args: argparse.Namespace) -> Path:
