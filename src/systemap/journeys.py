@@ -370,7 +370,9 @@ def add_to_source(source: str, journey: Journey) -> str | None:
         tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
     except tokenize.TokenError:
         return None
-    lines = source.splitlines(keepends=True)
+    # The tokenizer reads the lines that this readline gives. str.splitlines also ends a
+    # line at characters such as U+2028 and FF, so its offsets do not agree with the rows.
+    lines = io.StringIO(source).readlines()
     for name in ("JOURNEYS", "journeys"):
         offset = _journey_assignment_offset(tokens, lines, name)
         if offset is not None:
@@ -398,7 +400,8 @@ def with_imports(source: str) -> str:
     missing = [name for name in SEQUENCE_CLASSES if name not in given]
     if not missing or "*" in given:
         return source
-    lines = source.splitlines(keepends=True)
+    # The Python parser ends a line only at CR LF, CR and LF, as this mode does.
+    lines = io.StringIO(source, newline="").readlines()
     anchor = _first_imports_end(body)
     added = f"from systemap import {', '.join(missing)}\n"
     return "".join([*lines[:anchor], added, *lines[anchor:]])

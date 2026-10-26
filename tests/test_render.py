@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -164,3 +165,42 @@ def test_the_two_schemes_share_one_token_table() -> None:
     assert "color-scheme:dark" in theme_mod.css_vars(dark)
     assert theme_mod.resolve({"scheme": "light"}, layers)["scheme"] == "light"
     assert theme_mod.resolve({"scheme": "dark"}, layers)["scheme"] == "dark"
+
+
+# U+2028, U+2029 and U+0085 are line ends for str.splitlines and for some JavaScript
+# parsers. VT, FF and FS to RS are line ends for str.splitlines only.
+LINE_ENDS = "  \u0085\x0b\x0c\x1c\x1d\x1e"
+
+
+def test_compact_ends_a_line_only_at_a_line_feed() -> None:
+    """Before the fix, _compact cut the string at U+2028 and the page script stopped (llm-2)."""
+    for char in LINE_ENDS:
+        js = f'var a = "x{char}y";\n  // note\nvar b = 1;'
+        assert page._compact(js) == f'var a = "x{char}y";\nvar b = 1;'
+
+
+def test_map_text_with_line_ends_keeps_each_page_script_whole(sample: Sample) -> None:
+    """Map text with each line end gives scripts without a raw U+2028, U+2029 or U+0085.
+
+    Before the fix, the DETAIL line of the main script had a raw U+2028, and _compact cut
+    that line in two. The browser then stopped the script with a SyntaxError (llm-2)."""
+    text = f"Reads the input{LINE_ENDS}and gives a request."
+    first = sample.model.components[0]
+    model = dataclasses.replace(
+        sample.model,
+        components=(dataclasses.replace(first, does=text), *sample.model.components[1:]),
+    )
+    journey = sample.meaning.journeys[0]
+    meaning = dataclasses.replace(
+        sample.meaning,
+        journeys=(dataclasses.replace(journey, label=f"A{LINE_ENDS}B"),)
+        + sample.meaning.journeys[1:],
+    )
+    html = page.build(sample.cfg, model, meaning, sample.theme, sample.facts, {"has_change": False})
+    scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+    assert scripts
+    for body in scripts:
+        assert not set(body) & set("  \u0085")
+    line = next(s for s in html.split("\n") if s.startswith("var DETAIL = JSON.parse("))
+    detail = json.loads(json.loads(line[len("var DETAIL = JSON.parse(") : -len(");")]))
+    assert detail[first.id]["does"] == text

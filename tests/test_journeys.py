@@ -188,6 +188,23 @@ def test_the_walk_is_written_into_the_annotated_list_of_the_initial_model() -> N
     assert grown is not None and grown.startswith("JOURNEYS: tuple[Journey, ...] = (\n    Journey(")
 
 
+@pytest.mark.parametrize("char", [" ", " ", "\u0085", "\x0b", "\x0c", "\x1c"])
+def test_a_line_end_of_str_splitlines_before_the_list_does_not_stop_the_insert(
+    char: str,
+) -> None:
+    """Python ends a line only at CR LF, CR and LF. str.splitlines also ends a line at
+    these characters. Before the fix, add_to_source gave None, and with_imports put the
+    import in the wrong line (llm-7)."""
+    draft = read(ANSWER)
+    assert draft.journey is not None
+    source = f'"""Doc{char}text."""\n# a{char}b\nfrom x import y\nJOURNEYS = (\n)\nMEANING = 1\n'
+    grown = journeys.add_to_source(source, draft.journey)
+    assert grown is not None and grown.count('id="read-and-write"') == 1
+    assert grown.startswith(source.split("JOURNEYS")[0] + "JOURNEYS = (\n    Journey(")
+    lines = journeys.with_imports(source).split("\n")
+    assert lines[3] == "from systemap import Journey, Step"
+
+
 # ---- the command -------------------------------------------------------------------
 
 
