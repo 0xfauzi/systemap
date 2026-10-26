@@ -115,7 +115,7 @@ def test_the_test_file_list_does_not_enter_the_skipped_folders(
     found, folders = opened(
         lambda: [
             path.relative_to(tmp_path).as_posix()
-            for path in python_tests.test_files(tmp_path, ("tests",), ())
+            for path in python_tests.test_files(tmp_path, ("tests",), (), [])
         ]
     )
     assert found == ["tests/a/test_x.py", "tests/test_b.py"]

@@ -73,7 +73,7 @@ def test_files(
 def _refused_tests(
     repo: Path, tests_dirs: tuple[str, ...], patterns: tuple[str, ...], names: list[Path]
 ) -> list[Path]:
-    """Give the walked files with a path that is not valid UTF-8 that are test files."""
+    """Give the test files that the walk did not give, because their paths are not valid UTF-8."""
     return [
         path
         for path in dict.fromkeys(names)
