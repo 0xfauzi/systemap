@@ -20,13 +20,13 @@
     "command": {
       "type": "string",
       "title": "systemap command",
-      "description": "The command that starts systemap, for example \"uv run systemap\" or \"uvx systemap\". The plugin adds \"live --port 0 --json --no-watch\" to this command.",
+      "description": "The command that starts systemap, for example \"systemap\" or \"uvx systemap\". The plugin adds \"live --port 0 --json --no-watch\" to this command. Do not use \"uv run systemap\". That command builds the project of the repository, and the build can run code of the repository.",
       "default": "systemap"
     },
     "autostart": {
       "type": "boolean",
       "title": "Start the live map with each session",
-      "description": "If true, the live map starts when a session starts in a systemap repository. The live map reads map/model.py without running its code, unless SYSTEMAP_TRUST_MODEL_CODE=1 is in the environment of Claude Code.",
+      "description": "If true, the live map starts when a session starts in a systemap repository. The live map reads map/model.py without running its code, unless SYSTEMAP_TRUST_MODEL_CODE=1 is in the environment of Claude Code. If the command option runs code of the repository, this sentence is not true.",
       "default": false
     }
   }

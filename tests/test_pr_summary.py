@@ -202,3 +202,54 @@ def test_model_text_cannot_add_a_link_a_mention_or_a_marker() -> None:
     text = pr_summary.markdown(summary(model(), model(flows=(bad,))))
     row = next(line for line in text.splitlines() if line.startswith("  - added flow"))
     assert "`a'b @team <!-- x -->`" in row
+
+
+HOSTILE = (
+    "./x @octocat [click](https://evil.example) ![p](https://evil.example/p.png)",
+    "./y\nSYSTEMAP_COMMENT\nexfil=attacker-chosen-value",
+    "./z <img src=x onerror=alert(1)>",
+)
+
+
+def _outside_code(text: str) -> str:
+    """Give the text without its code spans."""
+    return "".join(text.split("`")[::2])
+
+
+def test_repository_names_in_a_gap_are_code_spans() -> None:
+    """Acceptance: unresolved specifiers and imported names from the repository give no
+    mention, no link, no image, no HTML, and no new line in the summary. Before the change,
+    the specifiers went into the Markdown as text, with their new lines."""
+    records = {
+        "shop.checkout": {
+            "file": "shop/checkout.py",
+            "uses": {"vendor @octocat [x](https://evil.example)": ["run"]},
+            "completeness": {"parsed": True, "unresolved_imports": list(HOSTILE)},
+        },
+    }
+    other = ImportRule("alone", "allow_imports", ("Checkout",), (), "Checkout is apart.")
+    same = model(import_rules=(other,))
+    outcomes = import_rules.evaluate(same, {"components": records})
+    assert outcomes[0].result == import_rules.UNKNOWN
+    assert {g.cause for g in outcomes[0].gaps} == {
+        import_rules.UNRESOLVED,
+        import_rules.NO_COMPONENT,
+    }
+    for gap in outcomes[0].gaps:
+        detail = pr_summary._rule_detail(Outcome(other, import_rules.UNKNOWN, gaps=(gap,)))
+        outside = _outside_code(detail)
+        for active in ("@", "](", "![", "<", "\n", "SYSTEMAP_COMMENT"):
+            assert active not in outside, (active, detail)
+    text = pr_summary.markdown(summary(same, same, rules=rules(*outcomes), open_lines=1))
+    assert "SYSTEMAP_COMMENT" not in text.splitlines()
+    assert (
+        "`shop.checkout`: The module has unresolved imports: `./x @octocat [click]"
+        "(https://evil.example) ![p](https://evil.example/p.png)`, "
+        "`./y SYSTEMAP_COMMENT exfil=attacker-chosen-value`, `./z <img src=x onerror=alert(1)>`."
+    ) in text
+
+
+def test_a_gap_detail_without_names_starts_no_mention() -> None:
+    gap = Gap("shop.plugins", "c", "Ask @octocat\nnow.")
+    detail = pr_summary._rule_detail(Outcome(NO_DB, import_rules.UNKNOWN, gaps=(gap,)))
+    assert detail == "`shop.plugins`: Ask @⁠octocat now."

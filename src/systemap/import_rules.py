@@ -38,6 +38,15 @@ class Gap:
     module: str
     cause: str
     detail: str
+    # `detail` with "{}" in the position of the names. The names come from the repository.
+    # An output that must not show repository text as Markdown makes each name a code span.
+    form: str = ""
+    names: tuple[str, ...] = ()
+
+
+def _named_gap(module: str, cause: str, form: str, names: tuple[str, ...]) -> Gap:
+    """Give a gap whose detail contains repository names."""
+    return Gap(module, cause, form.format(", ".join(names)), form, names)
 
 
 @dataclass(frozen=True)
@@ -113,8 +122,8 @@ def _gaps(module: str, record: Mapping[str, Any]) -> list[Gap]:
     if unresolved is None:
         return [Gap(module, UNRESOLVED_NOT_KNOWN, "The unresolved imports are not known.")]
     if unresolved:
-        names = ", ".join(str(name) for name in unresolved)
-        return [Gap(module, UNRESOLVED, f"The module has unresolved imports: {names}.")]
+        names = tuple(str(name) for name in unresolved)
+        return [_named_gap(module, UNRESOLVED, "The module has unresolved imports: {}.", names)]
     return []
 
 
@@ -145,7 +154,8 @@ def _not_allowed(
     for m, t in _uses(modules, records):
         owner = owners.get(t, set())
         if not owner:
-            unowned.append(Gap(m, NO_COMPONENT, f"The module imports {t}, which has no component."))
+            form = "The module imports {}, which has no component."
+            unowned.append(_named_gap(m, NO_COMPONENT, form, (t,)))
         elif not owner & allowed:
             found.append((m, t))
     return found, unowned

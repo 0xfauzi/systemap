@@ -6,6 +6,7 @@ name: systemap
 # Installation uses an empty environment and a map copy outside the source checkout.
 # Plugin validation rejects all errors and warnings except the documented root CLAUDE.md warning.
 # The plugin tests run the hooks module of the live map with a fake systemap live process.
+# The pre-commit job runs the pre-commit hooks on all files. They include the security hooks.
 
 
 on:
@@ -98,10 +99,12 @@ jobs:
           uv run systemap delta --base "$BASE" --head "$HEAD" --comment comment.md || code=$?
           if [ -s comment.md ]; then
             cat comment.md >> "$GITHUB_STEP_SUMMARY"
+            # The comment can contain repository text. A random delimiter is not equal to a line of it.
+            delimiter="SYSTEMAP_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
             {
-              echo "comment<<SYSTEMAP_COMMENT"
+              echo "comment<<$delimiter"
               cat comment.md
-              echo "SYSTEMAP_COMMENT"
+              echo "$delimiter"
             } >> "$GITHUB_OUTPUT"
           fi
           if [ "$code" = "1" ]; then
@@ -266,3 +269,30 @@ jobs:
           claude plugin install systemap@systemap
           claude plugin list
           claude plugin list --json | jq -e '.[] | select(.id == "systemap@systemap" and .enabled == true)' > /dev/null
+
+  # This job runs the hooks of .pre-commit-config.yaml on all files. These hooks include
+  # the security hooks: gitleaks, zizmor, actionlint, and shellcheck.
+  # The last step runs the manual gitleaks-tree hook. It does a secret scan of the full tree,
+  # because a clean checkout has no staged files for the gitleaks hook.
+  pre-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: Install project
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Do the pre-commit checks
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+      - name: Do the secret scan of the tree
+        run: uv run pre-commit run --hook-stage manual gitleaks-tree --all-files
