@@ -75,3 +75,18 @@ def write_models(sources: dict[Path, str]) -> None:
         raise
     for temporary in backups.values():
         temporary.unlink(missing_ok=True)
+
+
+def replace_bytes(path: Path, data: bytes) -> None:
+    """Replace the file with these bytes through a temporary file and os.replace.
+
+    A reader of the path gets the previous file or the new file, not a part of a file.
+    If the replacement returns an error, the function removes the temporary file and
+    the previous file stays at the path.
+    """
+    temporary = _stage(path, data)
+    try:
+        os.replace(temporary, path)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise

@@ -89,9 +89,8 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
     ("model_write.py", "_replace", "os.replace"): MODEL,
     ("model_write.py", "_restore", "os.replace"): MODEL,
+    ("model_write.py", "replace_bytes", "os.replace"): MODEL + ", to restore its bytes",
     ("model_write.py", "_stage", "tempfile.mkstemp"): MODEL,
-    ("place_source.py", "write", "path.write_text"): MODEL,
-    ("place_source.py", "write", "path.write_bytes"): MODEL + ", to restore its bytes",
     # A copy of the model files in a new temporary folder.
     ("review.py", "_same", "write_text"): "a file in a temporary folder of the command",
     # The contract move: the model file and the contract file of a loaded map.

@@ -16,7 +16,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import explain, nest
-from systemap.model import ImportRule, Model, claimed, import_rule_problems, source_parsed
+from systemap.model import (
+    Component,
+    ImportRule,
+    Model,
+    claimed,
+    import_rule_problems,
+    source_parsed,
+)
 
 PASS, FAIL, UNKNOWN = "pass", "fail", "unknown"
 
@@ -69,17 +76,24 @@ class MapOutcomes:
     outcomes: tuple[Outcome, ...]
 
 
-def evaluate(model: Model, facts: Mapping[str, Any]) -> list[Outcome]:
+def evaluate(
+    model: Model,
+    facts: Mapping[str, Any],
+    owned: Mapping[Component, list[str]] | None = None,
+) -> list[Outcome]:
     """Give the result of each rule of the model, in model order.
 
     A model with an incorrect rule gives no results. The model check gives its problems.
+    `owned` gives `claimed(component, facts["components"])` for each component of the
+    model. If it is None, the function calculates these modules.
     """
     if import_rule_problems(model):
         return []
     records: Mapping[str, Any] = facts.get("components") or {}
     owners: dict[str, set[str]] = defaultdict(set)
     for component in model.components:
-        for module in claimed(component, records):
+        found = claimed(component, records) if owned is None else owned[component]
+        for module in found:
             owners[module].add(component.id)
     return [_evaluate(rule, model, records, owners) for rule in model.import_rules]
 

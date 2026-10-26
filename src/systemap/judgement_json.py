@@ -81,10 +81,10 @@ def line_counts(
     return {line: count for line, count in found.items() if line in present}
 
 
-def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
-    """This function gives the judgement lines and applies the answers that are not
-    audit answers. With `[judgement] require_reviews`, a missing source review is a line.
-    """
+def current_lines(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> list[str]:
+    """This function gives the judgement lines of the map tree, without the answers.
+
+    With `[judgement] require_reviews`, a missing source review is a line."""
     adapter = languages.repository(cfg.language) if cfg.language else None
     base = adapter.model_sdks if adapter else judgement.MODEL_SDKS
     separators = (adapter.import_separator,) if adapter else judgement.IMPORT_SEPARATORS
@@ -92,6 +92,14 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     lines = judgement.run_tree(tree, facts, sdks, cfg.observed_by, separators=separators)
     if cfg.require_reviews:
         lines += review_policy.missing_lines(tree, facts)
+    return lines
+
+
+def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
+    """This function gives the judgement lines and applies the answers that are not
+    audit answers. With `[judgement] require_reviews`, a missing source review is a line.
+    """
+    lines = current_lines(tree, facts, cfg)
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
     given = answer_migrations.current_lines(given, lines)
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)

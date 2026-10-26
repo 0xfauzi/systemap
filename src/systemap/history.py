@@ -19,7 +19,15 @@ import re
 from pathlib import Path
 from typing import Any
 
-from systemap import delta, delta_git, extraction, file_write, git_command, repo_files
+from systemap import (
+    delta,
+    delta_git,
+    extraction,
+    facts_shape,
+    file_write,
+    git_command,
+    repo_files,
+)
 from systemap import language as languages
 from systemap.config import Config
 
@@ -74,7 +82,10 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
 def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
     """This function gives the cached facts in path, or None if the file is not usable.
 
-    A JSON value that is not a table with a `components` table is not usable.
+    A JSON value that is not a table with a `components` table is not usable. A table
+    that does not have the shape that extraction writes (`facts_shape.problem`, the
+    check of `facts_file.read_facts`) is also not usable. The caller then extracts the
+    facts again and replaces the file.
 
     The read holds the lock of the facts cache. On Windows, a read cannot occur while a
     different process replaces the file. A link out of the repository (at the file or at a
@@ -89,12 +100,13 @@ def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
             return None
         try:
             held = json.loads(text)
-        except ValueError:
+        except (ValueError, RecursionError):
+            # RecursionError: the JSON value has too many levels for the parser.
             return None
     # A cache file that is not a facts table is not usable. The caller extracts again.
     if not isinstance(held, dict) or not isinstance(held.get("components"), dict):
         return None
-    return held
+    return None if facts_shape.problem(held) else held
 
 
 def git(root: Path, *args: str, worktree: bool = False) -> str:

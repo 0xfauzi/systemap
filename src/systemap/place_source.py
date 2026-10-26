@@ -2,6 +2,8 @@
 
 It changes only the values of x, y, box, and canvas arguments. It keeps all other text.
 It writes LF line ends and no byte order mark, on each operating system.
+It writes a temporary file and replaces the model file with os.replace. Thus a reader of
+the model file gets the previous file or the new file, not a part of a file.
 After the write, it loads the file again. It compares all positions, boxes, and the canvas
 with the calculated values. If it cannot load the file or a value is different, it
 restores the previous file bytes and gives an error.
@@ -14,6 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, fields
 from pathlib import Path
 
+from systemap import model_write
 from systemap.model import Component, Container, Model, Region
 from systemap.place import PlaceError, Placement
 
@@ -222,23 +225,38 @@ def write(
     # The text gets LF line ends, as with universal newlines. Thus the command writes a
     # CRLF file from a Windows checkout with LF line ends.
     source = raw.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
-    path.write_text(written(source, placement), encoding="utf-8", newline="\n")
+    _replace(path, label, written(source, placement))
     try:
         wrong = unwritten(load(path, label), expected)
     except Exception as exc:
-        path.write_bytes(raw)
+        model_write.replace_bytes(path, raw)
         raise PlaceError(
             f"The command could not load {label} after the change: {exc} "
             "The command restored the previous file contents."
         ) from exc
     except BaseException:
-        path.write_bytes(raw)
+        model_write.replace_bytes(path, raw)
         raise
     if wrong:
-        path.write_bytes(raw)
+        model_write.replace_bytes(path, raw)
         raise PlaceError(
             f"The command could not write {', '.join(wrong)} in {label}. Each value must be "
             "in this file, as an argument of Component, Region, Container, or Model. "
             "The command restored the previous file contents. Use systemap place --print to "
             "show the values. Then write them manually."
         )
+
+
+def _replace(path: Path, label: str, text: str) -> None:
+    """Replace the model file with the text through a temporary file and os.replace.
+
+    A reader of the file gets the previous text or the new text, not a part of a file.
+    If Python cannot compile the text, the function does not change the file.
+    """
+    try:
+        model_write.write_models({path: text})
+    except (SyntaxError, ValueError) as exc:
+        raise PlaceError(
+            f"The command could not compile the new text of {label}: {exc} "
+            "The command did not change the file."
+        ) from exc

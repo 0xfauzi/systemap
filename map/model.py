@@ -264,7 +264,7 @@ COMPONENTS = (
     Component(
         id="Model",
         source_review="b20c280cbbf10360b9fe9acb53ded5407ecd30558eae43b1e8c7da9246e9b3fe",
-        does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. A card that opens a map must have an ID that is one path segment.",
+        does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. A card that opens a map must have an ID that is one path segment. Replaces a model file through a temporary file. If a replacement fails, restores the previous files.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants, import_rules) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING; Contract(invariants, import_rules), exported by map/contract.py as CONTRACT",
         implemented_by=(
             "systemap.model",
@@ -280,6 +280,7 @@ COMPONENTS = (
             "systemap.flow_ids",
             "systemap.sequence_ids",
             "systemap.boundary_ids",
+            "systemap.model_write",
         ),
         entry="Model",
         kind="store",
@@ -426,7 +427,6 @@ COMPONENTS = (
             "systemap.decision",
             "systemap.agent",
             "systemap.journeys",
-            "systemap.model_write",
             "systemap.plan",
         ),
         entry="run",

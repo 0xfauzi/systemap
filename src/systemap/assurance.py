@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import card_review, evidence, flow_review, import_rules, nest
-from systemap.model import Component, Invariant, Meaning, Model
+from systemap.model import Component, Invariant, Meaning, Model, claimed
 
 ESTABLISHED, EXAMINED, UNKNOWN = "established", "examined", "unknown"
 LEVELS = (ESTABLISHED, EXAMINED, UNKNOWN)
@@ -108,10 +108,16 @@ class _Context:
     meaning: Meaning
     facts: dict[str, Any]
     outcomes: dict[str, import_rules.Outcome]
+    # The claimed modules of each component (`claimed`), calculated one time for the map.
+    owned: dict[Component, list[str]]
+
+    def state(self, card: Component) -> str:
+        """Give the source review state of the component (`card_review.state`)."""
+        return card_review.state(card, self.model, self.meaning, self.facts, self.owned[card])
 
 
 def _component_claim(ctx: _Context, card: Component) -> tuple[str, str, str]:
-    state = card_review.state(card, ctx.model, ctx.meaning, ctx.facts)
+    state = ctx.state(card)
     return (EXAMINED if state == card_review.CURRENT else UNKNOWN), state, f"source_review_{state}"
 
 
@@ -129,7 +135,7 @@ def _flows(ctx: _Context) -> list[Claim]:
     """A flow is `examined` when its review agrees with the claim and the source records,
     and a source record is in a module of an endpoint. The flow evidence gives these
     conditions also for a flow with an actor endpoint."""
-    found = evidence.of_model(ctx.model, ctx.meaning, ctx.facts)
+    found = evidence.of_model(ctx.model, ctx.meaning, ctx.facts, owned=ctx.owned)
     out = []
     for flow in ctx.model.flows:
         state = flow_review.state(flow, ctx.meaning, ctx.facts)
@@ -164,7 +170,7 @@ def _invariant_claim(ctx: _Context, invariant: Invariant) -> Claim:
         return Claim(
             ctx.map_id, INVARIANT, str(invariant.n), UNKNOWN, MISSING, "no_source_component"
         )
-    states = [card_review.state(card, ctx.model, ctx.meaning, ctx.facts) for card in cards]
+    states = [ctx.state(card) for card in cards]
     freshness = _freshness(states)
     failed = any(
         o.result == import_rules.FAIL and o.rule.invariant == invariant.n
@@ -239,8 +245,10 @@ def of_model(
 def _calculate(
     map_id: str, model: Model, meaning: Meaning, facts: dict[str, Any]
 ) -> tuple[Claim, ...]:
-    outcomes = {o.rule.id: o for o in import_rules.evaluate(model, facts)}
-    ctx = _Context(map_id, model, meaning, facts, outcomes)
+    records = facts.get("components") or {}
+    owned = {card: claimed(card, records) for card in model.components}
+    outcomes = {o.rule.id: o for o in import_rules.evaluate(model, facts, owned)}
+    ctx = _Context(map_id, model, meaning, facts, outcomes, owned)
     return tuple(claim for each in _TYPES for claim in each(ctx))
 
 
