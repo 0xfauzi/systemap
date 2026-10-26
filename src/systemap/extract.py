@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import functools
 import hashlib
 import json
 import re
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    file_names,
     notice_text,
     python_calls,
     python_entry,
@@ -52,6 +54,10 @@ PACKAGE_MODULE = "__init__.py"
 TYPE_ALIAS: tuple[type, ...] = (ast.TypeAlias,) if hasattr(ast, "TypeAlias") else ()
 
 
+def _not_test(repo: Path, test_patterns: tuple[str, ...], path: Path) -> bool:
+    return not matches_test_pattern(path.relative_to(repo).as_posix(), test_patterns)
+
+
 class PythonLanguage(PythonRepository):
     """Read Python syntax through the language adapter interface."""
 
@@ -61,13 +67,13 @@ class PythonLanguage(PythonRepository):
         repo: Path,
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
+        refused: list[Path] | None = None,
     ) -> Iterable[Path]:
         del tests_dirs
-        return (
-            path
-            for path in python_repo.python_paths(root)
-            if not matches_test_pattern(path.relative_to(repo).as_posix(), test_patterns)
-        )
+        names: list[Path] = []
+        found = python_repo.python_paths(root, refused=names)
+        source = functools.partial(_not_test, repo, test_patterns)
+        return file_names.selected(found, names, source, refused)
 
     def context(
         self,

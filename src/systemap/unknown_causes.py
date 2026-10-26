@@ -17,7 +17,7 @@ from systemap import repo_files
 
 # The file could not be read, or the repository rules refused it.
 READ = "read"
-# The file is not UTF-8 text.
+# The file is not UTF-8 text, or the file name is not valid UTF-8.
 ENCODING = "encoding"
 # The parser could not parse the source.
 SYNTAX = "syntax"
@@ -59,7 +59,10 @@ FIX = {
         "If systemap could not read a file, make sure that the file is in the repository "
         "and that systemap can read it."
     ),
-    ENCODING: "If a file is not UTF-8 text, write the file as UTF-8 text.",
+    ENCODING: (
+        "If a file is not UTF-8 text, write the file as UTF-8 text. If a file name is not "
+        "valid UTF-8, change the name to a valid UTF-8 name."
+    ),
     SYNTAX: (
         "If the parser could not parse a file, examine the source at the line. If the "
         "source is not correct, correct the source. If the source is correct, the parser "

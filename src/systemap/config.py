@@ -21,6 +21,7 @@ from systemap import (
     config_decisions,
     contract_file,
     decision_kinds,
+    file_names,
     flow_ids,
     model_fields,
     model_load,
@@ -80,7 +81,6 @@ AGENT_KEYS = {"command", "cache", "timeout"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
-JUDGEMENT_KEYS = {"answered"}
 JUDGEMENT_KEYS = {"answered", "require_reviews"}
 ANSWER_FORMS = ("item", "items", "crossing", "crossing_into", "crossing_from", "kind", "module_sdk")
 ANSWER_KEYS = {*ANSWER_FORMS, "reason", "evidence", "policy", "reviewed", "citations"}
@@ -324,11 +324,11 @@ PackageDir = Callable[[Path], bool]
 def skipped(directory: Path, names: Collection[str], package_dir: PackageDir) -> bool:
     """This function finds a directory that a walk does not go into.
 
-    A hidden directory and a directory in `names` are skipped. If the language adapter
-    identifies a directory with the name of an output directory as a package, the
-    directory is not skipped."""
+    A hidden directory, a directory with a name that is not valid UTF-8, and a directory
+    in `names` are skipped. If the language adapter identifies a directory with the name
+    of an output directory as a package, the directory is not skipped."""
     name = directory.name
-    if name.startswith("."):
+    if name.startswith(".") or not file_names.valid(name):
         return True
     return name in names and not (name in OUTPUT_DIRS and package_dir(directory))
 

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import python_calls, python_repo, unknown_causes
+from systemap import file_names, python_calls, python_repo, unknown_causes
 from systemap.pattern_match import matches_test_pattern
 from systemap.source_text import read_problems
 
@@ -46,37 +46,62 @@ def is_test_file(path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[st
     return any(rel and path.startswith(rel.rstrip("/") + "/") for rel in tests_dirs)
 
 
-def test_files(repo: Path, tests_dirs: tuple[str, ...], patterns: tuple[str, ...]) -> list[Path]:
-    """List the test files: the test directories first, then the test pattern files."""
-    files = list(dict.fromkeys(_directory_files(repo, tests_dirs)))
+def test_files(
+    repo: Path,
+    tests_dirs: tuple[str, ...],
+    patterns: tuple[str, ...],
+    refused: list[Path],
+) -> list[Path]:
+    """List the test files: the test directories first, then the test pattern files.
+
+    A test file with a path that is not valid UTF-8 is not in the list. The function adds
+    such a file to `refused`."""
+    names: list[Path] = []
+    files = list(dict.fromkeys(_directory_files(repo, tests_dirs, names)))
     if patterns:
         seen = set(files)
         files += [
             path
-            for path in _python_files(repo)
+            for path in _python_files(repo, names)
             if path not in seen
             and matches_test_pattern(path.relative_to(repo).as_posix(), patterns)
         ]
+    refused.extend(_refused_tests(repo, tests_dirs, patterns, names))
     return files
 
 
-def _directory_files(repo: Path, tests_dirs: tuple[str, ...]) -> Iterator[Path]:
+def _refused_tests(
+    repo: Path, tests_dirs: tuple[str, ...], patterns: tuple[str, ...], names: list[Path]
+) -> list[Path]:
+    """Give the walked files with a path that is not valid UTF-8 that are test files."""
+    return [
+        path
+        for path in dict.fromkeys(names)
+        if is_test_file(path.relative_to(repo).as_posix(), tests_dirs, patterns)
+    ]
+
+
+def _directory_files(
+    repo: Path, tests_dirs: tuple[str, ...], refused: list[Path]
+) -> Iterator[Path]:
     for rel in tests_dirs:
         test_dir = repo / rel
         if not rel or not test_dir.is_dir():
             continue
         # The walk does not go into the skipped folders. The sort keeps the order of
         # the earlier `rglob` result: a path order, not the order of the walk.
-        yield from sorted(python_repo.python_paths(test_dir, "test_*.py"))
+        yield from sorted(python_repo.python_paths(test_dir, "test_*.py", refused))
 
 
-def _python_files(repo: Path) -> Iterator[Path]:
-    """Give the `.py` files of the repository in a stable sequence, without skipped folders."""
+def _python_files(repo: Path, refused: list[Path]) -> Iterator[Path]:
+    """Give the `.py` files of the repository in a stable sequence, without skipped folders.
+
+    A file with a path that is not valid UTF-8 goes to `refused`."""
     for current, names, files in os.walk(repo):
         names[:] = sorted(name for name in names if name not in python_repo.PYTHON_SKIP)
-        for name in sorted(files):
-            if name.endswith(".py"):
-                yield Path(current, name)
+        found = (name for name in sorted(files) if name.endswith(".py"))
+        for name in file_names.files(repo, current, found, refused):
+            yield Path(current, name)
 
 
 def test_names(raw: str) -> list[str]:
@@ -113,7 +138,7 @@ def _issue(relative: str, line: int, problem: tuple[str, str], source: str = "")
 
 def _parse_test(repo: Path, path: Path, issues: list[dict[str, Any]]) -> ast.Module | None:
     """Read and parse one test file. A problem goes to `issues`, and the result is None."""
-    relative = path.relative_to(repo).as_posix()
+    relative = file_names.shown(path.relative_to(repo).as_posix())
     try:
         raw, problems = read_problems(path, repo)
     except OSError as exc:
@@ -145,7 +170,11 @@ def collect_tests(
     """
     guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
     known, packages = set(paths), _packages(paths)
-    for path in test_files(repo, tests_dirs, tests.test_patterns):
+    # A test file with a path that is not valid UTF-8 is not read. It gives a
+    # `test_file_issues` record.
+    refused: list[Path] = []
+    files = test_files(repo, tests_dirs, tests.test_patterns, refused)
+    for path in [*files, *refused]:
         tree = _parse_test(repo, path, tests.test_issues)
         if tree is not None:
             package = packages.get(path.parent, "")

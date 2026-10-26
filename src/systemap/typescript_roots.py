@@ -25,7 +25,7 @@ import re
 from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 
-from systemap import config
+from systemap import config, file_names
 from systemap.config import ConfigError
 from systemap.typescript_config import (
     SOURCE_SKIP,
@@ -126,12 +126,14 @@ def _has_kind(files: list[str], kind: str) -> bool:
 
 
 def _walk(root: Path) -> Iterator[tuple[list[str], list[str]]]:
-    """This function walks the repository. It does not enter skipped folders or folders
-    with a name that starts with a period."""
+    """This function walks the repository. It does not enter skipped folders, folders
+    with a name that starts with a period, or folders with a name that is not valid UTF-8.
+    It does not give a file name that is not valid UTF-8."""
     skip = SOURCE_SKIP | config.SKIP_WALK
-    for _here, names, files in os.walk(root):
-        names[:] = sorted(name for name in names if name not in skip and name[0] != ".")
-        yield names, files
+    for here, names, files in os.walk(root):
+        found = file_names.folders(names)
+        names[:] = sorted(name for name in found if name not in skip and name[0] != ".")
+        yield names, file_names.files(root, here, files, None)
 
 
 def _tsd_directory(root: Path) -> str:

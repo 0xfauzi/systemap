@@ -103,7 +103,13 @@ class LanguageAdapter(RepositoryAdapter, Protocol):
         repo: Path,
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
-    ) -> Iterable[Path]: ...
+        refused: list[Path] | None = None,
+    ) -> Iterable[Path]:
+        """Give the source files below the root.
+
+        A source file with a path that is not valid UTF-8 is not in the result. If
+        `refused` is a list, the function adds such a file to it."""
+        ...
 
     def context(
         self,
