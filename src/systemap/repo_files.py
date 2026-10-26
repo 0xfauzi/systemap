@@ -52,6 +52,13 @@ class RepoPathError(OSError):
     """The path is not a regular file in the repository."""
 
 
+class TooLarge(RepoPathError):
+    """The file is larger than the size limit of a source file (`source_text.MAX_BYTES`)."""
+
+
+TOO_LARGE = "the file is larger than the source size limit"
+
+
 def _lexical(rel: str) -> None:
     """Refuse an empty path, an absolute path, a drive or UNC path, and a `..` part."""
     if not rel:

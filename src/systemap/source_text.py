@@ -20,6 +20,15 @@ from systemap import repo_files, unknown_causes
 INSTALLED = "installed"
 LOCAL_INPUTS = ("parser", "compiler", INSTALLED)
 
+# The maximum size of one source file, in bytes. A larger file gives
+# `repo_files.TooLarge`, and the adapter writes an unknown record with the cause `size`.
+# This value is a guard against a file that uses all the memory of the computer. It is not
+# a measurement of systemap capacity. The largest real source files that we measured are
+# 7615641 bytes (Python, a generated file of the Google Cloud SDK) and 2349483 bytes
+# (TypeScript, lib.dom.d.ts). Thus the limit is more than two times the largest measured
+# file.
+MAX_BYTES = 16 * 1024 * 1024
+
 
 def decode(data: bytes) -> str:
     """This function gives the source text of the bytes of one source file.
@@ -38,17 +47,22 @@ def decode(data: bytes) -> str:
 def read(repo: Path, path: Path) -> str:
     """This function gives the source text of a regular file in the repository.
 
-    `decode` gives the text. A file that `repo_files` refuses gives OSError. Bytes that
-    are not UTF-8 give UnicodeError.
+    `decode` gives the text. A file that `repo_files` refuses gives OSError. A file that
+    is larger than MAX_BYTES gives `repo_files.TooLarge`. Bytes that are not UTF-8 give
+    UnicodeError.
     """
-    return decode(repo_files.read_bytes(repo, repo_files.relative(repo, path)))
+    data = repo_files.read_bytes(repo, repo_files.relative(repo, path), MAX_BYTES + 1)
+    if len(data) > MAX_BYTES:
+        raise repo_files.TooLarge(repo_files.TOO_LARGE)
+    return decode(data)
 
 
 def read_problems(path: Path, repo: Path) -> tuple[str, list[tuple[str, str]]]:
     """This function gives the source text and its read problems.
 
     `decode` gives the text. Text that is not UTF-8 gives empty text and one problem. A
-    file that `repo_files` refuses also gives empty text and one problem. A different
+    file that `repo_files` refuses, or a file that is larger than MAX_BYTES, also gives
+    empty text and one problem. A different
     OSError goes to the caller. Each problem is a reason and its `unknown_causes` cause.
     """
     try:

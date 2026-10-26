@@ -15,6 +15,7 @@ import ast
 from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
+from systemap import python_tree
 from systemap.call_sites import IMPORT, VALUE, WHOLE, Binding, records
 from systemap.python_imports import relative_source
 
@@ -43,7 +44,7 @@ def import_targets(
     gives the local name `*`. Relative imports use the module and its package state. Only
     targets in the module inventory are given.
     """
-    for node in ast.walk(tree):
+    for node in python_tree.walk(tree):
         if isinstance(node, ast.Import):
             yield from _plain_targets(node, prefixes, known)
         elif isinstance(node, ast.ImportFrom):
@@ -97,7 +98,7 @@ class _Reader:
 
     def __init__(self, tree: ast.AST) -> None:
         self.parent: dict[ast.AST, ast.AST] = {}
-        for node in ast.walk(tree):
+        for node in python_tree.walk(tree):
             for child in ast.iter_child_nodes(node):
                 self.parent[child] = node
         self.tree = tree
@@ -225,7 +226,7 @@ def _value_binding(
 def _value_bindings(reader: _Reader, imports: list[Binding]) -> list[Binding]:
     found = (
         _value_binding(reader, node, bound, imports)
-        for node in ast.walk(reader.tree)
+        for node in python_tree.walk(reader.tree)
         for bound in _value_targets(node)
     )
     return [b for b in found if b is not None]
@@ -242,7 +243,7 @@ def _use(reader: _Reader, node: ast.AST) -> tuple[int, int, str]:
 
 def _add_uses(reader: _Reader, bindings: dict[str, list[Binding]]) -> None:
     """Add each use to the bindings of its name in the innermost scope that has one."""
-    for node in ast.walk(reader.tree):
+    for node in python_tree.walk(reader.tree):
         if not isinstance(node, ast.Name | ast.Attribute) or isinstance(node.ctx, ast.Store):
             continue
         candidates = bindings.get(_dotted(node) or "", [])
@@ -276,9 +277,8 @@ def call_sites(
     is_package: bool = False,
 ) -> list[dict[str, Any]] | None:
     """Give the call-site records of one module, or None if the source does not parse."""
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return None
     reader = _Reader(tree)
     # One binding for each scope and local name. An import in one function does not
