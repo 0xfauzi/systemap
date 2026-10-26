@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from systemap import file_names, repo_files, source_text, unknown_causes
+from systemap import control_names, file_names, repo_files, source_text, unknown_causes
 from systemap import language as languages
 from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
@@ -126,6 +126,7 @@ def _module_facts(
     )
     if record is None:
         return None
+    control_names.refuse_surface_names(record)
     record["id"] = module
     record["file"] = file_names.shown(record["file"])
     record["package"] = file_names.shown(package_for(cfg, language, module, path))
@@ -220,10 +221,13 @@ def _add_refused(
     context: Any,
     found: tuple[dict[str, Any], dict[str, set[str]], dict[str, str]],
 ) -> None:
-    """Add a module record for each source file with a path that is not valid UTF-8.
+    """Add a module record for each source file with a path that is not valid UTF-8, or
+    with a path that contains a control character.
 
     The adapter does not read such a file. Its record has the cause `encoding`, as the
-    record of a file that is not UTF-8 text. Other modules cannot import the module.
+    record of a file that is not UTF-8 text, or the cause `name`. Its module identifier
+    shows each control character as an escape (`file_names.shown`). Other modules cannot
+    import the module.
     """
     components, imports, sources = found
     for module, path in sorted(refused.items()):
@@ -432,6 +436,7 @@ def _build(
     guards = language.collect_tests(repo, cfg.test_dirs, prefixes, paths, context)
     _attach_test_facts(components, guards)
     points, issues = language.entry_points(repo, prefixes, components, sources, context)
+    points, issues = control_names.refuse_entry_points(points, issues)
     for point in points:
         point["label"] = language.entry_label(point)
     return _facts_file(cfg, language, prefixes, components, cfg.test_dirs, points, issues, context)

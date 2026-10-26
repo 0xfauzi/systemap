@@ -10,6 +10,10 @@ An indirect re-export, `import type { X } from './x'` and then `export type { X 
 the same record as `export type { X } from './x'`: the line of the export statement and
 its names. A name without a module has the kind `unknown` here. The re-export resolver
 (`reexports`) gives a type-only name of kind `unknown` the kind `type`.
+
+Two `export * from` statements give the same public name `*`. Thus each target without
+a module is kept in a set, and each statement of such a target gives its own record. A
+public name with a control character is not in a record (`control_names`).
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import unknown_causes
+from systemap.terminal_text import has_control
 from systemap.typescript_reexports import export_specifiers, reexports
 from systemap.typescript_syntax import _one_line, string_value, syntax_tree
 
@@ -43,7 +48,7 @@ class Targets:
 def resolve_reexports(surface: dict[str, Any], raw: str, path: str, targets: Targets) -> None:
     """This function replaces each re-export specifier with its module, and adds the
     unknown records of the specifiers without a module."""
-    missing: dict[str, str] = {}
+    missing = _Missing({}, set())
     kept: list[dict[str, Any]] = []
     for entry in surface["names"]:
         source = entry.get("reexport_of")
@@ -53,11 +58,21 @@ def resolve_reexports(surface: dict[str, Any], raw: str, path: str, targets: Tar
             if targets.package(source):
                 if star:
                     continue
-            else:
-                missing[entry["name"]] = source
+            elif not has_control(entry["name"]):
+                missing.names[entry["name"]] = source
+                missing.targets.add(source)
         kept.append(entry)
     surface["names"] = kept
     surface["unknown"].extend(_problems(raw, path, missing, targets.declaration))
+
+
+@dataclass(frozen=True)
+class _Missing:
+    """The targets without a module: `names` gives the target of each public name, and
+    `targets` holds each target. Two statements can give the same name, such as `*`."""
+
+    names: dict[str, str]
+    targets: set[str]
 
 
 def _resolved(entry: dict[str, Any], source: str, targets: Targets) -> bool:
@@ -68,19 +83,18 @@ def _resolved(entry: dict[str, Any], source: str, targets: Targets) -> bool:
 
 
 def _problems(
-    raw: str, path: str, missing: dict[str, str], declaration: Callable[[str], str]
+    raw: str, path: str, missing: _Missing, declaration: Callable[[str], str]
 ) -> list[dict[str, Any]]:
     """This function gives one unknown record for each statement and missing target.
 
-    `missing` gives the target of each public name without a module. A target that no
-    top-level statement names gives a record without a line (0).
+    A target that no top-level statement names gives a record without a line (0).
     """
-    if not missing:
+    targets = missing.targets
+    if not targets:
         return []
-    targets = set(missing.values())
     out: list[dict[str, Any]] = []
     found: set[str] = set()
-    for line, source, names, text in _statements(raw, path, missing):
+    for line, source, names, text in _statements(raw, path, missing.names):
         if source in targets:
             found.add(source)
             out.append(_problem(line, source, names, text, declaration(source)))
@@ -105,8 +119,7 @@ def _statements(
         text = _one_line((node.text or b"").decode("utf-8"))[:EXCERPT]
         target = string_value(node.child_by_field_name("source"))
         if target:
-            names = [entry["name"] for entry in reexports(node, source)]
-            yield node.start_point.row + 1, target, names, text
+            yield node.start_point.row + 1, target, _shown_names(reexports(node, source)), text
             continue
         groups: dict[str, list[str]] = {}
         for _local, public, _type_only in export_specifiers(node):
@@ -114,6 +127,11 @@ def _statements(
                 groups.setdefault(imported[public], []).append(public)
         for found, names in groups.items():
             yield node.start_point.row + 1, found, names, text
+
+
+def _shown_names(entries: list[dict[str, Any]]) -> list[str]:
+    """Give the public names of the records without a name with a control character."""
+    return [entry["name"] for entry in entries if not has_control(entry["name"])]
 
 
 def _problem(line: int, source: str, names: list[str], text: str, file: str) -> dict[str, Any]:

@@ -170,6 +170,7 @@ COMPONENTS = (
             "systemap.extract",
             "systemap.call_sites",
             "systemap.completeness",
+            "systemap.control_names",
             "systemap.extraction",
             "systemap.facts",
             "systemap.facts_file",

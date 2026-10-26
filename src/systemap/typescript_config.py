@@ -120,10 +120,10 @@ def package_json(root: Path, repo: Path | None = None) -> dict[str, Any]:
 
 def typescript_name(root: Path) -> str:
     """This function selects the TypeScript package name, or the directory name if there is
-    no package name.
+    no package name. A package name with a control character is not used.
     """
     name = package_json(root).get("name")
-    if not isinstance(name, str) or not name.strip():
+    if not isinstance(name, str) or not name.strip() or not file_names.valid(name):
         return root.name.replace("-", "_")
     return name.strip().removeprefix("@").replace("/", ".").replace("-", "_")
 

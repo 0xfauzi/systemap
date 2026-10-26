@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from systemap import repo_files
+from systemap import file_names, repo_files
 
 # The file could not be read, or the repository rules refused it.
 READ = "read"
@@ -40,6 +40,8 @@ PACKAGE = "package"
 BINDING = "binding"
 # The names that a re-export gives are not known.
 REEXPORT = "reexport"
+# A file name, an export name, or an entry point name contains a control character.
+NAME = "name"
 # The record has no cause.
 NOT_KNOWN = "not known"
 
@@ -56,6 +58,7 @@ CAUSES = (
     PACKAGE,
     BINDING,
     REEXPORT,
+    NAME,
     NOT_KNOWN,
 )
 
@@ -114,6 +117,10 @@ FIX = {
         "If the names of a re-export are not known, examine the modules that it reads. "
         "Then record an answer for the line in [judgement] answered."
     ),
+    NAME: (
+        "If a name contains a control character, the facts do not use the name. Change "
+        "the file name, the export name, or the entry point name. Then use systemap refresh."
+    ),
     NOT_KNOWN: (
         "If a line has no cause, the facts have an older format. Use systemap refresh. "
         "Then examine the line again."
@@ -130,6 +137,7 @@ def of(record: Mapping[str, Any]) -> str:
 # The read problems with a cause that is not READ.
 _READ_CAUSES: tuple[tuple[type[BaseException], str], ...] = (
     (repo_files.TooLarge, SIZE),
+    (file_names.NameNotSafe, NAME),
     (UnicodeError, ENCODING),
 )
 
@@ -143,7 +151,8 @@ DEPTH_REASON = "The source syntax has too many levels."
 
 def read_cause(exc: BaseException) -> str:
     """Give the cause of a read problem: ENCODING for text that is not UTF-8, SIZE for a
-    file that is larger than the source size limit, or READ."""
+    file that is larger than the source size limit, NAME for a file name with a control
+    character, or READ."""
     return next((cause for kind, cause in _READ_CAUSES if isinstance(exc, kind)), READ)
 
 

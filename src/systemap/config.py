@@ -376,11 +376,11 @@ def default_name(root: Path, language: str) -> str:
     """This function selects the project name, Git repository directory name, or root
     directory name.
 
-    The language adapter reads the project name from its package metadata.
-    A worktree uses the common Git directory to identify its repository.
+    The adapter reads the project name from the package metadata. A name with a control
+    character is not used. A worktree uses the common Git directory to identify its repository.
     """
     name = languages.repository(language).project_name(root) if language else ""
-    if name:
+    if name and file_names.valid(name):
         return name
     try:
         proc = subprocess.run(

@@ -16,6 +16,7 @@ from typing import Any
 
 from systemap import language as languages
 from systemap import repo_files
+from systemap.terminal_text import has_control, printable
 
 # The keys that an earlier init wrote after the [package_roots] line, with defaults.
 SETTINGS_IN_ROOTS = {"model": "map/model.py", "out_dir": "docs/map"}
@@ -45,10 +46,22 @@ def checked_roots(
                 f"{where}: The package root {rel} is not in the repository. Correct the path "
                 f"in [package_roots]."
             )
-        name_problem = adapter.root_name_problem(rel, name) if adapter else ""
+        name_problem = _control_problem(rel, name)
+        if not name_problem and adapter:
+            name_problem = adapter.root_name_problem(rel, name)
         if name_problem or not (root / rel).is_dir():
             raise ValueError(f"{where}: {_problem(rel, name_problem, settings)}")
     return kept
+
+
+def _control_problem(rel: str, name: str) -> str:
+    """Give the problem of a package root path or name with a control character, or ""."""
+    if not (has_control(rel) or has_control(name)):
+        return ""
+    return (
+        f"The package root {printable(rel)} has the name {printable(name)}. A package root "
+        "path or name cannot contain a control character. Correct it in [package_roots]."
+    )
 
 
 def _repeats_setting(raw: dict[str, Any], rel: str, name: str) -> bool:
