@@ -26,6 +26,9 @@ To add a claim type, add one function to `_TYPES` and its basis texts to `BASIS_
 
 from __future__ import annotations
 
+import hashlib
+import pickle
+from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -210,15 +213,38 @@ _TYPES: tuple[Callable[[_Context], list[Claim]], ...] = (
 TYPES = (COMPONENT, FLOW, INVARIANT, IMPORT_RULE)
 
 
+# The claims of the last maps. One command renders the same map for the page, each
+# figure, and the check, and each render gives the claims. A key is the digest of the
+# pickle of all inputs, so a changed input gives a different key.
+CLAIMS_KEEP = 8
+_claims: OrderedDict[str, tuple[Claim, ...]] = OrderedDict()
+
+
 def of_model(
     model: Model, meaning: Meaning, facts: dict[str, Any], map_id: str = ""
 ) -> list[Claim]:
     """Give the claims of one map in this sequence: the components, the flows, the
     invariants, and the import rules. Each group is in model order. The invariants are in
-    number order."""
-    outcomes = {o.rule.id: o for o in import_rules.evaluate(model, facts)}
-    ctx = _Context(map_id, model, meaning, facts, outcomes)
-    return [claim for each in _TYPES for claim in each(ctx)]
+    number order.
+
+    If the inputs are equal to the inputs of an earlier call, the function gives the
+    earlier claims. A claim is frozen."""
+    key = hashlib.blake2b(pickle.dumps((map_id, model, meaning, facts), 5)).hexdigest()
+    found = _claims.get(key)
+    if found is None:
+        outcomes = {o.rule.id: o for o in import_rules.evaluate(model, facts)}
+        ctx = _Context(map_id, model, meaning, facts, outcomes)
+        found = tuple(claim for each in _TYPES for claim in each(ctx))
+        _claims[key] = found
+        while len(_claims) > CLAIMS_KEEP:
+            _claims.popitem(last=False)
+    _claims.move_to_end(key)
+    return list(found)
+
+
+def clear_claims() -> None:
+    """Remove all entries from the cache of of_model()."""
+    _claims.clear()
 
 
 def of_tree(tree: nest.Tree, facts: dict[str, Any]) -> list[Claim]:

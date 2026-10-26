@@ -9,7 +9,10 @@ a module of the source component or the target component of the flow.
 
 from __future__ import annotations
 
+import hashlib
+import pickle
 import re
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -264,6 +267,13 @@ def mechanism_of(flow: Flow, meaning: Meaning, observed_by: Iterable[str]) -> st
     return ""
 
 
+# The evidence of the last maps. One command renders the same map several times, and
+# each render gives the evidence. A key is the digest of the pickle of all inputs, so a
+# changed input gives a different key.
+EVIDENCE_KEEP = 8
+_evidence: OrderedDict[str, ByFlow] = OrderedDict()
+
+
 def of_model(
     model: Model,
     meaning: Meaning,
@@ -273,11 +283,33 @@ def of_model(
     """This function gives each flow evidence state by flow identifier.
 
     The result keeps structural facts separate from source evidence, even if the flow
-    has a source review.
+    has a source review. If the inputs are equal to the inputs of an earlier call, the
+    function gives a copy of the earlier result. Each Evidence record is frozen.
     """
+    mechanisms = list(observed_by)
+    key = hashlib.blake2b(pickle.dumps((model, meaning, facts, mechanisms), 5)).hexdigest()
+    found = _evidence.get(key)
+    if found is None:
+        found = _of_model(model, meaning, facts, mechanisms)
+        _evidence[key] = found
+        while len(_evidence) > EVIDENCE_KEEP:
+            _evidence.popitem(last=False)
+    _evidence.move_to_end(key)
+    out = ByFlow(model.flows)
+    out.update(found)
+    return out
+
+
+def clear_evidence() -> None:
+    """Remove all entries from the cache of of_model()."""
+    _evidence.clear()
+
+
+def _of_model(
+    model: Model, meaning: Meaning, facts: dict[str, Any], mechanisms: list[str]
+) -> ByFlow:
     joined = joined_by_import(model, facts)
     shared = sharing_a_module(model, facts)
-    mechanisms = list(observed_by)
     out = ByFlow(model.flows)
     for f in model.flows:
         import_present = frozenset(f.edge) in joined
