@@ -22,6 +22,7 @@ from typing import Any
 
 from systemap import (
     agent,
+    answer_migrations,
     audit,
     config,
     decision,
@@ -33,6 +34,7 @@ from systemap import (
     history,
     jev,
     journeys,
+    judgement_json,
     model_write,
     nest,
     providers,
@@ -132,6 +134,18 @@ def delta_hint(cfg: config.Config) -> None:
 # ---- audit -------------------------------------------------------------------------
 
 
+def _kind_warnings(cfg: config.Config, tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
+    """Give the previous-kind-name warnings for `[judgement] answered`.
+
+    An item that is a current judgement line gets no warning, as in `systemap judgement`
+    (`answer_migrations.kind_warnings`). The function calculates the judgement lines
+    only if an item can get a warning."""
+    if not decision_kinds.warnings(cfg.judgement_answered):
+        return []
+    present = set(judgement_json.current_lines(tree, facts, cfg))
+    return answer_migrations.kind_warnings(cfg.judgement_answered, present)
+
+
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Give the provider findings with exit 0, or exit 1 if the request cannot complete."""
     cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
@@ -139,7 +153,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     if facts is None:
         return STALE
     tree = nest.load(cfg)
-    for line in decision_kinds.warnings(cfg.judgement_answered):
+    for line in _kind_warnings(cfg, tree, facts):
         show(line, file=sys.stderr)
     kinds = _measured_kinds(cfg, _kinds(args.kind) if args.kind else audit.DEFAULT_KINDS)
     if not kinds:

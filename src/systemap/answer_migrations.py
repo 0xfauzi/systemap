@@ -261,6 +261,14 @@ def _unmatched(answer: Answered, present: Container[str]) -> _Unmatched:
     )
 
 
+def kind_warnings(answers: Iterable[Answered], present: Container[str]) -> list[str]:
+    """Give one warning for each previous kind name (`decision_kinds.warnings`).
+
+    `present` contains the current lines. An item that is a current line gets no warning,
+    also if its text looks like a decision line with a previous kind name."""
+    return decision_kinds.warnings([_unmatched(answer, present) for answer in answers])
+
+
 def warnings(answers: Iterable[Answered], present: Container[str] = ()) -> list[str]:
     """Give one warning for each previous kind name and each item in an earlier form.
 

@@ -218,20 +218,30 @@ def mentioned(name: str, text: str) -> bool:
     return re.search(rf"(?<![\w-]){re.escape(name.lower())}(?![\w-])", text.lower()) is not None
 
 
-def owners(model: Model, facts: dict[str, Any]) -> dict[str, str]:
-    """This function assigns each claimed module to its component ID."""
+def owners(
+    model: Model, facts: dict[str, Any], owned: Mapping[Component, list[str]] | None = None
+) -> dict[str, str]:
+    """This function assigns each claimed module to its component ID.
+
+    `owned` gives `claimed(component, facts["components"])` for each component of the
+    model. If it is None, the function calculates these modules."""
     components = facts.get("components", {})
     out: dict[str, str] = {}
     for c in model.components:
-        for module in claimed(c, components):
+        for module in claimed(c, components) if owned is None else owned[c]:
             out.setdefault(module, c.id)
     return out
 
 
-def joined_by_import(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]:
-    """This function gives pairs of components with imports in either direction."""
+def joined_by_import(
+    model: Model, facts: dict[str, Any], owner: Mapping[str, str] | None = None
+) -> set[frozenset[str]]:
+    """This function gives pairs of components with imports in either direction.
+
+    `owner` is the result of `owners(model, facts)`. If it is None, the function
+    calculates it."""
     components = facts.get("components", {})
-    owner = owners(model, facts)
+    owner = owners(model, facts) if owner is None else owner
     out: set[frozenset[str]] = set()
     for module, p in owner.items():
         for target in components.get(module, {}).get("uses", {}):
@@ -241,12 +251,16 @@ def joined_by_import(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]
     return out
 
 
-def sharing_a_module(model: Model, facts: dict[str, Any]) -> set[frozenset[str]]:
+def sharing_a_module(
+    model: Model, facts: dict[str, Any], owner: Mapping[str, str] | None = None
+) -> set[frozenset[str]]:
     """This function gives pairs of components with a shared module.
 
     A symbol claim can put one component inside a module that another component owns.
+    `owner` is the result of `owners(model, facts)`. If it is None, the function
+    calculates it.
     """
-    owner = owners(model, facts)
+    owner = owners(model, facts) if owner is None else owner
     out: set[frozenset[str]] = set()
     for c in model.components:
         for module, _name in symbol_claims(c):
@@ -302,19 +316,22 @@ def of_model(
     meaning: Meaning,
     facts: dict[str, Any],
     observed_by: Iterable[str] = (),
+    owned: Mapping[Component, list[str]] | None = None,
 ) -> ByFlow:
     """This function gives each flow evidence state by flow identifier.
 
     The result keeps structural facts separate from source evidence, even if the flow
     has a source review. If the inputs are equal to the inputs of an earlier call, the
     function gives a copy of the earlier result. Each Evidence record is frozen.
+    `owned` gives the claimed modules of each component (see `owners`). It comes from
+    the model and the facts, thus it is not a part of the cache key.
     """
     mechanisms = list(observed_by)
     found = remembered(
         _evidence,
         EVIDENCE_KEEP,
         (model, meaning, facts, mechanisms),
-        lambda: _of_model(model, meaning, facts, mechanisms),
+        lambda: _of_model(model, meaning, facts, mechanisms, owned),
     )
     out = ByFlow(model.flows)
     out.update(found)
@@ -327,10 +344,16 @@ def clear_evidence() -> None:
 
 
 def _of_model(
-    model: Model, meaning: Meaning, facts: dict[str, Any], mechanisms: list[str]
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    mechanisms: list[str],
+    owned: Mapping[Component, list[str]] | None,
 ) -> ByFlow:
-    joined = joined_by_import(model, facts)
-    shared = sharing_a_module(model, facts)
+    # The two pair sets use the same module owners. Calculate them one time.
+    owner = owners(model, facts, owned)
+    joined = joined_by_import(model, facts, owner)
+    shared = sharing_a_module(model, facts, owner)
     out = ByFlow(model.flows)
     for f in model.flows:
         import_present = frozenset(f.edge) in joined

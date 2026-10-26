@@ -27,8 +27,12 @@ from systemap.model import (
 )
 
 
-def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | None:
-    """Get parsed source for every claimed module, or None without a usable snapshot."""
+def _source(
+    card: Component, facts: dict[str, Any], owned: list[str] | None = None
+) -> list[tuple[str, str]] | None:
+    """Get parsed source for every claimed module, or None without a usable snapshot.
+
+    `owned` is the result of `claimed(card, facts["components"])`, or None."""
     components = facts.get("components", {})
     if not isinstance(components, dict):
         return None
@@ -39,7 +43,7 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
     }
     if not explicit <= components.keys():
         return None
-    names = source_modules(card, components)
+    names = source_modules(card, components, owned)
     if not names:
         return None
     source = []
@@ -54,12 +58,15 @@ def _source(card: Component, facts: dict[str, Any]) -> list[tuple[str, str]] | N
     return source
 
 
-def source_modules(card: Component, components: dict[str, Any]) -> set[str]:
+def source_modules(
+    card: Component, components: dict[str, Any], owned: list[str] | None = None
+) -> set[str]:
     """Give the modules of the source digest: the claimed modules and the symbol claim modules.
 
     A symbol claim module is in the result also when the records do not contain it.
-    Delta uses the same selection to find the components with changed source."""
-    names = set(claimed(card, components))
+    Delta uses the same selection to find the components with changed source. `owned` is
+    the result of `claimed(card, components)`. If it is None, the function calculates it."""
+    names = set(claimed(card, components) if owned is None else owned)
     names.update(pattern.partition(":")[0] for pattern in card.implemented_by if is_symbol(pattern))
     return names
 
@@ -145,13 +152,20 @@ def claims(card: Component, model: Model, meaning: Meaning) -> dict[str, Any]:
     return _claims(card, model, meaning, reviews=False)
 
 
-def digest(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any]) -> str | None:
+def digest(
+    card: Component,
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    owned: list[str] | None = None,
+) -> str | None:
     """Hash claimed parsed source and related semantic claims.
 
     Missing source records and source that did not parse completely prevent a digest.
-    Formatting and comments do not change the parsed-source hash.
+    Formatting and comments do not change the parsed-source hash. `owned` is the result
+    of `claimed(card, facts["components"])`. If it is None, the function calculates it.
     """
-    source = _source(card, facts)
+    source = _source(card, facts, owned)
     if source is None:
         return None
     material = {"source": source, "claims": _claims(card, model, meaning)}
@@ -165,14 +179,23 @@ CURRENT = "current"
 STATES = (CURRENT, STALE, MISSING)
 
 
-def state(card: Component, model: Model, meaning: Meaning, facts: dict[str, Any]) -> str:
+def state(
+    card: Component,
+    model: Model,
+    meaning: Meaning,
+    facts: dict[str, Any],
+    owned: list[str] | None = None,
+) -> str:
     """Give the review state of one component: missing, stale, or current.
 
     `missing`: the component has no `source_review` value.
     `stale`: the `source_review` value is not the current digest. A component without a
     current digest, for example after a parse error, also has this state.
     `current`: the `source_review` value is the current digest.
+
+    `owned` is the result of `claimed(card, facts["components"])`, or None (see `digest`).
     """
     if not card.source_review:
         return MISSING
-    return CURRENT if card.source_review == digest(card, model, meaning, facts) else STALE
+    found = digest(card, model, meaning, facts, owned)
+    return CURRENT if card.source_review == found else STALE

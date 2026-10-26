@@ -23,6 +23,10 @@ CARDS_PER_MAP = 40
 # A card whose modules exceed this many is a candidate to open, whatever
 # the map's size; the skill's target is three to ten modules per card.
 MODULES_PER_CARD = 10
+# The deepest chain of nested maps. The top map is level 0. The tests and the
+# documentation use at most 2 levels. A chain of about 1000 levels used all of the
+# Python stack in the earlier recursive walk.
+MAX_NESTING = 16
 
 
 @dataclass(frozen=True)
@@ -122,7 +126,8 @@ def load(cfg: Config) -> Tree:
 
     An import error, missing MODEL or MEANING, missing file, or model cycle gives a
     configuration error. A model file that is not in the repository also gives a
-    configuration error.
+    configuration error. A chain of nested maps with more than `MAX_NESTING` levels also
+    gives a configuration error.
     """
     if not repo_files.inside(cfg.root, cfg.model_path):
         raise ConfigError(
@@ -133,7 +138,7 @@ def load(cfg: Config) -> Tree:
     theme = _theme(cfg, model, meaning)
     top = Map("", cfg.model_path, cfg.model, model, meaning, theme, None, "", cfg.root)
     maps = [top]
-    _walk(cfg, top, [cfg.model_path.resolve()], maps)
+    _walk(cfg, top, maps)
     return Tree(tuple(maps))
 
 
@@ -144,27 +149,55 @@ def _theme(cfg: Config, model: Model, meaning: Meaning) -> dict[str, Any]:
         raise ConfigError(f"{cfg.source or 'theme'}: {exc}") from exc
 
 
-def _walk(cfg: Config, parent: Map, above: list[Path], maps: list[Map]) -> None:
-    for c in parent.model.opening:
-        if c.kind == "actor" or c.map is None:
-            continue
-        path = _opened(cfg, parent, c, c.map, above)
-        rel = cfg.rel(path)
-        _opened_once(cfg, parent, c.id, path, maps)
-        model, meaning = load_model(path, rel, cfg.root)
-        child = Map(
-            _child_id(parent, c.id),
-            path,
-            rel,
-            model,
-            meaning,
-            _theme(cfg, model, meaning),
-            parent.id,
-            c.id,
-            cfg.root,
+def _walk(cfg: Config, top: Map, maps: list[Map]) -> None:
+    """Load the nested maps below the top map in depth-first order.
+
+    The walk uses a stack, not recursion. Each stack item has three parts: a map, its
+    components that the walk did not examine, and the model files above it. The order
+    of the maps and of the errors is the order of a recursive walk.
+    """
+    loaded = {top.path.resolve(): top.id}
+    stack = [(top, iter(top.model.opening), [top.path.resolve()])]
+    while stack:
+        parent, cards, above = stack[-1]
+        c = next(cards, None)
+        if c is None:
+            stack.pop()
+        elif c.kind != "actor" and c.map is not None:
+            child = _child(cfg, parent, c, c.map, above, loaded)
+            maps.append(child)
+            stack.append((child, iter(child.model.opening), [*above, child.path]))
+
+
+def _child(
+    cfg: Config, parent: Map, c: Component, target: str, above: list[Path], loaded: dict[Path, str]
+) -> Map:
+    """Load the nested map that the component opens, or raise ConfigError."""
+    path = _opened(cfg, parent, c, target, above)
+    rel = cfg.rel(path)
+    _opened_once(cfg, parent, c.id, path, loaded)
+    _within_limit(cfg, parent, c.id, path, above)
+    model, meaning = load_model(path, rel, cfg.root)
+    child_id = _child_id(parent, c.id)
+    loaded[path] = child_id
+    theme = _theme(cfg, model, meaning)
+    return Map(child_id, path, rel, model, meaning, theme, parent.id, c.id, cfg.root)
+
+
+def _within_limit(cfg: Config, parent: Map, card: str, path: Path, above: list[Path]) -> None:
+    """Refuse a nested map below `MAX_NESTING` levels of maps.
+
+    The top map is level 0. Thus `above` contains one model file for each level above the
+    new map. A long chain of model files used all of the Python stack before this limit.
+    """
+    if len(above) > MAX_NESTING:
+        chain = " -> ".join(cfg.rel(p) for p in [*above, path])
+        raise ConfigError(
+            f"{parent.rel}: {card} opens {cfg.rel(path)} at nesting level {len(above)}. "
+            f"The maximum nesting level is {MAX_NESTING} ({chain}). Remove map from a "
+            "component in this chain. Or put the components of a nested map in its parent "
+            "map."
         )
-        maps.append(child)
-        _walk(cfg, child, [*above, path], maps)
 
 
 def _opened(cfg: Config, parent: Map, c: Component, target: str, above: list[Path]) -> Path:
@@ -201,17 +234,17 @@ def _opened(cfg: Config, parent: Map, c: Component, target: str, above: list[Pat
     return path
 
 
-def _opened_once(cfg: Config, parent: Map, card: str, path: Path, maps: list[Map]) -> None:
+def _opened_once(cfg: Config, parent: Map, card: str, path: Path, loaded: dict[Path, str]) -> None:
     """Refuse a nested model file that a different component opens.
 
     The loader reads each model file one time. Two components that open the same file
     make two maps of the same modules, and each level of the tree doubles the number of
-    file reads.
+    file reads. `loaded` gives the map ID of each model file that the loader read.
     """
-    first = next((m for m in maps if m.path.resolve() == path), None)
+    first = loaded.get(path)
     if first is not None:
         raise ConfigError(
-            f"{parent.rel}: {card} opens {cfg.rel(path)}, but the map {first.id} "
+            f"{parent.rel}: {card} opens {cfg.rel(path)}, but the map {first} "
             "uses this file. Give each nested model file one component that opens it."
         )
 
