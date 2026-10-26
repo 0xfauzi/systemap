@@ -28,6 +28,9 @@ form has one pattern in `EARLIER_FORMS`. These lines changed:
   as in "imports Config in 3 modules and". The `package_export` line gave "(+2 more)"
   after the target and the count of the targets in the reason. A count can change while
   the finding stays the same. The rows below the line give the counts now.
+- A line with a control character, such as a newline in a module name from a file name.
+  The current line shows each such character as an escape (`terminal_text.printable`).
+  This form is the first form, so the other forms read the line with the escapes.
 
 For one release, an answer item in an earlier form selects the line in the current form.
 `current_line` applies the patterns in their sequence. Thus an item can change in two or
@@ -68,6 +71,7 @@ from systemap import decision_kinds
 from systemap.config import Answer
 from systemap.decision_kinds import PREVIOUS, Answered
 from systemap.journey_coverage import kind_words
+from systemap.terminal_text import UNSAFE, printable
 
 
 class EarlierForm(NamedTuple):
@@ -103,8 +107,16 @@ _QUOTED = r"""(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
 _ERROR = r"(?:source could not be parsed: \w+|source could not be read: .*?|\w+)"
 _SYNTAX = "The parser could not parse the source syntax."
 
+# The control characters and separators that `terminal_text.printable` replaces.
+_CONTROL = UNSAFE.pattern.removeprefix("[").removesuffix("]")
+
 # Each earlier form, and its current form.
 EARLIER_FORMS = (
+    EarlierForm(
+        "control character",
+        re.compile(rf"^(?=[^{_CONTROL}]*[{_CONTROL}])(?P<line>.*)\Z", re.S),
+        lambda found: printable(found["line"]),
+    ),
     EarlierForm(
         "parser name",
         re.compile(

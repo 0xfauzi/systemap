@@ -92,6 +92,12 @@ NEGATIVE: dict[str, tuple[str, str]] = {
         "unknown surface: package_export web -> dist/a.js: The package.json export targets "
         "have no resolved TypeScript modules.",
     ),
+    "control character": (
+        "unknown surface: package_bin t\\u000ax -> ./a.js: The parser could not resolve the "
+        "package.json bin target to a TypeScript module.",
+        "unknown surface: package_bin t\nx -> ./a.js: The parser could not resolve the "
+        "package.json bin target to a TypeScript module.",
+    ),
 }
 
 # The patterns whose fixed text at its fixed position does not agree with the case.
@@ -102,6 +108,7 @@ ANCHORED = (
     "parser version",
     "source excerpt",
     "entry kind identifier",
+    "control character",
 )
 
 # Hostile lines of about 132 KB.

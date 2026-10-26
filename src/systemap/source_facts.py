@@ -15,6 +15,7 @@ from typing import Any, NamedTuple
 
 from systemap import unknown_causes
 from systemap.model import source_parsed
+from systemap.terminal_text import printable
 
 # The imported-name value that means "the full module".
 WHOLE_MODULE = "*"
@@ -138,7 +139,8 @@ def unknown_fact_causes(
     A record without a cause has the cause `unknown_causes.NOT_KNOWN`. A line is the
     identity of a finding. Thus it contains no line number, source excerpt, or parser
     version (`located_records` gives them). Two records with the same line give one line,
-    with the cause of the first record.
+    with the cause of the first record. A line shows each control character as an escape
+    (`terminal_text.printable`). Thus a name with a newline cannot make a second line.
     """
     modules = [
         (text, unknown_causes.of(found.record)) for text, found in _module_issues(facts, skip)
@@ -162,7 +164,7 @@ def _module_issues(facts: dict[str, Any], skip: Collection[str]) -> list[tuple[s
         file = record.get("file", module)
         issues = [record["parse_error"]] if record.get("parse_error") else []
         for issue in [*issues, *record.get("unknown", [])]:
-            line = f"unknown surface: module {module} ({file}): {issue['reason']}"
+            line = printable(f"unknown surface: module {module} ({file}): {issue['reason']}")
             out.append((line, Located(file, int(issue.get("line") or 0), issue)))
     return out
 
@@ -172,7 +174,7 @@ def _test_file_issues(facts: dict[str, Any]) -> list[tuple[str, Located]]:
     out: list[tuple[str, Located]] = []
     for issue in facts.get("test_file_issues", []):
         problem = issue["problem"]
-        line = f"unknown surface: test file {issue['file']}: {problem['reason']}"
+        line = printable(f"unknown surface: test file {issue['file']}: {problem['reason']}")
         out.append((line, Located(issue["file"], int(problem.get("line") or 0), problem)))
     return out
 
@@ -188,8 +190,10 @@ def _entry_issues(facts: dict[str, Any]) -> list[tuple[str, Mapping[str, Any]]]:
     the earlier form of a `package_export` line, with the counts in the line."""
     return [
         (
-            f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
-            f"{issue['reason']}",
+            printable(
+                f"unknown surface: {issue['kind']} {issue['name']} -> {issue['target']}: "
+                f"{issue['reason']}"
+            ),
             issue,
         )
         for issue in facts.get("entry_point_issues", [])
@@ -201,8 +205,10 @@ def _config_issues(facts: dict[str, Any]) -> list[tuple[str, Mapping[str, Any]]]
     the earlier form of this line, which named npm."""
     return [
         (
-            f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
-            "the configuration package could not be read",
+            printable(
+                f"unknown surface: {issue['file']} extends {issue['reference']!r}: "
+                "the configuration package could not be read"
+            ),
             issue,
         )
         for issue in facts.get("config_issues", [])
