@@ -3203,6 +3203,90 @@ The earlier limit of 325 KiB (332,800 bytes) had 810 bytes of space. Thus the ch
 The new limit, 328 KiB (335,872 bytes), is the next whole KiB above the measured page (327.6 KiB).
 The maintainer must accept or refuse this new limit.
 
+## Map movement, layer switch and load (2026-10-26)
+
+Findings uiperf-1, perf-2, perf-6, uiperf-2 and perf-5: each frame of a wheel zoom or a camera tween wrote the drawing transform.
+Each write caused a layout of all of the map. Findings uiperf-4 and perf-4: a layer switch read a line length after each mask write.
+Finding uiperf-5: at load, the page scripts started transitions on about 1,600 lines and labels.
+
+The change has these parts:
+
+- During a wheel, pinch, drag or camera tween, a CSS transform on the HTML element around the map (`.stage`) shows the view.
+  At the end of the movement, the script writes the drawing transform one time. Then the labels change one time.
+  A wheel movement ends 120 ms after the last wheel event. The script keeps the scale and the screen matrix during the movement.
+- The zoom readout changes at the end of a movement. A change to the readout during a movement caused a layout of all of the map text.
+- `drawLines` reads all lengths and boxes before the first write. It keeps the length and the box of each path for its path data.
+- The class `booting` stops all transitions in the map until the second frame after load.
+- `apply` does not write a transform that is equal to the current transform.
+
+Acceptance, written before the measurement: at 4x CPU on f72, the median frame interval during wheel input and during a camera tween is less than 33 ms.
+At 1x CPU on f72, a layer switch takes less than 150 ms. The longest task of the load is lower than before.
+After each interaction, the view transform, the label transforms and the classes are equal to the values before the change.
+
+Method: `repo`, `f36` and `f72` of "The route search of the group lines on a large map", made with 65e5464 and with the change.
+Headless Chromium opens each page at 1440 by 900 pixels. Each cell gives the values of two runs.
+The scripts are in the scratch folder `p3-pageview`: `p3.js`, `dump.js`, `cmpdump.py`, `cmpout.sh`, `repaint.js` and `tprobe.js`.
+"Wheel" is the median rAF interval during 60 wheel events at 8 ms intervals.
+"Tween" is the median rAF interval from the start of each of four camera tweens to 300 ms after the start.
+"Layer" is the time from the click on a layer button to the next frame, as the median and the maximum of 10 clicks.
+
+### Frame intervals and layer switch (ms)
+
+| page | CPU | 65e5464 wheel | change wheel | 65e5464 tween | change tween | 65e5464 layer median, max | change layer median, max |
+|---|---|---|---|---|---|---|---|
+| f72 | 1x | 16.7, 16.7 | 16.7, 16.7 | 16.7, 16.7 | 16.7, 16.7 | 118 and 159, 121 and 174 | 99 and 142, 91 and 163 |
+| f72 | 4x | 100, 83.3 | 100, 83.3 | 100, 66.6 | 16.7, 16.7 | 652 and 990, 569 and 756 | 607 and 757, 503 and 1110 |
+| f36 | 4x | 33.3, 50 | 33.4, 50 | 33.3, 50 | 16.7, 16.7 | 237 and 376, 277 and 346 | 195 and 272, 185 and 289 |
+| repo | 4x | 33.3, 33.3 | 33.3, 33.3 | 33.3, 33.3 | 16.7, 16.7 | 152 and 238, 125 and 193 | 137 and 182, 96 and 134 |
+
+The layout count during the four tweens on f72 at 4x fell from 38 and 46 to 10 and 10.
+During the 60 wheel events on f72 at 4x, it fell from 46 and 53 to 23 and 25.
+
+The acceptance value for the tween is satisfied. The acceptance value for the wheel is not satisfied: the median stays at 83 to 100 ms on f72 at 4x.
+A Chrome trace of the wheel input shows one layout in each frame, with 1,270 of 3,475 layout objects dirty.
+The f72 map has 644 text elements, thus these objects are the map text. A tween with no input has no such layouts.
+A tween with mouse moves over the map has them. Thus the cause is the input with a scale change on the wrapper.
+`pointer-events: none` on the map or on the wrapper did not remove the layouts. A wheel step in the next animation frame did not remove them.
+An investigation of the Chrome layout of SVG text under a scaled wrapper is necessary.
+
+The acceptance value for the layer switch is satisfied for the median at 1x on f72, but not for the maximum of one run (163 ms).
+The longest task of a switch at 1x on f72 is 65 to 127 ms. Most of the click time is the style and the layout of the map after the class changes on about 900 lines and labels.
+The first visit to a layer also includes the route search of the group lines.
+
+### Load (ms)
+
+"Longest" is the longest task of the load. "Sum" is the sum of all long tasks of the load.
+
+| page | CPU | 65e5464 longest | change longest | 65e5464 sum | change sum |
+|---|---|---|---|---|---|
+| f72 | 1x | 638, 667 | 223, 158 | 1436, 1224 | 401, 271 |
+| f72 | 4x | 812, 961 | 896, 663 | 3372, 3394 | 2713, 2283 |
+| f36 | 1x | 215, 145 | 124, 72 | 578, 381 | 124, 131 |
+| repo | 1x | 88, 106 | 0, 75 | 200, 223 | 0, 75 |
+
+A separate run of three loads on f72 at 1x compared the change with and without the class `booting`.
+Without the class, the longest task was 547 to 844 ms. With the class, it was 171 to 259 ms.
+The count of SVG elements with an opacity other than 1 after the load stays 900 on f72. These elements are the hidden lines and labels of the other layers.
+The load reads (12 `getBoundingClientRect`, 29 `getScreenCTM` and 475 `getBBox` calls on f72) did not change.
+
+### The final state is the same
+
+`dump.js` does 17 or 18 interactions on each page: wheel in and out, ctrl+wheel, drag, a two-finger pinch, two tweens, a selection, a clear, each layer, and a wheel with a selection.
+After each interaction, it records the view transform, the label transforms, the classes, the masks and the zoom readout. It also takes two screenshots of the map frame.
+For repo, f36 and f72, all records are equal. The screenshots after a full repaint of the map are byte-identical.
+The screenshots at the end of each gesture are byte-identical, except the load screenshot of each page and the tween to Fit on f72.
+These screenshots differ in 2 to 168 pixels by 1 or 2 of 255 in one color channel. After a full repaint, they are byte-identical. Thus the difference is from the paint history.
+
+The three SVG figures of this repository and `map.json` of the three pages are byte-identical.
+Outside the script and style elements, the three pages are byte-identical.
+
+### Page size
+
+The sample page of `tests/test_render.py` changes from 335,455 bytes to 337,959 bytes, an increase of 2,504 bytes.
+The earlier limit of 328 KiB (335,872 bytes) had 417 bytes of space. Thus the change cannot pass the earlier limit.
+The new limit, 331 KiB (338,944 bytes), is the next whole KiB above the measured page (330.0 KiB).
+The maintainer must accept or refuse this new limit.
+
 ## TypeScript module descriptions, issue #91 (2026-10-14)
 
 `bench/typescript_descriptions.py` compares three rules on all tracked TypeScript source files, including tests but excluding declaration files.

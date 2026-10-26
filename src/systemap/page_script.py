@@ -134,8 +134,11 @@ JS = r"""
     if(zpct){ zpct.textContent = Math.round(zoom * 100) + '%'; }
   }
   [svg, changeMap].forEach(function(m){
+    // During a movement, a change to the readout causes a layout of all of the map
+    // text. Thus the readout changes at the end of the movement.
     if(m){ m.addEventListener('systemap:view', function(e){
-      if((m === svg) === (shownMap() === A)){ showZoom(e.detail.zoom, e.detail.fit); }
+      if(!e.detail.moving && (m === svg) === (shownMap() === A)){
+        showZoom(e.detail.zoom, e.detail.fit); }
     }); }
   });
 

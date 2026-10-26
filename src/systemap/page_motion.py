@@ -33,6 +33,8 @@ SURFACE_CSS = (
 
 
 CSS = r"""
+/* ---- no transitions at load: the map script removes the class at the second frame */
+svg.booting *{transition:none!important}
 /* ---- card depth: a shade under each card, a lift on hover ----------------- */
 /* The shade is a copy of the card shape with no blur: a blur on every card
    made panning slower (bench/jev/README.md). Only the selection has a blur. */
