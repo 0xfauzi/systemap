@@ -1076,7 +1076,8 @@ The group gives one `fix:` line for each cause that occurs:
 | Cause | Condition |
 |---|---|
 | `read` | systemap could not read the file, or the repository rules refused it. |
-| `encoding` | The file is not UTF-8 text. |
+| `encoding` | The file is not UTF-8 text, or the file name is not valid UTF-8. |
+| `size` | The file is larger than the source size limit of 16 MiB. systemap does not read it. |
 | `syntax` | The parser could not parse the source. |
 | `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
 | `target` | A reference has a target that is not a module in the facts. An example is a package bin target that is not in the repository. |
@@ -1445,6 +1446,10 @@ sequence. Its `covers` field records the examined entry identities.
 An examination must add a new entry to that list before the entry counts as covered.
 
 `[agent] command` reads source from the entry point.
+The configuration in the repository gives this command. Thus systemap starts it only if the environment of the
+command sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`. systemap does not read this value from a
+repository file, and `SYSTEMAP_TRUST_MODEL_CODE=1` does not give it.
+Without this value, `systemap journeys` starts no program, names the value, and exits 1.
 The agent gives components in the execution path and a sentence for each step.
 Each request contains the language policy of the `[writing]` profile.
 The command rejects a step with no authored flow and gives a finding.
@@ -1474,7 +1479,9 @@ By default, the command writes no more than three sequences.
 
 - `--limit N` writes no more than N sequences. N must be 1 or more.
 
-- `--dry-run` lists proposed sequences without file changes.
+- `--dry-run` lists proposed sequences without file changes. It starts no program.
+  If the environment does not set `SYSTEMAP_TRUST_AGENT_COMMAND=1`, it tells you that a
+  run needs this value.
 
 - With no `[agent] command`, the command also lists proposals and gives the
   reason it cannot write them.
@@ -1742,11 +1749,14 @@ After a good version, the command removes the pages of the maps that the version
 
 - Without `--no-watch`, the command scans the configuration files, the model files,
   and the source and test files one time each second.
+  If a scan takes more than half a second, the next scan starts after two times the time of that scan.
   The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
   It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
   The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name `build` or `dist`.
   The scan includes each test file that extraction reads, also a file that `test_patterns` selects out of the package roots and the test directories.
   When a scan finds a change and the next scan finds no more change, the command renders the page again.
+  If a scan fails, the command gives the error one time, and the scans continue.
+  The last page stays. Until a scan gives a result again, `GET /status` gives the error after each good version.
 
 - `--no-watch` stops the scan. Then the command renders the page again only after `POST /refresh`.
 
@@ -1776,7 +1786,7 @@ for the working tree and the merge base. `action` is the action of the line kind
 | `{"event": "serving", "url": "...", "base": "...", "comparison_base": "..."}` | One time, when the server is ready. |
 | `{"event": "rendering", "version": N}` | When a version starts. |
 | `{"event": "rendered", "version": N, "seconds": S, "updates": K, "components": [...], "svg": "...", "svg_bytes": B}` | When a version is on the page. |
-| `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version. |
+| `{"event": "error", "version": N, "text": "..."}` | When the command cannot render a version, or when a scan of the files fails. |
 | `{"event": "stopped"}` | When the command stops after Ctrl-C or SIGTERM, or Ctrl-Break on Windows. The exit code is 0. |
 
 On this repository, one version takes about 7 to 8 seconds.
@@ -1823,7 +1833,7 @@ Unknown keys are rejected.
 | `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, `suggest --decide`, and `judgement --order-by-drift`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
 | `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--decide`. With `enabled` unset, `delta` sends no question without `--decide`, also with a key. `enabled = false` stops the hints. |
 | `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
-| `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. |
+| `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. systemap starts the command only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`, because a repository can set any command. The "Trust and security" guide page gives the trust model. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, the comment of `systemap delta --comment FILE --pr N` also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value (`font_ui`, `font_mono`) can contain `"`. A `[theme.marks]` value must be `ring`, `notch`, or `dotted`. A key in a theme table, such as `[theme.delta]`, can contain only letters, digits, `_`, and `-`. The page uses these keys in CSS names. |

@@ -11,8 +11,12 @@ import bisect
 import heapq
 import math
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
+
+from systemap.seat_grid import Placed as Placed
+from systemap.seat_grid import Seating
+from systemap.seat_grid import overlap_area as _overlap_area
 
 Box = tuple[float, float, float, float]
 Point = tuple[float, float]
@@ -41,22 +45,6 @@ class Route:
     src_side: str
     dst_side: str
     fallback: str = ""
-
-
-@dataclass
-class Placed:
-    """This record gives a label position and collision details.
-
-    The hits field identifies touched obstacles. The fix field gives the action from
-    measured gutter capacity or label width.
-    """
-
-    box: Box
-    segment: int
-    on_longest: bool
-    cost: float
-    hits: list[str] = field(default_factory=list)
-    fix: str = ""
 
 
 # ---- gutters: the room between the card rows and the card columns ----------------
@@ -550,14 +538,6 @@ GUTTER_OFFSETS = (-38.0, 38.0, -53.0, 53.0)
 T_ORDER = (0.5, *(v for k in range(1, 11) for v in (0.5 - k * 0.05, 0.5 + k * 0.05)))
 
 
-def _overlap_area(a: Box, b: Box) -> float:
-    ax, ay, aw, ah = a
-    bx, by, bw, bh = b
-    w = min(ax + aw, bx + bw) - max(ax, bx)
-    h = min(ay + ah, by + bh) - max(ay, by)
-    return w * h if w > 0 and h > 0 else 0.0
-
-
 def label_candidates(
     points: list[Point], lw: float, lh: float, canvas: tuple[float, float]
 ) -> list[tuple[int, bool, Box]]:
@@ -633,69 +613,17 @@ def place_labels(
     bands = gutters(cards, canvas) if cards is not None else None
     region_of = region_of or {}
 
-    def pad(b: Box) -> Box:
-        return (b[0] - gap, b[1] - gap, b[2] + 2 * gap, b[3] + 2 * gap)
-
     def plen(k: int) -> float:
         pts = routes[k].points
         return sum(abs(b[0] - a[0]) + abs(b[1] - a[1]) for a, b in zip(pts, pts[1:], strict=False))
 
-    placed: dict[int, Placed] = {}
     cands = {k: label_candidates(routes[k].points, widths[k], lh, canvas) for k in routes}
-    fixed_cost: dict[tuple[int, int], float] = {}
-
-    def fixed(k: int, n: int) -> float:
-        key = (k, n)
-        if key not in fixed_cost:
-            fixed_cost[key] = sum(_overlap_area(cands[k][n][2], ob) for _n, ob in obstacles)
-        return fixed_cost[key]
-
-    def soft(box: Box, skip: set[int]) -> float:
-        return sum(_overlap_area(pad(box), o.box) for j, o in placed.items() if j not in skip)
-
-    def seat(k: int, skip: set[int]) -> Placed | None:
-        """This method selects a label position from the occupancy state.
-
-        A collision-free position on the longest segment has priority. A collision-free
-        position elsewhere has priority over a collision on the longest segment.
-        """
-        best: Placed | None = None
-        for n, (seg, on_longest, box) in enumerate(cands[k]):
-            cost = fixed(k, n) + soft(box, skip | {k})
-            rank = (cost > 0, not on_longest, cost)
-            if best is None or rank < (best.cost > 0, not best.on_longest, best.cost):
-                best = Placed(box=box, segment=seg, on_longest=on_longest, cost=cost)
-            if cost == 0 and on_longest:
-                break
-        return best
-
+    state = Seating(cands, obstacles, gap)
+    placed = state.placed
     for k in sorted(routes, key=plen):
-        best = seat(k, set())
+        best = state.seat(k)
         if best is not None and best.cost > 0:
-            # Nothing clean: try to move whichever earlier labels block a
-            # seat that touches no card, as long as each finds another clean
-            # seat of its own. Two blockers at most; beyond that the gutter
-            # is full and the collision should be reported.
-            for n, (seg, on_longest, box) in enumerate(cands[k]):
-                if fixed(k, n) > 0:
-                    continue
-                blockers = [j for j, o in placed.items() if _overlap_area(pad(box), o.box)]
-                if not blockers or len(blockers) > 2:
-                    continue
-                saved = {j: placed[j] for j in blockers}
-                placed[k] = Placed(box=box, segment=seg, on_longest=on_longest, cost=0.0)
-                moved = True
-                for j in blockers:
-                    alt = seat(j, set())
-                    if alt is None or alt.cost > 0:
-                        moved = False
-                        break
-                    placed[j] = alt
-                if moved:
-                    best = placed[k]
-                    break
-                placed.update(saved)
-                del placed[k]
+            best = state.repair(k) or best
         if best is None:
             # A path too short for any seat: put the label at its middle.
             pts = routes[k].points
@@ -710,12 +638,12 @@ def place_labels(
             named += [
                 (names.get(j, f"label {j}"), other.box) for j, other in placed.items() if j != k
             ]
-            best.hits = [n for n, ob in named if _overlap_area(pad(best.box), ob)]
+            best.hits = [n for n, ob in named if _overlap_area(state.pad(best.box), ob)]
             if bands is not None:
                 best.fix = _diagnose(
-                    best, cands[k], partial(fixed, k), routes[k], widths[k], bands, region_of
+                    best, cands[k], partial(state.fixed, k), routes[k], widths[k], bands, region_of
                 )
-        placed[k] = best
+        state.put(k, best)
     return placed
 
 

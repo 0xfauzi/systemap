@@ -195,7 +195,9 @@ def reviewed_commit(root: Path, folder: str, digest: str) -> str | None:
         sha = history.git(root, "log", f"-S{digest}", "-1", "--format=%H", "--", folder).strip()
         if not _SHA.fullmatch(sha):
             return None
-        history.git(root, "grep", "-q", "-F", "-e", digest, "--end-of-options", sha, "--", folder)
+        # The sha agrees with _SHA, so Git cannot read it as an option. Git 2.43 and earlier
+        # do not accept --end-of-options before the revision of git grep.
+        history.git(root, "grep", "-q", "-F", "-e", digest, sha, "--", folder)
     except (delta.DeltaError, OSError):
         return None
     return sha

@@ -13,7 +13,7 @@ import ast
 from pathlib import Path
 from typing import Any
 
-from systemap import python_repo, unknown_causes
+from systemap import python_repo, python_tree, unknown_causes
 from systemap.call_sites import IMPORT, WHOLE
 from systemap.source_facts import entry_identity
 
@@ -90,7 +90,7 @@ def _is_task_decorator(last: str, receiver: str, direct: str) -> bool:
 
 def _decorated(tree: ast.AST, bindings: dict[str, str]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
-    for node in ast.walk(tree):
+    for node in python_tree.walk(tree):
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             continue
         for dec in node.decorator_list:
@@ -128,7 +128,7 @@ def _url_patterns(tree: ast.AST) -> list[dict[str, str]]:
     """This function reads Django urlpatterns, including concatenated lists."""
     found = [
         _route_call(call)
-        for node in ast.walk(tree)
+        for node in python_tree.walk(tree)
         if _is_urlpatterns(node)
         for call in ast.walk(node.value)  # type: ignore[attr-defined]
     ]
@@ -162,16 +162,17 @@ def _class_command(node: ast.ClassDef, module: str) -> dict[str, str] | None:
 
 def _class_commands(tree: ast.AST, module: str) -> list[dict[str, str]]:
     found = [
-        _class_command(node, module) for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+        _class_command(node, module)
+        for node in python_tree.walk(tree)
+        if isinstance(node, ast.ClassDef)
     ]
     return [x for x in found if x is not None]
 
 
 def in_source(module: str, source: str) -> list[dict[str, str]]:
     """This function gives entry points registered by the module source."""
-    try:
-        tree = ast.parse(source)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(source)
+    if tree is None:
         return []
     bindings = _bindings(tree)
     found = _decorated(tree, bindings) + _url_patterns(tree) + _class_commands(tree, module)
@@ -182,15 +183,14 @@ def registration_candidates(module: str, source: str) -> list[dict[str, str]]:
     """This function gives possible decorator registrations that must have a known
     framework binding.
     """
-    try:
-        tree = ast.parse(source)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(source)
+    if tree is None:
         return []
     bindings = _bindings(tree)
     _decorated(tree, bindings)
     return [
         candidate
-        for node in ast.walk(tree)
+        for node in python_tree.walk(tree)
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
         for dec in node.decorator_list
         if isinstance(dec, ast.Call)
@@ -329,12 +329,11 @@ def subcommands(raw: str) -> list[str]:
     specifies a subcommand. The parser does not find names made from variables.
     Judgement can give findings only for names in the syntax tree.
     """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return []
     out: list[str] = []
-    for node in ast.walk(tree):
+    for node in python_tree.walk(tree):
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
@@ -459,20 +458,21 @@ def same_operations(
     not show the same operation. `same_as` gives the identity of the first entry point.
     """
     first: dict[tuple[str, str], dict[str, str]] = {}
+    bindings = _ModuleBindings(sources)
     for point in sorted(points, key=lambda p: p["kind"] != "console_script"):
         # The adapter always writes the field. An empty string tells that no other entry
         # point starts the same operation. A missing field is not known.
         point["same_as"] = ""
         if point["kind"] not in STARTS_FUNCTION or not point["symbol"]:
             continue
-        started = _definition(point["module"], point["symbol"], components, sources)
+        started = _definition(point["module"], point["symbol"], components, bindings)
         if started in first:
             point["same_as"] = entry_identity(first[started])
         else:
             first[started] = point
     for point in points:
         if point["kind"] == "main_module":
-            point["same_as"] = _main_module_alias(point, first, components, sources)
+            point["same_as"] = _main_module_alias(point, first, components, bindings)
     return points
 
 
@@ -480,7 +480,7 @@ def _main_module_alias(
     point: dict[str, str],
     first: dict[tuple[str, str], dict[str, str]],
     components: dict[str, Any],
-    sources: dict[str, str],
+    bindings: _ModuleBindings,
 ) -> str:
     """Give the identity of the entry point that starts the function that a `__main__`
     module starts.
@@ -489,19 +489,19 @@ def _main_module_alias(
     use only in a function body does not start the function. If the module starts the
     functions of two different entry points, the equivalence is not known, and the
     result is empty."""
-    used = _used_functions(point["module"], components, sources)
+    used = _used_functions(point["module"], components, bindings)
     aliases = {entry_identity(first[d]) for d in used if d in first}
     return aliases.pop() if len(aliases) == 1 else ""
 
 
 def _definition(
-    module: str, name: str, components: dict[str, Any], sources: dict[str, str]
+    module: str, name: str, components: dict[str, Any], bindings: _ModuleBindings
 ) -> tuple[str, str]:
     """Follow import bindings from `module.name` to the module that defines the name."""
     seen: set[tuple[str, str]] = set()
     while (module, name) not in seen:
         seen.add((module, name))
-        imported = _imported_from(module, name, components, sources)
+        imported = _imported_from(module, name, components, bindings)
         if imported is None:
             break
         module, name = imported
@@ -509,7 +509,7 @@ def _definition(
 
 
 def _imported_from(
-    module: str, name: str, components: dict[str, Any], sources: dict[str, str]
+    module: str, name: str, components: dict[str, Any], bindings: _ModuleBindings
 ) -> tuple[str, str] | None:
     """Give the source of the one import binding of `name` in `module`, or None."""
     sites = [
@@ -519,31 +519,54 @@ def _imported_from(
     ]
     if len(sites) != 1:
         return None
-    bindings = _module_bindings(sources.get(module, ""), name)
-    if bindings != [("import", sites[0]["line"])]:
+    if bindings.of(module, name) != [("import", sites[0]["line"])]:
         return None
     return sites[0]["target"], sites[0]["name"]
 
 
-def _module_bindings(source: str, name: str) -> list[tuple[str, int]]:
-    """Give each module-level binding of `name` as (kind, line).
+class _ModuleBindings:
+    """Give the module-level bindings of a name in a module.
 
-    The kind is `import` or `other`. A function or a class body is not module level. An
-    `except` clause is a fallback for a failed import, so its bindings are not in the
-    list. A source that does not parse gives a binding of kind `unknown`.
+    The class reads each module one time, when a name of the module is first necessary.
+    Thus a module with many uses of imported names is not read again for each use.
     """
-    try:
-        tree = ast.parse(source)
-    except (SyntaxError, ValueError):
-        return [("unknown", 0)]
-    out: list[tuple[str, int]] = []
+
+    def __init__(self, sources: dict[str, str]) -> None:
+        self.sources = sources
+        self.found: dict[str, dict[str, list[tuple[str, int]]] | None] = {}
+
+    def of(self, module: str, name: str) -> list[tuple[str, int]]:
+        """Give each module-level binding of `name` as (kind, line).
+
+        The kind is `import` or `other`. A function or a class body is not module level.
+        An `except` clause is a fallback for a failed import, so its bindings are not in
+        the list. A source that does not parse gives a binding of kind `unknown`.
+        """
+        if module not in self.found:
+            self.found[module] = _module_bindings(self.sources.get(module, ""))
+        names = self.found[module]
+        return [("unknown", 0)] if names is None else names.get(name, [])
+
+
+def _module_bindings(source: str) -> dict[str, list[tuple[str, int]]] | None:
+    """Give the module-level bindings of each name, in the order of their lines.
+
+    A source that does not parse gives None.
+    """
+    tree = python_tree.tree(source)
+    return None if tree is None else _bindings_in(tree)
+
+
+def _bindings_in(tree: ast.Module) -> dict[str, list[tuple[str, int]]]:
+    out: dict[str, list[tuple[str, int]]] = {}
     pending: list[ast.stmt] = list(tree.body)
     while pending:
         node = pending.pop()
-        out += _bindings_of(node, name)
+        for name, binding in _bindings_of(node):
+            out.setdefault(name, []).append(binding)
         if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
             pending += _module_level_children(node)
-    return sorted(out, key=lambda binding: binding[1])
+    return {name: sorted(found, key=lambda binding: binding[1]) for name, found in out.items()}
 
 
 def _module_level_children(node: ast.stmt) -> list[ast.stmt]:
@@ -555,17 +578,16 @@ def _module_level_children(node: ast.stmt) -> list[ast.stmt]:
     return children
 
 
-def _bindings_of(node: ast.stmt, name: str) -> list[tuple[str, int]]:
+def _bindings_of(node: ast.stmt) -> list[tuple[str, tuple[str, int]]]:
+    """Give each name that the statement binds, with the kind and the line."""
     if isinstance(node, ast.Import | ast.ImportFrom):
         return [
-            ("import", alias.lineno)
+            (alias.asname or alias.name.split(".")[0], ("import", alias.lineno))
             for alias in node.names
-            if (alias.asname or alias.name.split(".")[0]) == name
         ]
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
-        return [("other", node.lineno)] if node.name == name else []
-    targets = _assigned_names(node)
-    return [("other", node.lineno)] if name in targets else []
+        return [(node.name, ("other", node.lineno))]
+    return [(name, ("other", node.lineno)) for name in _assigned_names(node)]
 
 
 def _assigned_names(node: ast.stmt) -> set[str]:
@@ -581,7 +603,7 @@ def _assigned_names(node: ast.stmt) -> set[str]:
 
 
 def _used_functions(
-    module: str, components: dict[str, Any], sources: dict[str, str]
+    module: str, components: dict[str, Any], bindings: _ModuleBindings
 ) -> list[tuple[str, str]]:
     """Give the defining module and name of each imported name that the module uses at the
     module level. The second value of a use is the line of its function: 0 for none."""
@@ -589,10 +611,10 @@ def _used_functions(
     for site in components.get(module, {}).get("call_sites") or []:
         top = [use for use in site["uses"] if use[1] == 0]
         if site["name"] != WHOLE and top:
-            out.append(_definition(site["target"], site["name"], components, sources))
+            out.append(_definition(site["target"], site["name"], components, bindings))
         elif site["name"] == WHOLE:
             out += [
-                _definition(site["target"], use[2], components, sources) for use in top if use[2]
+                _definition(site["target"], use[2], components, bindings) for use in top if use[2]
             ]
     return out
 

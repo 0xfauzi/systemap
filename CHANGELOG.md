@@ -9,6 +9,64 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+### Security
+
+- `systemap journeys` starts the `[agent] command` of the repository only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+  Previously, a cloned repository could set any command, and `journeys` started it with your permissions and environment variables.
+  Without the value, `systemap journeys` starts no program. It names the value and exits 1.
+  `journeys --dry-run` needs no value. `SYSTEMAP_TRUST_MODEL_CODE=1` does not give this permission.
+  Examine the agent command of the repository. If you trust the repository, set `SYSTEMAP_TRUST_AGENT_COMMAND=1` for one command only.
+
+### Changes
+
+- `systemap extract` reads the JSONC text of a tsconfig file in linear time.
+  Previously, an unclosed string or comment made the time quadratic: a file of 80 KB took 52 s.
+  Now a file of 1 MB takes less than 0.2 s and gives the same error.
+- A tsconfig `include` or `exclude` pattern has a cost that is linear in the length of the pattern.
+  Previously, a pattern with 20 stars took 2.1 s for each file.
+- One tsconfig load reads each `extends` or `references` file one time.
+  Previously, a chain of files that extend the same file took exponential time: a depth of 16 took 39 s.
+  Now a depth of 30 takes 0.014 s.
+- `systemap live` scans the files in linear time.
+  Previously, if `tests_dir` was not set, one scan of 20202 files took 290 s. Now it takes less than 1 s.
+- `systemap live` keeps the text of each tsconfig file without comments.
+  The watcher removes the comments again only after a change of the file.
+- If a scan of `systemap live` takes more than half a second, the next scan starts after two times the time of that scan.
+- A NUL character in tsconfig `extends` or `references`, or a tsconfig file with too many nested levels, does not stop the watcher of `systemap live`.
+- If a scan of `systemap live` fails, the command writes an `error` event, and the page shows the error.
+  The scans continue. `GET /status` gives the error until a scan gives a result again.
+- The TypeScript reader reads each nested namespace one time.
+  Previously, 20 nested exported namespaces took more than 70 s.
+- If namespaces are nested deeper than 16 levels, the TypeScript reader records an unknown declaration.
+  The reader does not read the declarations in that namespace.
+- A `\u{...}` escape with a very large code point does not stop `systemap extract`.
+  The reader treats the escape as not valid.
+- `systemap extract` resolves `*` re-exports in a time that increases slowly with the size of the `*` graph.
+  Previously, a diamond of 40 files with `export *` made extraction run for 108 s.
+  A chain of 300 files with `export *` stopped extraction with a `RecursionError`.
+  In a loop of `*` re-exports, each module now examines each module of the loop one time.
+- In a loop of `*` re-exports, the order of the names of a module in `map.json` can change one time.
+  The names come in the order of the records that give them. The names and the unknown records do not change.
+  Thus the evidence digests of these modules can change one time.
+- A source file name that is not valid UTF-8 does not stop `systemap extract`, `systemap refresh`, `systemap live` or the CI delta.
+  The extractor does not read the file. It records the file with the cause `encoding`.
+  The record shows each byte that is not UTF-8 as `\xNN`.
+- A test file name that is not valid UTF-8 gives a `test_file_issues` record with the cause `encoding`.
+- If a text value in the facts is not valid UTF-8, systemap gives an error that tells the cause. It does not write the facts file.
+- Python extraction parses each module one time. Previously, it parsed each module about 10 times.
+  A 6 MB module takes 93 s. Previously, it took 168 s.
+- The `__main__` alias step reads the bindings of each module one time.
+  Previously, it read them again for each use. 2000 uses take 1.7 s. Previously, they took 49 s.
+- systemap does not read a source file that is larger than 16 MiB.
+  It records the file as unknown, with the cause `size`.
+  This limit is a guard for memory, not a measurement of the capacity of systemap.
+- The map page finds the routes of the group lines with less work. The routes do not change.
+- The map page does the route search of the group lines in small parts when the browser is idle.
+  On a map with 72 components, the longest task at load was 10 s to 12 s. Now it is 0.2 s to 0.6 s in the recorded measurements.
+- If the route search for a layer does not end in 120 ms, the map shows the group lines of that layer when they are ready.
+- `systemap place --all` is faster. The label placement examines only the label boxes and obstacle boxes near each candidate.
+  The positions that the command writes do not change.
+  On a map with 36 components, the command time decreased from 401 s to 47 s.
 - TypeScript relative imports and path aliases can name declaration files, including `.d.ts`, `.d.mts`, and `.d.cts`.
   These files have no module record. An import of an existing declaration file no longer gives an unresolved import finding.
   A re-export from a declaration file still gives an unknown public surface, with the declaration file cause.

@@ -10,6 +10,12 @@ The "plain" profile gets the policy without its ASD-STE100 section.
 The cache key includes the command, policy, question, and context.
 A policy or profile change makes old answers unavailable to new requests.
 Without a configured agent, systemap shows facts and the missing configuration.
+
+The agent command comes from the repository configuration. A cloned repository can set
+any command, and the command operates with the permissions and environment of the
+person. Thus systemap starts the command only if the environment of the command sets
+SYSTEMAP_TRUST_AGENT_COMMAND=1. The repository cannot give this permission: systemap
+does not read it from a repository file. SYSTEMAP_TRUST_MODEL_CODE does not give it.
 """
 
 from __future__ import annotations
@@ -44,9 +50,56 @@ NO_AGENT = (
     "Then run the command again."
 )
 
+# The environment variable that permits systemap to start the repository agent command.
+TRUST = "SYSTEMAP_TRUST_AGENT_COMMAND"
+
+# A coding agent can read the refusal. This sentence tells it not to give the permission.
+AGENT_RULE = f"A coding agent must not set {TRUST}. It must tell the person who operates it."
+
 
 class AgentError(Exception):
     """A failure to start the agent or get its answer."""
+
+
+def trusted() -> bool:
+    """Tell if the environment of the command permits the repository agent command."""
+    return os.environ.get(TRUST) == "1"
+
+
+def untrusted(command: str) -> str:
+    """Give the error text for an agent command that has no permission to start."""
+    return (
+        f"systemap did not start the agent command {command!r}. "
+        "This agent command comes from the configuration in the repository. "
+        "The agent command operates with your permissions and your environment variables. "
+        f"If you trust this repository, set {TRUST}=1 in the environment of the systemap command. "
+        "Then run the systemap command again. "
+        f"Do not set {TRUST} for a repository that you do not trust. "
+        f"{AGENT_RULE}"
+    )
+
+
+def require_trust(command: str) -> None:
+    """Give AgentError if the environment does not permit the repository agent command."""
+    if not trusted():
+        raise AgentError(untrusted(command))
+
+
+def setup_note(cfg: Config) -> str:
+    """Give the configuration step that is necessary before an agent call, or "".
+
+    A dry run shows this note. The dry run does not start the command."""
+    if not has_agent(cfg):
+        return NO_AGENT
+    if trusted():
+        return ""
+    return (
+        f"The agent command {cfg.agent_command.strip()!r} comes from the configuration "
+        f"in the repository. systemap starts it only if the environment sets {TRUST}=1. "
+        f"If you trust this repository, set {TRUST}=1. "
+        f"If you do not trust it, do not set {TRUST}. "
+        f"{AGENT_RULE}"
+    )
 
 
 def policy(profile: str) -> str:
@@ -121,10 +174,14 @@ def shell_run(command: str, question: str, cwd: Path, timeout: float) -> str:
 
     The command can write no more than OUTPUT_CAP bytes to stdout. If it writes more,
     this function stops the command and gives AgentError. Only the end of the stderr
-    output stays in memory, for the error message."""
+    output stays in memory, for the error message. Without the permission in TRUST, this
+    function gives AgentError and does not start the command."""
     words = argv(command)
+    require_trust(command)
     try:
-        proc = subprocess.Popen(  # noqa: S603 - the command is the maintainer's own configuration
+        # The repository supplies this command. require_trust above stops the call
+        # if the environment does not set SYSTEMAP_TRUST_AGENT_COMMAND=1.
+        proc = subprocess.Popen(  # noqa: S603 - require_trust examines the permission
             words,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -274,10 +331,16 @@ class Agent:
 
 
 def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
-    """Get the configured agent. Raise AgentError if no command is configured."""
+    """Get the configured agent. Raise AgentError if no command is configured.
+
+    If no run_command is injected, the agent starts the repository command. In that case,
+    this function raises AgentError if the environment does not set
+    SYSTEMAP_TRUST_AGENT_COMMAND=1 (agent.TRUST)."""
     if not cfg.agent_command.strip():
         raise AgentError(NO_AGENT)
     argv(cfg.agent_command)
+    if run_command is None:
+        require_trust(cfg.agent_command.strip())
     return Agent(
         command=cfg.agent_command.strip(),
         root=cfg.root,
@@ -289,4 +352,7 @@ def from_cfg(cfg: Config, run_command: Run | None = None) -> Agent:
 
 
 def has_agent(cfg: Config) -> bool:
+    """Tell if the configuration gives an agent command.
+
+    This function does not examine SYSTEMAP_TRUST_AGENT_COMMAND."""
     return bool(cfg.agent_command.strip())

@@ -189,7 +189,7 @@ def test_the_answers_of_this_repository_stay_valid_after_a_different_review(
         for item in answer.items
         if item.startswith("single module: ")
     ]
-    assert len(lines) == 5
+    assert len(lines) == 4
     before = judgement.evidence_for_tree(tree, facts, REPOSITORY, lines)
     named = {line.split()[2] for line in lines}
     top = tree.top

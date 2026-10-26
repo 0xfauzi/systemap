@@ -7,8 +7,12 @@ container that holds cards directly, such as the outside container, is one
 region here. Flows inside one region stay as routes. When the reader selects
 a group, the map shows the routes of the group in the colour of their kind,
 and the other cards fade. The Details panel lists the groups. A control in the
-panel shows all routes again.
+panel shows all routes again. The route search of the lines is in
+page_group_lines. On a large map, the lines of a layer can come a short time
+after the layer.
 """
+
+from systemap import page_group_lines
 
 LIMIT = 20
 
@@ -214,243 +218,43 @@ SCRIPT = r"""
     return CACHE[L];
   }
 
-  // ---- the lines: straight, or with one or two bends, from edge to edge ------
-  // The line goes through the space between the places, at the largest
-  // distance from other places and from the lines of larger groups.
-  var VB = svg.viewBox.baseVal, CLEAR = 6, GAP = 12, INSET = 14;
-  var BLOCKS = (META.headers || []).filter(function(h){ return h.kind === 'container'; })
-    .map(function(h){ return rect(h.box[0], h.box[1], h.box[2], h.box[3]); });
-  function len(p, q){ return Math.hypot(q.x - p.x, q.y - p.y); }
-  function hits(p, q, b, pad){
-    // True when the segment pq goes into the box b, grown by pad.
-    var dx = q.x - p.x, dy = q.y - p.y, t0 = 0, t1 = 1;
-    var ps = [-dx, dx, -dy, dy];
-    var qs = [p.x - b.x0 + pad, b.x1 + pad - p.x, p.y - b.y0 + pad, b.y1 + pad - p.y];
-    for(var k = 0; k < 4; k++){
-      if(ps[k] === 0){ if(qs[k] <= 0){ return false; } continue; }
-      var r = qs[k] / ps[k];
-      if(ps[k] < 0){ if(r > t1){ return false; } t0 = Math.max(t0, r); }
-      else { if(r < t0){ return false; } t1 = Math.min(t1, r); }
+__LINES__
+  // The lines of the other layers are ready before the reader selects them.
+  // The work goes in small parts in the idle time. Thus the page stays responsive.
+  var todo = A.layers.concat([{id:'all'}]).map(function(l){ return info(l.id); })
+    .filter(function(I){ return I.on; }), running = false, WAIT = 120;
+  function later(){
+    if(!running && todo.length){
+      running = true;
+      (window.requestIdleCallback || window.setTimeout)(work);
     }
-    return t1 - t0 > 1e-6;
   }
-  function toSeg(c, a, b){
-    var dx = b.x - a.x, dy = b.y - a.y, l = dx * dx + dy * dy;
-    var t = l ? Math.max(0, Math.min(1, ((c.x - a.x) * dx + (c.y - a.y) * dy) / l)) : 0;
-    return Math.hypot(c.x - a.x - t * dx, c.y - a.y - t * dy);
-  }
-  function side(a, b, c){ return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }
-  function crosses(a, b, c, d){
-    return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0; }
-  function apart(a, b, c, d){
-    if(crosses(a, b, c, d)){ return 0; }
-    return Math.min(toSeg(a, c, d), toSeg(b, c, d), toSeg(c, a, b), toSeg(d, a, b));
-  }
-  function fromBox(a, b, r){
-    if(hits(a, b, r, 0)){ return 0; }
-    var c = [{x:r.x0, y:r.y0}, {x:r.x1, y:r.y0}, {x:r.x1, y:r.y1}, {x:r.x0, y:r.y1}], m = Infinity;
-    for(var k = 0; k < 4; k++){ m = Math.min(m, apart(a, b, c[k], c[(k + 1) % 4])); }
-    return m;
-  }
-  function angle(a, b, c, d){
-    var t = Math.abs(Math.atan2(b.y - a.y, b.x - a.x) - Math.atan2(d.y - c.y, d.x - c.x)) % Math.PI;
-    return Math.min(t, Math.PI - t);
-  }
-  function near(a, b, c, d){
-    // The gap between the boxes around two segments: a fast lower bound.
-    return Math.max(Math.min(c.x, d.x) - Math.max(a.x, b.x),
-      Math.min(a.x, b.x) - Math.max(c.x, d.x), Math.min(c.y, d.y) - Math.max(a.y, b.y),
-      Math.min(a.y, b.y) - Math.max(c.y, d.y));
-  }
-  function span(lo, hi, step, most){
-    // Points from lo to hi, step apart, and not more than `most` + 1 points.
-    if(hi < lo){ return []; }
-    var n = Math.max(1, Math.min(most || 24, Math.round((hi - lo) / step))), out = [];
-    for(var k = 0; k <= n; k++){ out.push(lo + (hi - lo) * k / n); }
-    return out;
-  }
-  // The middle of each space between two box edges is a good place for a line.
-  var MIDS = {x:[], y:[]};
-  ['x', 'y'].forEach(function(ax){
-    var edges = [VB[ax], VB[ax] + (ax === 'x' ? VB.width : VB.height)];
-    Object.keys(HOME).map(function(h){ return HOME[h].box; }).concat(BLOCKS)
-      .forEach(function(b){ edges.push(b[ax + '0'], b[ax + '1']); });
-    edges.sort(function(p, q){ return p - q; });
-    for(var k = 0; k + 1 < edges.length; k++){
-      if(edges[k + 1] - edges[k] > 2 * CLEAR){ MIDS[ax].push((edges[k] + edges[k + 1]) / 2); }
-    }
-  });
-  function marks(ax, lo, hi, step, most){
-    return span(lo, hi, step, most).concat(MIDS[ax].filter(function(v){
-      return v > lo && v < hi; }));
-  }
-  function along(B, step, most){
-    return {x:marks('x', B.x0 + INSET, B.x1 - INSET, step, most),
-      y:marks('y', B.y0 + INSET, B.y1 - INSET, step, most)};
-  }
-  function each2(xs, ys, fn){ xs.forEach(function(x){ ys.forEach(function(y){ fn(x, y); }); }); }
-  function shapesFor(P0, P1){
-    var out = [], a = along(P0, 8, 20), b = along(P1, 8, 20);
-    var a2 = along(P0, 16, 10), b2 = along(P1, 16, 10);
-    var above = P0.y1 <= P1.y0, below = P0.y0 >= P1.y1;
-    var left = P0.x1 <= P1.x0, right = P0.x0 >= P1.x1;
-    var ya = above ? P0.y1 : P0.y0, yb = above ? P1.y0 : P1.y1;
-    var xa = left ? P0.x1 : P0.x0, xb = left ? P1.x0 : P1.x1;
-    if(above || below){
-      // Straight up or down, and with two bends through the space between.
-      marks('x', Math.max(P0.x0, P1.x0) + INSET, Math.min(P0.x1, P1.x1) - INSET, 4, 40)
-        .forEach(function(x){ out.push([{x:x, y:ya}, {x:x, y:yb}]); });
-      marks('y', Math.min(ya, yb) + GAP, Math.max(ya, yb) - GAP, 6, 10).forEach(function(y){
-        each2(a2.x, b2.x, function(x0, x1){
-          if(Math.abs(x0 - x1) >= 16){
-            out.push([{x:x0, y:ya}, {x:x0, y:y}, {x:x1, y:y}, {x:x1, y:yb}]); }
-        });
-      });
-    }
-    if(left || right){
-      marks('y', Math.max(P0.y0, P1.y0) + INSET, Math.min(P0.y1, P1.y1) - INSET, 4, 40)
-        .forEach(function(y){ out.push([{x:xa, y:y}, {x:xb, y:y}]); });
-      marks('x', Math.min(xa, xb) + GAP, Math.max(xa, xb) - GAP, 6, 10).forEach(function(x){
-        each2(a2.y, b2.y, function(y0, y1){
-          if(Math.abs(y0 - y1) >= 16){
-            out.push([{x:xa, y:y0}, {x:x, y:y0}, {x:x, y:y1}, {x:xb, y:y1}]); }
-        });
-      });
-    }
-    // One bend: out of the top or the bottom, into a side; or the opposite.
-    each2(a.x, b.y, function(x, y){
-      if((y < P0.y0 || y > P0.y1) && (x < P1.x0 || x > P1.x1)){
-        out.push([{x:x, y:y < P0.y0 ? P0.y0 : P0.y1}, {x:x, y:y},
-          {x:x < P1.x0 ? P1.x0 : P1.x1, y:y}]); }
-    });
-    each2(a.y, b.x, function(y, x){
-      if((x < P0.x0 || x > P0.x1) && (y < P1.y0 || y > P1.y1)){
-        out.push([{x:x < P0.x0 ? P0.x0 : P0.x1, y:y}, {x:x, y:y},
-          {x:x, y:y < P1.y0 ? P1.y0 : P1.y1}]); }
-    });
-    // Every shape is horizontal and vertical lines only, as the flow routes are.
-    return out;
-  }
-  function offCentre(p, B){
-    var onSide = Math.abs(p.x - B.x0) < .5 || Math.abs(p.x - B.x1) < .5;
-    return onSide ? Math.abs(p.y - (B.y0 + B.y1) / 2) : Math.abs(p.x - (B.x0 + B.x1) / 2);
-  }
-  function cost(shape, P0, P1, blocks, placed, badges, soft){
-    var pts = shape.pts, n = pts.length - 1, in0 = grow(P0, -1), in1 = grow(P1, -1), k, s, a, b;
-    var under = 0, clear = 80, cross = 0;
-    for(k = 0; k <= n; k++){
-      if(pts[k].x < VB.x + 4 || pts[k].x > VB.x + VB.width - 4 || pts[k].y < VB.y + 4
-        || pts[k].y > VB.y + VB.height - 4){ return Infinity; }
-    }
-    for(k = 0; k < n; k++){
-      a = pts[k]; b = pts[k + 1];
-      if(hits(a, b, in0, 0) || hits(a, b, in1, 0)){ return Infinity; }
-      for(s = 0; s < blocks.length; s++){ if(hits(a, b, blocks[s], CLEAR)){ return Infinity; } }
-      for(s = 0; s < badges.length; s++){
-        if(toSeg(badges[s], a, b) < 18){ if(!soft){ return Infinity; } under++; }
+  function work(idle){
+    // Each part is short. A task of more than 50 ms is long. Thus the parts
+    // in one idle period start in 16 ms or less.
+    var end = Date.now() + Math.min(16, idle && idle.timeRemaining ? idle.timeRemaining() : 16);
+    while(todo.length && Date.now() < end){
+      var I = todo[0];
+      if(I.geo || step(I)){ todo.shift(); }
+      // If the map shows the layer without its lines, draw the lines now.
+      if(I.geo && I === info(A.state.layer) && S.layer === A.state.layer && !LINES.firstChild){
+        draw(S.layer); apply(); revealLines();
       }
     }
-    for(k = 0; k < n; k++){
-      a = pts[k]; b = pts[k + 1];
-      for(s = 0; s < blocks.length; s++){
-        var r = blocks[s];
-        if(near(a, b, {x:r.x0, y:r.y0}, {x:r.x1, y:r.y1}) < clear){
-          clear = Math.min(clear, fromBox(a, b, r)); }
-      }
-      for(s = 0; s < placed.length; s++){
-        var c = placed[s][0], d = placed[s][1];
-        if(near(a, b, c, d) >= clear){ continue; }
-        if(crosses(a, b, c, d)){
-          if(angle(a, b, c, d) < Math.PI / 6){ return Infinity; }
-          cross++;
-        } else {
-          var gap = apart(a, b, c, d);
-          if(gap < GAP){ return Infinity; }
-          clear = Math.min(clear, gap);
-        }
-      }
-    }
-    return shape.low + 60 + 60 * cross + 200 * under - 2 * Math.min(clear, 20) - .25 * clear;
+    running = false;
+    later();
   }
-  function centres(P0, P1){
-    // The last choice: from the centre of one box to the centre of the other,
-    // with horizontal and vertical lines only. The boxes overlap on one axis:
-    // a straight line in the overlap. Otherwise: one bend.
-    var c0 = {x:(P0.x0 + P0.x1) / 2, y:(P0.y0 + P0.y1) / 2};
-    var c1 = {x:(P1.x0 + P1.x1) / 2, y:(P1.y0 + P1.y1) / 2};
-    var lo = Math.max(P0.x0, P1.x0), hi = Math.min(P0.x1, P1.x1);
-    if(lo < hi){
-      var x = (lo + hi) / 2, down = c0.y < c1.y;
-      return [{x:x, y:down ? P0.y1 : P0.y0}, {x:x, y:down ? P1.y0 : P1.y1}];
+  function ready(I){
+    // True when the lines of the layer are ready. The work goes on for WAIT ms
+    // at most. If the work does not end in this time, the idle work does the
+    // rest of this layer first. The map shows the lines when they are ready.
+    var end = Date.now() + WAIT;
+    while(I.on && !I.geo && Date.now() < end){ step(I); }
+    if(I.on && !I.geo){
+      todo = [I].concat(todo.filter(function(x){ return x !== I; }));
+      later();
     }
-    lo = Math.max(P0.y0, P1.y0); hi = Math.min(P0.y1, P1.y1);
-    if(lo < hi){
-      var y = (lo + hi) / 2, right = c0.x < c1.x;
-      return [{x:right ? P0.x1 : P0.x0, y:y}, {x:right ? P1.x0 : P1.x1, y:y}];
-    }
-    return [{x:c0.x, y:c0.y < c1.y ? P0.y1 : P0.y0}, {x:c0.x, y:c1.y},
-      {x:c0.x < c1.x ? P1.x0 : P1.x1, y:c1.y}];
-  }
-  function lineFor(g, placed, badges){
-    var P0 = g.a.box, P1 = g.b.box;
-    var blocks = BLOCKS.concat(Object.keys(HOME).filter(function(h){
-      return HOME[h] !== g.a && HOME[h] !== g.b; }).map(function(h){ return HOME[h].box; }));
-    // The cost without the distances is a lower bound: the search stops at
-    // the first shape whose bound is higher than the best cost.
-    var ranked = shapesFor(P0, P1).map(function(pts){
-      var total = 0, n = pts.length - 1;
-      for(var k = 0; k < n; k++){ total += len(pts[k], pts[k + 1]); }
-      return {pts:pts, low:total + 50 * (n - 1) - 60
-        + .06 * (offCentre(pts[0], P0) + offCentre(pts[n], P1))};
-    }).sort(function(x, y){ return x.low - y.low; });
-    var best = null, bestCost = Infinity;
-    function search(others, marks, soft){
-      for(var k = 0; k < ranked.length && ranked[k].low < bestCost; k++){
-        var c = cost(ranked[k], P0, P1, blocks, others, marks, soft);
-        if(c < bestCost){ bestCost = c; best = ranked[k].pts; }
-      }
-    }
-    // When no shape keeps away from the badges, a line can go under a badge.
-    search(placed, badges);
-    if(!best){ search(placed, badges, true); }
-    if(!best){ search([], []); }
-    return best || centres(P0, P1);
-  }
-  function badgeAt(pts, taken, segs, labels){
-    // On the longest part of the line, away from other badges, cards and lines,
-    // and if possible away from the route labels of the layer.
-    var k0 = 0, k, tries = [.5, .4, .6, .3, .7, .2, .8], free = [];
-    for(k = 1; k + 1 < pts.length; k++){
-      if(len(pts[k], pts[k + 1]) > len(pts[k0], pts[k0 + 1])){ k0 = k; }
-    }
-    var a = pts[k0], b = pts[k0 + 1];
-    for(k = 0; k < tries.length; k++){
-      var c = {x:a.x + (b.x - a.x) * tries[k], y:a.y + (b.y - a.y) * tries[k]};
-      if(taken.every(function(t){ return len(t, c) >= 30; })
-        && Object.keys(CARD).every(function(id){ return !hits(c, c, grow(CARD[id].box, 16), 0); })
-        && segs.every(function(s){ return toSeg(c, s[0], s[1]) >= 16; })){ free.push(c); }
-    }
-    return free.filter(function(c){
-      return labels.every(function(r){ return !hits(c, c, grow(r, 13), 0); }); })[0]
-      || free[0] || {x:(a.x + b.x) / 2, y:(a.y + b.y) / 2};
-  }
-  function geometry(I){
-    // Larger groups first: they get the best space. A later line keeps away
-    // from the lines and the badges that are on the map before it.
-    if(I.geo){ return I.geo; }
-    var placed = [], geo = table(), taken = [], labels = [];
-    I.list.forEach(function(i){
-      var hit = LABELS[i] && LABELS[i].querySelector('.flowlbl__hit');
-      if(hit){ labels.push(rectOf(hit)); }
-    });
-    I.lines.forEach(function(g){
-      var pts = lineFor(g, placed, taken), badge = badgeAt(pts, taken, placed, labels);
-      for(var k = 0; k + 1 < pts.length; k++){ placed.push([pts[k], pts[k + 1]]); }
-      taken.push(badge);
-      geo[g.key] = {pts:pts, badge:badge};
-    });
-    I.geo = geo;
-    return geo;
+    return I.on && !!I.geo;
   }
 
   // ---- the drawing ----------------------------------------------------------------
@@ -482,10 +286,10 @@ SCRIPT = r"""
     return d + ' L ' + f1(last.x) + ' ' + f1(last.y);
   }
   function draw(L){
+    var I = info(L), on = ready(I);
     LINES.textContent = ''; BADGES.textContent = '';
-    var I = info(L);
-    if(!I.on){ return; }
-    var geo = geometry(I);
+    if(!on){ return; }
+    var geo = I.geo;
     I.lines.forEach(function(g){
       var pts = geo[g.key].pts.slice(), n = g.edges.length, q = pts.length - 1;
       var w = Math.min(8, 1.1 * (n + 1)), end = arrow(pts[q], pts[q - 1], w), heads = [end.d];
@@ -745,10 +549,6 @@ SCRIPT = r"""
     state:function(){ return {layer:S.layer, open:S.open, routes:!!S.routes[A.state.layer]}; }};
   apply();
   refresh();
-  // The lines of the other layers are ready before the reader selects them.
-  (window.requestIdleCallback || window.setTimeout)(function(){
-    A.layers.concat([{id:'all'}]).forEach(function(l){
-      if(info(l.id).on){ geometry(info(l.id)); } });
-  });
+  later();
 })();
-""".replace("__LIMIT__", str(LIMIT))
+""".replace("__LIMIT__", str(LIMIT)).replace("\n__LINES__\n", page_group_lines.SCRIPT)

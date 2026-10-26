@@ -36,7 +36,9 @@ It can add the facts of the merge base to a cache in `.systemap/facts/`. Git sho
 ## When the command renders again
 
 Without `--no-watch`, the command scans the configuration, model, source, and test files one time each second.
+If a scan takes more than half a second, the next scan starts after two times the time of that scan.
 When a scan finds a change and the next scan finds no more change, the command renders the page again.
+If a scan fails, the command gives the error one time, and the scans continue.
 
 If the command cannot render a version, the last page stays, and the command gives the error:
 

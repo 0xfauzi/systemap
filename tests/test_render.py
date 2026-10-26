@@ -21,7 +21,9 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # bench/jev/README.md "Map page font" gives the measurements and the decision.
     # The assurance levels add 2,367 bytes. The limit is the next whole KiB above the
     # measured page (bench/jev/README.md, "Assurance levels on the page").
-    assert len(html.encode("utf-8")) < 325 * 1024
+    # The fast route search of the group lines adds 3,465 bytes (bench/jev/README.md,
+    # "The route search of the group lines on a large map").
+    assert len(html.encode("utf-8")) < 328 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched
     assert '<link rel="icon" href="data:image/svg+xml,' in html

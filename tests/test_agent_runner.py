@@ -16,6 +16,12 @@ import pytest
 from systemap import agent
 
 
+@pytest.fixture(autouse=True)
+def trust_fixture_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each test in this file starts its own fixture agent. Thus each test permits it."""
+    monkeypatch.setenv(agent.TRUST, "1")
+
+
 def fixture_agent(code: str) -> str:
     """Give the command that operates the Python program in code."""
     return shlex.join([sys.executable, "-c", code])

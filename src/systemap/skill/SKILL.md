@@ -196,7 +196,7 @@ Its actors represent adjacent components. Commands examine every nested map.
 | `systemap describe` | Show components per region, bends and length per route, gutter use, and layer contents. |
 | `systemap refresh` | Extract facts, do checks, render configured output, and examine the result. |
 | `systemap figure --out FILE` | Make one figure. Use `--mode system`, `--layer ID`, `--map ID`, or `--components A,B` as applicable. |
-| `systemap journeys` | Ask the configured agent for draft sequences. The command rejects invalid steps. Examine each draft before removal of `drafted=True`. |
+| `systemap journeys` | Ask the configured agent for draft sequences. The command needs `SYSTEMAP_TRUST_AGENT_COMMAND=1` from the maintainer. Do not set it yourself. The command rejects invalid steps. Examine each draft before removal of `drafted=True`. |
 | `systemap plan "<task>"` | Ask Jev which components the task can affect. `--check ID --base REF` compares a saved plan with source changes. |
 | `systemap history` | Show source changes at older commits, assigned to the current components. |
 | `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. |

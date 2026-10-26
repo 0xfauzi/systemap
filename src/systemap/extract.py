@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import functools
 import hashlib
 import json
 import re
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    file_names,
     notice_text,
     python_calls,
     python_entry,
@@ -27,6 +29,7 @@ from systemap import (
     python_repo,
     python_syntax,
     python_tests,
+    python_tree,
     repo_files,
     source_text,
     unknown_causes,
@@ -52,6 +55,10 @@ PACKAGE_MODULE = "__init__.py"
 TYPE_ALIAS: tuple[type, ...] = (ast.TypeAlias,) if hasattr(ast, "TypeAlias") else ()
 
 
+def _not_test(repo: Path, test_patterns: tuple[str, ...], path: Path) -> bool:
+    return not matches_test_pattern(path.relative_to(repo).as_posix(), test_patterns)
+
+
 class PythonLanguage(PythonRepository):
     """Read Python syntax through the language adapter interface."""
 
@@ -61,13 +68,13 @@ class PythonLanguage(PythonRepository):
         repo: Path,
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
+        refused: list[Path] | None = None,
     ) -> Iterable[Path]:
         del tests_dirs
-        return (
-            path
-            for path in python_repo.python_paths(root)
-            if not matches_test_pattern(path.relative_to(repo).as_posix(), test_patterns)
-        )
+        names: list[Path] = []
+        found = python_repo.python_paths(root, refused=names)
+        source = functools.partial(_not_test, repo, test_patterns)
+        return file_names.selected(found, names, source, refused)
 
     def context(
         self,
@@ -114,6 +121,11 @@ class PythonLanguage(PythonRepository):
         test_issues = getattr(context, "test_issues", [])
         lists = {"entry_point_issues": entry_issues, "test_file_issues": test_issues}
         return {key: value for key, value in lists.items() if value}
+
+    def release(self, context: Any) -> None:
+        """Remove the cached syntax trees of the extraction."""
+        del context
+        python_tree.clear()
 
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         if not path.endswith(".py"):
@@ -284,9 +296,8 @@ def parse_surface(
     a name as its entry. `build` gets the kind from the defining module.
     This function initially records `reexport`.
     """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return None
     functions: list[dict[str, Any]] = []
     classes: list[dict[str, Any]] = []
@@ -524,15 +535,33 @@ def _in_package(name: str, prefixes: Iterable[str]) -> bool:
 
 
 def _dump_python_syntax(tree: ast.AST) -> str:
-    """Serialize shared Python syntax the same way across supported interpreters."""
+    """Serialize shared Python syntax the same way across supported interpreters.
+
+    The function does not change the tree. Other steps read the same tree from
+    `python_tree`.
+    """
     # Python 3.12 added empty type_params; 3.13 stopped dumping empty
     # lists by default. Retain the 3.11 representation for shared syntax,
     # while retaining nonempty type parameters as meaningful source.
-    for node in ast.walk(tree):
-        if getattr(node, "type_params", None) == []:
-            vars(node)["_fields"] = tuple(field for field in node._fields if field != "type_params")
+    hidden = _hide_empty_type_params(tree)
     empty_fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
-    return ast.dump(tree, include_attributes=False, **empty_fields)
+    try:
+        return ast.dump(tree, include_attributes=False, **empty_fields)
+    finally:
+        for node in hidden:
+            del vars(node)["_fields"]
+
+
+def _hide_empty_type_params(tree: ast.AST) -> list[ast.AST]:
+    """Remove an empty `type_params` field from the fields that `ast.dump` writes.
+
+    The function gives the changed nodes. The caller must remove the change after the
+    dump.
+    """
+    hidden = [node for node in python_tree.walk(tree) if getattr(node, "type_params", None) == []]
+    for node in hidden:
+        vars(node)["_fields"] = tuple(field for field in node._fields if field != "type_params")
+    return hidden
 
 
 def collect_module(
@@ -557,7 +586,7 @@ def collect_module(
     if surface is None:
         if issue is None:
             try:
-                ast.parse(raw)
+                python_tree.parse(raw)
             except (SyntaxError, ValueError) as exc:
                 issue = {
                     "line": getattr(exc, "lineno", 0) or 0,
@@ -577,7 +606,7 @@ def collect_module(
             "executes": False,
         }
     try:
-        normalized = _dump_python_syntax(ast.parse(raw))
+        normalized = _dump_python_syntax(python_tree.parse(raw))
     except (SyntaxError, ValueError):
         normalized = raw
     record = {
@@ -610,9 +639,8 @@ def internal_uses(
     Relative imports use the source module and package state.
     Only targets in the extracted module inventory are included.
     """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return {}
     uses: dict[str, set[str]] = defaultdict(set)
     for _node, _local, target, name, _line in python_calls.import_targets(
@@ -628,12 +656,11 @@ def external_imports(raw: str, prefixes: set[str]) -> list[str]:
     Keep dotted import names. Do not include standard-library or local-package imports.
     These records supply the model SDK findings.
     """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return []
     out: set[str] = set()
-    for node in ast.walk(tree):
+    for node in python_tree.walk(tree):
         if isinstance(node, ast.Import):
             candidates = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and not node.level and node.module:

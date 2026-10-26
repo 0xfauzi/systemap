@@ -509,7 +509,7 @@ JOURNEYS = (
                 acts=("SecondOpinion",),
                 measures=(),
                 edge=("CLI", "SecondOpinion"),
-                say="The command groups entry points without sequences by component. It tells the configured coding agent to read the source for one group.",
+                say="The command groups entry points without sequences by component. If the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1, it tells the configured coding agent to read the source for one group.",
             ),
             Step(
                 acts=("SecondOpinion",),

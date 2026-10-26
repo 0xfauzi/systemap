@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import file_write
+from systemap.config import ConfigError
 from systemap.source_facts import empty_markers
 
 # Every field the extractor writes: (scope, field, what it holds). The
@@ -28,7 +29,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
-        "`cause`: `read`, `encoding`, `syntax`, `declaration`, `target`, "
+        "`cause`: `read`, `encoding`, `size`, `syntax`, `declaration`, `target`, "
         "`declaration file`, `script file`, `package`, `binding`, or `reexport`. "
         "`extract --check` marks older formats stale",
     ),
@@ -390,8 +391,25 @@ def dumps(facts: dict[str, Any]) -> str:
 
 
 def write_facts(path: Path, facts: dict[str, Any], root: Path) -> None:
-    """Write the facts. The folder must be in the root. A link at the path is replaced."""
-    file_write.write_atomic(root, path, dumps(facts))
+    """Write the facts. The folder must be in the root. A link at the path is replaced.
+
+    The facts file is UTF-8 text. If a text value is not valid UTF-8, the function does
+    not write the file. It gives a ConfigError with the cause. The walks do not give a
+    file name that is not valid UTF-8 (`file_names`). Thus this error shows a defect."""
+    file_write.write_atomic(root, path, _utf8_text(path, dumps(facts)))
+
+
+def _utf8_text(path: Path, text: str) -> str:
+    """Give the text if the UTF-8 encoding can encode it. If not, give a ConfigError."""
+    try:
+        text.encode("utf-8")
+    except UnicodeError as exc:
+        raise ConfigError(
+            f"The command did not write {path}, because a text value in the facts is not "
+            "valid UTF-8. If a file name is not valid UTF-8, change the name to a valid "
+            "UTF-8 name. Then run the command again."
+        ) from exc
+    return text
 
 
 def summary(facts: dict[str, Any]) -> list[str]:

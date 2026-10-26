@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import ast
 
+from systemap import python_tree
+
 LITERAL_ERRORS = (ValueError, TypeError, SyntaxError, MemoryError, RecursionError)
 
 
@@ -23,9 +25,8 @@ def holds_no_code(raw: str) -> bool:
 
     Source that does not parse gives `False`, because its statements are not known.
     """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return False
     postponed = any(_postpones_annotations(node) for node in tree.body)
     return all(_inert(node, postponed) for node in tree.body)

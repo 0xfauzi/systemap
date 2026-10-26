@@ -1347,7 +1347,11 @@ The group gives one <code>fix:</code> line for each cause that occurs:</p>
 </tr>
 <tr>
 <td><code>encoding</code></td>
-<td>The file is not UTF-8 text.</td>
+<td>The file is not UTF-8 text, or the file name is not valid UTF-8.</td>
+</tr>
+<tr>
+<td><code>size</code></td>
+<td>The file is larger than the source size limit of 16 MiB. systemap does not read it.</td>
 </tr>
 <tr>
 <td><code>syntax</code></td>
@@ -1894,6 +1898,10 @@ For multiple same-kind entries in one component, it can write a grouped
 sequence. Its <code>covers</code> field records the examined entry identities.
 An examination must add a new entry to that list before the entry counts as covered.</p>
 <p><code>[agent] command</code> reads source from the entry point.
+The configuration in the repository gives this command. Thus systemap starts it only if the environment of the
+command sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>. systemap does not read this value from a
+repository file, and <code>SYSTEMAP_TRUST_MODEL_CODE=1</code> does not give it.
+Without this value, <code>systemap journeys</code> starts no program, names the value, and exits 1.
 The agent gives components in the execution path and a sentence for each step.
 Each request contains the language policy of the <code>[writing]</code> profile.
 The command rejects a step with no authored flow and gives a finding.
@@ -1922,7 +1930,9 @@ removes the mark.</p>
 <p><code>--limit N</code> writes no more than N sequences. N must be 1 or more.</p>
 </li>
 <li>
-<p><code>--dry-run</code> lists proposed sequences without file changes.</p>
+<p><code>--dry-run</code> lists proposed sequences without file changes. It starts no program.
+If the environment does not set <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>, it tells you that a
+run needs this value.</p>
 </li>
 <li>
 <p>With no <code>[agent] command</code>, the command also lists proposals and gives the
@@ -2333,11 +2343,14 @@ and the untracked files that Git does not ignore.</p>
 <li>
 <p>Without <code>--no-watch</code>, the command scans the configuration files, the model files,
 and the source and test files one time each second.
+If a scan takes more than half a second, the next scan starts after two times the time of that scan.
 The scan includes the language configuration files below each package root, such as <code>packages/web/src/lib/package.json</code>.
 It also includes these files in the folders between a package root and the repository root, such as <code>packages/web/tsconfig.json</code>.
 The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name <code>build</code> or <code>dist</code>.
 The scan includes each test file that extraction reads, also a file that <code>test_patterns</code> selects out of the package roots and the test directories.
-When a scan finds a change and the next scan finds no more change, the command renders the page again.</p>
+When a scan finds a change and the next scan finds no more change, the command renders the page again.
+If a scan fails, the command gives the error one time, and the scans continue.
+The last page stays. Until a scan gives a result again, <code>GET /status</code> gives the error after each good version.</p>
 </li>
 <li>
 <p><code>--no-watch</code> stops the scan. Then the command renders the page again only after <code>POST /refresh</code>.</p>
@@ -2411,7 +2424,7 @@ for the working tree and the merge base. <code>action</code> is the action of th
 </tr>
 <tr>
 <td><code>{&quot;event&quot;: &quot;error&quot;, &quot;version&quot;: N, &quot;text&quot;: &quot;...&quot;}</code></td>
-<td>When the command cannot render a version.</td>
+<td>When the command cannot render a version, or when a scan of the files fails.</td>
 </tr>
 <tr>
 <td><code>{&quot;event&quot;: &quot;stopped&quot;}</code></td>
@@ -2555,7 +2568,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[agent]</code></td>
 <td><code>command</code> unset, <code>timeout = 300</code>, <code>cache = &quot;.systemap/agent-cache.json&quot;</code></td>
-<td>The command for sequence generation. It reads the question from stdin, for example <code>command = &quot;claude -p --output-format json&quot;</code>. With no command, nothing executes and the reason is printed.</td>
+<td>The command for sequence generation. It reads the question from stdin, for example <code>command = &quot;claude -p --output-format json&quot;</code>. With no command, nothing executes and the reason is printed. systemap starts the command only if the environment sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>, because a repository can set any command. The &quot;Trust and security&quot; guide page gives the trust model.</td>
 </tr>
 <tr>
 <td><code>[delta]</code></td>

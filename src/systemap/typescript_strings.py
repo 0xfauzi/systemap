@@ -23,7 +23,9 @@ _SEQUENCE = re.compile(
 def escape(sequence: str) -> str:
     """This function gives the character of one escape sequence of the JavaScript grammar.
 
-    A backslash before a line end continues the line and gives no character.
+    A backslash before a line end continues the line and gives no character. If a code
+    point is not valid, for example a code point above U+10FFFF, the function gives the
+    escape text without the backslash.
     """
     body = sequence[1:]
     if body.startswith(LINE_ENDS):
@@ -33,7 +35,7 @@ def escape(sequence: str) -> str:
     if digits.isalnum() and (base == 16 or digits.isdigit()):
         try:
             return chr(int(digits, base))
-        except ValueError:
+        except (ValueError, OverflowError):
             pass
     return SIMPLE_ESCAPES.get(body, body)
 

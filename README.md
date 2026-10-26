@@ -534,7 +534,15 @@ The command writes the same model with literal values only, and makes sure that 
 
 systemap runs `git` to read the commits and revisions of the repository.
 `systemap journeys` runs the program that `[agent] command` in `systemap.toml` gives.
-Before you run `journeys` in a repository that you do not know, read that value.
+A cloned repository can set any program there, for example `sh -c '...'`.
+Thus systemap starts that program only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+Without this value, `journeys` stops with exit 1 and names the value. `journeys --dry-run` needs no value.
+The repository cannot give this permission. systemap does not read it from a repository file.
+`SYSTEMAP_TRUST_MODEL_CODE=1` does not give this permission.
+Before you set the value, read the agent command of the repository.
+Set the value for one command only: `SYSTEMAP_TRUST_AGENT_COMMAND=1 systemap journeys`.
+Do not export the value in a shell profile or a shared environment. It permits the agent command of each repository.
+The program gets all the environment variables of the command, such as your API keys.
 Commands that use Jev, OpenAI, or an agent send source text and map text to that service.
 `systemap audit --dry-run` shows the data before you send it.
 

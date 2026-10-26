@@ -98,6 +98,8 @@ systemap skill --dir path/to/skills/systemap
 Then give the agent the instruction from `init`.
 The plugin works only in Claude Code. `systemap live` works with each agent and each browser.
 `systemap journeys` can ask an agent for [draft sequences](reference.html#systemap-journeys-limit-n-dry-run) through `[agent] command`.
+The configuration in the repository gives this command. Thus systemap starts it only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1` ([The agent command](trust-and-security.html#the-agent-command)).
+A coding agent must not set this value itself. The maintainer sets it after an examination of the command.
 
 ## The writing profile
 

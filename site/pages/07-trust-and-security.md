@@ -32,8 +32,25 @@ A commit or a ref goes after `--end-of-options`. Thus a value that starts with `
 
 ## The agent command
 
-`systemap journeys` runs the command under `[agent] command` in `systemap.toml`, without a shell. No other command runs it.
-A repository can set this command. Examine the value before you run `systemap journeys`.
+`systemap journeys` runs the command under `[agent] command` in `systemap.toml`. No other command runs it.
+systemap does not give the command to a shell. The command can start a shell, for example `sh -c '...'`.
+A cloned repository can set this command. The command operates with your user permissions in the repository directory.
+
+- systemap starts the command only if the environment of `systemap journeys` sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+  systemap does not read this value from a repository file. Only the value `1` gives the permission.
+- Without this value, `systemap journeys` starts no program. It stops with exit 1 and names the value.
+  It does not give the output for a repository without an agent.
+- `systemap journeys --dry-run` starts no program. It needs no value.
+  If the environment does not set the value, the dry run tells you that a run needs the value.
+- `SYSTEMAP_TRUST_MODEL_CODE=1` does not give this permission. The two permissions are separate.
+
+Examine the agent command before you set the value. If you trust the repository, set the value. If you do not trust the repository, do not set the value.
+Set the value for one command only, for example `SYSTEMAP_TRUST_AGENT_COMMAND=1 systemap journeys`.
+Do not export the value in a shell profile, a CI environment, or a shared environment.
+The value is not specific to one repository. Thus an exported value permits the agent command of each repository.
+systemap does not remove environment variables from the agent process.
+A coding agent program needs its own keys, for example `OPENAI_API_KEY` for `codex`.
+Thus the agent command can read each key in your environment, for example `GH_TOKEN` or `TYPESAFE_API_KEY`.
 The question to the agent contains map text and source facts. The agent command can send this question to a model API.
 
 ## What systemap sends

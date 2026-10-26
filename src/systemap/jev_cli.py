@@ -306,8 +306,8 @@ def _would_write(left: list[tuple[nest.Map, journeys.Group]], cfg: config.Config
     out += [f"  {current.prefix}{group.label} ({current.rel})" for current, group in left[:20]]
     if len(left) > 20:
         out.append(f"  and {len(left) - 20} more")
-    if not agent.has_agent(cfg):
-        out.append(f"  {agent.NO_AGENT}")
+    if note := agent.setup_note(cfg):
+        out.append(f"  {note}")
     return out
 
 
@@ -691,6 +691,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         description="For an entry point without a sequence, the map does not give the steps "
         "of its operation. "
         "The configured [agent] command reads source and gives component steps with sentences. "
+        f"systemap starts this command only if the environment sets {agent.TRUST}=1. "
         "systemap compares the steps with map flows and writes accepted sequences as drafts. "
         "Before you accept a draft, compare it with the source.",
     )
