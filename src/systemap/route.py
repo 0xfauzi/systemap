@@ -8,8 +8,10 @@ segments and gives collisions or insufficient space.
 from __future__ import annotations
 
 import bisect
+import copy
 import heapq
 import math
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
@@ -491,6 +493,54 @@ def route_all(
     for k in sorted(range(len(edges)), key=span):
         out[k] = router.route(*edges[k])
     return out
+
+
+# The paths and label positions of the last renders. One command renders the same map
+# for the page, each figure, the check, and the stale check. A key is the repr of all
+# inputs, so a changed input gives a different key. The cache keeps the newest entries.
+ROUTED_KEEP = 16
+_routed: OrderedDict[str, tuple[dict[int, Route], dict[int, Placed]]] = OrderedDict()
+
+
+def routed(
+    edges: list[tuple[str, str]],
+    cards: dict[str, Box],
+    actors: set[str],
+    blocks: list[Box],
+    regions: dict[str, Box],
+    region_of: dict[str, str],
+    canvas: tuple[float, float],
+    widths: dict[int, float],
+    lh: float,
+    obstacles: list[tuple[str, Box]],
+    names: dict[int, str],
+) -> tuple[dict[int, Route], dict[int, Placed]]:
+    """Give the result of route_all and then place_labels for these inputs.
+
+    If the inputs are equal to the inputs of an earlier call, the function gives a copy
+    of the earlier result. The repr of a float identifies its value exactly.
+    """
+    key = repr(
+        (edges, cards, sorted(actors), blocks, regions, region_of, canvas)
+        + (widths, lh, obstacles, names, SEAT_GAP)
+    )
+    found = _routed.get(key)
+    if found is None:
+        routes = route_all(edges, cards, actors, blocks, regions, region_of, canvas)
+        seats = place_labels(
+            routes, widths, lh, obstacles, canvas, names=names, cards=cards, region_of=region_of
+        )
+        found = (routes, seats)
+        _routed[key] = found
+        while len(_routed) > ROUTED_KEEP:
+            _routed.popitem(last=False)
+    _routed.move_to_end(key)
+    return copy.deepcopy(found)
+
+
+def clear_routed() -> None:
+    """Remove all entries from the cache of routed()."""
+    _routed.clear()
 
 
 def path_d(points: list[Point], radius: float = 6.0) -> str:
