@@ -4,7 +4,6 @@ and source inputs.
 
 from __future__ import annotations
 
-import functools
 import itertools
 import json
 import os
@@ -166,9 +165,22 @@ def resolved(path: Path) -> Path:
         return resolved(path.parent) / path.name
 
 
-# The live watcher reads the same tsconfig text again at each scan. The cache keeps the
-# result for the same text, thus the slow pattern search occurs one time for each text.
-@functools.lru_cache(maxsize=32)
+# The live watcher reads each tsconfig file again at each scan. For each path, the cache
+# keeps the last text and the text without comments. Thus the slow pattern search occurs
+# again only after a change of the file. The cache has one entry for each path.
+_STRIPPED: dict[Path, tuple[str, str]] = {}
+
+
+def _stripped(path: Path, text: str) -> str:
+    """Give the text without JSONC comments. Use the cache if the path has the same text."""
+    known = _STRIPPED.get(path)
+    if known is not None and known[0] == text:
+        return known[1]
+    value = _strip_jsonc(text)
+    _STRIPPED[path] = (text, value)
+    return value
+
+
 def _strip_jsonc(text: str) -> str:
     """This function removes JSONC comments and trailing commas without changing string
     values.
@@ -197,7 +209,7 @@ def _read_config(path: Path, repo: Path) -> dict[str, Any]:
     """
     try:
         text = repo_files.read_text(repo, repo_files.relative(repo, path))
-        value = json.loads(_strip_jsonc(text))
+        value = json.loads(_stripped(path, text))
     except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
         # A value with too many nested levels gives RecursionError.
         raise ValueError(f"The parser could not read {path.as_posix()}: {exc}") from exc

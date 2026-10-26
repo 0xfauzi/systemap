@@ -20,8 +20,8 @@ from systemap import language as languages
 from systemap.config import ConfigError
 
 # The minimum time between two scans of the watched files. After a slow scan, the
-# watcher waits two times the duration of that scan, thus a scan uses at most one third
-# of the time.
+# watcher waits two times the time of that scan. Thus the scans use not more than one
+# third of the time.
 SCAN_SECONDS = 1.0
 # The two files that can hold the systemap configuration. `config.load` reads them for
 # each language. The language adapter gives its other configuration files.
@@ -29,7 +29,11 @@ CONFIG_FILES = (config.CONFIG_FILE, "pyproject.toml")
 
 
 class Requester(Protocol):
-    """The live map: it renders a version after a request. It also shows a scan error."""
+    """The live map: it renders a version after a request. It also shows a scan error.
+
+    `scan_failed` gets the error text of a failed scan. It gets an empty text when a scan
+    gives a result again.
+    """
 
     def request(self) -> None: ...
 
@@ -128,7 +132,7 @@ def watch(
     scan finds no more change.
 
     If a scan fails, the live map shows the error, and the watcher continues. The interval
-    is `seconds`, or two times the duration of the last scan if that time is longer.
+    is `seconds`, or two times the time of the last scan if that time is longer.
     """
     scanner = _Scanner(live, files, clock)
     last = scanner.scan({})
@@ -143,7 +147,7 @@ def watch(
 
 
 class _Scanner:
-    """One scan of the watched files, with its duration and its last error."""
+    """One scan of the watched files, with the time of the scan and its last error."""
 
     def __init__(
         self, live: Requester, files: Callable[[], Iterable[Path]], clock: Callable[[], float]
@@ -157,7 +161,8 @@ class _Scanner:
     def scan(self, last: dict[str, tuple[int, int]]) -> dict[str, tuple[int, int]]:
         """Give the result of a new scan. If the scan fails, give `last`.
 
-        The live map gets the error text one time, until a scan is successful again.
+        The live map gets each different error text one time. When a scan gives a result
+        again, the live map gets an empty text.
         """
         started = self.clock()
         try:
@@ -166,7 +171,7 @@ class _Scanner:
             found = last
             self._failed(f"The watcher could not scan the files. {type(exc).__name__}: {exc}")
         else:
-            self.error = ""
+            self._failed("")
         self.seconds = self.clock() - started
         return found
 

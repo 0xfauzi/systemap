@@ -280,6 +280,8 @@ class LiveMap:
         self._good = 0
         self._state = "rendering"
         self._error = ""
+        # The error of the last scan of the watcher. A render does not clear it.
+        self._scan_error = ""
         self._last = Rendered()
         self._busy = False
         self._again = False
@@ -350,10 +352,16 @@ class LiveMap:
         self._send("error", {"version": version, "text": text})
 
     def scan_failed(self, text: str) -> None:
-        """Show an error of the file watcher on the page. The files of the page stay."""
+        """Show an error of the file watcher on the page. The files of the page stay.
+
+        An empty text tells that a scan gives a result again. Until then, the status gives
+        the scan error after a good render, and a new event reader gets the error.
+        """
         with self._lock:
-            self._state, self._error = "error", text
+            self._scan_error = text
             version = self._version
+        if not text:
+            return
         self.say({"event": "error", "version": version, "text": text})
         self._send("error", {"version": version, "text": text})
 
@@ -408,14 +416,17 @@ class LiveMap:
         """Give the state for `GET /status`."""
         with self._lock:
             last = self._last
+            state, error = self._state, self._error
+            if state == "ready" and self._scan_error:
+                state, error = "error", self._scan_error
             return {
                 "version": self._version,
-                "state": self._state,
+                "state": state,
                 "seconds": round(last.seconds, 2),
                 "updates": last.updates,
                 "lines": [dict(line) for line in last.lines],
                 "components": list(last.components),
-                "error": self._error,
+                "error": error,
                 "url": self.url,
                 "svg": last.svg,
                 "svg_bytes": last.svg_bytes,
@@ -432,6 +443,8 @@ class LiveMap:
             self._readers.append(reader)
             if self._good:
                 reader.put(_event("rendered", {"version": self._good}))
+            if self._scan_error:
+                reader.put(_event("error", {"version": self._version, "text": self._scan_error}))
         return reader
 
     def forget(self, reader: queue.Queue[str | None]) -> None:

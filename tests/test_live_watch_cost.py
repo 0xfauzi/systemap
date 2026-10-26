@@ -14,8 +14,10 @@ Acceptance, written before the change:
 - A NUL character in `extends` or `references`, and a deeply nested tsconfig file, do not
   stop the scan.
 - If a scan fails, the live map gets the error one time, and the watcher continues.
-- After a slow scan, the watcher waits two times the duration of that scan.
-- The JSONC text of a tsconfig file is stripped one time for the same text.
+- After a slow scan, the watcher waits two times the time of that scan.
+- The scan removes the JSONC comments of a tsconfig file one time while the file stays
+  the same, also when the repository has more than 32 tsconfig files.
+- A render does not clear a scan error. A scan with a result clears it.
 """
 
 from __future__ import annotations
@@ -165,12 +167,13 @@ def test_a_failed_scan_gives_one_error_and_the_watcher_continues(tmp_path: Path)
     # Two failed scans, then the repair, then two scans without a change.
     live_watch.watch(requests, files, Ticks(lambda: None, repair, lambda: None), 0)
     assert requests.errors == [
-        "The watcher could not scan the files. ValueError: embedded null byte"
+        "The watcher could not scan the files. ValueError: embedded null byte",
+        "",
     ]
     assert requests.count == 1
 
 
-def test_after_a_slow_scan_the_watcher_waits_two_times_its_duration(tmp_path: Path) -> None:
+def test_after_a_slow_scan_the_watcher_waits_two_times_its_time(tmp_path: Path) -> None:
     write_tree(tmp_path, DEFAULT_TREE)
     now = [0.0]
 
@@ -186,31 +189,59 @@ def test_after_a_slow_scan_the_watcher_waits_two_times_its_duration(tmp_path: Pa
     assert fast.waits == [1.0, 1.0]
 
 
-def test_the_same_tsconfig_text_is_stripped_one_time(tmp_path: Path) -> None:
-    write_tree(tmp_path, {**TYPESCRIPT, "tsconfig.json": '{"compilerOptions": {}} // 5\n'})
-    live_watch.watched(tmp_path)
-    before = typescript_config._strip_jsonc.cache_info()
-    live_watch.watched(tmp_path)
-    after = typescript_config._strip_jsonc.cache_info()
-    # Before the change, each scan stripped the text again: a hostile 20 KB tsconfig file
-    # took about 3 s for each strip, and a scan did two strips.
-    assert after.misses == before.misses
-    assert after.hits > before.hits
+class _CountedPattern:
+    """The JSONC comment pattern. It counts the slow pattern searches."""
+
+    def __init__(self, pattern: Any) -> None:
+        self.pattern = pattern
+        self.calls = 0
+
+    def sub(self, *args: Any) -> str:
+        self.calls += 1
+        return str(self.pattern.sub(*args))
 
 
-def test_a_scan_error_goes_to_the_events_and_a_later_render_clears_it(tmp_path: Path) -> None:
+def test_a_tsconfig_file_is_stripped_one_time_while_it_stays_the_same(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    projects = 40
+    references = ", ".join(f'{{"path": "./packages/p{n}"}}' for n in range(projects))
+    tree = {**TYPESCRIPT, "tsconfig.json": f'{{"files": [], "references": [{references}]}}\n'}
+    for n in range(projects):
+        tree[f"packages/p{n}/tsconfig.json"] = f'{{"include": ["src"]}} // {n}\n'
+        tree[f"packages/p{n}/src/index.ts"] = f"export const v{n} = {n};\n"
+    write_tree(tmp_path, tree)
+    pattern = _CountedPattern(typescript_config._JSONC_TOKEN)
+    monkeypatch.setattr(typescript_config, "_JSONC_TOKEN", pattern)
+    first = live_watch.watched(tmp_path)
+    assert pattern.calls == projects + 1
+    pattern.calls = 0
+    assert live_watch.watched(tmp_path) == first
+    # Before the change, a cache of 32 texts lost each text before the next read. Then
+    # each scan stripped each file again (84 strips), and a hostile 20 KB tsconfig file
+    # made each scan take about 6 s.
+    assert pattern.calls == 0
+    (tmp_path / "packages/p3/tsconfig.json").write_text('{"include": ["lib"]}\n')
+    live_watch.watched(tmp_path)
+    assert pattern.calls == 1
+
+
+def test_a_render_does_not_clear_a_scan_error(tmp_path: Path) -> None:
     events: list[dict[str, Any]] = []
     page = {"index.html": "<html><body></body></html>"}
     live = serve.LiveMap(tmp_path / "out", lambda: serve.Rendered(files=page), events.append)
     reader = live.listen()
-    live.scan_failed("The watcher could not scan the files. ValueError: x")
-    assert events[-1] == {
-        "event": "error",
-        "version": 0,
-        "text": "The watcher could not scan the files. ValueError: x",
-    }
+    text = "The watcher could not scan the files. ValueError: x"
+    live.scan_failed(text)
+    assert events[-1] == {"event": "error", "version": 0, "text": text}
     assert "event: error" in reader.get(timeout=5)
-    assert live.status()["state"] == "error"
     live.request()
     live.wait(30)
+    # Before the change, the render set the state to ready and removed the error.
+    assert live.status()["state"] == "error" and live.status()["error"] == text
+    later = live.listen()
+    assert "event: rendered" in later.get(timeout=5)
+    assert text in later.get(timeout=5)
+    live.scan_failed("")
     assert live.status()["state"] == "ready" and live.status()["error"] == ""
+    assert events[-1]["event"] == "rendered"
