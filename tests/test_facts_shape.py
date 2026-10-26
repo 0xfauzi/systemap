@@ -187,7 +187,7 @@ def test_read_facts_gives_an_error_for_an_incorrect_shape(
         facts_file.read_facts(path, tmp_path)
     # Before the fix, the JSON parser stopped with a RecursionError.
     path.write_text('{"x":' + "[" * 100000 + "]" * 100000 + "}", encoding="utf-8")
-    with pytest.raises(facts_shape.FactsError, match="too many levels"):
+    with pytest.raises(facts_shape.FactsError, match="has more than 32 levels"):
         facts_file.read_facts(path, tmp_path)
     # An empty object, a JSON list, and text that is not JSON stay "no facts".
     for text in ("{}", "[]", "{"):
@@ -216,7 +216,7 @@ def test_commands_give_the_error_and_refresh_writes_a_new_file(
         assert "Use systemap refresh or systemap extract" in err, command
     assert run(*root, "extract", "--check") == 1
     capsys.readouterr()
-    # Before the fix, refresh also read the incorrect file and stopped.
+    # Refresh and extract must replace a file that read_facts refuses.
     run(*root, "refresh")
     assert facts_shape.problem(json.loads(path.read_text(encoding="utf-8"))) is None
     path.write_text(json.dumps({**data, "components": []}), encoding="utf-8")

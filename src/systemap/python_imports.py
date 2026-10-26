@@ -52,9 +52,10 @@ def namespace_packages(known: Iterable[str]) -> frozenset[str]:
     """Give each dotted package prefix of the known modules.
 
     For the module `a.b.c`, the prefixes are `a` and `a.b`. A directory without
-    `__init__.py` is a namespace package, and a module below it resolves it. The work
-    is proportional to the length of the names, thus an extraction calculates the set
-    one time and gives it to `python_unresolved` for each module.
+    `__init__.py` is a namespace package, and a module below it resolves it. The time
+    of the function increases linearly with the length of the names. Thus an extraction
+    calculates the set one time. It gives the set to `python_unresolved` for each
+    module.
     """
     out: set[str] = set()
     for name in known:

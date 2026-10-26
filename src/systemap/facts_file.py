@@ -365,7 +365,9 @@ def read_facts(path: Path, root: Path) -> dict[str, Any]:
         # ValueError includes json.JSONDecodeError and UnicodeDecodeError.
         return {}
     except RecursionError as exc:
-        raise _shape_error(path, root, "the JSON value has too many levels") from exc
+        raise _shape_error(
+            path, root, f"the JSON value has more than {facts_shape.MAX_DEPTH} levels"
+        ) from exc
     if not isinstance(data, dict):
         return {}
     found = facts_shape.problem(data) if data else None
