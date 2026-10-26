@@ -13,6 +13,7 @@ from systemap import (
     assurance,
     nest,
     page_changes,
+    page_csp,
     page_data,
     page_font,
     page_groups,
@@ -34,7 +35,7 @@ from systemap.page_assets import CSS
 from systemap.page_icons import icon
 from systemap.page_script import JS
 from systemap.page_workspace import SCRIPT as WORKSPACE_SCRIPT
-from systemap.schematic import interactive_script, kind_rows, line_safe, panel_css
+from systemap.schematic import kind_rows, line_safe, page_maps_script, panel_css
 from systemap.schematic import render as render_schematic
 
 NUMBER_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
@@ -559,6 +560,10 @@ def build(
     }
     change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch)
     change_svg = _no_tooltips(change_svg)
+    # One copy of the map code serves the system map and the change map.
+    maps = [("schematic", "panel", detail)]
+    if change_svg:
+        maps.append(("changemap", "change-none", change_detail))
     extra_css = (
         page_guide.CSS
         + page_sequences.CSS
@@ -608,16 +613,12 @@ def build(
         page_motion.keys_sheet(),
         page_palette.html(),
         "<script>window.systemapWorkspace="
-        + line_safe(json.dumps(payload, ensure_ascii=False, sort_keys=True)).replace("<", "\\u003c")
+        + line_safe(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        ).replace("<", "\\u003c")
         + ";</script>",
-        _compact(interactive_script(t, "schematic", "panel", detail, variables=True)),
+        _compact(page_maps_script(t, maps)),
     ]
-    if change_svg:
-        o.append(
-            _compact(
-                interactive_script(t, "changemap", "change-none", change_detail, variables=True)
-            )
-        )
     scripts = (
         JS,
         page_guide.SCRIPT,
@@ -633,7 +634,8 @@ def build(
     )
     o += [f"<script>{_compact(js)}</script>" for js in scripts]
     o.append("</body></html>")
-    return "\n".join(o) + "\n"
+    previews = [str(child["preview"]) for child in nesting.opens.values() if "preview" in child]
+    return page_csp.with_policy("\n".join(o) + "\n", inserted=previews)
 
 
 def _compact(js: str) -> str:
@@ -641,9 +643,21 @@ def _compact(js: str) -> str:
 
     The page scripts have no template literals, so no string continues on a second line.
     Only a line feed ends a line. The function does not use str.splitlines, because
-    str.splitlines also ends a line at characters that can be in a string of map text."""
+    str.splitlines also ends a line at characters that can be in a string of map text.
+    The function also removes the line feed after a line that ends with ; { or , if the
+    line contains no comment mark (`_joins`)."""
     lines = (line.strip(" \t") for line in js.split("\n"))
-    return "\n".join(line for line in lines if line and not line.startswith("//"))
+    kept = (line for line in lines if line and not line.startswith("//"))
+    return "".join(line if _joins(line) else line + "\n" for line in kept).rstrip("\n")
+
+
+def _joins(line: str) -> bool:
+    """Tell if the next line can continue on this line of a script.
+
+    After ; { or , a line feed has no meaning in a script. A line with // or /* can end
+    in a comment, and the comment would then continue on the next line. Thus such a
+    line keeps its line feed."""
+    return line.endswith((";", "{", ",")) and "//" not in line and "/*" not in line
 
 
 def _compact_css(css: str) -> str:

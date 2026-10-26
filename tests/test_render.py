@@ -6,7 +6,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from conftest import Sample, sample_model
+from conftest import Sample, page_detail, sample_model
 
 from systemap import check, figure, page
 from systemap import theme as theme_mod
@@ -25,7 +25,15 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # measured page (bench/jev/README.md, "Assurance levels on the page").
     # The fast route search of the group lines adds 3,465 bytes (bench/jev/README.md,
     # "The route search of the group lines on a large map").
-    assert len(html.encode("utf-8")) < 328 * 1024
+    # The movement layer, the line shapes and the load class add 2,504 bytes
+    # (bench/jev/README.md, "Map movement, layer switch and load").
+    # The grid and the number limit of the sequence marks add 1,851 bytes
+    # (bench/jev/README.md, "The step numbers of a long sequence").
+    # The page bytes change (bench/jev/README.md, "Map page bytes and the security policy")
+    # removed 2,099 bytes: the policy meta element adds 1,182 bytes, and the line feed
+    # removal in the scripts and the compact JSON remove more. The page with the three
+    # changes is 337,662 bytes. The limit is the next whole KiB above it.
+    assert len(html.encode("utf-8")) < 330 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched
     assert '<link rel="icon" href="data:image/svg+xml,' in html
@@ -176,8 +184,20 @@ LINE_ENDS = "\u2028\u2029\u0085\x0b\x0c\x1c\x1d\x1e"
 def test_compact_ends_a_line_only_at_a_line_feed() -> None:
     """Before the fix, _compact cut the string at U+2028 and the page script stopped (llm-2)."""
     for char in LINE_ENDS:
-        js = f'var a = "x{char}y";\n  // note\nvar b = 1;'
-        assert page._compact(js) == f'var a = "x{char}y";\nvar b = 1;'
+        js = f'var a = "x{char}y"\n  // note\nvar b = 1'
+        assert page._compact(js) == f'var a = "x{char}y"\nvar b = 1'
+
+
+def test_compact_joins_a_line_only_after_a_safe_end() -> None:
+    """A line that ends with ; { or , and has no comment mark continues on one line.
+
+    A line with // or /* keeps its line feed, so a comment cannot continue on the next
+    line. A line with a different end keeps its line feed, because a line feed can end
+    a statement there."""
+    js = "if(a){\n  f(1,\n    2);\n}\nvar u = 'http://x'; // note,\ng();\nh() /* x */;\nk()\nm()"
+    assert page._compact(js) == (
+        "if(a){f(1,2);}\nvar u = 'http://x'; // note,\ng();h() /* x */;\nk()\nm()"
+    )
 
 
 def test_map_text_with_line_ends_keeps_each_page_script_whole(sample: Sample) -> None:
@@ -202,9 +222,7 @@ def test_map_text_with_line_ends_keeps_each_page_script_whole(sample: Sample) ->
     assert scripts
     for body in scripts:
         assert not set(body) & set("\u2028\u2029\u0085")
-    line = next(s for s in html.split("\n") if s.startswith("var DETAIL = JSON.parse("))
-    detail = json.loads(json.loads(line[len("var DETAIL = JSON.parse(") : -len(");")]))
-    assert detail[first.id]["does"] == text
+    assert page_detail(html)[first.id]["does"] == text
 
 
 def test_source_files_end_lines_only_at_a_line_feed() -> None:

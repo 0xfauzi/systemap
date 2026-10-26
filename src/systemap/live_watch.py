@@ -9,13 +9,12 @@ module does not know their names.
 
 from __future__ import annotations
 
-import os
 import time
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import Protocol
 
-from systemap import config, model_load
+from systemap import config, model_load, tree_walk
 from systemap import language as languages
 from systemap.config import ConfigError
 
@@ -101,7 +100,7 @@ def _tests(root: Path, cfg: config.Config, test_dirs: tuple[str, ...]) -> list[P
 
 def _files(folder: Path, suffixes: tuple[str, ...], skip: frozenset[str]) -> Iterator[Path]:
     """Give the files with the suffixes below the folder. Skip the folders without source."""
-    for here, folders, names in os.walk(folder):
+    for here, folders, names in tree_walk.walk(folder):
         folders[:] = [name for name in folders if name not in skip]
         yield from (Path(here) / name for name in names if name.endswith(suffixes))
 

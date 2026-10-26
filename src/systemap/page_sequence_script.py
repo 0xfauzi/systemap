@@ -468,13 +468,19 @@ function kindsLg(j){
   return A.layers.filter(function(l){ return on[l.id]; }).map(function(l){
     return lg('<i class="lg__line" style="--c:' + l.colour + '"></i>', l.label); }).join('');
 }
+function numbersLg(j){
+  // A long sequence has numbers on LONG steps only. The panel gives all steps.
+  var n = j.steps.length, from = numbered(n, cur.view === 'steps' ? cur.s : -1);
+  return n > LONG ? lg('', 'Numbers on steps ' + (from + 1) + ' to '
+    + (from + LONG) + ' only') : '';
+}
 P.legendFor.push(function(){
   if(!shownNow()){ return null; }
   var j = J(), h = kindsLg(j);
   if(cur.view !== 'steps'){
     return h + lg('<i class="seq-lg-n">1</i>', 'Step')
       + lg('<i class="seq-tag seq-tag--start">START</i>', 'Entry point')
-      + lg('<i class="seq-lg-quiet"></i>', 'Not in this sequence');
+      + lg('<i class="seq-lg-quiet"></i>', 'Not in this sequence') + numbersLg(j);
   }
   var st = j.steps[cur.s];
   h += lg('<i class="lg__line seq-lg-now"></i>', 'This step');
@@ -484,7 +490,7 @@ P.legendFor.push(function(){
     h += lg('<i class="seq-tag seq-tag--acts">ACTS</i>', 'Acting component'); }
   if((st.measures || []).length){
     h += lg('<i class="seq-tag seq-tag--meas">MEASURES</i>', 'Measurement component'); }
-  return h;
+  return h + numbersLg(j);
 });
 
 // ---- the interfaces ----------------------------------------------------------------
@@ -512,6 +518,62 @@ renderPanel(false);
 syncBar();
 """
 
+# The step numbers and notes avoid the dots of the route lines and the marks that are
+# on the map. The grid finds these items near one place without a scan of all items.
+GRID_JS = r"""
+function grid(){
+  // Points and boxes in cells of 32 units. A count reads only the items in the cells near
+  // the box and the large items. It reads all items if the box covers more cells than
+  // there are items. Two cells can have the same key. Then a count reads more items, but
+  // the test of each item gives the same result.
+  var cells = new Map(), items = [], large = [], query = 0, none = [];
+  function span(r, m){
+    var x0 = Math.floor((r.x - m) / 32), y0 = Math.floor((r.y - m) / 32);
+    var x1 = Math.floor((r.x + (r.w || 0) + m) / 32);
+    var y1 = Math.floor((r.y + (r.h || 0) + m) / 32);
+    return {x0:x0, y0:y0, x1:x1, y1:y1, n:(x1 - x0 + 1) * (y1 - y0 + 1)};
+  }
+  function add(item){
+    var s = span(item, 0);
+    items.push(item);
+    if(!(s.n <= 64)){ large.push(item); return; }
+    for(var i = s.x0; i <= s.x1; i++){
+      for(var k = s.y0; k <= s.y1; k++){
+        var c = cells.get(i * 65536 + k);
+        if(c){ c.push(item); } else { cells.set(i * 65536 + k, [item]); }
+      }
+    }
+  }
+  function scan(list, q, test){
+    var n = 0;
+    for(var j = 0; j < list.length; j++){
+      var item = list[j];
+      if(item.q !== q){ item.q = q; if(test(item)){ n++; } }
+    }
+    return n;
+  }
+  function count(r, m, test){
+    var s = span(r, m), q = ++query;
+    if(!(s.n <= items.length)){ return scan(items, q, test); }
+    var n = scan(large, q, test);
+    for(var i = s.x0; i <= s.x1; i++){
+      for(var k = s.y0; k <= s.y1; k++){ n += scan(cells.get(i * 65536 + k) || none, q, test); }
+    }
+    return n;
+  }
+  return {add:add, count:count};
+}
+function addEach(sc, add, n){
+  // One addition for each item, as before: the score keeps the same rounding.
+  for(var k = 0; k < n; k++){ sc += add; }
+  return sc;
+}
+"""
+
 SCRIPT = "(function(){\nvar svg = document.getElementById('schematic');\n" + (
-    "if(!svg || !svg.systemap || !svg.page){ return; }\n" + MARKS_JS + CONTROL_JS + "})();\n"
+    "if(!svg || !svg.systemap || !svg.page){ return; }\n"
+    + MARKS_JS
+    + GRID_JS
+    + CONTROL_JS
+    + "})();\n"
 )

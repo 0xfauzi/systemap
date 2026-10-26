@@ -142,6 +142,9 @@ function markBoxes(g){
 }
 function relabel(){
   growSoon = 0;
+  // During a movement on the wrapper, the labels wait. The end of the movement
+  // sends a view event, and then the labels change one time.
+  if(live){ return; }
   var L = state.layer, s = growth(), j = state.journey, g = svg.querySelector('.seq-marks');
   // The step numbers, tags and notes of a sequence, in drawing units. The key contains
   // their boxes. Thus relabel calculates the labels again when a mark moves or changes.
@@ -169,8 +172,9 @@ function relabel(){
   if(svg.page && svg.page.syncFrame){ svg.page.syncFrame(); }
 }
 ['systemap:view', 'systemap:layer', 'systemap:workspace'].forEach(function(name){
-  svg.addEventListener(name, function(){
-    if(!growSoon){ growSoon = requestAnimationFrame(relabel); } });
+  svg.addEventListener(name, function(e){
+    if(!growSoon && !(e.detail && e.detail.moving)){ growSoon = requestAnimationFrame(relabel); }
+  });
 });
 relabel();
 """

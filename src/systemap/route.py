@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import bisect
 import copy
-import heapq
 import math
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
+from systemap.route_search import FOREIGN_REGION_COST, Grid, search
 from systemap.seat_grid import Placed as Placed
 from systemap.seat_grid import Seating
 from systemap.seat_grid import overlap_area as _overlap_area
@@ -33,10 +33,7 @@ MAX_LANES = 7
 PORT_DX = (0.0, -25.0, 25.0, -50.0, 50.0)
 PORT_DY = (0.0, -8.0, 8.0, -16.0, 16.0)
 PORT_SPREAD_COST = 4.0
-BEND_COST = 40.0
-USED_LANE_FACTOR = 5.0
 USED_PORT_COST = 500.0
-FOREIGN_REGION_COST = 40.0
 
 
 @dataclass
@@ -248,10 +245,15 @@ class Router:
         # Per grid segment: the regions whose interior it crosses, for the foreign-region
         # wall. A segment can cross a region without a grid node in that region.
         self.crossed: dict[tuple[int, int, int], set[str]] = {}
-        self.h_used: dict[tuple[int, int], int] = {}
-        self.v_used: dict[tuple[int, int], int] = {}
         self.ports_used: set[tuple[str, str, float]] = set()
         self._nx, self._ny = nx, ny
+        self.grid = Grid(self.xs, self.ys, self._closed)
+
+    def _closed(self, orient: int, key: tuple[int, int]) -> bool:
+        """Tell if the grid segment goes through a card margin or a block."""
+        if orient == 0:
+            return key in self.h_block or bool(self.h_cards.get(key))
+        return key in self.v_block or bool(self.v_cards.get(key))
 
     def _mark(self, box: Box, cid: str | None) -> None:
         bx, by, bw, bh = box
@@ -365,93 +367,20 @@ class Router:
             fallback = "No corridor avoids " + ", ".join(crossed or ["an unrelated region"])
         points, src_side, dst_side, nodes = found
         for a, b in zip(nodes, nodes[1:], strict=False):
-            (i0, j0), (i1, j1) = a, b
-            if j0 == j1:
-                key = (min(i0, i1), j0)
-                self.h_used[key] = self.h_used.get(key, 0) + 1
-            else:
-                key = (i0, min(j0, j1))
-                self.v_used[key] = self.v_used.get(key, 0) + 1
+            self.grid.use(a, b)
         return Route(points=points, src_side=src_side, dst_side=dst_side, fallback=fallback)
 
     def _search(
         self, src: str, dst: str, allowed: set[str], strict: bool
     ) -> tuple[list[Point], str, str, list[tuple[int, int]]] | None:
-        xs, ys = self.xs, self.ys
-        nx, ny = self._nx, self._ny
-        entries: dict[tuple[int, int], list[tuple[str, float, Point, int, float]]] = {}
-        for side, off, p, node, orient, cost in self._stubs(dst, allowed, strict):
-            entries.setdefault(node, []).append((side, off, p, orient, cost))
-        dist: dict[tuple[int, int, int], float] = {}
-        prev: dict[tuple[int, int, int], tuple[int, int, int] | None] = {}
-        start_port: dict[tuple[int, int, int], tuple[str, float, Point]] = {}
-        heap: list[tuple[float, int, int, int]] = []
-        for side, off, p, node, orient, c in self._stubs(src, allowed, strict):
-            i, j = node
-            state = (i, j, orient)
-            if c < dist.get(state, math.inf):
-                dist[state] = c
-                prev[state] = None
-                start_port[state] = (side, off, p)
-                heapq.heappush(heap, (c, i, j, orient))
-        best: tuple[float, tuple[int, int, int], str, float, Point] | None = None
-        while heap:
-            d, i, j, o = heapq.heappop(heap)
-            state = (i, j, o)
-            if d > dist.get(state, math.inf):
-                continue
-            if best is not None and d >= best[0]:
-                break
-            if (i, j) in entries:
-                for side, off, p, orient, cost in entries[(i, j)]:
-                    total = d + cost + (BEND_COST if orient != o else 0.0)
-                    if best is None or total < best[0]:
-                        best = (total, state, side, off, p)
-            for di, dj, orient in ((1, 0, 0), (-1, 0, 0), (0, 1, 1), (0, -1, 1)):
-                ni, nj = i + di, j + dj
-                if not (0 <= ni < nx and 0 <= nj < ny):
-                    continue
-                if orient == 0:
-                    key = (min(i, ni), j)
-                    if key in self.h_block or self.h_cards.get(key):
-                        continue
-                    length = abs(xs[ni] - xs[i])
-                    used = self.h_used.get(key, 0)
-                else:
-                    key = (i, min(j, nj))
-                    if key in self.v_block or self.v_cards.get(key):
-                        continue
-                    length = abs(ys[nj] - ys[j])
-                    used = self.v_used.get(key, 0)
-                foreign = bool(self._segment(orient, key) - allowed)
-                if foreign and strict:
-                    continue
-                step = length * (USED_LANE_FACTOR if used else 1.0)
-                if orient != o:
-                    step += BEND_COST
-                if foreign:
-                    step += FOREIGN_REGION_COST + length
-                nstate = (ni, nj, orient)
-                nd = d + step
-                if nd < dist.get(nstate, math.inf):
-                    dist[nstate] = nd
-                    prev[nstate] = state
-                    heapq.heappush(heap, (nd, ni, nj, orient))
-        if best is None:
+        ports = (self._stubs(src, allowed, strict), self._stubs(dst, allowed, strict))
+        found = search(self.grid, self._segment, allowed, strict, ports)
+        if found is None:
             return None
-        _total, state, dst_side, _off, dst_p = best
-        nodes: list[tuple[int, int]] = []
-        cur: tuple[int, int, int] | None = state
-        first = state
-        while cur is not None:
-            nodes.append((cur[0], cur[1]))
-            first = cur
-            cur = prev[cur]
-        nodes.reverse()
-        src_side, _soff, src_p = start_port[first]
-        points = [src_p] + [(xs[i], ys[j]) for i, j in nodes] + [dst_p]
-        self.ports_used.add((src, src_side, _soff))
-        self.ports_used.add((dst, dst_side, _off))
+        nodes, (src_side, src_off, src_p, *_), (dst_side, dst_off, dst_p, *_) = found
+        points = [src_p] + [(self.xs[i], self.ys[j]) for i, j in nodes] + [dst_p]
+        self.ports_used.add((src, src_side, src_off))
+        self.ports_used.add((dst, dst_side, dst_off))
         return _simplify(points), src_side, dst_side, nodes
 
 

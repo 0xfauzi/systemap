@@ -8,9 +8,7 @@ evidence mechanisms. The reference document lists the keys and defaults.
 from __future__ import annotations
 
 import dataclasses
-import os
 import re
-import subprocess
 import tomllib
 from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
@@ -23,10 +21,12 @@ from systemap import (
     decision_kinds,
     file_names,
     flow_ids,
+    git_command,
     model_fields,
     model_load,
     repo_files,
     tool_table,
+    tree_walk,
 )
 from systemap import language as languages
 from systemap.config_paths import names as written_names
@@ -110,6 +110,10 @@ AUDIT_KINDS = decision_kinds.KINDS
 
 class ConfigError(Exception):
     """The configuration has an error. The message gives the necessary correction."""
+
+
+class PackageError(ConfigError):
+    """A package.json file has an error. The message gives the path of the file."""
 
 
 class ArgumentError(ConfigError):
@@ -336,7 +340,7 @@ def skipped(directory: Path, names: Collection[str], package_dir: PackageDir) ->
 def walk(root: Path, package_dir: PackageDir, depth: int | None = None) -> list[Path]:
     """This function lists directories under the root, except for excluded directories."""
     out: list[Path] = []
-    for dirpath, dirnames, _files in os.walk(root):
+    for dirpath, dirnames, _files in tree_walk.walk(root):
         here = Path(dirpath)
         level = len(here.relative_to(root).parts)
         dirnames[:] = sorted(d for d in dirnames if not skipped(here / d, SKIP_WALK, package_dir))
@@ -358,7 +362,7 @@ def discover_tests(root: Path, package_dir: PackageDir) -> list[str]:
     inside a discovered test directory.
     """
     out: list[str] = []
-    for dirpath, dirnames, _files in os.walk(root):
+    for dirpath, dirnames, _files in tree_walk.walk(root):
         here = Path(dirpath)
         keep: list[str] = []
         for d in sorted(dirnames):
@@ -376,24 +380,19 @@ def default_name(root: Path, language: str) -> str:
     """This function selects the project name, Git repository directory name, or root
     directory name.
 
-    The language adapter reads the project name from its package metadata.
-    A worktree uses the common Git directory to identify its repository.
+    The adapter reads the project name from the package metadata. A name with a control
+    character is not used. A worktree uses the common Git directory to identify its repository.
     """
     name = languages.repository(language).project_name(root) if language else ""
-    if name:
+    if name and file_names.valid(name):
         return name
     try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "--git-common-dir"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):
-        proc = None
-    if proc is not None and proc.returncode == 0 and proc.stdout.strip():
-        common = (root / proc.stdout.strip()).resolve()
+        proc = git_command.run(root, "rev-parse", "--git-common-dir", timeout=10)
+        found = "" if proc.returncode else proc.stdout.decode("utf-8", "replace").strip()
+    except git_command.GitError:
+        found = ""
+    if found:
+        common = (root / found).resolve()
         holder = common.parent.name if common.name == ".git" else common.name.removesuffix(".git")
         if holder:
             return holder

@@ -37,7 +37,7 @@ Changelog = "https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md"
 systemap = "systemap.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.32.4"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

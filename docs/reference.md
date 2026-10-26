@@ -1087,6 +1087,7 @@ The group gives one `fix:` line for each cause that occurs:
 | `package` | A configuration file extends a configuration package that systemap could not read. |
 | `binding` | The framework binding of a registration is not known. |
 | `reexport` | The names that a re-export gives are not known. |
+| `name` | A file name, an export name, or an entry point name contains a control character, such as a newline or ESC. The facts do not use the name. The record shows each control character as an escape, such as `\u000a`. |
 | `not known` | The record has no cause, because the facts have an older format. |
 
 ### `systemap figure --out FILE`

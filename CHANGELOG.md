@@ -35,6 +35,36 @@ A layer is a filtered view of the map.
   `journeys --dry-run` needs no value. `SYSTEMAP_TRUST_MODEL_CODE=1` does not give this permission.
   Examine the agent command of the repository. If you trust the repository, set `SYSTEMAP_TRUST_AGENT_COMMAND=1` for one command only.
 
+- Each Git command of systemap gets settings that stop the programs of the repository configuration.
+  Git does not start the fsmonitor program, a hook, an external diff, a textconv program, or `gpg.program`.
+- A command that compares the working tree stops each filter of the local and worktree configuration.
+  A filter name that contains `=` gives an error.
+  The command does not examine the files in a submodule. Thus a filter of the submodule configuration does not start.
+  A new commit of a submodule is a change. A changed file in a submodule is not a change.
+- A file name, a TypeScript export name, a package.json name or `bin` key, or a pyproject.toml script key with a control character cannot make a false finding line.
+  The facts do not use such a name. An unknown record with the new cause `name` shows the name with escapes, such as `\u000a`.
+- A `[package_roots]` path or name with a control character gives a configuration error.
+- Each map page contains a Content-Security-Policy meta element.
+  The policy permits only the scripts and the style elements of the page. It permits no network source.
+- `systemap serve` and `systemap live` send the Content-Security-Policy of a page in a header.
+  The live page permits its script and its connection to the server. A refused request gets no policy.
+- A theme value that contains `/*`, `*/`, or a backslash gives a configuration error.
+  A theme value that is not a font stack also cannot contain `'`. In a font stack, each quotation mark must have a pair.
+- The page servers close a connection if the request line and all headers do not arrive in 10 seconds.
+  Previously, a client that sent one byte in each 10 seconds kept its connection.
+- The Jev, OpenAI, and agent caches do not read or write a cache file that Git tracks.
+  This includes a file that a submodule tracks and a link to a tracked file.
+  To use such a file, set `SYSTEMAP_TRUST_TRACKED_CACHE=1`.
+- `systemap journeys` writes the row `from the cache` under each sequence whose answer came from the agent cache.
+- `systemap delta` reads `[delta] page_url` from the configuration of the base commit.
+  If the job runs a released systemap version, a pull request cannot change the link in the comment.
+  If the base value is not correct, the comment has no link, and a warning gives the cause.
+- For a pull request from a fork, the base-render job of CI renders the page with the code of the base commit.
+  If the committed page is different, the job fails.
+- Each setup-uv step of CI uses uv 0.11.29. The workflow from `systemap init` also uses uv 0.11.29.
+- The build backend is hatchling 1.32.4. The release job and the install job make the package with `.github/build-constraints.txt`.
+  This file gives a fixed version and the file hashes of each build dependency. The release uses `uv run --locked`.
+
 ### Changes
 
 - The TypeScript call-site reader reads a deep syntax tree in linear time.
@@ -124,6 +154,67 @@ A layer is a filtered view of the map.
   Previously, it always sent questions to Jev when `TYPESAFE_API_KEY` was set.
   OpenAI has no measured drift result. When OpenAI is selected, the command sends no data and gives the cause.
   A missing key or a failed request gives no score. The command does not send data to another provider.
+
+- Each Git command has a time limit. If Git does not stop in the time limit, the command gives an error.
+  The reader of `git cat-file` also stops if Git sends no data in the time limit.
+- If Git refuses the repository, for example because of dubious ownership, the error gives the Git cause and not "unknown revision".
+- If Git gives no HEAD commit, `systemap extract` writes a note with the Git cause.
+- A pyproject.toml value that must be a table and is not a table gives a configuration error with the key.
+  Examples are `project = "name"` and `x = 1` in `[tool.poetry.scripts]`. Previously, extraction stopped with `AttributeError`.
+- An absolute uv workspace member pattern, or a member pattern with a `..` part, gives a configuration error.
+  A `**` member pattern over a very deep folder tree also gives a configuration error. Previously, these patterns stopped the command with a traceback.
+- Package root discovery ignores a link to a folder that is not in the repository.
+  This applies to workspace members, top-level packages, and the TypeScript include folder.
+  Thus the names of outside folders do not go into systemap.toml or map.json.
+- The folder walk does not use recursion. A folder tree with more than 500 levels gives a configuration error that names the folder.
+  Previously, extraction stopped with `RecursionError`.
+- Each `export * from` statement with a missing target gives its own unknown record.
+  Previously, only the last statement of a module gave a record.
+- Import resolution through package.json keeps each result and an index of the pattern keys.
+  An exports table with 5000 pattern keys and 2000 imports took 32.6 s in `systemap extract`. Now it takes 1.8 s.
+- The Python call-site reader finds import bindings by local name.
+  8000 star-imported names and 8000 assignments took 30.2 s. Now they take 0.16 s.
+- A long whitespace sequence in a recorded TypeScript method signature does not make `systemap check` slow.
+  One 32 KB signature took 21.5 s. Now it takes less than 0.001 s.
+- A package.json file with too many nested levels gives a configuration error with the path and the cause.
+  Previously, it gave a `RecursionError` traceback.
+  The correction line of a package.json error names the package.json file, not the tsconfig file.
+- systemap refuses a chain of more than 16 nested maps. The error names each model file in the chain.
+  Previously, a chain of about 1000 nested maps stopped `systemap check` with `RecursionError`.
+- The nested-map loader does a fixed quantity of work for each map. Previously, the work increased with the square of the number of maps.
+- `systemap place` writes a temporary file and replaces the model file. It restores the previous file the same way.
+  A reader of the model file gets the previous file or the new file, not a part of a file.
+- `systemap render` calculates the claimed modules of each component fewer times: 84 calls, not 232, on this repository.
+- `systemap history` examines the shape of each facts cache file.
+  If the shape is not correct, `history` extracts the facts again and replaces the file. Previously, such a file stopped `history` with a traceback.
+- `systemap audit` gives no previous-name warning for an answered item that is a current judgement line.
+- During a camera movement, the map page does not change the drawing transform at each frame.
+  A CSS transform on the map wrapper shows the movement. At the end of the movement, the page writes the drawing transform one time.
+  Then the labels and the zoom readout change one time.
+- A wheel zoom also writes the drawing transform one time at the end. This improves the wheel frame rate, but on a page with 72 components at 4x CPU slowdown, the frame interval stays above the target.
+  This item stays open.
+- A layer switch reads all line lengths and boxes before it writes the reveal masks.
+- At load, the class changes of the first layer start no transitions.
+  On the page with 72 components, the longest load task decreases from about 650 ms to about 200 ms.
+- The Sequences view gives a step number on 40 steps only when a sequence has more than 40 steps. The legend gives these steps.
+  A click on a route of 200 steps takes less than 200 ms on a map with 450 flows. Previously, it took 26 s to 28 s.
+- The Changes view shows the source card when a type name is `constructor` or `__proto__`.
+  Previously, the card script stopped with an error.
+- The map page with a revision comparison contains the map script one time.
+  The change map gets the detail of the system map with a set of changes. The `--base` page of this repository is 15.8% smaller.
+- The page data does not contain `names` in the module records. The page data uses compact JSON separators.
+- The size limit of the sample page in `tests/test_render.py` is 330 KiB.
+- The router finds each flow path in less time. The routes, the figures and the page do not change.
+  On a map with 450 flows, `route_all` takes 2.65 s. Previously, it took 8.35 s.
+  On a map with 900 flows, it takes 10.91 s. Previously, it took 34.36 s.
+  The time still increases with the square of the number of flows.
+- `systemap live` keeps the source facts of each file between two renders. It extracts only the changed files again.
+  The kept facts are the same as the facts of a full extraction.
+  On this repository, one render after one edit takes 1.7 s to 1.9 s. Previously, it took 3.3 s to 4.6 s.
+  With a base, it takes 1.7 s to 2.1 s. Previously, it took 6.5 s to 7.2 s.
+- A live render compares the sources one time. Previously, the change figure compared them a second time.
+- `systemap live` does not hold its state lock while it writes an event line.
+  An output that no process reads does not stop `GET /status`, `GET /events`, `POST /refresh`, or the file scan.
 
 ## 2.0.0 - 2026-10-13
 

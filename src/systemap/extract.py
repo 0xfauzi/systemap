@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    fact_cache,
     file_names,
     notice_text,
     python_calls,
@@ -130,6 +131,14 @@ class PythonLanguage(PythonRepository):
         lists = {"entry_point_issues": entry_issues, "test_file_issues": test_issues}
         return {key: value for key, value in lists.items() if value}
 
+    def keep_facts(self, context: Any, cache: Any) -> None:
+        """Let the extraction use the kept facts of the cache (`extraction.build`).
+
+        The facts of one Python file come only from its text, the module paths, the
+        configuration, and the public names of the modules that it imports."""
+        if isinstance(context, python_tests.PythonTests):
+            context.cache = cache
+
     def release(self, context: Any) -> None:
         """Remove the cached syntax trees of the extraction."""
         del context
@@ -235,11 +244,17 @@ class PythonLanguage(PythonRepository):
         sources: dict[str, str],
         context: Any,
     ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-        del context
+        cache = getattr(context, "cache", None)
         issues = [
             issue
             for module, source in sources.items()
-            for issue in python_entry.registration_candidates(module, source)
+            for issue in fact_cache.kept(
+                cache,
+                "registrations",
+                module,
+                fact_cache.text_digest(source),
+                functools.partial(python_entry.registration_candidates, module, source),
+            )
         ]
         return python_entry.entry_points(repo, prefixes, components, sources), issues
 

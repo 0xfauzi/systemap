@@ -7,11 +7,10 @@ gives the file names and the skipped folders. This module does not know a langua
 
 from __future__ import annotations
 
-import os
 from collections.abc import Collection, Iterable, Iterator
 from pathlib import Path
 
-from systemap import file_names
+from systemap import file_names, tree_walk
 
 
 def nearby(
@@ -32,7 +31,7 @@ def nearby(
 
 
 def _below(folder: Path, names: Collection[str], skip: Collection[str]) -> Iterator[Path]:
-    for here, folders, files in os.walk(folder):
+    for here, folders, files in tree_walk.walk(folder):
         folders[:] = [name for name in file_names.folders(folders) if name not in skip]
         yield from (Path(here) / name for name in files if name in names)
 

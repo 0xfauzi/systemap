@@ -3203,6 +3203,257 @@ The earlier limit of 325 KiB (332,800 bytes) had 810 bytes of space. Thus the ch
 The new limit, 328 KiB (335,872 bytes), is the next whole KiB above the measured page (327.6 KiB).
 The maintainer must accept or refuse this new limit.
 
+## Map movement, layer switch and load (2026-10-26)
+
+Findings uiperf-1, perf-2, perf-6, uiperf-2 and perf-5: each frame of a wheel zoom or a camera tween wrote the drawing transform.
+Each write caused a layout of all of the map. Findings uiperf-4 and perf-4: a layer switch read a line length after each mask write.
+Finding uiperf-5: at load, the page scripts started transitions on about 1,600 lines and labels.
+
+The change has these parts:
+
+- During a wheel, pinch, drag or camera tween, a CSS transform on the HTML element around the map (`.stage`) shows the view.
+  At the end of the movement, the script writes the drawing transform one time. Then the labels change one time.
+  A wheel movement ends 120 ms after the last wheel event. The script keeps the scale and the screen matrix during the movement.
+- The zoom readout changes at the end of a movement. A change to the readout during a movement caused a layout of all of the map text.
+- `drawLines` reads all lengths and boxes before the first write. It keeps the length and the box of each path for its path data.
+- The class `booting` stops all transitions in the map until the second frame after load.
+- `apply` does not write a transform that is equal to the current transform.
+- The script examines the parent of the wrapper again when the parent changes. The present mode moves the wrapper to a parent that does not clip it.
+  In that parent, the script does not move the wrapper. `tests/test_map_movement.py` examines this.
+
+The acceptance values were written before the measurement. At 4x CPU on f72, the median frame interval during wheel input and during a camera tween is less than 33 ms.
+At 1x CPU on f72, a layer switch takes less than 150 ms. The longest task of the load is lower than before.
+After each interaction, the view transform, the label transforms and the classes are equal to the values before the change.
+
+Method: `repo`, `f36` and `f72` of "The route search of the group lines on a large map", made with 65e5464 and with the change.
+Headless Chromium opens each page at 1440 by 900 pixels. Each cell gives the values of two runs.
+The scripts are in the scratch folder `p3-pageview`: `p3.js`, `dump.js`, `cmpdump.py`, `cmpout.sh`, `repaint.js` and `tprobe.js`.
+"Wheel" is the median rAF interval during 60 wheel events at 8 ms intervals.
+"Tween" is the median rAF interval from the start of each of four camera tweens to 300 ms after the start.
+"Layer" is the time from the click on a layer button to the next frame, as the median and the maximum of 10 clicks.
+
+### Frame intervals and layer switch (ms)
+
+| page | CPU | 65e5464 wheel | change wheel | 65e5464 tween | change tween | 65e5464 layer median, max | change layer median, max |
+|---|---|---|---|---|---|---|---|
+| f72 | 1x | 16.7, 16.7 | 16.7, 16.7 | 16.7, 16.7 | 16.7, 16.7 | 118 and 159, 121 and 174 | 99 and 142, 91 and 163 |
+| f72 | 4x | 100, 83.3 | 100, 83.3 | 100, 66.6 | 16.7, 16.7 | 652 and 990, 569 and 756 | 607 and 757, 503 and 1110 |
+| f36 | 4x | 33.3, 50 | 33.4, 50 | 33.3, 50 | 16.7, 16.7 | 237 and 376, 277 and 346 | 195 and 272, 185 and 289 |
+| repo | 4x | 33.3, 33.3 | 33.3, 33.3 | 33.3, 33.3 | 16.7, 16.7 | 152 and 238, 125 and 193 | 137 and 182, 96 and 134 |
+
+The layout count during the four tweens on f72 at 4x fell from 38 and 46 to 10 and 10.
+During the 60 wheel events on f72 at 4x, it fell from 46 and 53 to 23 and 25.
+
+The acceptance value for the tween is satisfied. The acceptance value for the wheel is not satisfied: the median stays at 83 to 100 ms on f72 at 4x.
+A Chrome trace of the wheel input shows one layout in each frame, with 1,270 of 3,475 layout objects dirty.
+The f72 map has 644 text elements, thus these objects are the map text. A tween with no input has no such layouts.
+A tween with mouse moves over the map has them. Thus the cause is the input with a scale change on the wrapper.
+`pointer-events: none` on the map or on the wrapper did not remove the layouts. A wheel step in the next animation frame did not remove them.
+An investigation of the Chrome layout of SVG text under a scaled wrapper is necessary.
+
+Thus the change fixes the camera tween (perf-2, perf-6, uiperf-2 and perf-5). For the wheel, uiperf-1 is improved, but it is not fixed. It stays an open item.
+A review run of `p3.js` on f72 at 4x CPU used pages that it made again from 65e5464 and from the change.
+During the wheel, the median rAF interval fell from 99.9 ms to 66.7 ms, and the 90th percentile fell from 133.4 ms to 100 ms. The layout count fell from 49 to 26.
+During the tweens, the median fell from 83.3 ms to 16.7 ms, and the layout count fell from 38 to 10.
+The changelog line for this change must use the word "improved" for the wheel. It can use the word "fixed" only for the camera tween.
+
+At 1x on f72, the median of the layer switch satisfies the acceptance value. The maximum of one run (163 ms) does not satisfy it.
+The longest task of a switch at 1x on f72 is 65 to 127 ms. Most of the click time is the style and the layout of the map after the class changes on about 900 lines and labels.
+The first visit to a layer also includes the route search of the group lines.
+
+### Load (ms)
+
+"Longest" is the longest task of the load. "Sum" is the sum of all long tasks of the load.
+
+| page | CPU | 65e5464 longest | change longest | 65e5464 sum | change sum |
+|---|---|---|---|---|---|
+| f72 | 1x | 638, 667 | 223, 158 | 1436, 1224 | 401, 271 |
+| f72 | 4x | 812, 961 | 896, 663 | 3372, 3394 | 2713, 2283 |
+| f36 | 1x | 215, 145 | 124, 72 | 578, 381 | 124, 131 |
+| repo | 1x | 88, 106 | 0, 75 | 200, 223 | 0, 75 |
+
+A separate run of three loads on f72 at 1x compared the change with and without the class `booting`.
+Without the class, the longest task was 547 to 844 ms. With the class, it was 171 to 259 ms.
+The count of SVG elements with an opacity other than 1 after the load stays 900 on f72. These elements are the hidden lines and labels of the other layers.
+The load reads (12 `getBoundingClientRect`, 29 `getScreenCTM` and 475 `getBBox` calls on f72) did not change.
+
+### The final state is the same
+
+`dump.js` does 17 or 18 interactions on each page.
+These are wheel in and out, ctrl+wheel, drag, a two-finger pinch, two tweens, a selection, a clear, each layer, and a wheel with a selection.
+After each interaction, it records the view transform, the label transforms, the classes, the masks and the zoom readout. It also takes two screenshots of the map frame.
+For repo, f36 and f72, all records are equal. The screenshots after a full repaint of the map are byte-identical.
+The screenshots at the end of each gesture are byte-identical, except the load screenshot of each page and the tween to Fit on f72.
+These screenshots differ in 2 to 168 pixels by 1 or 2 of 255 in one color channel. After a full repaint, they are byte-identical. Thus the difference is from the paint history.
+
+The three SVG figures of this repository and `map.json` of the three pages are byte-identical.
+Outside the script and style elements, the three pages are byte-identical.
+
+### Page size
+
+The sample page of `tests/test_render.py` changes from 335,455 bytes to 337,959 bytes, an increase of 2,504 bytes.
+The earlier limit of 328 KiB (335,872 bytes) had 417 bytes of space. Thus the change cannot pass the earlier limit.
+The new limit, 331 KiB (338,944 bytes), is the next whole KiB above the measured page (330.0 KiB).
+
+## The step numbers of a long sequence (2026-10-26)
+
+Finding g1page-1: at commit 65e5464, the place of each step number on the map was a scan of all line points and all marks on the map.
+The work increased with the square of the route length, and the sequence script had no step limit.
+
+The change puts the line points and the marks in a grid of 32-unit cells (`GRID_JS` in `page_sequence_script.py`).
+A score reads only the items near the box. The score adds the same values in the same order as before.
+A sequence with more than 40 steps has numbers on 40 steps only: the first 40 steps of the whole route, or the 40 steps near the current step.
+The legend gives these steps. For such a sequence, a number examines about 40 places on its line.
+
+Acceptance, written before the change: at 1x CPU on the page with 72 components and 450 flows, a click on a route of 200 steps takes less than 300 ms.
+The marks of each sequence of this repository are byte-identical to the marks of 65e5464.
+
+Method: headless Chromium at 1600 by 900 pixels. A synthetic sequence of N steps uses N different flows.
+The time is the synchronous time of `P.journey.route`, `P.journey.start` and one `P.journey.stepBy(1)`.
+The scripts are in the scratch folder `p3-pageseq`: `seqperf.js`, `marks.js`, `cmpmarks.py` and `incl.js`.
+
+### Click times (ms)
+
+Each cell gives route / start / step. The change has three runs.
+
+| N | 65e5464 | change, run 1 | change, run 2 | change, run 3 |
+|---|---|---|---|---|
+| 6 | 134 / 220 / 130 | 85 / 85 / 82 | 95 / 99 / 73 | 82 / 58 / 74 |
+| 50 | 2614 / 1483 / 1637 | 75 / 85 / 107 | 86 / 102 / 122 | 66 / 78 / 91 |
+| 100 | 6615 / 6521 / 7096 | 120 / 102 / 108 | 125 / 76 / 128 | 83 / 81 / 102 |
+| 200 | 27261 / 26186 / 28309 | 187 / 111 / 105 | 128 / 93 / 135 | 117 / 87 / 168 |
+| 1000 | not measured | 361 / 228 / 290 | 367 / 198 / 199 | 286 / 185 / 235 |
+
+With the grid only, 200 steps took 828 / 579 / 517 ms.
+With the grid and fewer places, but with all numbers, 200 steps took 199 to 504 ms in six runs. Thus the number limit is necessary.
+With the grid only, 40 steps took 112 / 96 / 102 ms. This is the limit of 40 steps.
+
+### The marks are the same
+
+`marks.js` writes the lines and marks of the whole route and of each step of each sequence.
+For the 15 sequences of this repository (78 views), the data of the change is byte-identical to the data of 65e5464.
+On the page with 450 flows, the views of the four sequences of the page and of synthetic sequences of 6 and 25 steps are byte-identical.
+The views of a synthetic sequence of 50 steps are different, because of the number limit.
+The map.json file and the three SVG figures of this repository are byte-identical. On the page, the only changed lines are lines of the sequence script.
+
+### Page size
+
+The sample page of `tests/test_render.py` changes from 335,455 bytes to 337,306 bytes, an increase of 1,851 bytes.
+The earlier limit of 328 KiB (335,872 bytes) had 417 bytes of space. Thus the change cannot pass the earlier limit.
+The new limit, 330 KiB (337,920 bytes), is the next whole KiB above the measured page (329.4 KiB).
+The maintainer must accept or refuse this new limit.
+
+After the merge with the change of "Map movement, layer switch and load", the sample page is 339,850 bytes (331.9 KiB).
+Thus the merged limit is 332 KiB (339,968 bytes).
+After the next merge with the change of "Map page bytes and the security policy", the sample page is 337,662 bytes (329.7 KiB).
+Thus the merged limit is 330 KiB (337,920 bytes).
+
+## Map page bytes and the security policy (2026-10-26)
+
+This change is for four findings of the audit at commit 65e5464:
+
+- uiperf-6: the page with `--base` contained the map script two times: one copy for the system map and one copy for the change map.
+- perf-8: each module record of the page data contained `names` and `public_names` with the same names. The page data had a space after each comma and colon.
+- xss-1: the map page, the figures and the two servers gave no Content-Security-Policy.
+- regex-5: a theme value with `/*` removed the page CSS until the next `*/`, with no error.
+
+The change:
+
+- The page has one map script. The script contains the map code one time, in a function. It calls the function for the system map and for the change map.
+- The script contains the detail of the system map one time. The change map gets that detail with a set of changes: new fields of records and new values of keys. If the changes do not give the same detail, the script contains the full detail of the change map.
+- The module records do not contain `names`. The page script makes the names from `public_names`. The page data uses compact JSON separators.
+- The page scripts have no line feed after a line that ends with `;`, `{` or `,`, if the line has no `//` and no `/*`.
+- Each page has a policy meta element (`page_csp.py`). The policy contains the SHA-256 digest of each inline script and style element. It gives `'none'` to `default-src`, `object-src`, `base-uri` and `form-action`. It permits `data:` images and fonts, and frames from the same origin. It permits style attributes, because the map uses them. It permits no network source.
+- `systemap live` adds the digest of its script and `connect-src 'self'` to the policy of each page.
+- The page server and the live server send the policy of an HTML page in the Content-Security-Policy header. An SVG file gets a fixed policy without scripts.
+- A theme value that contains `/*` or `*/` gives a ValueError. Through the configuration, it gives a ConfigError.
+
+Acceptance, written before the measurement:
+
+- uiperf-6: the size of the `--base` page minus the size of the page without `--base` is less than 50% of the same difference before the change.
+- perf-8: the page of this repository gets at least 15 KB smaller.
+- The three SVG figures, an interactive figure and `map.json` are byte-identical.
+- The interaction snapshots of a Playwright smoke test are identical before and after: select, layer change, sequence, Changes view, and a child map.
+- The pages have 0 CSP violations: this repository page, the `--base` page, the nested pages of `tests/test_nested.py` from a file and from the page server, the figures, and the live page.
+- regex-5: `#888 /*` in `ink_2` gives an error. Before the change, it removed characters of the page CSS.
+
+Method: the scripts are in the scratch folder `p3-pagebytes`.
+`render.py` renders the page, the page with `--base HEAD~10`, the three configured figures and an interactive figure into a temporary folder.
+For the change, `render.py` reads the facts of the base run and uses the model file of 65e5464. Thus the comparison does not include the new source module.
+`smoke.js`, `smoke2.sh`, `figure.js` and `live.js` operate headless Chromium. They record each `securitypolicyviolation` event.
+At the end, `smoke.js` adds an inline script to the page. With the policy, that script must not run.
+
+### Page bytes
+
+| page | 65e5464 (bytes) | change (bytes) | difference |
+|---|---|---|---|
+| this repository | 931,784 | 889,244 | -42,540 (-4.6%) |
+| `--base HEAD~10` | 1,323,157 | 1,114,431 | -208,726 (-15.8%) |
+| `--base` minus the page without `--base` | 391,373 | 225,187 | -166,186 (-42.5%) |
+| sample page of `tests/test_render.py` | 335,455 | 333,356 | -2,099 |
+
+The parts of the change on the `--base` page:
+
+| part | 65e5464 (bytes) | change (bytes) | difference |
+|---|---|---|---|
+| map scripts (code and detail) | 331,787 | 166,855 | -164,932 |
+| page data | 466,610 | 424,033 | -42,577 |
+| other scripts | 166,426 | 163,883 | -2,543 |
+| policy meta element | 0 | 1,344 | +1,344 |
+
+On the page of this repository, the page data changes from 395,122 bytes to 354,362 bytes (-40,760).
+The change map gets 1,706 bytes of changes in place of a second detail. The detail of the system map is 121,288 bytes.
+
+The acceptance value of uiperf-6 is not satisfied: the difference is 57.5% of the earlier difference, not less than 50%.
+The duplicate map script is removed. The remaining 225 KB are the change map SVG, its styles and the comparison data. These parts are not copies.
+The acceptance value of perf-8 is satisfied.
+
+The sample page has a size limit. The policy meta element adds 1,182 bytes. The line feed removal and the compact JSON remove more bytes.
+The limit goes down from 328 KiB to 326 KiB, the next whole KiB above the measured page (325.5 KiB).
+
+### Outputs and interaction
+
+The three SVG figures, the interactive figure and `map.json` are byte-identical (`cmp`).
+The interaction snapshots are identical for this repository page (16 steps), the `--base` page (17 steps) and the nested top page (15 steps).
+
+### Security policy
+
+| page | CSP violations | page errors | added script ran |
+|---|---|---|---|
+| this repository, file | 0 | 0 | no |
+| `--base`, file | 0 | 0 | no |
+| nested top page and child page, file | 0 | 0 | no |
+| nested top page, page server, child map open in the frame | 0 | 0 | no |
+| this repository and `--base`, page server | 0 | 0 | no |
+| three figures, file and page server | 0 | 0 | not tested |
+| live page, before and after `POST /refresh` | 0 | 0 | no |
+| live `change.svg` | 0 | 0 | not tested |
+
+On 65e5464, the added script ran on the file pages of this repository, the `--base` page and the nested top page.
+The live page loaded again after `POST /refresh` and kept the selected component and the layer. Thus the event connection operates with the policy.
+A figure SVG file cannot contain a policy meta element. A file that a person opens from the disk thus has no policy. The figures contain no script.
+The interactive figure goes into a different document. The policy of that document applies to it.
+
+### Theme values
+
+Before the change, `#888 /*` in `ink_2` removed 5,707 characters of the page CSS, with no error.
+`#888 */` and `/* x */ #888` gave no error.
+After the change, each of the three values gives "The theme value ink_2 contains ...".
+
+A review found that a quote mark or a backslash also changed the page CSS with no error.
+The page CSS is on one line. Thus, `#888 '` in `ink_2` started a CSS string that continued for 1,108 characters to the next `'`.
+In Chromium, the stylesheet went from 228 rules to 227 rules. The lost rule was the dark theme rule `:root[data-theme="dark"]`.
+Before this second change, `#888 '` and `#888 \` in `ink_2`, `Inter',sans-serif` and `Inter",sans-serif` in `font_ui`, and `x\` in `font_mono` gave no error.
+After the change, each of these five values gives "The theme value ... contains ...".
+`'Inter',sans-serif`, `"Inter",sans-serif` and `#888` give no error before and after. A font stack can contain quote marks in pairs.
+
+### Refused requests
+
+The page server sends the policy only for a request that it accepts.
+Before this change, a request with `Host: evil.example:PORT` got status 403 with a policy header of 1,153 characters. The server read the page file to make that header.
+After the change, the same request gets status 403 with no policy header.
+The figures and the interactive figure are byte-identical before and after this change. The page and `map.json` change only in the source facts of the changed files and tests.
+
 ## TypeScript module descriptions, issue #91 (2026-10-14)
 
 `bench/typescript_descriptions.py` compares three rules on all tracked TypeScript source files, including tests but excluding declaration files.

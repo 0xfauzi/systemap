@@ -447,6 +447,12 @@ The code and the settings of a fork can change the comment text.
 If your repository publishes the map page of each pull request, set `[delta] page_url`
 in `systemap.toml`. Then the comment also has a link to the Changes view of that page.
 The Changes view shows the changed parts on the map.
+`systemap delta` reads `page_url` at the base commit, not in the pull request.
+A new value has an effect after the merge.
+If the job runs a released systemap version, as the workflow from `init` does,
+a pull request from a fork cannot change the link.
+If the job runs the systemap code of the pull request, the fork can change that code,
+and thus also the link.
 
 The agent can correct these findings without a full new map.
 Three merged pull requests from one 111-module repository cost 2.31, 4.39, and
@@ -548,6 +554,13 @@ Do not export the value in a shell profile or a shared environment. It permits t
 The program gets all the environment variables of the command, such as your API keys.
 Commands that use Jev, OpenAI, or an agent send source text and map text to that service.
 `systemap audit --dry-run` shows the data before you send it.
+
+By default, the Jev, OpenAI, and agent caches are files in `.systemap/`.
+A cloned repository can contain a cache file with answers that no service gave to you.
+Thus systemap does not read or write a cache file that Git tracks. It gives a warning with the file.
+This rule also applies to a file that a submodule tracks, and to a link to a tracked file.
+If you trust the answers in that file, set `SYSTEMAP_TRUST_TRACKED_CACHE=1`.
+`systemap journeys` writes the row `from the cache` under each sequence whose answer came from the agent cache.
 
 ## How do you develop systemap?
 

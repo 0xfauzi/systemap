@@ -13,8 +13,8 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import file_names, repo_files
-from systemap.config import ConfigError
+from systemap import file_names, repo_files, tree_walk
+from systemap.config import PackageError
 from systemap.jsonc_text import strip_jsonc
 from systemap.tsconfig_glob import GlobPattern, compile_glob
 
@@ -111,19 +111,20 @@ def package_json(root: Path, repo: Path | None = None) -> dict[str, Any]:
     try:
         text = repo_files.read_text(base, repo_files.relative(base, path))
         data = json.loads(text)
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ConfigError(f"The parser could not read {path.as_posix()}: {exc}") from exc
+    except (OSError, UnicodeError, json.JSONDecodeError, RecursionError, MemoryError) as exc:
+        # A value with too many nested levels gives RecursionError or MemoryError.
+        raise PackageError(f"The parser could not read {path.as_posix()}: {exc}") from exc
     if not isinstance(data, dict):
-        raise ConfigError(f"{path.as_posix()} must contain a JSON object.")
+        raise PackageError(f"{path.as_posix()} must contain a JSON object.")
     return data
 
 
 def typescript_name(root: Path) -> str:
     """This function selects the TypeScript package name, or the directory name if there is
-    no package name.
+    no package name. A package name with a control character is not used.
     """
     name = package_json(root).get("name")
-    if not isinstance(name, str) or not name.strip():
+    if not isinstance(name, str) or not name.strip() or not file_names.valid(name):
         return root.name.replace("-", "_")
     return name.strip().removeprefix("@").replace("/", ".").replace("-", "_")
 
@@ -628,7 +629,7 @@ def source_files(
     include declaration files. If a path below the directory is not valid UTF-8, the
     walk does not give the file. If `refused` is a list, the walk adds the file to it.
     """
-    for current, names, files in os.walk(directory):
+    for current, names, files in tree_walk.walk(directory):
         names[:] = sorted(name for name in names if name not in skip)
         found = (name for name in sorted(files) if _source_name(name))
         for name in file_names.files(directory, current, found, refused):

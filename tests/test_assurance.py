@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import Sample, init_two_cards, write_tree
+from conftest import Sample, init_two_cards, page_detail, write_tree
 from test_import_rules import LANGUAGES, _facts
 
 from systemap import (
@@ -365,10 +365,7 @@ def test_an_empty_report_has_an_empty_assurance_object() -> None:
 
 
 def _detail(html: str) -> dict[str, Any]:
-    found = re.search(r"var DETAIL = JSON.parse\((\".*?\")\);\n", html)
-    assert found is not None
-    data: dict[str, Any] = json.loads(json.loads(found.group(1)))
-    return data
+    return page_detail(html)
 
 
 def test_the_page_gives_the_level_of_each_claim(sample: Sample) -> None:

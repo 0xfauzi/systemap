@@ -30,7 +30,7 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
         "`cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, "
-        "`declaration file`, `script file`, `package`, `binding`, or `reexport`. "
+        "`declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. "
         "`extract --check` marks older formats stale",
     ),
     (

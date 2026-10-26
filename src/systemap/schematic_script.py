@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from systemap.schematic_labels import LABEL_JS
@@ -41,6 +42,9 @@ def interactive_script(
     The map page and document figures use this same script. The page adds
     layer and sequence controls through `svg.systemap`. The interface
     `svg.systemap.view` gives fit, 100%, step, back and framing data.
+    During a wheel, pinch, drag or camera tween on the page, a CSS transform on the
+    HTML element around the map shows the view. At the end of the movement, the
+    script writes the drawing transform one time.
 
     The script contains the detail JSON as a string for `JSON.parse`. In an
     object literal, the key `__proto__` sets the prototype. `JSON.parse` makes a
@@ -50,30 +54,167 @@ def interactive_script(
     instead of literal values. The page uses `variables`, so the inspector
     then gives sequence buttons and leaves room for the drawer Clear button.
     `line_safe` escapes the characters that can end a line of the script."""
-    # The layout audit (label boxes, card boxes) is for checkers, not the
-    # page; it is dropped from the inlined copy to keep a figure small.
-    parsed = json.loads(detail_json)
-    meta = dict(parsed.get("_meta") or {})
-    meta.pop("labels", None)
-    meta.pop("cards", None)
-    meta.pop("paths", None)
-    parsed["_meta"] = meta
-    data = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
-    data = json.dumps(data, ensure_ascii=False)
-    data = line_safe(data.replace("</", "<\\/").replace("<!--", "\\u003c!--"))
-    palette = json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
     return (
         "<script>(function(){\n"
-        f"var DETAIL = JSON.parse({data});\n"
-        f"var PAL = {palette};\n"
+        f"var DETAIL = JSON.parse({_detail_text(detail_json)});\n"
+        f"var PAL = {_palette(t, variables)};\n"
         f"var svg = document.getElementById({json.dumps(svg_id)});\n"
         f"var panel = document.getElementById({json.dumps(panel_id)});\n"
         f"var PAGE = {json.dumps(variables)};\n" + _INTERACTIVE_JS + "})();</script>"
     )
 
 
+def page_maps_script(t: dict[str, Any], maps: Sequence[tuple[str, str, str]]) -> str:
+    """Make one script for all maps of the map page.
+
+    Each item of `maps` gives the SVG ID, the panel ID and the detail JSON of one map.
+    The script contains the code of `interactive_script` one time, in a function. It
+    calls this function one time for each map, in the sequence of `maps`. Thus a page
+    with a change map does not contain two copies of the code. The colors use CSS
+    tokens, as with `variables`.
+
+    The detail of the first map is in the script one time. The detail of each other
+    map is the detail of the first map with a set of changes (`_changes`). If the
+    changes cannot give the same JSON, the script contains the full detail of that map.
+    Each call parses its own copy, so no two maps share an object."""
+    first = _audit_free(maps[0][2]) if maps else {}
+    calls = [_call(first, svg_id, panel_id, detail) for svg_id, panel_id, detail in maps]
+    changes = any(call.startswith("show(changed(") for call in calls)
+    return (
+        "<script>(function(){\n"
+        f"var PAL = {_palette(t, True)};\n"
+        "var PAGE = true;\n"
+        f"var FIRST = {_js_text(first)};\n"
+        + (_CHANGES_JS if changes else "")
+        + "function show(DETAIL, svgId, panelId){\n"
+        "var svg = document.getElementById(svgId);\n"
+        "var panel = document.getElementById(panelId);\n"
+        + _INTERACTIVE_JS
+        + "}\n"
+        + "".join(calls)
+        + "})();</script>"
+    )
+
+
+# Puts the changes of one map into a parsed copy of the detail of the first map. A
+# property definition, not an assignment, so that a key such as `__proto__` stays a
+# record and does not set the prototype.
+_CHANGES_JS = r"""
+function changed(c){
+  var d = JSON.parse(FIRST);
+  function put(o, k, v){
+    Object.defineProperty(o, k, {value:v, writable:true, enumerable:true, configurable:true});
+  }
+  Object.keys(c.records).forEach(function(k){
+    var r = c.records[k];
+    Object.keys(r).forEach(function(f){ put(d[k], f, r[f]); });
+  });
+  Object.keys(c.values).forEach(function(k){ put(d, k, c.values[k]); });
+  return d;
+}
+"""
+
+
+def _call(first: dict[str, Any], svg_id: str, panel_id: str, detail_json: str) -> str:
+    """Give the call of `show` for one map: with the first detail, changes or full data."""
+    ids = f"{json.dumps(svg_id)}, {json.dumps(panel_id)}"
+    detail = _audit_free(detail_json)
+    if _same_json(detail, first):
+        return f"show(JSON.parse(FIRST), {ids});\n"
+    changes = _changes(first, detail)
+    if changes is not None:
+        return f"show(changed(JSON.parse({_js_text(changes)})), {ids});\n"
+    return f"show(JSON.parse({_js_text(detail)}), {ids});\n"
+
+
+def _changes(first: dict[str, Any], other: dict[str, Any]) -> dict[str, Any] | None:
+    """Give the changes that make `first` into `other`, or None.
+
+    `records` gives new values and new fields of a record. `values` gives new values of
+    keys. The changes do not add or remove a key, and do not remove a field. Thus such a
+    difference gives None. The sequence of the records must be the same, because the
+    script reads the records in their sequence. The sequence of the fields in a record
+    can be different, because the script reads a field by its name. The function applies
+    the changes and compares the result with `other`. A difference gives None."""
+    if list(first) != list(other):
+        return None
+    records: dict[str, Any] = {}
+    values: dict[str, Any] = {}
+    for key, value in other.items():
+        fields = _new_fields(first[key], value)
+        if fields is None:
+            values[key] = value
+        elif fields:
+            records[key] = fields
+    result = dict(first)
+    for key, fields in records.items():
+        result[key] = {**first[key], **fields}
+    result.update(values)
+    if json.dumps(result, sort_keys=True) != json.dumps(other, sort_keys=True):
+        return None
+    return {"records": records, "values": values}
+
+
+def _new_fields(old: object, value: object) -> dict[str, Any] | None:
+    """Give the new and changed fields of a record, or None for a full new value.
+
+    The same values give an empty table. A value that is not a record, or a record that
+    does not have all fields of `old`, gives None if it is not the same value."""
+    if not (isinstance(value, dict) and isinstance(old, dict) and set(old) <= set(value)):
+        return {} if _same_json(value, old) else None
+    return {f: v for f, v in value.items() if f not in old or not _same_json(v, old[f])}
+
+
+def _same_json(a: object, b: object) -> bool:
+    return _compact_json(a) == _compact_json(b)
+
+
+def _compact_json(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _audit_free(detail_json: str) -> dict[str, Any]:
+    """Give the detail without the layout audit (label boxes, card boxes and paths).
+
+    The layout audit is for the checks. The script does not use it."""
+    parsed: dict[str, Any] = json.loads(detail_json)
+    meta = dict(parsed.get("_meta") or {})
+    meta.pop("labels", None)
+    meta.pop("cards", None)
+    meta.pop("paths", None)
+    parsed["_meta"] = meta
+    return parsed
+
+
+def _js_text(value: object) -> str:
+    """Give the JSON of `value` as the text of a JavaScript string for `JSON.parse`.
+
+    In an object literal, the key `__proto__` sets the prototype. `JSON.parse` makes a
+    property of the object. Escaping `</` prevents artifact text from closing the
+    script. Escaping `<!--` prevents a change to the end of the script by artifact text."""
+    data = json.dumps(_compact_json(value), ensure_ascii=False)
+    return line_safe(data.replace("</", "<\\/").replace("<!--", "\\u003c!--"))
+
+
+def _detail_text(detail_json: str) -> str:
+    """Give the detail JSON, without the layout audit, as the text of a JavaScript string."""
+    return _js_text(_audit_free(detail_json))
+
+
+def _palette(t: dict[str, Any], variables: bool) -> str:
+    return json.dumps({key: Palette(t, variables)[key] for key in ("ink", "accent")})
+
+
 _VIEW_JS = r"""
 if(!svg){ return; }
+// At load, the page scripts change the classes of many lines and cards. On the page,
+// the class `booting` stops all transitions in the map until the second frame. Thus
+// these changes start no transitions.
+if(PAGE){
+  svg.classList.add('booting');
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    svg.classList.remove('booting'); }); });
+}
 // A table of model IDs has no prototype. Thus an ID such as `__proto__`,
 // `constructor` or `toString` does not read or change an object prototype.
 function table(){ return Object.create(null); }
@@ -195,7 +336,67 @@ function whenStill(fn){
   // A line draws after the camera stops. The argument tells if it waited.
   if(anim){ stillQueue.push(fn); } else { fn(false); }
 }
-function base(){ var m = svg.getScreenCTM(); return m && m.a ? m.a : 1; }
+// ---- the movement layer ---------------------------------------------------
+// A change to the transform of the drawing causes a new layout of all of the map.
+// Thus, during a wheel, pinch, drag or camera tween, the page moves and scales the
+// HTML element around the map (`wrap`) on the compositor. `live` keeps the screen
+// matrix and the scale from the start of the movement. At the end, `land` writes
+// the drawing transform one time, and the labels change one time. The script uses
+// the wrapper only if its parent element clips it, as the map frame of the page does.
+// The present mode moves the wrapper to a different parent. Thus `clipsFor` keeps the
+// parent of the last check. `shown` is the view in the drawing transform.
+var wrap = PAGE && svg.parentNode && svg.parentNode.style ? svg.parentNode : null;
+var clips = false, clipsFor = null;
+var live = null, shown = {k:1, tx:0, ty:0}, gesture = false, landSoon = 0;
+var LAND_MS = 120;
+function canGlide(){
+  var c = wrap && wrap.parentNode;
+  if(c !== clipsFor){
+    var s = c && window.getComputedStyle ? getComputedStyle(c) : null;
+    clips = !!(s && (s.overflow === 'hidden' || s.overflowX === 'hidden'));
+    clipsFor = c;
+  }
+  return clips && !!view;
+}
+function glide(v){
+  // Show v with a CSS transform on the wrapper. Return false if the page cannot.
+  if(!canGlide()){ return false; }
+  if(!live){
+    var m = svg.getScreenCTM(), w = wrap.getBoundingClientRect();
+    if(!m || !m.a){ return false; }
+    live = {m:m, b:m.a, dx:m.e - w.left, dy:m.f - w.top};
+    wrap.style.setProperty('transform-origin', '0 0');
+    wrap.style.setProperty('will-change', 'transform');
+  }
+  var s = v.k / shown.k, a = live.b;
+  var x = a * (v.tx - s * shown.tx) + live.dx * (1 - s);
+  var y = a * (v.ty - s * shown.ty) + live.dy * (1 - s);
+  wrap.style.setProperty('transform', 'translate(' + x.toFixed(2) + 'px,' + y.toFixed(2)
+    + 'px) scale(' + s.toFixed(6) + ')');
+  return true;
+}
+function unglide(){
+  // Remove the wrapper transform. Then the drawing transform shows the view.
+  if(!live){ return; }
+  live = null;
+  ['transform', 'transform-origin', 'will-change'].forEach(function(n){
+    wrap.style.removeProperty(n); });
+  if(!wrap.getAttribute('style')){ wrap.removeAttribute('style'); }
+}
+function land(){
+  // The end of a movement: write the view on the screen to the drawing transform.
+  if(landSoon){ clearTimeout(landSoon); landSoon = 0; }
+  if(live){ apply(cur); }
+}
+function landLater(){
+  if(landSoon){ clearTimeout(landSoon); }
+  landSoon = setTimeout(function(){ landSoon = 0; land(); }, LAND_MS);
+}
+function base(){
+  if(live){ return live.b; }
+  var m = svg.getScreenCTM();
+  return m && m.a ? m.a : 1;
+}
 function reduced(){
   // The page setting decides when the page has one. A figure without the
   // setting follows the system setting.
@@ -226,7 +427,7 @@ function fit(instant){
 function centre(){ return {x:VB.x + VB.width / 2, y:VB.y + VB.height / 2}; }
 function toVb(clientX, clientY){
   // A client point in viewBox units.
-  var m = svg.getScreenCTM();
+  var m = live ? live.m : svg.getScreenCTM();
   if(!m){ return centre(); }
   var q = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
   return {x:q.x, y:q.y};
@@ -248,19 +449,27 @@ function clampView(v, kmin){
     Math.max(VB.y + my - k * (VB.y + VB.height), v.ty));
   return {k:k, tx:tx, ty:ty};
 }
-function apply(v){
+var drawn = view ? view.getAttribute('transform') : null;
+function apply(v, moving){
+  // With `moving`, the wrapper shows v. Without it, the drawing transform shows v.
+  // The script reads the scale before the write. It does not write the same transform
+  // again. Thus, a write does not cause a layout before the next frame.
   cur = v;
-  if(view){
-    view.setAttribute('transform', 'translate(' + v.tx.toFixed(2) + ' ' + v.ty.toFixed(2)
-      + ') scale(' + v.k.toFixed(4) + ')');
+  var b = base();
+  if(!(moving && glide(v))){
+    unglide();
+    shown = v;
+    var text = 'translate(' + v.tx.toFixed(2) + ' ' + v.ty.toFixed(2) + ') scale('
+      + v.k.toFixed(4) + ')';
+    if(view && text !== drawn){ drawn = text; view.setAttribute('transform', text); }
   }
   svg.dispatchEvent(new CustomEvent('systemap:view',
-    {detail:{zoom:base() * v.k, fit:isFit(v)}, bubbles:true}));
+    {detail:{zoom:b * v.k, fit:isFit(v), moving:!!live}, bubbles:true}));
 }
 function setView(v, instant, kmin){
   goal = clampView(v, kmin);
   if(anim){ cancelAnimationFrame(anim); anim = 0; }
-  if(instant || !booted || reduced()){ apply(goal); flushStill(); return; }
+  if(instant || !booted || reduced()){ apply(goal, gesture); flushStill(); return; }
   var from = cur, to = goal, t0 = 0;
   function tick(now){
     // 300 ms, ease-in-out: the camera moves to the step and stops.
@@ -268,7 +477,7 @@ function setView(v, instant, kmin){
     var u = Math.min(1, (now - t0) / ANIM_MS);
     var e = u === 1 ? 1 : easeCamera(u);
     apply({k:from.k + (to.k - from.k) * e, tx:from.tx + (to.tx - from.tx) * e,
-      ty:from.ty + (to.ty - from.ty) * e});
+      ty:from.ty + (to.ty - from.ty) * e}, u < 1);
     anim = u < 1 ? requestAnimationFrame(tick) : 0;
     if(!anim){ flushStill(); }
   }
@@ -306,6 +515,8 @@ function visibleArea(cover, fitting){
   // the box the page lays over one side of it (`cover`: {rect, side}, the
   // drawer), or the whole viewBox where the figure has no box yet. A figure
   // wholly off screen is framed in its own box: the page scrolls it into view.
+  // A movement on the wrapper ends first, because the wrapper transform moves the box.
+  land();
   var whole = {x:VB.x, y:VB.y, w:VB.width, h:VB.height};
   var s = svg.getBoundingClientRect ? svg.getBoundingClientRect() : null;
   if(!s || !(s.width > 0) || !(s.height > 0)){ return whole; }
@@ -402,7 +613,9 @@ svg.addEventListener('wheel', function(e){
   if(e.deltaMode === 1){ d *= 16; } else if(e.deltaMode === 2){ d *= 400; }
   var f = Math.max(0.5, Math.min(2, Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0022))));
   var c = toVb(e.clientX, e.clientY);
-  zoomAt(f, c.x, c.y, true);
+  gesture = true;
+  try { zoomAt(f, c.x, c.y, true); } finally { gesture = false; }
+  landLater();
 }, {passive:false});
 var ptrs = {}, drag = null, pinch = null;
 function ptrList(){ return Object.keys(ptrs).map(function(k){ return ptrs[k]; }); }
@@ -429,7 +642,9 @@ svg.addEventListener('pointermove', function(e){
     var m = toVb((list[0].x + list[1].x) / 2, (list[0].y + list[1].y) / 2);
     var k = clampView({k:pinch.k * dist(list[0], list[1]) / pinch.d, tx:0, ty:0}).k;
     dragged = true;
-    userView({k:k, tx:m.x - k * pinch.px, ty:m.y - k * pinch.py}, true);
+    gesture = true;
+    try { userView({k:k, tx:m.x - k * pinch.px, ty:m.y - k * pinch.py}, true); }
+    finally { gesture = false; }
   } else if(drag){
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if(!drag.moved){
@@ -439,7 +654,9 @@ svg.addEventListener('pointermove', function(e){
       if(svg.setPointerCapture){ try { svg.setPointerCapture(e.pointerId); } catch(_x){} }
     }
     var b = base();
-    userView({k:goal.k, tx:drag.tx + dx / b, ty:drag.ty + dy / b}, true);
+    gesture = true;
+    try { userView({k:goal.k, tx:drag.tx + dx / b, ty:drag.ty + dy / b}, true); }
+    finally { gesture = false; }
   }
 });
 function endPointer(e){
@@ -448,6 +665,7 @@ function endPointer(e){
   if(drag && drag.moved){ dragged = true; }
   drag = null; pinch = null;
   svg.classList.remove('panning');
+  land();
   var list = ptrList();
   if(list.length === 1){ startDrag(list[0]); drag.moved = true; }
 }

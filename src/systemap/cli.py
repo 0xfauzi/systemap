@@ -197,6 +197,9 @@ def cmd_extract(args: argparse.Namespace) -> int:
     p = _upgraded(p, args, say, fresh)
     facts_file.write_facts(out_paths.checked(p.cfg, p.cfg.facts_path), fresh, p.cfg.root)
     say(*facts_file.summary(fresh))
+    if not fresh.get("built_at_commit"):
+        cause = extraction.head_commit(p.cfg.root)[1]
+        say(f"  note: built_at_commit is empty, because Git gave no HEAD commit. Git gave: {cause}")
     for m in p.tree.maps:
         for line in extraction.mapping_drift(fresh, m.model, p.cfg.prefixes):
             say(f"  warning: {m.prefix}{line}")
@@ -644,7 +647,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
 
     The command reads committed trees and uses the model on disk. If the map needs an
     update, the exit code is 1. `--comment` writes the pull request summary
-    (`pr_summary`), with a link to the Changes view if `page_url` is set.
+    (`pr_summary`), with a link to the Changes view if the base commit sets `page_url`.
     """
     p = _project(args)
     _require_roots(p)
@@ -665,8 +668,9 @@ def cmd_delta(args: argparse.Namespace) -> int:
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
         found = pr_summary.collect(p.cfg, p.tree, compared, head, len(d.open))
-        summary = pr_summary.markdown(found)
-        delta_link.write(args.comment, p.cfg.delta_page_url, args.pr, summary, root)
+        url, problem = delta_git.comment_page_url(p.cfg, base_sha)
+        warn(*problem)
+        delta_link.write(args.comment, url, args.pr, pr_summary.markdown(found), root)
     if args.decide is None and not selected and d.added and d.removed:
         jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
@@ -1208,7 +1212,9 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Write the pull request comment to FILE. The comment gives the changes to the "
             "contract and the map, the rule results, and the assurance level of each item. "
-            "With [delta] page_url, the comment also has a link to the Changes view."
+            "If [delta] page_url is set at the base commit, the comment also has a link to "
+            "the Changes view. If that value is not correct, the comment has no link, and "
+            "a warning gives the cause."
         ),
     )
     s.add_argument(

@@ -168,6 +168,12 @@ async function afterTurn($: Engine): Promise<void> {
     return
   }
   await update($, changed, () => false)
+  // The server refuses a POST with an Origin of a different site or a Sec-Fetch-Site
+  // value that is not same-origin or none (serve_guard.other_site). This request has
+  // neither header. In Claude Code 2.1.310 (Bun 1.4.4), $.http.fetch calls the global
+  // fetch with only the headers of the hook, `redirect: 'manual'`, and a signal. A
+  // POST from Bun 1.4.4 fetch with these options sends only Connection, User-Agent,
+  // Accept, Host, Accept-Encoding and Content-Length, and the server gives 202.
   await $.http.fetch(joinUrl(value.url, 'refresh'), { method: 'POST' }).catch(() => undefined)
 }
 

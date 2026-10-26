@@ -396,10 +396,17 @@ def _check_values(t: dict[str, Any]) -> None:
 
 # The page and the figures put theme values into HTML attributes, CSS and SVG without
 # conversion. These marks can close an attribute or an element. The marks ; { and } can
-# close a CSS declaration or a CSS rule, and then start a different rule. A font stack can
-# contain ".
-UNSAFE_MARKS = '<>&";{}'
-FONT_UNSAFE_MARKS = "<>&;{}"
+# close a CSS declaration or a CSS rule, and then start a different rule. The marks ' and
+# \ can start a CSS string or continue it. The page CSS is on one line. Thus, the browser
+# ignores the CSS from a CSS string that does not close until the next '. A font stack
+# can contain " and ' in pairs.
+UNSAFE_MARKS = "<>&\";{}'\\"
+FONT_UNSAFE_MARKS = "<>&;{}\\"
+# A font stack must contain each of these quote marks an even number of times.
+FONT_QUOTES = ('"', "'")
+# These marks start or end a CSS comment. A comment start in a value makes the page
+# remove all CSS until the next comment end.
+COMMENT_MARKS = ("/*", "*/")
 
 
 def _texts(value: object, key: str) -> Iterator[tuple[str, str]]:
@@ -414,11 +421,21 @@ def _texts(value: object, key: str) -> Iterator[tuple[str, str]]:
             yield from _texts(item, key)
 
 
+def _unsafe(key: str, text: str) -> list[str]:
+    """Give the marks in a theme value that can change the HTML or the CSS of the page.
+
+    A font stack can contain quote marks only in pairs."""
+    if not key.startswith("font_"):
+        return [mark for mark in (*UNSAFE_MARKS, *COMMENT_MARKS) if mark in text]
+    found = [mark for mark in (*FONT_UNSAFE_MARKS, *COMMENT_MARKS) if mark in text]
+    return found + [quote for quote in FONT_QUOTES if text.count(quote) % 2]
+
+
 def _check_text(t: dict[str, Any]) -> None:
-    """Reject a theme value that contains a mark that can change the HTML of the page."""
+    """Reject a theme value that contains a mark that can change the HTML or the CSS of
+    the page."""
     for key, text in _texts(t, ""):
-        marks = FONT_UNSAFE_MARKS if key.startswith("font_") else UNSAFE_MARKS
-        found = [mark for mark in marks if mark in text]
+        found = _unsafe(key, text)
         if found:
             raise ValueError(
                 f"The theme value {key} contains {' '.join(found)}. The page uses theme "

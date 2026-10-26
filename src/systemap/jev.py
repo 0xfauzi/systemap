@@ -35,6 +35,8 @@ import json
 import math
 import os
 import random
+import shlex
+import sys
 import threading
 import time
 import urllib.error
@@ -45,7 +47,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import file_write
+from systemap import file_write, git_command
 from systemap.decision import DecisionError
 
 API = "https://api.typesafe.ai/v1"
@@ -280,6 +282,66 @@ def _read_cache(root: Path, path: Path | None) -> tuple[dict[str, Any], dict[str
     return entries, {k: v for k, v in releases.items() if isinstance(v, str)}
 
 
+# The environment variable that permits a cache file that Git tracks.
+TRUST_TRACKED = "SYSTEMAP_TRUST_TRACKED_CACHE"
+
+
+def tracked(path: Path) -> bool:
+    """Tell if Git tracks the file at `path`.
+
+    The check runs in the folder of the real file, after the links are followed. Thus
+    it finds a file that a submodule or a nested repository tracks, and a link to a
+    tracked file. The name comparison ignores the case of letters, and the result is
+    True only for a listed file that is the same file as `path`. Thus a different case
+    of the name is also found on a file system that ignores the case of letters.
+    If Git cannot do the check, for example outside a repository, the result is False."""
+    real = path.resolve()
+    try:
+        proc = git_command.run(
+            real.parent, "ls-files", "-z", "--", f":(literal,icase){real.name}", timeout=60
+        )
+    except git_command.GitError:
+        return False
+    if proc.returncode != 0:
+        return False
+    names = [n for n in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if n]
+    return any(_same(real.parent / n, real) for n in names)
+
+
+def _same(one: Path, other: Path) -> bool:
+    """Tell if the two paths are the same file. A missing file gives False."""
+    try:
+        return os.path.samefile(one, other)
+    except OSError:
+        return False
+
+
+def tracked_note(root: Path, path: Path) -> str:
+    """Give the warning for a cache file that Git tracks and that the cache does not use.
+
+    The command in the warning operates in the repository of the real file. This can be
+    a submodule. For a link, the real file is the target of the link."""
+    rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+    real = path.resolve()
+    top = root.resolve()
+    folder = real.parent.relative_to(top) if real.parent.is_relative_to(top) else real.parent
+    command = shlex.join(["git", "-C", folder.as_posix(), "rm", "--cached", real.name])
+    return (
+        f"systemap did not read or write the cache file {rel}, because Git tracks it. "
+        "A cloned repository can supply the answers in such a file. "
+        f"If you trust the answers in this file, set {TRUST_TRACKED}=1. "
+        f"If you do not trust them, remove the file from Git: {command}"
+    )
+
+
+def _refused(root: Path, path: Path) -> bool:
+    """Tell if the cache must not use a file that Git tracks. If so, give the warning."""
+    if os.environ.get(TRUST_TRACKED) == "1" or not tracked(path):
+        return False
+    print(tracked_note(root, path), file=sys.stderr)
+    return True
+
+
 class Cache:
     """Keep disk answers by `cache_key` and replace the full file through a temporary file.
 
@@ -293,7 +355,12 @@ class Cache:
 
     A cache file has a root: the repository root for a configured cache. The file and
     each folder of it must be in the root (`file_write`). A path without a root gives
-    ValueError, so that a caller cannot forget the root."""
+    ValueError, so that a caller cannot forget the root.
+
+    A cache file that Git tracks can come from a cloned repository. Its answers are then
+    not from a provider or an agent on this computer. Thus the cache does not read or
+    write such a file, and `refused` is True. A warning on stderr gives the file. If the
+    environment sets SYSTEMAP_TRUST_TRACKED_CACHE=1, the cache uses the file."""
 
     def __init__(self, path: Path | None = None, *, root: Path | None = None) -> None:
         if path is not None and root is None:
@@ -304,13 +371,14 @@ class Cache:
         self.releases: dict[str, str] = {}
         if path is not None:
             file_write.confined(self.root, path)
-        if path is not None and path.exists():
+        self.refused = path is not None and path.exists() and _refused(self.root, path)
+        if path is not None and path.exists() and not self.refused:
             # On Windows, a read cannot occur while a different process replaces the file.
             with file_write.locked(self.root, path):
                 self.entries, self.releases = _read_cache(self.root, path)
 
     def save(self) -> None:
-        if self.path is None:
+        if self.path is None or self.refused:
             return
         with file_write.locked(self.root, self.path):
             entries, releases = _read_cache(self.root, self.path)

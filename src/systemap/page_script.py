@@ -134,8 +134,11 @@ JS = r"""
     if(zpct){ zpct.textContent = Math.round(zoom * 100) + '%'; }
   }
   [svg, changeMap].forEach(function(m){
+    // During a movement, a change to the readout causes a layout of all of the map
+    // text. Thus the readout changes at the end of the movement.
     if(m){ m.addEventListener('systemap:view', function(e){
-      if((m === svg) === (shownMap() === A)){ showZoom(e.detail.zoom, e.detail.fit); }
+      if(!e.detail.moving && (m === svg) === (shownMap() === A)){
+        showZoom(e.detail.zoom, e.detail.fit); }
     }); }
   });
 
@@ -422,7 +425,7 @@ JS = r"""
         + '<p class="file">' + esc(m.file || 'Source path not recorded') + '</p><p>'
         + esc(m.docstring || 'No module description was recorded.') + '</p>'
         + '<p>Public names in this module: '
-        + esc((surface.length ? surface : m.names).join(', ') || 'none recorded') + '</p>'
+        + esc(surface.join(', ') || 'none recorded') + '</p>'
         + '<p>Imports: ' + esc(m.imports.join(', ') || 'none recorded') + '</p>'
         + '<p>Imported by: ' + esc((m.imported_by || []).join(', ') || 'none recorded') + '</p>'
         + '<p>External imports: ' + esc((m.external || []).join(', ') || 'none recorded') + '</p>'

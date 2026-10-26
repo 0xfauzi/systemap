@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import dataclasses
+import io
 import json
 import queue
 import shutil
@@ -28,7 +29,6 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass
 from functools import partial
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,31 +37,27 @@ from typing import Any
 
 from systemap import (
     change,
-    config,
     delta,
-    explain,
-    extraction,
     figure,
     file_write,
-    history,
-    nest,
     out_paths,
-    page,
+    page_csp,
     page_live,
     repo_files,
     serve_guard,
     terminal_text,
 )
-from systemap.config import ArgumentError, Config, ConfigError
+from systemap.config import ArgumentError, ConfigError
+from systemap.live_render import FIGURE as FIGURE
+from systemap.live_render import LiveRenderer
+from systemap.live_render import Rendered as Rendered
+from systemap.live_render import render_tree as render_tree
 from systemap.live_watch import watch, watched
-from systemap.model import problems as model_problems
 
 DEFAULT_PORT = 8765
 # Without --base, the first of these refs that has a merge base with HEAD is the
 # comparison base.
 BASES = ("origin/HEAD", "origin/main", "main", "origin/master", "master")
-# The figure beside the page: the change figure, or the system figure without a change.
-FIGURE = "change.svg"
 # The time between two comment lines on an event connection. A write to a closed
 # connection gives an error, so the server finds closed connections.
 KEEP_SECONDS = 15.0
@@ -90,9 +86,21 @@ class PageHandler(SimpleHTTPRequestHandler):
     # A client that does not send its request in this time loses the connection.
     timeout = serve_guard.READ_SECONDS
 
+    def setup(self) -> None:
+        super().setup()
+        self._head = serve_guard.HeadReader(self.connection, self.timeout)
+        self.rfile = io.BufferedReader(self._head)
+
+    def handle_one_request(self) -> None:
+        self._head.start()
+        super().handle_one_request()
+
     def parse_request(self) -> bool:
+        # A connection can send more than one request. Each request starts without a file.
+        self._served: Path | None = None
         if not super().parse_request():
             return False
+        self._head.stop()
         port = int(self.server.server_address[1])  # type: ignore[index] # a TCP server: (host, port)
         if self.headers.get("Host", "") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
             self.send_error(403, "The server answers only requests to 127.0.0.1 or localhost.")
@@ -107,7 +115,20 @@ class PageHandler(SimpleHTTPRequestHandler):
         if not self._inside():
             self.send_error(404, "File not found")
             return None
+        self._served = Path(self.translate_path(self.path))
         return super().send_head()
+
+    def end_headers(self) -> None:
+        """Send the Content-Security-Policy of the requested file (`page_csp.of_file`).
+
+        The server reads the file only for a request that it accepts. A refused request
+        gets no policy, because its answer must not change with the file content."""
+        served = getattr(self, "_served", None)
+        if served is not None:
+            policy = page_csp.of_file(Path(self.directory), served)
+            if policy:
+                self.send_header("Content-Security-Policy", policy)
+        super().end_headers()
 
     def _inside(self) -> bool:
         """Tell if the requested file, and the index file of a directory, are in the
@@ -124,132 +145,6 @@ class PageHandler(SimpleHTTPRequestHandler):
 def make_server(directory: Path, port: int) -> ThreadingHTTPServer:
     """Make an HTTP server for `directory` on 127.0.0.1. Port 0 selects an available port."""
     return _listen(partial(PageHandler, directory=str(directory)), port)
-
-
-# ---- one version of the working tree --------------------------------------------------
-
-
-@dataclass(frozen=True)
-class Rendered:
-    """The pages, the figure and the map update lines of one version.
-
-    `files` maps a path in the served directory to its text. `lines` are the map update
-    lines, each with its text and its action. `components` are the changed components
-    of the top map. `models` are the model files of the map tree.
-    """
-
-    files: dict[str, str] = dataclasses.field(default_factory=dict)
-    updates: int = 0
-    lines: tuple[dict[str, str], ...] = ()
-    components: tuple[str, ...] = ()
-    comparison_base: str = ""
-    models: tuple[Path, ...] = ()
-    seconds: float = 0.0
-    svg: str = ""
-    svg_bytes: int = 0
-
-
-def render_tree(root: Path, base: str) -> Rendered:
-    """Render the pages and the figure of the working tree. Write no file.
-
-    The facts come from the source files and the models from the model files. With a
-    base, the Changes view and the map update lines compare the working tree with the
-    merge base of the base and HEAD. `systemap delta` uses the same comparison of the
-    facts for all maps.
-    """
-    cfg = config.load(root)
-    tree = nest.load(cfg)
-    _no_problems(tree)
-    facts = extraction.build(cfg)
-    # One source comparison for all maps: it does not use the model of a map.
-    source = change.source_change(cfg, base, facts, change.WORKING_TREE) if base else None
-    compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
-    files = {
-        out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): page.build(
-            cfg,
-            m.model,
-            m.meaning,
-            m.theme,
-            facts,
-            compared[m.id],
-            nesting=page.nesting_of(cfg, tree, m, facts),
-        )
-        for m in tree.maps
-    }
-    top = compared[tree.top.id]
-    files[FIGURE] = _figure(cfg, tree, facts, base, top)
-    lines = _updates(cfg, tree, facts, base, top.get("comparison_base", ""))
-    return Rendered(
-        files=files,
-        updates=len(lines),
-        lines=lines,
-        components=tuple(sorted(top.get("direct", ()))),
-        comparison_base=top.get("comparison_base", ""),
-        models=tuple(m.path for m in tree.maps),
-    )
-
-
-def _no_problems(tree: nest.Tree) -> None:
-    """Give the model contradictions as one error, as `systemap render` gives them."""
-    found = {m.rel: model_problems(m.model, m.meaning) for m in tree.maps}
-    lines = [f"{m.prefix}{line}" for m in tree.maps for line in found[m.rel]]
-    if lines:
-        files = ", ".join(rel for rel, problems in found.items() if problems)
-        raise ConfigError("\n".join([*lines, f"Correct {files}. Then use systemap check."]))
-
-
-def _compare(
-    cfg: Config,
-    m: nest.Map,
-    base: str,
-    facts: dict[str, Any],
-    source: change.SourceChange | None,
-) -> dict[str, Any]:
-    if not base:
-        return {"has_change": False}
-    return change.for_page(cfg, m, base, facts, change.WORKING_TREE, source)
-
-
-def _figure(
-    cfg: Config, tree: nest.Tree, facts: dict[str, Any], base: str, ch: dict[str, Any]
-) -> str:
-    """Give the change figure as SVG, or the system figure if the comparison has no change."""
-    m = tree.top
-    svg, _collisions = figure.make(
-        cfg,
-        m.model,
-        m.meaning,
-        m.theme,
-        facts,
-        mode="change" if ch.get("has_change") else "system",
-        base=base,
-        head=change.WORKING_TREE,
-        bare=True,
-        opens=nest.opens(tree, m, links=False),
-    )
-    return svg
-
-
-def _updates(
-    cfg: Config, tree: nest.Tree, facts: dict[str, Any], base: str, merge_base: str
-) -> tuple[dict[str, str], ...]:
-    """Give the delta lines that need an action, for the working tree and the merge base."""
-    if not merge_base:
-        return ()
-    found = delta.compute_tree(
-        cfg,
-        tree,
-        history.facts_at(cfg, merge_base),
-        facts,
-        base_ref=base,
-        head_ref=change.WORKING_TREE,
-    )
-    return tuple({"text": line.text, "action": _action(line.kind)} for line in found.open)
-
-
-def _action(kind: str) -> str:
-    lesson = explain.lesson(kind)
-    return lesson.do if lesson else ""
 
 
 def _error_text(exc: Exception) -> str:
@@ -285,6 +180,8 @@ class LiveMap:
         self._render = render
         self._emit = emit
         self._lock = threading.Lock()
+        # The lock of the event lines. `say` holds it while it writes, not the state lock.
+        self._said = threading.Lock()
         self._version = 0
         self._good = 0
         self._state = "rendering"
@@ -466,9 +363,14 @@ class LiveMap:
                 self._readers.remove(reader)
 
     def say(self, event: dict[str, Any]) -> None:
-        """Write one event line. After close, write nothing: the last line is `stopped`."""
-        with self._lock:
-            if not self._closed:
+        """Write one event line. After close, write nothing: the last line is `stopped`.
+
+        The function does not hold the state lock while it writes. Thus a standard output
+        that nobody reads does not stop the requests or the file scan."""
+        with self._said:
+            with self._lock:
+                closed = self._closed
+            if not closed:
                 self._emit(event)
 
     def _send(self, name: str, data: dict[str, Any]) -> None:
@@ -479,12 +381,17 @@ class LiveMap:
             reader.put(message)
 
     def close(self) -> None:
-        """Stop the versions and the event readers. After this, the command writes no file."""
+        """Stop the versions and the event readers. After this, the command writes no file.
+
+        The function waits for an event line that `say` writes. Then it writes no more
+        event lines."""
         with self._lock:
             self._closed = True
             readers = list(self._readers)
         for reader in readers:
             reader.put(None)
+        with self._said:
+            pass
 
 
 def _remove(out: Path, names: Iterable[str]) -> None:
@@ -686,7 +593,7 @@ def run(root: Path, port: int, base: str, scan_files: bool, emit: Callable[..., 
     """
     ref = comparison_ref(root, base)
     out = Path(tempfile.mkdtemp(prefix="systemap-live-"))
-    live = LiveMap(out, partial(render_tree, root, ref), emit, base=ref)
+    live = LiveMap(out, LiveRenderer(root, ref), emit, base=ref)
     stop = threading.Event()
     with _sigterm_stops():
         try:

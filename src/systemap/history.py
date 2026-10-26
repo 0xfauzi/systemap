@@ -16,11 +16,18 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 from pathlib import Path
 from typing import Any
 
-from systemap import delta, delta_git, extraction, file_write, repo_files
+from systemap import (
+    delta,
+    delta_git,
+    extraction,
+    facts_shape,
+    file_write,
+    git_command,
+    repo_files,
+)
 from systemap import language as languages
 from systemap.config import Config
 
@@ -28,6 +35,8 @@ from systemap.config import Config
 DIFF_CAP = 20_000
 # A full commit SHA: SHA-1 or SHA-256.
 FULL_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+# The time limit of a Git command of this module, in seconds.
+TIMEOUT = git_command.TIMEOUT
 
 
 def cache_dir(cfg: Config) -> Path:
@@ -73,7 +82,10 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
 def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
     """This function gives the cached facts in path, or None if the file is not usable.
 
-    A JSON value that is not a table with a `components` table is not usable.
+    A JSON value that is not a table with a `components` table is not usable. A table
+    that does not have the shape that extraction writes (`facts_shape.problem`, the
+    check of `facts_file.read_facts`) is also not usable. The caller then extracts the
+    facts again and replaces the file.
 
     The read holds the lock of the facts cache. On Windows, a read cannot occur while a
     different process replaces the file. A link out of the repository (at the file or at a
@@ -88,27 +100,29 @@ def _cached(cfg: Config, path: Path) -> dict[str, Any] | None:
             return None
         try:
             held = json.loads(text)
-        except ValueError:
+        except (ValueError, RecursionError):
+            # RecursionError: the JSON value has too many levels for the parser.
             return None
     # A cache file that is not a facts table is not usable. The caller extracts again.
     if not isinstance(held, dict) or not isinstance(held.get("components"), dict):
         return None
-    return held
+    return None if facts_shape.problem(held) else held
 
 
-def git(root: Path, *args: str) -> str:
-    """This function gives the output of a Git command as UTF-8 text, whatever the locale."""
-    done = subprocess.run(  # noqa: S603 - git, with arguments this module builds
-        ["git", "-C", str(root), *args],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+def git(root: Path, *args: str, worktree: bool = False) -> str:
+    """This function gives the output of a Git command as UTF-8 text, whatever the locale.
+
+    The command goes through `git_command`, with the time limit `TIMEOUT`. Set `worktree`
+    for a command that compares the working tree. A Git error, a Git program that cannot
+    start, and a command that does not stop in the time limit give DeltaError.
+    """
+    done = git_command.run(root, *args, timeout=TIMEOUT, worktree=worktree, error=delta.DeltaError)
     if done.returncode != 0:
-        raise delta.DeltaError(f"git {' '.join(args)}: {done.stderr.strip()[:200]}")
-    return done.stdout
+        found = git_command.cause(done.stderr, done.returncode)
+        raise delta.DeltaError(f"git {' '.join(args)}: {found[:200]}")
+    # Universal newlines, as in the text mode of `subprocess.run`.
+    out = done.stdout.decode("utf-8", "replace")
+    return out.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def sample(root: Path, since: str, every_days: int, ref: str = "HEAD") -> list[str]:
@@ -196,5 +210,14 @@ def diff_of(root: Path, base: str, head: str, paths: list[str], cap: int = DIFF_
     """
     if not paths:
         return ""
-    out = git(root, "diff", "--unified=3", "--end-of-options", f"{base}..{head}", "--", *paths)
+    out = git(
+        root,
+        "diff",
+        *git_command.CONTENT,
+        "--unified=3",
+        "--end-of-options",
+        f"{base}..{head}",
+        "--",
+        *paths,
+    )
     return out[:cap]

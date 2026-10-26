@@ -11,13 +11,12 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
-import os
 import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config, file_names, identifier
+from systemap import config, file_names, identifier, tree_walk
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_config import (
     SOURCE_SKIP,
@@ -44,9 +43,12 @@ PARSER_PACKAGES = ("tree-sitter", "tree-sitter-typescript")
 # The method name in a recorded method header. A header starts with optional modifiers
 # and an optional `*`. The name can contain Unicode letters (`identifier.complete`). A
 # quoted name, such as `"get"`, gives the value of the string.
+# Each whitespace group and the unquoted name are possessive (`++`, `*+`). A shorter
+# match of these groups cannot give a match, thus the result does not change. Without
+# this, a long whitespace sequence makes the time of the match quadratic.
 METHOD = re.compile(
-    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s+)*"
-    rf"\*?\s*({QUOTED}|[^\s?!<(]+)\s*[?!]?\s*[<(]"
+    r"(?:(?:public|static|async|override|abstract|get|set|declare)\s++)*"
+    rf"\*?\s*+({QUOTED}|[^\s?!<(]++)\s*+[?!]?\s*+[<(]"
 )
 # npm package names of model SDKs and agent frameworks. A scope such as `@ai-sdk`
 # matches each package in that scope. A name matches as a prefix of the import name.
@@ -70,7 +72,7 @@ def has_tsconfig(root: Path, depth: int = config.CANDIDATE_DEPTH) -> bool:
     The search skips node_modules, the other directories in `config.SKIP_WALK`,
     directories with a name that starts with a period, and directories with a name that
     is not valid UTF-8."""
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in tree_walk.walk(root):
         level = len(Path(dirpath).relative_to(root).parts)
         names = file_names.folders(dirnames)
         dirnames[:] = [

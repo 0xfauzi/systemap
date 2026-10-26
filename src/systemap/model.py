@@ -769,13 +769,13 @@ def entry_module(component: Component, facts: Mapping[str, Any]) -> str:
     from systemap.entry_names import started_module  # entry_names imports this module
 
     components = facts.get("components", {})
-    for m in claimed(component, components):
+    for m in (owned := claimed(component, components)):
         if component.entry and component.entry in public_names(components[m]):
             return m
     for module, name in symbol_claims(component):
         if name == component.entry:
             return module
-    return started_module(component.entry, claimed(component, components), facts)
+    return started_module(component.entry, owned, facts)
 
 
 def build_state(component: Component, facts: Mapping[str, Any]) -> str:

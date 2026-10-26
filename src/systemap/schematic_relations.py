@@ -120,6 +120,17 @@ function fadeTrace(p, a){
   r.anim = r.trace.animate([{opacity:1}, {opacity:0}], {duration:160, fill:'both'});
   r.anim.onfinish = function(){ if(p._reveal === r){ unreveal(p); } };
 }
+function shapeOf(p){
+  // The length and the box of a line. They change only with the path data, so the
+  // script keeps them for the path data that it read them for.
+  var d = p.getAttribute('d'), g = p._shape;
+  if(!g || g.d !== d){
+    var r = p.getBBox();
+    g = p._shape = {d:d, len:p.getTotalLength(), box:{x:r.x, y:r.y, width:r.width,
+      height:r.height}};
+  }
+  return g;
+}
 function drawLines(list, opt){
   // Draw each line from its source to its target. A mask uncovers the line,
   // so its dash pattern and its arrowhead do not change. With `over`, a
@@ -128,11 +139,17 @@ function drawLines(list, opt){
   var defs = svg.querySelector('defs'), count = 0;
   if(reduced() || !defs){ return 0; }
   var each = opt.each || 300, stagger = opt.stagger || 0, delay = opt.delay || 0, pad = 12;
+  // The script reads all lengths and boxes before the first write. A read after a
+  // write causes a new layout of the map, one time for each line.
+  var plan = [];
   list.forEach(function(i){
     var p = flowOf[i];
     if(!p || !p.animate || !p.getTotalLength || p.classList.contains('off')){ return; }
-    var len = p.getTotalLength(), b = p.getBBox();
-    if(!(len > 0)){ return; }
+    var g = shapeOf(p);
+    if(g.len > 0){ plan.push({i:i, p:p, len:g.len, b:g.box}); }
+  });
+  plan.forEach(function(r){
+    var i = r.i, p = r.p, len = r.len, b = r.b;
     unreveal(p);
     var id = svg.id + '-reveal-' + (++reveals);
     var m = el('mask', {id:id, maskUnits:'userSpaceOnUse', x:b.x - pad, y:b.y - pad,

@@ -124,22 +124,49 @@ class _Reader:
         found = self.functions(node)
         return found[0] if found else None
 
-    def visible(self, bindings: Iterable[Binding], node: ast.AST) -> dict[str, Binding]:
-        """Give the binding of each local name that a use at the node reads.
-
-        A binding in the innermost function that contains the node hides a binding of the
-        same name in an outer function or in the module. In one scope, the last binding
-        is kept."""
-        functions = self.functions(node)
-        found: dict[str, tuple[int, Binding]] = {}
-        for binding in bindings:
-            rank = _rank(functions, binding)
-            if rank is not None and (binding.local not in found or rank <= found[binding.local][0]):
-                found[binding.local] = (rank, binding)
-        return {local: binding for local, (_rank_of, binding) in found.items()}
-
     def in_class_body(self, node: ast.AST) -> bool:
         return isinstance(self.parent.get(node), ast.ClassDef)
+
+
+class _Visible:
+    """Give the import binding of a local name that a use at one node reads.
+
+    A binding in the innermost function that contains the node hides a binding of the
+    same name in an outer function or in the module. In one scope, the last binding is
+    kept. The order of a name is the position of its first binding that the use can
+    read. If two names agree with a value, the name with the lower order applies.
+    The index of the bindings by local name keeps the work for each assignment small.
+    Thus a module with many imports and many assignments is not slow.
+    """
+
+    def __init__(self, imports: _Imports, functions: list[ast.AST]):
+        self.index = imports.index
+        self.parts = imports.parts
+        self.functions = functions
+
+    def get(self, local: str) -> tuple[int, Binding] | None:
+        """Give the order and the binding of the local name, or None."""
+        found: tuple[int, int, Binding] | None = None
+        for order, binding in self.index.get(local, ()):
+            rank = _rank(self.functions, binding)
+            if rank is None:
+                continue
+            if found is None or rank <= found[1]:
+                found = (order if found is None else found[0], rank, binding)
+        return None if found is None else (found[0], found[2])
+
+
+class _Imports:
+    """Index the import bindings by local name, with their positions in the list.
+
+    `parts` is the largest number of dotted parts in a local name, such as 2 for `a.b`.
+    """
+
+    def __init__(self, imports: list[Binding]) -> None:
+        self.index: dict[str, list[tuple[int, Binding]]] = {}
+        for order, binding in enumerate(imports):
+            self.index.setdefault(binding.local, []).append((order, binding))
+        self.parts = max((local.count(".") + 1 for local in self.index), default=0)
 
 
 def _rank(functions: list[ast.AST], binding: Binding) -> int | None:
@@ -153,25 +180,31 @@ def _rank(functions: list[ast.AST], binding: Binding) -> int | None:
     return None
 
 
-def _root(value: ast.AST | None, imports: dict[str, Binding]) -> tuple[Binding, str] | None:
-    """Give the import binding at the root of a value, and the imported name it gives."""
+def _root(value: ast.AST | None, imports: _Visible) -> tuple[Binding, str] | None:
+    """Give the import binding at the root of a value, and the imported name it gives.
+
+    A local name agrees with the value text if it is equal to the text, or to a part of
+    the text before a period."""
     while isinstance(value, ast.Await | ast.Call):
         value = value.value if isinstance(value, ast.Await) else value.func
     text = _dotted(value) if value is not None else None
     if text is None:
         return None
-    for local, binding in imports.items():
-        if text == local:
-            return binding, binding.name
-        if text.startswith(local + "."):
-            rest = text[len(local) + 1 :].split(".")[0]
-            return binding, rest if binding.name == WHOLE else binding.name
-    return None
+    parts = text.split(".")
+    found = [
+        (hit, size)
+        for size in range(1, min(len(parts), imports.parts) + 1)
+        if (hit := imports.get(".".join(parts[:size]))) is not None
+    ]
+    if not found:
+        return None
+    (_order, binding), size = min(found, key=lambda item: item[0][0])
+    if size == len(parts):
+        return binding, binding.name
+    return binding, parts[size] if binding.name == WHOLE else binding.name
 
 
-def _annotation_root(
-    annotation: ast.AST | None, imports: dict[str, Binding]
-) -> tuple[Binding, str] | None:
+def _annotation_root(annotation: ast.AST | None, imports: _Visible) -> tuple[Binding, str] | None:
     if annotation is None:
         return None
     for node in ast.walk(annotation):
@@ -181,7 +214,7 @@ def _annotation_root(
     return None
 
 
-def _annotation_part(node: ast.AST, imports: dict[str, Binding]) -> tuple[Binding, str] | None:
+def _annotation_part(node: ast.AST, imports: _Visible) -> tuple[Binding, str] | None:
     """Read one part of an annotation. A string annotation is parsed as an expression."""
     if isinstance(node, ast.Name | ast.Attribute):
         return _root(node, imports)
@@ -208,13 +241,13 @@ def _value_binding(
     reader: _Reader,
     node: ast.AST,
     bound: tuple[ast.AST, ast.AST | None, ast.AST | None],
-    imports: list[Binding],
+    imports: _Imports,
 ) -> Binding | None:
     target, value, annotation = bound
     local = target.arg if isinstance(target, ast.arg) else _dotted(target)
-    visible = reader.visible(imports, node)
+    visible = _Visible(imports, reader.functions(node))
     found = _root(value, visible) or _annotation_root(annotation, visible)
-    if not local or not found or local in visible:
+    if not local or not found or visible.get(local) is not None:
         return None
     if reader.in_class_body(node) and isinstance(target, ast.Name):
         local = f"{RECEIVER}.{local}"
@@ -224,8 +257,9 @@ def _value_binding(
 
 
 def _value_bindings(reader: _Reader, imports: list[Binding]) -> list[Binding]:
+    index = _Imports(imports)
     found = (
-        _value_binding(reader, node, bound, imports)
+        _value_binding(reader, node, bound, index)
         for node in python_tree.walk(reader.tree)
         for bound in _value_targets(node)
     )
