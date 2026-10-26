@@ -96,8 +96,14 @@ def _node_details(script: str) -> list[dict[str, Any]]:
         + marked
         + "\nprocess.stdout.write(JSON.stringify(OUT));\n"
     )
+    # The program goes on stdin: on Windows, a command line this long gives WinError 206.
     done = subprocess.run(
-        [node, "-e", program], capture_output=True, text=True, encoding="utf-8", timeout=30
+        [node, "-"],
+        input=program,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
     )
     assert done.returncode == 0, done.stderr
     found: list[dict[str, Any]] = json.loads(done.stdout)

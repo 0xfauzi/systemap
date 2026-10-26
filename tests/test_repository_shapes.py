@@ -60,7 +60,7 @@ def test_a_poetry_script_that_is_not_a_string_or_a_table_is_a_config_error() -> 
 
 def test_an_absolute_workspace_member_pattern_is_a_config_error(tmp_path: Path) -> None:
     outside = _outside(tmp_path)
-    root = _repo(tmp_path, f'[tool.uv.workspace]\nmembers = ["{outside.parent}/*"]\n')
+    root = _repo(tmp_path, f'[tool.uv.workspace]\nmembers = ["{outside.parent.as_posix()}/*"]\n')
     with pytest.raises(config.ConfigError, match="must be a relative path"):
         python_repo.discover_roots(root)
 

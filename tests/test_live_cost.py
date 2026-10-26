@@ -120,10 +120,11 @@ def test_a_changed_file_with_the_same_size_and_time_is_extracted_again(tmp_path:
     old = time.time_ns() - 10 * fact_cache.RACY_NS
     os.utime(path, ns=(old, old))
     first = same_as_full(tmp_path, cache)["components"]["pkg.reader"]
-    text = path.read_text(encoding="utf-8")
-    path.write_text(text.replace("return", "assert"), encoding="utf-8")
+    # Bytes keep the size the same on Windows, where write_text writes "\r\n".
+    data = path.read_bytes()
+    path.write_bytes(data.replace(b"return", b"assert"))
     os.utime(path, ns=(old, old))
-    assert path.stat().st_size == len(text.encode())
+    assert path.stat().st_size == len(data)
     now = same_as_full(tmp_path, cache)["components"]["pkg.reader"]
     assert now["sha"] != first["sha"]
 
