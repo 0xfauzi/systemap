@@ -131,7 +131,11 @@ def workspace_members(root: Path) -> list[Path]:
 
 
 def _member_paths(root: Path, pattern: str) -> list[Path]:
-    """Give the paths in the root that one workspace member pattern selects."""
+    """Give the paths in the root that one workspace member pattern selects.
+
+    In Python 3.11, a `**` part in the pattern makes `Path.glob` call itself for each
+    folder level. Thus a folder tree deeper than the recursion limit gives a
+    RecursionError. This function changes that error into a ConfigError."""
     posix = PurePosixPath(pattern.replace("\\", "/"))
     if PurePath(pattern).is_absolute() or posix.is_absolute() or ".." in posix.parts:
         raise config.ConfigError(
@@ -140,7 +144,7 @@ def _member_paths(root: Path, pattern: str) -> list[Path]:
         )
     try:
         found = _valid_paths(root, root.glob(pattern))
-    except (OSError, ValueError, NotImplementedError) as exc:
+    except (OSError, ValueError, NotImplementedError, RecursionError) as exc:
         raise config.ConfigError(
             f"{PYPROJECT}: the workspace member pattern {pattern!r} is not correct: {exc}"
         ) from exc

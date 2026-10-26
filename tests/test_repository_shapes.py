@@ -9,6 +9,7 @@ Findings g1ts-3, rest-4, g1ts-10, and rest-6 of the audit. Before the change:
 - A tsconfig.json include entry that names a link to a folder out of the repository
   became the TypeScript package root.
 - A folder tree with 1000 levels gave RecursionError in `os.walk`.
+- A `**` workspace member pattern over such a tree gave RecursionError in `Path.glob`.
 
 Each test below failed before the change.
 """
@@ -16,7 +17,7 @@ Each test below failed before the change.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 import pytest
@@ -110,31 +111,76 @@ def test_a_linked_typescript_include_folder_is_not_the_root(tmp_path: Path) -> N
     assert discover_typescript_roots(root) == [("src", "fx")]
 
 
-def _deep(root: Path, levels: int) -> Path:
-    folder = root
-    for _ in range(levels):
-        folder = folder / "d"
-        folder.mkdir(parents=True)
-    return folder
+Deep = Callable[[Path, int], Path]
 
 
-def test_a_very_deep_tree_is_a_config_error_that_names_the_folder(tmp_path: Path) -> None:
-    # Before the change, os.walk gave RecursionError at about 985 levels.
+@pytest.fixture
+def deep() -> Iterator[Deep]:
+    """Give a function that makes a chain of folders. Remove each chain at the end.
+
+    In Python 3.11, `shutil.rmtree` calls itself for each folder level. The pytest cleanup
+    of old temporary folders uses it. Thus a chain deeper than about 985 levels that stays
+    in the temporary folder makes each later pytest run fail. The fixture removes the
+    folders from the bottom up, without recursion."""
+    made: list[Path] = []
+
+    def make(root: Path, levels: int) -> Path:
+        folder = root
+        for _ in range(levels):
+            folder = folder / "d"
+            folder.mkdir(parents=True)
+            made.append(folder)
+        return folder
+
+    yield make
+    for folder in reversed(made):
+        for name in os.listdir(folder):
+            (folder / name).unlink()
+        folder.rmdir()
+
+
+def test_a_tree_deeper_than_the_limit_is_a_config_error_that_names_the_folder(
+    tmp_path: Path, deep: Deep, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tree_walk, "MAX_DEPTH", 5)
     root = tmp_path / "repo"
-    _deep(root, 1000)
+    deep(root, 10)
     with pytest.raises(config.ConfigError, match="levels below") as caught:
         list(tree_walk.walk(root))
-    assert str(root / ("d/" * tree_walk.MAX_DEPTH).rstrip("/")) in str(caught.value)
+    assert f"{root / 'd/d/d/d/d'} is 5 levels below" in str(caught.value)
     with pytest.raises(config.ConfigError):
         config.walk(root, python_repo.package_dir)
     with pytest.raises(config.ConfigError):
         list(python_repo.python_paths(root))
 
 
-def test_a_walk_that_stops_above_the_limit_gives_no_error(tmp_path: Path) -> None:
+def test_a_tree_deeper_than_the_recursion_limit_is_a_config_error(
+    tmp_path: Path, deep: Deep
+) -> None:
+    # Before the change, os.walk gave RecursionError at about 985 levels.
     root = tmp_path / "repo"
-    _deep(root, tree_walk.MAX_DEPTH + 5)
+    deep(root, 1000)
+    with pytest.raises(config.ConfigError, match="levels below"):
+        list(tree_walk.walk(root))
+
+
+def test_a_walk_that_stops_above_the_limit_gives_no_error(
+    tmp_path: Path, deep: Deep, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tree_walk, "MAX_DEPTH", 5)
+    root = tmp_path / "repo"
+    deep(root, 10)
     assert len(config.walk(root, python_repo.package_dir, depth=3)) == 3
+
+
+def test_a_recursive_member_pattern_over_a_very_deep_tree_is_a_config_error(
+    tmp_path: Path, deep: Deep
+) -> None:
+    # Before the change, Path.glob("pkgs/**") gave RecursionError at about 985 levels.
+    root = _repo(tmp_path, '[tool.uv.workspace]\nmembers = ["pkgs/**"]\n')
+    deep(root / "pkgs", 1000)
+    with pytest.raises(config.ConfigError, match="is not correct"):
+        python_repo.discover_roots(root)
 
 
 def test_the_walk_gives_the_steps_of_os_walk(tmp_path: Path) -> None:
