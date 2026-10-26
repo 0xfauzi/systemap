@@ -16,8 +16,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from systemap import file_names, repo_files, source_text
 from systemap import language as languages
-from systemap import repo_files, source_text
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
 from systemap.model import Model, covers, is_symbol
@@ -81,20 +81,33 @@ def spec_sections(repo: Path, spec_path: str) -> list[dict[str, str]]:
     return out
 
 
-def _source_paths(cfg: Config, language: LanguageAdapter) -> dict[str, Path]:
+def _source_paths(
+    cfg: Config, language: LanguageAdapter, refused: dict[str, Path] | None = None
+) -> dict[str, Path]:
+    """Give the source file of each module.
+
+    A source file with a path that is not valid UTF-8 is not in the result. If `refused`
+    is a dictionary, the function adds such a file to it, under its shown module name
+    (`file_names.shown`)."""
     repo = cfg.root
     paths: dict[str, Path] = {}
+    into: dict[str, Path] = {} if refused is None else refused
     for pkg_dir, pkg_name in cfg.roots:
-        for path in language.source_paths(pkg_dir, repo, cfg.test_dirs, cfg.test_patterns):
-            module = language.module_of(path, pkg_dir, pkg_name)
-            if module in paths and paths[module] != path:
-                first = paths[module].relative_to(repo).as_posix()
-                second = path.relative_to(repo).as_posix()
-                raise ConfigError(
-                    f"module id {module} is shared by {first} and {second}. Rename one file"
-                )
-            paths[module] = path
+        names: list[Path] = []
+        found = language.source_paths(pkg_dir, repo, cfg.test_dirs, cfg.test_patterns, names)
+        for path in found:
+            _add_path(paths, language.module_of(path, pkg_dir, pkg_name), path, repo)
+        for path in names:
+            _add_path(into, _shown_module(language, path, pkg_dir, pkg_name), path, repo)
     return paths
+
+
+def _add_path(paths: dict[str, Path], module: str, path: Path, repo: Path) -> None:
+    if module in paths and paths[module] != path:
+        first = file_names.shown(paths[module].relative_to(repo).as_posix())
+        second = file_names.shown(path.relative_to(repo).as_posix())
+        raise ConfigError(f"module id {module} is shared by {first} and {second}. Rename one file")
+    paths[module] = path
 
 
 def _module_facts(
@@ -113,7 +126,8 @@ def _module_facts(
     if record is None:
         return None
     record["id"] = module
-    record["package"] = package_for(cfg, language, module, path)
+    record["file"] = file_names.shown(record["file"])
+    record["package"] = file_names.shown(package_for(cfg, language, module, path))
     record["plane"] = plane_of(module, cfg.planes)
     try:
         raw = source_text.read(cfg.root, path)
@@ -152,9 +166,40 @@ def package_for(cfg: Config, language: LanguageAdapter, module: str, path: Path)
     The path can be a file that the facts do not contain, such as a new file of a change.
     A module outside each package root gives its own name."""
     for root, name in cfg.roots:
-        if path.is_relative_to(root) and language.module_of(path, root, name) == module:
+        if path.is_relative_to(root) and _shown_module(language, path, root, name) == module:
             return language.package_of(path, root, name)
     return module
+
+
+def _shown_module(language: LanguageAdapter, path: Path, root: Path, name: str) -> str:
+    return file_names.shown(language.module_of(path, root, name))
+
+
+def _add_refused(
+    cfg: Config,
+    language: LanguageAdapter,
+    refused: dict[str, Path],
+    paths: dict[str, Path],
+    prefixes: set[str],
+    context: Any,
+    found: tuple[dict[str, Any], dict[str, set[str]], dict[str, str]],
+) -> None:
+    """Add a module record for each source file with a path that is not valid UTF-8.
+
+    The adapter does not read such a file. Its record has the cause `encoding`, as the
+    record of a file that is not UTF-8 text. Other modules cannot import the module.
+    """
+    components, imports, sources = found
+    for module, path in sorted(refused.items()):
+        if module in components:
+            first = components[module]["file"]
+            second = file_names.shown(path.relative_to(cfg.root).as_posix())
+            raise ConfigError(
+                f"module id {module} is shared by {first} and {second}. Rename one file"
+            )
+        facts = _module_facts(cfg, language, module, path, prefixes, set(paths), paths, context)
+        if facts is not None:
+            components[module], sources[module], imports[module] = facts
 
 
 def _collect_modules(
@@ -317,9 +362,12 @@ def build(cfg: Config) -> dict[str, Any]:
     language = language_for(cfg)
     roots = cfg.roots
     prefixes = {name for _, name in roots}
-    paths = _source_paths(cfg, language)
+    refused: dict[str, Path] = {}
+    paths = _source_paths(cfg, language, refused)
     context = language.context(repo, paths, cfg.test_dirs, cfg.test_patterns)
     components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context)
+    found = (components, imports, sources)
+    _add_refused(cfg, language, refused, paths, prefixes, context, found)
     # Re-export kinds require every defining module to have been parsed.
     resolve_reexports(components)
     _link_importers(components, imports)

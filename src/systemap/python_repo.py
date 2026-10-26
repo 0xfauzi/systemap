@@ -15,7 +15,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config, config_walk, identifier, repo_files
+from systemap import config, config_walk, file_names, identifier, repo_files
 from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 
 # Below a Python package root or test directory, these folders hold no source of the
@@ -51,18 +51,21 @@ def skipped(path: Path, base: Path, names: frozenset[str]) -> bool:
     return any(part in names for part in path.relative_to(base).parts)
 
 
-def python_paths(root: Path, pattern: str = "*.py") -> Iterator[Path]:
+def python_paths(
+    root: Path, pattern: str = "*.py", refused: list[Path] | None = None
+) -> Iterator[Path]:
     """List the Python files below a folder that match the file name pattern, in a stable
     order.
 
     The walk does not go into a folder whose name is in PYTHON_SKIP (result
     `followup-python-paths`). `fnmatch` gives the same case rule as `rglob`: on Windows,
-    the name match ignores case."""
+    the name match ignores case. If a path below the root is not valid UTF-8, the walk
+    does not give the file. If `refused` is a list, the walk adds the file to it."""
     for current, names, files in os.walk(root):
         names[:] = sorted(name for name in names if name not in PYTHON_SKIP)
-        for name in sorted(files):
-            if fnmatch.fnmatch(name, pattern):
-                yield Path(current, name)
+        matched = (name for name in sorted(files) if fnmatch.fnmatch(name, pattern))
+        for name in file_names.files(root, current, matched, refused):
+            yield Path(current, name)
 
 
 def package_dir(directory: Path) -> bool:
@@ -98,7 +101,7 @@ def workspace_members(root: Path) -> list[Path]:
     members = workspace.get("members", []) if isinstance(workspace, dict) else []
     patterns = [pattern for pattern in members if isinstance(pattern, str)]
     out: list[Path] = []
-    for path in (path for pattern in patterns for path in sorted(root.glob(pattern))):
+    for path in (path for pattern in patterns for path in _valid_paths(root, root.glob(pattern))):
         if path.is_dir() and path.resolve() != root.resolve() and path not in out:
             out.append(path)
     return out
@@ -114,11 +117,16 @@ def discover_roots(root: Path) -> list[tuple[str, str]]:
         for parent in (base, base / "src")
         if parent.is_dir()
     ]
-    for child in (child for parent in parents for child in sorted(parent.iterdir())):
+    for child in (child for parent in parents for child in _valid_paths(root, parent.iterdir())):
         entry = (child.relative_to(root).as_posix(), child.name)
         if _root_dir(child) and entry not in found:
             found.append(entry)
     return found
+
+
+def _valid_paths(root: Path, paths: Iterable[Path]) -> list[Path]:
+    """Sort the paths. Do not give a path whose part below the root is not valid UTF-8."""
+    return sorted(path for path in paths if file_names.valid(os.path.relpath(path, root)))
 
 
 def _root_dir(child: Path) -> bool:

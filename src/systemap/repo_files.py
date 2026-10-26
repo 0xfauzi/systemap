@@ -26,6 +26,8 @@ import stat
 from collections.abc import Sequence
 from pathlib import Path, PurePath, PureWindowsPath
 
+from systemap import file_names
+
 _PARTS = re.compile(r"[\\/]")
 # True when `os.open` can open a path part relative to an open folder, without a link.
 WALK = os.open in os.supports_dir_fd and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW")
@@ -250,4 +252,6 @@ def refusal(exc: BaseException) -> str:
 
 def reason(exc: BaseException) -> str:
     """Give the read problem of an exception: the refusal text, or the exception name."""
-    return str(exc) if isinstance(exc, RepoPathError) else type(exc).__name__
+    return (
+        str(exc) if isinstance(exc, RepoPathError | file_names.NameNotText) else type(exc).__name__
+    )

@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from systemap import repo_files
+from systemap import file_names, repo_files
 from systemap.config import ConfigError
 from systemap.jsonc_text import strip_jsonc
 from systemap.tsconfig_glob import GlobPattern, compile_glob
@@ -619,17 +619,24 @@ def _include_directories(root: Path, patterns: tuple[str, ...], repo: Path) -> l
     )
 
 
-def source_files(directory: Path, skip: Collection[str]) -> Iterator[Path]:
+def source_files(
+    directory: Path, skip: Collection[str], refused: list[Path] | None = None
+) -> Iterator[Path]:
     """This function gives the TypeScript files below a directory in a stable order.
 
     The walk does not enter a directory whose name is in skip. The result does not
-    include declaration files.
+    include declaration files. If a path below the directory is not valid UTF-8, the
+    walk does not give the file. If `refused` is a list, the walk adds the file to it.
     """
     for current, names, files in os.walk(directory):
         names[:] = sorted(name for name in names if name not in skip)
-        for name in sorted(files):
-            if name.endswith(SOURCE_SUFFIXES) and not name.endswith(DECLARATION_SUFFIXES):
-                yield Path(current, name)
+        found = (name for name in sorted(files) if _source_name(name))
+        for name in file_names.files(directory, current, found, refused):
+            yield Path(current, name)
+
+
+def _source_name(name: str) -> bool:
+    return name.endswith(SOURCE_SUFFIXES) and not name.endswith(DECLARATION_SUFFIXES)
 
 
 def common_source_dir(paths: Iterable[Path]) -> Path | None:

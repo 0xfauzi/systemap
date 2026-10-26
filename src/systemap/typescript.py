@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping
@@ -10,6 +11,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import (
+    file_names,
     typescript_calls,
     typescript_entry,
     typescript_package_imports,
@@ -130,6 +132,19 @@ def _test_path(
     return _test_file(path.relative_to(repo).as_posix(), tests_dirs, patterns)
 
 
+def _source_path(
+    repo: Path,
+    root: Path,
+    out_dir: Path | None,
+    tests: tuple[tuple[str, ...], tuple[str, ...]],
+    path: Path,
+) -> bool:
+    """Find a source file that tsc reads and that is not a test file."""
+    return not ts_skipped(path, root, out_dir) and not _test_file(
+        path.relative_to(repo).as_posix(), *tests
+    )
+
+
 def _test_file_guards(
     path: Path,
     repo: Path,
@@ -141,17 +156,14 @@ def _test_file_guards(
     except OSError as exc:
         raw, problems = "", [unknown_causes.read_problem(exc)]
     root = syntax_tree(raw, path.as_posix())
+    relative = file_names.shown(path.relative_to(repo).as_posix())
     if root.has_error:
         context.test_issues.append(
-            {
-                "file": path.relative_to(repo).as_posix(),
-                "problem": parse_problem(raw, path.as_posix()),
-            }
+            {"file": relative, "problem": parse_problem(raw, path.as_posix())}
         )
         return {}
     context.test_issues.extend(
-        {"file": path.relative_to(repo).as_posix(), "problem": _problem(0, *problem, "")}
-        for problem in problems
+        {"file": relative, "problem": _problem(0, *problem, "")} for problem in problems
     )
     targets = {
         target
@@ -456,15 +468,14 @@ class TypeScriptLanguage(TypeScriptRepository):
         repo: Path,
         tests_dirs: tuple[str, ...],
         test_patterns: tuple[str, ...],
+        refused: list[Path] | None = None,
     ) -> Iterable[Path]:
         out_dir = configured_out_dir(repo, root)
         # The walk does not enter node_modules and the other SOURCE_SKIP folders.
-        return (
-            path
-            for path in source_files(root, SOURCE_SKIP)
-            if not ts_skipped(path, root, out_dir)
-            and not _test_file(path.relative_to(repo).as_posix(), tests_dirs, test_patterns)
-        )
+        names: list[Path] = []
+        found = source_files(root, SOURCE_SKIP, names)
+        source = functools.partial(_source_path, repo, root, out_dir, (tests_dirs, test_patterns))
+        return file_names.selected(found, names, source, refused)
 
     def context(
         self,
@@ -675,9 +686,12 @@ class TypeScriptLanguage(TypeScriptRepository):
     ) -> dict[str, list[dict[str, Any]]]:
         del prefixes
         out_dir = out_dir_below(repo, context.compiler.out_dir)
+        # A test file with a path that is not valid UTF-8 gives a `test_file_issues` record.
+        refused: list[Path] = []
+        found = list(source_files(repo, SOURCE_SKIP, refused))
         files = sorted(
             path
-            for path in source_files(repo, SOURCE_SKIP)
+            for path in [*found, *refused]
             if _test_path(path, repo, tests_dirs, context.test_patterns, out_dir)
         )
         guards: dict[str, list[dict[str, Any]]] = defaultdict(list)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from systemap import repo_files, unknown_causes
+from systemap import file_names, repo_files, unknown_causes
 
 # These provenance values can be different on two computers for the same commit: the
 # interpreter version, the parser packages, and the compiler settings that installed npm
@@ -39,9 +39,12 @@ def read(repo: Path, path: Path) -> str:
     """This function gives the source text of a regular file in the repository.
 
     `decode` gives the text. A file that `repo_files` refuses gives OSError. Bytes that
-    are not UTF-8 give UnicodeError.
+    are not UTF-8 give UnicodeError. A path below the repository that is not valid UTF-8
+    gives `file_names.NameNotText`, a UnicodeError, and the function does not read the
+    file.
     """
-    return decode(repo_files.read_bytes(repo, repo_files.relative(repo, path)))
+    relative = file_names.checked(repo_files.relative(repo, path))
+    return decode(repo_files.read_bytes(repo, relative))
 
 
 def read_problems(path: Path, repo: Path) -> tuple[str, list[tuple[str, str]]]:

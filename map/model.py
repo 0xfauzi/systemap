@@ -129,6 +129,7 @@ COMPONENTS = (
             "systemap.model_convert",
             "systemap.model_edit",
             "systemap.repo_files",
+            "systemap.file_names",
             "systemap.file_write",
             "systemap.review",
             "systemap.answer_upgrade",

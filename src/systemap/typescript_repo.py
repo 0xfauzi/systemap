@@ -17,7 +17,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config, identifier
+from systemap import config, file_names, identifier
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_config import (
     SOURCE_SKIP,
@@ -67,12 +67,14 @@ MODEL_SDKS: tuple[str, ...] = (
 def has_tsconfig(root: Path, depth: int = config.CANDIDATE_DEPTH) -> bool:
     """Find a tsconfig.json file within `depth` directory levels of the root.
 
-    The search skips node_modules, the other directories in `config.SKIP_WALK`, and
-    directories with a name that starts with a period."""
+    The search skips node_modules, the other directories in `config.SKIP_WALK`,
+    directories with a name that starts with a period, and directories with a name that
+    is not valid UTF-8."""
     for dirpath, dirnames, filenames in os.walk(root):
         level = len(Path(dirpath).relative_to(root).parts)
+        names = file_names.folders(dirnames)
         dirnames[:] = [
-            d for d in dirnames if level < depth and d not in config.SKIP_WALK and d[0] != "."
+            d for d in names if level < depth and d not in config.SKIP_WALK and d[0] != "."
         ]
         if TSCONFIG in filenames:
             return True
