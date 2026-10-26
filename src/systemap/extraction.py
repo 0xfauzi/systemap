@@ -357,14 +357,30 @@ def _facts_file(
 
 
 def build(cfg: Config) -> dict[str, Any]:
-    """Make facts for the tree at `cfg.root`, ready for JSON output."""
-    repo = cfg.root
+    """Make facts for the tree at `cfg.root`, ready for JSON output.
+
+    When the extraction is complete, or when it fails, the adapter removes the data that
+    it kept during the extraction.
+    """
     language = language_for(cfg)
-    roots = cfg.roots
-    prefixes = {name for _, name in roots}
     refused: dict[str, Path] = {}
     paths = _source_paths(cfg, language, refused)
-    context = language.context(repo, paths, cfg.test_dirs, cfg.test_patterns)
+    context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
+    try:
+        return _build(cfg, language, paths, refused, context)
+    finally:
+        language.release(context)
+
+
+def _build(
+    cfg: Config,
+    language: LanguageAdapter,
+    paths: dict[str, Path],
+    refused: dict[str, Path],
+    context: Any,
+) -> dict[str, Any]:
+    repo = cfg.root
+    prefixes = {name for _, name in cfg.roots}
     components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context)
     found = (components, imports, sources)
     _add_refused(cfg, language, refused, paths, prefixes, context, found)

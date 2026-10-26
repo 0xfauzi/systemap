@@ -1071,6 +1071,7 @@ The group gives one `fix:` line for each cause that occurs:
 |---|---|
 | `read` | systemap could not read the file, or the repository rules refused it. |
 | `encoding` | The file is not UTF-8 text. |
+| `size` | The file is larger than the source size limit of 16 MiB. systemap does not read it. |
 | `syntax` | The parser could not parse the source. |
 | `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
 | `target` | A reference has a target that is not a module in the facts. An example is a package bin target that is not in the repository. |

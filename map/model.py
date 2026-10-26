@@ -194,6 +194,7 @@ COMPONENTS = (
             "systemap.python_entry",
             "systemap.python_repo",
             "systemap.python_syntax",
+            "systemap.python_tree",
             "systemap.python_tests",
             "systemap.pattern_match",
             "systemap.source_facts",

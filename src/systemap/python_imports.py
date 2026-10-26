@@ -9,6 +9,8 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterable, Iterator
 
+from systemap import python_tree
+
 
 def relative_source(module: str, is_package: bool, level: int, name: str) -> str | None:
     """Give the dotted source module of a Python relative import.
@@ -57,15 +59,14 @@ def python_unresolved(
     extractor does not examine the installed packages. Extraction does not use this
     function for source that does not parse, because that import list is not known.
     """
-    try:
-        tree = ast.parse(raw)
-    except (SyntaxError, ValueError):
+    tree = python_tree.tree(raw)
+    if tree is None:
         return []
     namespaces = {
         ".".join(name.split(".")[:end]) for name in known for end in range(1, len(name.split(".")))
     }
     out: set[str] = set()
-    for node in ast.walk(tree):
+    for node in python_tree.walk(tree):
         for written, source in _python_targets(node, module, is_package):
             if source is None:
                 out.add(written)

@@ -19,6 +19,8 @@ from systemap import repo_files
 READ = "read"
 # The file is not UTF-8 text, or the file name is not valid UTF-8.
 ENCODING = "encoding"
+# The file is larger than the size limit of a source file.
+SIZE = "size"
 # The parser could not parse the source.
 SYNTAX = "syntax"
 # The parser read the syntax, but it has no record for this declaration or export form.
@@ -42,6 +44,7 @@ NOT_KNOWN = "not known"
 CAUSES = (
     READ,
     ENCODING,
+    SIZE,
     SYNTAX,
     DECLARATION,
     TARGET,
@@ -62,6 +65,11 @@ FIX = {
     ENCODING: (
         "If a file is not UTF-8 text, write the file as UTF-8 text. If a file name is not "
         "valid UTF-8, change the name to a valid UTF-8 name."
+    ),
+    SIZE: (
+        "If a file is larger than the source size limit, systemap does not read it. "
+        "If the file is generated, record an answer for the line in [judgement] answered. "
+        "If not, divide the file into smaller modules."
     ),
     SYNTAX: (
         "If the parser could not parse a file, examine the source at the line. If the "
@@ -110,9 +118,17 @@ def of(record: Mapping[str, Any]) -> str:
     return cause if isinstance(cause, str) and cause in FIX else NOT_KNOWN
 
 
+# The read problems with a cause that is not READ.
+_READ_CAUSES: tuple[tuple[type[BaseException], str], ...] = (
+    (repo_files.TooLarge, SIZE),
+    (UnicodeError, ENCODING),
+)
+
+
 def read_cause(exc: BaseException) -> str:
-    """Give the cause of a read problem: ENCODING for text that is not UTF-8, or READ."""
-    return ENCODING if isinstance(exc, UnicodeError) else READ
+    """Give the cause of a read problem: ENCODING for text that is not UTF-8, SIZE for a
+    file that is larger than the source size limit, or READ."""
+    return next((cause for kind, cause in _READ_CAUSES if isinstance(exc, kind)), READ)
 
 
 def read_problem(exc: BaseException) -> tuple[str, str]:

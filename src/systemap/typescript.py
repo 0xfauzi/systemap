@@ -541,6 +541,10 @@ class TypeScriptLanguage(TypeScriptRepository):
             ],
         }
 
+    def release(self, context: Any) -> None:
+        """The TypeScript adapter keeps no data after the extraction."""
+        del context
+
     def module_for_path(self, repo: Path, path: str, roots: list[tuple[Path, str]]) -> str | None:
         absolute = repo / path
         if absolute.suffix not in SOURCE_SUFFIXES or absolute.name.endswith(DECLARATION_SUFFIXES):
