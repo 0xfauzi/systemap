@@ -146,7 +146,9 @@ def test_a_bad_tsconfig_does_not_stop_the_scan(tmp_path: Path, tsconfig: str) ->
 
 
 def test_a_deeply_nested_tsconfig_gives_a_value_error(tmp_path: Path) -> None:
-    write_tree(tmp_path, {"tsconfig.json": "[" * 5000 + "]" * 5000})
+    # Python 3.13 parses 5000 levels. 200000 levels give RecursionError on 3.11 and 3.13.
+    depth = 200_000
+    write_tree(tmp_path, {"tsconfig.json": '{"a": ' + "[" * depth + "]" * depth + "}"})
     with pytest.raises(ValueError, match="could not read"):
         typescript_config._read_config(tmp_path / "tsconfig.json", tmp_path)
 
