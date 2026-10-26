@@ -1070,7 +1070,7 @@ The group gives one `fix:` line for each cause that occurs:
 | Cause | Condition |
 |---|---|
 | `read` | systemap could not read the file, or the repository rules refused it. |
-| `encoding` | The file is not UTF-8 text. |
+| `encoding` | The file is not UTF-8 text, or the file name is not valid UTF-8. |
 | `size` | The file is larger than the source size limit of 16 MiB. systemap does not read it. |
 | `syntax` | The parser could not parse the source. |
 | `declaration` | The parser read the syntax, but it has no record for the declaration or export form. |
