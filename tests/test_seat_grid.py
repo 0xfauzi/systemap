@@ -8,12 +8,19 @@ Acceptance:
 - place_labels on 200 crowded flows makes fewer than 3,000,000 overlap_area calls.
   The code before the seat grid made 26,514,709 calls (25.6 s). The seats are the
   same as the seats of that code.
+- One obstacle box of 1e6 by 1e6 units does not make a cell entry for each cell.
+  Seating finishes in less than 10 s and gives the full-scan cost. Before this
+  limit, the box made approximately 2.4e8 cell entries: 1e5 by 1e5 took 7.2 s and
+  1e6 by 1e6 did not finish in 60 s. An obstacle with a NaN coordinate does not
+  raise an error. Before this limit, math.floor raised ValueError.
 """
 
 from __future__ import annotations
 
 import hashlib
+import math
 import random
+import time
 
 import pytest
 
@@ -30,6 +37,16 @@ def _box(rng: random.Random) -> Box:
     )
 
 
+def _any_box(rng: random.Random) -> Box:
+    # Some boxes are wide or have a coordinate that is not finite.
+    roll = rng.random()
+    if roll < 0.05:
+        return (rng.uniform(-5e5, 0.0), rng.uniform(-5e5, 0.0), 1e6, 1e6)
+    if roll < 0.08:
+        return (math.nan, 10.0, 50.0, 20.0)
+    return _box(rng)
+
+
 def test_near_matches_a_full_scan_in_insertion_order() -> None:
     rng = random.Random(7)
     grid = SeatGrid()
@@ -40,9 +57,9 @@ def test_near_matches_a_full_scan_in_insertion_order() -> None:
             del reference[key]
             grid.drop(key)
         else:
-            reference[key] = _box(rng)
+            reference[key] = _any_box(rng)
             grid.put(key, reference[key])
-        query = _box(rng)
+        query = _any_box(rng)
         want = [k for k, b in reference.items() if overlap_area(query, b)]
         got = [k for k in grid.near(query) if overlap_area(query, reference[k])]
         assert got == want
@@ -96,3 +113,24 @@ def test_crowded_labels_count_work_and_keep_the_seats(monkeypatch: pytest.Monkey
     assert hashlib.sha256(text.encode()).hexdigest()[:16] == "8c6105b017a6d702"
     assert sum(1 for s in seats.values() if s.cost > 0) == 20
     assert calls[0] < 3_000_000
+
+
+def test_a_wide_obstacle_does_not_fill_the_grid() -> None:
+    # Before the wide set, this box made approximately 2.4e8 cell entries and the
+    # constructor did not finish in 60 s. The bound of 10 s is generous.
+    start = time.monotonic()
+    wide = (0.0, 0.0, 1e6, 1e6)
+    state = Seating({0: [(0, True, (10.0, 10.0, 5.0, 5.0))]}, [("card", wide)], 3.0)
+    assert repr(state.fixed(0, 0)) == repr(overlap_area((10.0, 10.0, 5.0, 5.0), wide))
+    assert time.monotonic() - start < 10.0
+
+
+def test_an_obstacle_that_is_not_finite_gives_the_full_scan_cost() -> None:
+    odd = (math.nan, 0.0, math.inf, 50.0)
+    box = (10.0, 10.0, 5.0, 5.0)
+    state = Seating({0: [(0, True, box)]}, [("card", odd)], 3.0)
+    assert repr(state.fixed(0, 0)) == repr(overlap_area(box, odd))
+    state.grid.put(1, odd)
+    assert state.grid.near(box) == [1]
+    state.grid.drop(1)
+    assert state.grid.near(box) == []

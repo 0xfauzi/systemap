@@ -18,11 +18,28 @@ Box = tuple[float, float, float, float]
 # 40 to 200 units wide.
 CELL = 64.0
 
+# A box that covers more cells than this limit goes in one wide set, and each
+# query gives the keys in that set. A box with a coordinate that is not finite
+# also goes in the wide set. Thus a large obstacle does not use one entry for
+# each cell, and the result of a query stays a superset of the overlaps.
+WIDE = 256
 
-def _cells(box: Box) -> Iterator[tuple[int, int]]:
+Span = tuple[int, int, int, int]
+
+
+def _span(box: Box) -> Span | None:
+    if not all(math.isfinite(v) for v in box):
+        return None
     x, y, w, h = box
     x0, x1 = math.floor(x / CELL), math.floor((x + w) / CELL)
     y0, y1 = math.floor(y / CELL), math.floor((y + h) / CELL)
+    if (x1 - x0 + 1) * (y1 - y0 + 1) > WIDE:
+        return None
+    return x0, x1, y0, y1
+
+
+def _cells(span: Span) -> Iterator[tuple[int, int]]:
+    x0, x1, y0, y1 = span
     for cx in range(x0, x1 + 1):
         for cy in range(y0, y1 + 1):
             yield cx, cy
@@ -41,6 +58,7 @@ class SeatGrid:
         self._rank: dict[int, int] = {}
         self._next = 0
         self._cells: dict[tuple[int, int], set[int]] = {}
+        self._wide: set[int] = set()
 
     def put(self, key: int, box: Box) -> None:
         """This method adds a box or replaces the box of a key."""
@@ -50,7 +68,11 @@ class SeatGrid:
             self._rank[key] = self._next
             self._next += 1
         self._boxes[key] = box
-        for cell in _cells(box):
+        span = _span(box)
+        if span is None:
+            self._wide.add(key)
+            return
+        for cell in _cells(span):
             self._cells.setdefault(cell, set()).add(key)
 
     def drop(self, key: int) -> None:
@@ -60,7 +82,11 @@ class SeatGrid:
         del self._rank[key]
 
     def _unlink(self, key: int) -> None:
-        for cell in _cells(self._boxes[key]):
+        span = _span(self._boxes[key])
+        if span is None:
+            self._wide.discard(key)
+            return
+        for cell in _cells(span):
             keys = self._cells[cell]
             keys.discard(key)
             if not keys:
@@ -70,10 +96,14 @@ class SeatGrid:
         """This method gives the keys whose cells the box touches, in insertion order.
 
         The result contains each key whose box overlaps the box. It can also contain
-        keys whose boxes do not overlap the box.
+        keys whose boxes do not overlap the box. If the query box is wide, the
+        result contains all keys.
         """
-        found: set[int] = set()
-        for cell in _cells(box):
+        span = _span(box)
+        if span is None:
+            return sorted(self._boxes, key=self._rank.__getitem__)
+        found = set(self._wide)
+        for cell in _cells(span):
             keys = self._cells.get(cell)
             if keys:
                 found |= keys
