@@ -25,6 +25,11 @@ DIRECTIVE = re.compile(
 )
 # A legal comment of esbuild: minifiers keep it, because it holds a license notice.
 LEGAL = ("/*!", "//!")
+# A documentation tag marks a file comment, rather than a symbol comment.
+MODULE_TAG = re.compile(
+    r"(?m)^[ \t]*@(?:module(?:[ \t]+[^\n]*)?|packageDocumentation[ \t]*)(?:\n|$)"
+    r"|(?<!\S)@packageDocumentation(?=\s|$)[ \t]*"
+)
 # The grammar does not read `export type * from` and the variance keywords `in` and `out`
 # in a type parameter list. A second parse replaces these keywords with spaces.
 _TYPE_STAR = re.compile(r"(?m)^([ \t]*export\s+)(type)(?=\s+\*)")
@@ -193,6 +198,10 @@ def docstring(root: Node) -> str:
     `/*!` or `//!`, or a comment that starts with a notice mark. The `//` comments on
     the lines directly below a notice are part of the notice. The next comment can then
     give the docstring.
+
+    An untagged comment directly before a variable describes the variable. A blank
+    line separates a file comment. The tags `@module` and `@packageDocumentation`
+    identify a file comment without a blank line.
     """
     notice_end = -2
     for node in root.named_children:
@@ -208,8 +217,30 @@ def docstring(root: Node) -> str:
         if raw.startswith(LEGAL) or (text and is_notice(text)):
             notice_end = node.end_point.row
         elif text and not DIRECTIVE.match(text):
-            return description(text)
+            return _module_description(node, text)
     return ""
+
+
+def _module_description(comment: Node, text: str) -> str:
+    """Give a file description. A comment directly before a variable describes that variable."""
+    tag = MODULE_TAG.search(text) if _text(comment).startswith("/**") else None
+    if tag:
+        return description(MODULE_TAG.sub("", text))
+    end = comment.end_point.row
+    following = comment.next_named_sibling
+    while following is not None and following.type == "comment":
+        if following.start_point.row > end + 1:
+            return description(text)
+        end = following.end_point.row
+        following = following.next_named_sibling
+    if following is None or following.start_point.row > end + 1:
+        return description(text)
+    statement = following.child_by_field_name("declaration") or following
+    return (
+        ""
+        if statement.type in {"lexical_declaration", "variable_declaration"}
+        else description(text)
+    )
 
 
 def _comment_text(comment: str) -> str:

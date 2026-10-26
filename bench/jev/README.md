@@ -3202,3 +3202,45 @@ The sample page of `tests/test_render.py` changes from 331,990 bytes to 335,455 
 The earlier limit of 325 KiB (332,800 bytes) had 810 bytes of space. Thus the change cannot pass the earlier limit.
 The new limit, 328 KiB (335,872 bytes), is the next whole KiB above the measured page (327.6 KiB).
 The maintainer must accept or refuse this new limit.
+
+## TypeScript module descriptions, issue #91 (2026-10-14)
+
+`bench/typescript_descriptions.py` compares three rules on all tracked TypeScript source files, including tests but excluding declaration files.
+The earlier rule is from systemap revision `077155e`.
+The tag rule accepts only documentation blocks with `@module` or `@packageDocumentation`.
+The revised rule excludes untagged comments directly before variable declarations, unless a blank line separates them.
+Other headers retain their descriptions. An explicit module tag also keeps a header without a blank line.
+
+Before measurement, the acceptance value required the tag rule to remove symbol comments and retain every manually identified module description.
+The tag rule failed: it removed every existing description, including clear descriptions of files.
+Thus the change uses the narrower variable-comment rule.
+
+| repository | revision | source files | earlier descriptions | tag rule | revised rule |
+|---|---|---:|---:|---:|---:|
+| ky | `0d59458a0a58e1c3d7c6db0ab17ed5c7cd671e47` | 87 | 7 | 0 | 6 |
+| vite | `c2c9ef4dcd05b3e4d88844ea3a13dc23819ca2a5` | 576 | 44 | 0 | 41 |
+
+Ky uses the revision from PR #12. Issue #91 does not record the earlier vite trial revision.
+This measurement pins the current vite revision instead.
+The [recorded results](results/typescript-descriptions-91.json) contain each earlier description, its tag-rule result, and its revised result.
+
+Manual examination of the four removed descriptions found comments attached to variables:
+
+- ky `source/core/retry-timing.ts`: the timestamp threshold constant.
+- vite `packages/vite/src/shared/constants.ts`: the import prefix constant.
+- vite `packages/vite/src/module-runner/constants.ts`: the export constants.
+- vite `packages/plugin-legacy/src/snippets.ts`: the source URL of a constant containing a browser fix.
+
+The revised rule keeps file descriptions such as vite's benchmark header, module-runner export header, and formatter header.
+This syntax rule cannot determine the purpose of every comment. Comments before imports can still describe an individual symbol.
+An author can mark an ambiguous file comment with a module tag.
+
+Reproduce with checkouts at the revisions above:
+
+```sh
+uv run python bench/typescript_descriptions.py /path/to/ky /path/to/vite
+```
+
+For declaration imports, TypeScript 5.9.3 `resolveModuleName` with `moduleResolution: bundler` confirmed all nine parameterized import cases in `tests/test_typescript_declarations.py`.
+The cases include `./types.d`, JavaScript extension substitution, directory indexes, and a path alias.
+Regression tests also cover source priority, declaration priority before a directory index, and alias fallback order.
