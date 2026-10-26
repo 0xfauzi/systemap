@@ -237,7 +237,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="9e24b1bbce201c0ce525ff8ec8898aed68635b5c35097b7bccf9bde07761e948",
+        source_review="9baf237fac6798b897dc805887c9731adb4173d75886e5261c947db42c6c025a",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, label, placement, expected, load)",
         implemented_by=("systemap.place", "systemap.place_source"),
@@ -287,7 +287,7 @@ COMPONENTS = (
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="20ece27a8c3d2c7a4362f1dec4ea7280dd69458355fde96244d03e7a54a63036",
+        source_review="e822e4e19faa0a937286ddbab5308c41ff7622163173021f78e2d5749059e080",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=("systemap.route", "systemap.route_search", "systemap.seat_grid"),
@@ -298,7 +298,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="0a62d3dc4382652d7f08c2f8af3d7b9554a6e532a209440572ad7790ec905d77",
+        source_review="8d0135a0f797b48dd1205b2ba0de6c4749fba8ec6a3dbc468acd1a345611fd88",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -433,7 +433,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="667502e3cfc5954a1021c9540b3992500b0e1ff5f1d27b18d5bee9e9fea04f98",
+        source_review="84ac2cec024dc7639cc55cec02ef93597f299537c0ebe082e93cb489fc0d615a",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),

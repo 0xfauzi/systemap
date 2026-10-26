@@ -7,11 +7,16 @@ Acceptance:
   region.
 - The search examines the regions of each grid segment one time for each router. The
   earlier search examined them for each step of each search.
+
+This change makes each step of the search faster. It does not decrease the number of
+states that the search examines. Thus scale-5 is only partly fixed.
 """
 
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -83,8 +88,10 @@ def _digest(layout: Layout) -> str:
 
 
 @pytest.mark.parametrize(("name", "make"), [("regions", _regions_layout), ("cards", _cards_layout)])
-def test_the_search_gives_the_routes_of_the_earlier_search(name: str, make: object) -> None:
-    layout = make()  # type: ignore[operator]
+def test_the_search_gives_the_routes_of_the_earlier_search(
+    name: str, make: Callable[[], Layout]
+) -> None:
+    layout = make()
     routes = route_all(*layout)
     assert len(routes) == len(layout[0]) > 30
     # The layout must have flows that cross an unrelated region, or the test does not
@@ -105,7 +112,12 @@ def test_the_search_examines_the_regions_of_a_segment_one_time(
 
     monkeypatch.setattr(Router, "_segment", counted)
     routers: list[Router] = []
-    monkeypatch.setattr(route, "Router", lambda *a: routers.append(Router(*a)) or routers[-1])
+
+    def made(*args: Any) -> Router:
+        routers.append(Router(*args))
+        return routers[-1]
+
+    monkeypatch.setattr(route, "Router", made)
     layout = _regions_layout()
     route_all(*layout)
     # The earlier search called _segment 428362 times on this layout: one call for
