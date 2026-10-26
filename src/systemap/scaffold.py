@@ -207,6 +207,8 @@ WORKFLOW = """name: systemap
 # The committed map must agree with the source facts and the renderer.
 # This workflow uses the package version that made it.
 # When you install a new systemap version, change the version in this file.
+# The version of uv in each installation step is also fixed. Change it only after you examine
+# the new uv release.
 #
 # SYSTEMAP_CI below controls what a map finding does. With advisory, a finding gives a
 # warning and the job passes. With strict, a finding makes the job fail. When systemap
@@ -245,7 +247,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
           enable-cache: true
 
       - name: Source facts match
@@ -319,7 +321,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
-          version: latest
+          version: "0.11.29"
           enable-cache: true
 
       - name: Map change results

@@ -110,12 +110,15 @@ class Group:
 
 @dataclass
 class Draft:
-    """The draft sequence or the reasons for refusal."""
+    """The draft sequence or the reasons for refusal.
+
+    `cached` is True if the answer came from the agent cache, not from an agent call."""
 
     entry: dict[str, str]
     journey: Journey | None = None
     problems: tuple[str, ...] = ()
     answer: str = ""
+    cached: bool = False
 
 
 def uncovered(
@@ -363,12 +366,23 @@ def write_one(
     question = GROUP_QUESTION if group.whole else QUESTION
     supplied = context(model, meaning, facts, group)
     supplied["source_snapshot"] = _source_snapshot(agent.root, facts)
+    before = agent.usage.cached
     answer = agent.ask(
         question,
         supplied,
         accept=lambda text: read_answer(text, model, group, facts).journey is not None,
     )
-    return refuse_used_id(read_answer(answer, model, group, facts), meaning, taken)
+    draft = refuse_used_id(read_answer(answer, model, group, facts), meaning, taken)
+    return dataclasses.replace(draft, cached=agent.usage.cached > before)
+
+
+# The row under a sequence result whose answer came from the agent cache.
+FROM_CACHE = "from the cache: this answer came from the agent cache, not from an agent call"
+
+
+def cache_rows(draft: Draft) -> list[str]:
+    """Give the row that tells that the answer of the draft came from the agent cache."""
+    return [f"      {FROM_CACHE}"] if draft.cached else []
 
 
 def refuse_used_id(draft: Draft, meaning: Meaning, taken: Collection[str] = ()) -> Draft:

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 
-from systemap import config, delta_link
+from systemap import config, delta_git, delta_link
 from systemap.cli import main
 
 URL = "https://example.org/pr-{number}/"
@@ -107,6 +107,17 @@ def git(root: Path, *args: str) -> str:
 @pytest.fixture
 def repo(two_cards: Path) -> Path:
     """Two commits: the second adds a module that no component claims."""
+    return commits(two_cards)
+
+
+@pytest.fixture
+def repo_with_url(two_cards: Path) -> Path:
+    """The same two commits. The base commit sets `[delta] page_url`."""
+    add_config(two_cards, f'[delta]\npage_url = "{URL}"\n')
+    return commits(two_cards)
+
+
+def commits(two_cards: Path) -> Path:
     git(two_cards, "init", "-q")
     git(two_cards, "add", "-A")
     git(two_cards, "commit", "-q", "-m", "base")
@@ -151,9 +162,9 @@ def test_without_a_page_url_delta_writes_the_summary_without_a_link(
 
 
 def test_with_a_page_url_delta_writes_the_summary_and_the_link(
-    repo: Path, capsys: pytest.CaptureFixture[str]
+    repo_with_url: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    add_config(repo, f'[delta]\npage_url = "{URL}"\n')
+    repo = repo_with_url
     out = repo / "comment.md"
     assert delta(repo, "--base", "HEAD~1", "--pr", "5", "--comment", str(out)) == 1
     text = out.read_text(encoding="utf-8")
@@ -164,10 +175,62 @@ def test_with_a_page_url_delta_writes_the_summary_and_the_link(
     assert "The map needs an update (1):" in capsys.readouterr().out
 
 
+EVIL = "https://evil.example/pr-{number}/"
+
+
+def fork_sets(repo: Path, url: str) -> None:
+    """A pull request from a fork commits a different `[delta] page_url`."""
+    path = repo / "systemap.toml"
+    body = path.read_text(encoding="utf-8").replace(f'[delta]\npage_url = "{URL}"\n', "")
+    path.write_text(body + f'\n[delta]\npage_url = "{url}"\n', encoding="utf-8")
+    git(repo, "commit", "-q", "-am", "fork")
+
+
+def test_a_fork_page_url_does_not_go_into_the_comment(repo: Path) -> None:
+    """Acceptance (ci-8): the base commit has no page_url, and the fork commit adds one.
+    The comment has no link. Before the change, the comment linked to evil.example."""
+    fork_sets(repo, EVIL)
+    out = repo / "comment.md"
+    assert delta(repo, "--base", "HEAD~2", "--pr", "5", "--comment", str(out)) == 1
+    text = out.read_text(encoding="utf-8")
+    assert "evil.example" not in text
+    assert "#changes" not in text
+
+
+def test_the_comment_link_comes_from_the_base_commit(repo_with_url: Path) -> None:
+    """Acceptance (ci-8): the fork commit changes page_url. The link uses the base value.
+    Before the change, the comment linked to evil.example."""
+    fork_sets(repo_with_url, EVIL)
+    assert "evil.example" in (repo_with_url / "systemap.toml").read_text(encoding="utf-8")
+    out = repo_with_url / "comment.md"
+    assert delta(repo_with_url, "--base", "HEAD~2", "--pr", "5", "--comment", str(out)) == 1
+    text = out.read_text(encoding="utf-8")
+    assert "evil.example" not in text
+    assert text.endswith("(https://example.org/pr-5/#changes)\n")
+
+
+def test_the_base_page_url_can_come_from_pyproject(tmp_path: Path) -> None:
+    """Without systemap.toml at the commit, the value comes from [tool.systemap.delta].
+    An incorrect committed value gives DeltaError with the commit."""
+    (tmp_path / "pyproject.toml").write_text(
+        f'[tool.systemap.delta]\npage_url = "{URL}"\n', encoding="utf-8"
+    )
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-q", "-m", "one")
+    cfg = config.Config(tmp_path, "demo", (("pkg", "pkg"),), language="python")
+    assert delta_git.page_url_at(cfg, git(tmp_path, "rev-parse", "HEAD")) == URL
+    (tmp_path / "systemap.toml").write_text('[delta]\npage_url = "x"\n', encoding="utf-8")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-q", "-m", "two")
+    with pytest.raises(delta_git.DeltaError, match="systemap.toml at .*must start with https"):
+        delta_git.page_url_at(cfg, git(tmp_path, "rev-parse", "HEAD"))
+
+
 def test_a_comment_without_a_pull_request_number_is_an_option_error(
-    repo: Path, capsys: pytest.CaptureFixture[str]
+    repo_with_url: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    add_config(repo, f'[delta]\npage_url = "{URL}"\n')
+    repo = repo_with_url
     assert delta(repo, "--base", "HEAD~1", "--comment", str(repo / "comment.md")) == 2
     err = capsys.readouterr().err
     assert "delta --comment must have --pr with the pull request number." in err

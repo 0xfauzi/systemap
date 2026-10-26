@@ -343,6 +343,7 @@ def _write_journeys(
             continue
         # A rejected draft and a draft that the model cannot hold are not complete.
         failed += not _record_journey(current, group, draft, sources, written, out)
+        out += journeys.cache_rows(draft)
     if written and not _commit_journeys(cfg, sources, written, out):
         return STALE
     if failed:

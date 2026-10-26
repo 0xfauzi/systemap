@@ -16,12 +16,14 @@ import os
 import subprocess
 import tempfile
 import threading
+import tomllib
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, BinaryIO
 
-from systemap import extraction, nest, repo_files
-from systemap.config import Config, ConfigError
+from systemap import extraction, nest, repo_files, tool_table
+from systemap.config import CONFIG_FILE, Config, ConfigError
+from systemap.delta_link import page_url
 
 # Git tree entry modes that this reader writes.
 REGULAR = ("100644", "100755")
@@ -298,6 +300,34 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
     facts["built_at_commit"] = sha
     facts["refused_paths"] = _records(refused)
     return facts
+
+
+def page_url_at(cfg: Config, sha: str) -> str:
+    """This function reads `[delta] page_url` from the committed configuration at `sha`.
+
+    The delta comment gets its link from the base commit, not from the working tree.
+    In CI, the working tree is the pull request, and a fork can change its configuration.
+    A commit without the configuration or without the value gives "". An incorrect
+    committed configuration gives DeltaError.
+    """
+    blobs = blobs_at(cfg.root, sha, (CONFIG_FILE, "pyproject.toml"))
+    where = f"{CONFIG_FILE} at {sha[:7]}"
+    try:
+        raw = _committed_table(blobs)
+        return page_url(raw, where)
+    except ValueError as exc:
+        raise DeltaError(f"{where}: {exc}") from exc
+
+
+def _committed_table(blobs: dict[str, bytes | None]) -> dict[str, Any]:
+    """Give the configuration table of the committed files, as `config.read_raw` does."""
+    own = blobs.get(CONFIG_FILE)
+    if own is not None:
+        return tomllib.loads(own.decode("utf-8-sig"))
+    project = blobs.get("pyproject.toml")
+    if project is None:
+        return {}
+    return tool_table.section(tomllib.loads(project.decode("utf-8-sig"))) or {}
 
 
 def _records(refused: list[tuple[str, str]]) -> list[dict[str, str]]:

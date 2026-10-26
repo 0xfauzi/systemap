@@ -35,6 +35,8 @@ import json
 import math
 import os
 import random
+import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -280,6 +282,46 @@ def _read_cache(root: Path, path: Path | None) -> tuple[dict[str, Any], dict[str
     return entries, {k: v for k, v in releases.items() if isinstance(v, str)}
 
 
+# The environment variable that permits a cache file that Git tracks.
+TRUST_TRACKED = "SYSTEMAP_TRUST_TRACKED_CACHE"
+
+
+def tracked(root: Path, path: Path) -> bool:
+    """Tell if Git tracks the file at `path` in the repository at `root`.
+
+    If Git cannot do the check, for example outside a repository, the result is False."""
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", str(path)],
+            cwd=root,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.returncode == 0
+
+
+def tracked_note(root: Path, path: Path) -> str:
+    """Give the warning for a cache file that Git tracks and that the cache does not use."""
+    rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+    return (
+        f"systemap did not read or write the cache file {rel}, because Git tracks it. "
+        "A cloned repository can supply the answers in such a file. "
+        f"If you trust the answers in this file, set {TRUST_TRACKED}=1. "
+        f"If you do not trust them, remove the file from Git: git rm --cached {rel}"
+    )
+
+
+def _refused(root: Path, path: Path) -> bool:
+    """Tell if the cache must not use a file that Git tracks. If so, give the warning."""
+    if os.environ.get(TRUST_TRACKED) == "1" or not tracked(root, path):
+        return False
+    print(tracked_note(root, path), file=sys.stderr)
+    return True
+
+
 class Cache:
     """Keep disk answers by `cache_key` and replace the full file through a temporary file.
 
@@ -293,7 +335,12 @@ class Cache:
 
     A cache file has a root: the repository root for a configured cache. The file and
     each folder of it must be in the root (`file_write`). A path without a root gives
-    ValueError, so that a caller cannot forget the root."""
+    ValueError, so that a caller cannot forget the root.
+
+    A cache file that Git tracks can come from a cloned repository. Its answers are then
+    not from a provider or an agent on this computer. Thus the cache does not read or
+    write such a file, and `refused` is True. A warning on stderr gives the file. If the
+    environment sets SYSTEMAP_TRUST_TRACKED_CACHE=1, the cache uses the file."""
 
     def __init__(self, path: Path | None = None, *, root: Path | None = None) -> None:
         if path is not None and root is None:
@@ -304,13 +351,14 @@ class Cache:
         self.releases: dict[str, str] = {}
         if path is not None:
             file_write.confined(self.root, path)
-        if path is not None and path.exists():
+        self.refused = path is not None and path.exists() and _refused(self.root, path)
+        if path is not None and path.exists() and not self.refused:
             # On Windows, a read cannot occur while a different process replaces the file.
             with file_write.locked(self.root, path):
                 self.entries, self.releases = _read_cache(self.root, path)
 
     def save(self) -> None:
-        if self.path is None:
+        if self.path is None or self.refused:
             return
         with file_write.locked(self.root, self.path):
             entries, releases = _read_cache(self.root, self.path)
