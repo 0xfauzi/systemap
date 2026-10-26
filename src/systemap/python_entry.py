@@ -13,7 +13,7 @@ import ast
 from pathlib import Path
 from typing import Any
 
-from systemap import python_repo, python_tree, unknown_causes
+from systemap import config, python_repo, python_tree, unknown_causes
 from systemap.call_sites import IMPORT, WHOLE
 from systemap.source_facts import entry_identity
 
@@ -267,22 +267,16 @@ def _receiver_kind(constructed: str) -> str:
     return ""
 
 
-def _table(data: dict[str, Any], *keys: str) -> dict[str, Any]:
-    out: Any = data
-    for key in keys:
-        out = out.get(key, {}) if isinstance(out, dict) else {}
-    return out if isinstance(out, dict) else {}
-
-
 def in_pyproject(data: dict[str, Any], components: dict[str, Any]) -> list[dict[str, str]]:
     """This function reads package scripts and plugin hooks from pyproject.toml.
 
     It includes Poetry scripts and project entry points in addition to project scripts.
+    A table on the key path that is not a table, and a Poetry script that is not a string
+    or a table, give a ConfigError with the key.
     """
     out: list[dict[str, str]] = []
-    for name, target in sorted(_table(data, "tool", "poetry", "scripts").items()):
-        text = target if isinstance(target, str) else str(target.get("callable", ""))
-        module, _, func = text.partition(":")
+    for name, target in sorted(python_repo.table(data, "tool", "poetry", "scripts").items()):
+        module, _, func = _poetry_target(str(name), target).partition(":")
         if module.strip() in components:
             out.append(
                 {
@@ -292,10 +286,21 @@ def in_pyproject(data: dict[str, Any], components: dict[str, Any]) -> list[dict[
                     "target": func.strip(),
                 }
             )
-    groups = _table(data, "project", "entry-points")
+    groups = python_repo.table(data, "project", "entry-points")
     for group, entries in sorted(groups.items()):
         out += _hooks(group, entries, components)
     return out
+
+
+def _poetry_target(name: str, target: Any) -> str:
+    """Give the target text of one Poetry script: a string, or the `callable` of a table."""
+    if isinstance(target, str):
+        return target
+    if isinstance(target, dict):
+        return str(target.get("callable", ""))
+    raise config.ConfigError(
+        f"pyproject.toml: the value of tool.poetry.scripts.{name} must be a string or a table."
+    )
 
 
 def _hooks(group: str, entries: Any, components: dict[str, Any]) -> list[dict[str, str]]:
@@ -348,14 +353,12 @@ def subcommands(raw: str) -> list[str]:
 
 def console_scripts(repo: Path) -> dict[str, tuple[str, str]]:
     """Map `[project.scripts]` names to module and function targets."""
-    data = read_pyproject(repo)
-    scripts = data.get("project", {}).get("scripts", {})
+    scripts = python_repo.table(read_pyproject(repo), "project", "scripts")
     out: dict[str, tuple[str, str]] = {}
-    if isinstance(scripts, dict):
-        for name, target in scripts.items():
-            if isinstance(target, str) and ":" in target:
-                module, func = target.split(":", 1)
-                out[str(name)] = (module.strip(), func.strip())
+    for name, target in scripts.items():
+        if isinstance(target, str) and ":" in target:
+            module, func = target.split(":", 1)
+            out[str(name)] = (module.strip(), func.strip())
     return out
 
 

@@ -11,13 +11,12 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
-import os
 import re
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from systemap import config, file_names, identifier
+from systemap import config, file_names, identifier, tree_walk
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_config import (
     SOURCE_SKIP,
@@ -70,7 +69,7 @@ def has_tsconfig(root: Path, depth: int = config.CANDIDATE_DEPTH) -> bool:
     The search skips node_modules, the other directories in `config.SKIP_WALK`,
     directories with a name that starts with a period, and directories with a name that
     is not valid UTF-8."""
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in tree_walk.walk(root):
         level = len(Path(dirpath).relative_to(root).parts)
         names = file_names.folders(dirnames)
         dirnames[:] = [
