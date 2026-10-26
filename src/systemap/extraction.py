@@ -13,10 +13,11 @@ import json
 import re
 import subprocess
 from collections import defaultdict
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from systemap import file_names, repo_files, source_text, unknown_causes
+from systemap import fact_cache, file_names, repo_files, source_text, unknown_causes
 from systemap import language as languages
 from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
@@ -244,13 +245,15 @@ def _collect_modules(
     paths: dict[str, Path],
     prefixes: set[str],
     context: Any,
+    cache: fact_cache.FactCache | None = None,
 ) -> tuple[dict[str, Any], dict[str, set[str]], dict[str, str]]:
     known = set(paths)
     components: dict[str, Any] = {}
     imports: dict[str, set[str]] = {}
     sources: dict[str, str] = {}
     for module, path in sorted(paths.items()):
-        facts = _module_facts(cfg, language, module, path, prefixes, known, paths, context)
+        make = partial(_module_facts, cfg, language, module, path, prefixes, known, paths, context)
+        facts = make() if cache is None else _kept_module(cache, cfg.root, module, path, make)
         if facts is None:
             continue
         record, raw, uses = facts
@@ -258,6 +261,19 @@ def _collect_modules(
         imports[module] = uses
         components[module] = record
     return components, imports, sources
+
+
+def _kept_module(
+    cache: fact_cache.FactCache,
+    repo: Path,
+    module: str,
+    path: Path,
+    make: Any,
+) -> tuple[dict[str, Any], str, set[str]] | None:
+    """Give the kept facts of a module with the same text, or make them."""
+    found: tuple[dict[str, Any], str, set[str]] | None
+    found = cache.remember("module", module, cache.digest(repo, path), make)
+    return found
 
 
 def _link_importers(components: dict[str, Any], imports: dict[str, set[str]]) -> None:
@@ -278,6 +294,7 @@ def _attach_call_sites(
     paths: dict[str, Path],
     prefixes: set[str],
     context: Any,
+    cache: fact_cache.FactCache | None = None,
 ) -> None:
     """Write the `call_sites` fact of each module after all module records exist.
 
@@ -287,23 +304,61 @@ def _attach_call_sites(
     del cfg
     known = set(paths)
     for module, record in components.items():
-        sites = None
-        try:
-            if record["completeness"]["parsed"]:
-                sites = language.call_sites(
-                    sources[module],
-                    module,
-                    prefixes,
-                    known,
-                    components,
-                    is_package=language.is_package_module(paths[module]),
-                    paths=paths,
-                    context=context,
-                )
-        except unknown_causes.DEPTH_ERRORS:
+        found = (sources, components, paths)
+        make = partial(_module_sites, language, module, found, (prefixes, known), context)
+        sites, deep = make() if cache is None else _kept_sites(cache, module, found, make)
+        if deep:
             refuse_depth(record)
         uses = record.get("uses", {})
         record["call_sites"] = None if sites is None else [s for s in sites if s["target"] in uses]
+
+
+def _module_sites(
+    language: LanguageAdapter,
+    module: str,
+    found: tuple[dict[str, str], dict[str, Any], dict[str, Path]],
+    names: tuple[set[str], set[str]],
+    context: Any,
+) -> tuple[list[dict[str, Any]] | None, bool]:
+    """Give the call sites of one module, and True if a step went above the recursion
+    limit or the memory."""
+    sources, components, paths = found
+    prefixes, known = names
+    if not components[module]["completeness"]["parsed"]:
+        return None, False
+    try:
+        sites = language.call_sites(
+            sources[module],
+            module,
+            prefixes,
+            known,
+            components,
+            is_package=language.is_package_module(paths[module]),
+            paths=paths,
+            context=context,
+        )
+    except unknown_causes.DEPTH_ERRORS:
+        return None, True
+    return sites, False
+
+
+def _kept_sites(
+    cache: fact_cache.FactCache,
+    module: str,
+    found: tuple[dict[str, str], dict[str, Any], dict[str, Path]],
+    make: Any,
+) -> tuple[list[dict[str, Any]] | None, bool]:
+    """Give the kept call sites of a module, or make them.
+
+    The call sites of a Python module use the public names of the modules that it
+    imports. Thus the key has the digest of the text and the digest of these names."""
+    sources, components, _paths = found
+    record = components[module]
+    targets = sorted({module, *record.get("uses", {})})
+    names = [components.get(target, {}).get("names") for target in targets]
+    key = fact_cache.text_digest(sources[module] + json.dumps([targets, names], sort_keys=True))
+    kept: tuple[list[dict[str, Any]] | None, bool] = cache.remember("sites", module, key, make)
+    return kept
 
 
 def _attach_test_facts(components: dict[str, Any], guards: dict[str, list[dict[str, Any]]]) -> None:
@@ -395,20 +450,55 @@ def _facts_file(
     return facts
 
 
-def build(cfg: Config) -> dict[str, Any]:
+def build(cfg: Config, cache: fact_cache.FactCache | None = None) -> dict[str, Any]:
     """Make facts for the tree at `cfg.root`, ready for JSON output.
 
     When the extraction is complete, or when it fails, the adapter removes the data that
-    it kept during the extraction.
+    it kept during the extraction. With a cache, the extraction uses the kept facts of
+    each file with the same text, if the adapter can keep facts (`keep_facts`). The
+    result is the same as without a cache.
     """
     language = language_for(cfg)
     refused: dict[str, Path] = {}
     paths = _source_paths(cfg, language, refused)
     context = language.context(cfg.root, paths, cfg.test_dirs, cfg.test_patterns)
     try:
-        return _build(cfg, language, paths, refused, context)
+        kept = _kept_facts(cfg, language, (paths, refused), context, cache)
+        return _build(cfg, language, paths, refused, context, kept)
     finally:
         language.release(context)
+
+
+def _kept_facts(
+    cfg: Config,
+    language: LanguageAdapter,
+    found: tuple[dict[str, Path], dict[str, Path]],
+    context: Any,
+    cache: fact_cache.FactCache | None,
+) -> fact_cache.FactCache | None:
+    """Give the cache if the adapter can keep facts. Renew it for these modules.
+
+    An adapter with `keep_facts` makes the facts of one file only from its text, the
+    module paths, the configuration and the public names of the modules that it imports.
+    The generation of the cache has the values that are not in a file."""
+    keep = getattr(language, "keep_facts", None)
+    if cache is None or keep is None:
+        if cache is not None:
+            # Without a generation, the cache keeps no value for the other steps of a render.
+            cache.renew("")
+        return None
+    paths, refused = found
+    generation = {
+        "root": str(cfg.root),
+        "paths": sorted((module, str(path)) for module, path in paths.items()),
+        "refused": sorted((module, str(path)) for module, path in refused.items()),
+        "settings": [cfg.language, cfg.package_roots, cfg.planes],
+        "tests": [cfg.test_dirs, cfg.test_patterns],
+        "parser": language.parser_version(),
+    }
+    cache.renew(fact_cache.text_digest(json.dumps(generation, sort_keys=True, default=str)))
+    keep(context, cache)
+    return cache
 
 
 def _build(
@@ -417,16 +507,17 @@ def _build(
     paths: dict[str, Path],
     refused: dict[str, Path],
     context: Any,
+    cache: fact_cache.FactCache | None = None,
 ) -> dict[str, Any]:
     repo = cfg.root
     prefixes = {name for _, name in cfg.roots}
-    components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context)
+    components, imports, sources = _collect_modules(cfg, language, paths, prefixes, context, cache)
     found = (components, imports, sources)
     _add_refused(cfg, language, refused, paths, prefixes, context, found)
     # Re-export kinds require every defining module to have been parsed.
     resolve_reexports(components)
     _link_importers(components, imports)
-    _attach_call_sites(cfg, language, components, sources, paths, prefixes, context)
+    _attach_call_sites(cfg, language, components, sources, paths, prefixes, context, cache)
     for module, record in components.items():
         record["empty_marker"] = language.empty_marker(record, sources[module])
     guards = language.collect_tests(repo, cfg.test_dirs, prefixes, paths, context)

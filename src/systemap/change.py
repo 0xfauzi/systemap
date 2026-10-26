@@ -15,6 +15,7 @@ import dataclasses
 import json
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ from systemap import (
     delta_git,
     delta_model,
     extraction,
+    fact_cache,
     history,
     nest,
 )
@@ -371,7 +373,10 @@ def _unread_delta(before: change_text.Text, after: change_text.Text) -> dict[str
 
 
 def _source_deltas(
-    language: LanguageAdapter, sources: dict[str, str], texts: _Sides
+    language: LanguageAdapter,
+    sources: dict[str, str],
+    texts: _Sides,
+    cache: fact_cache.FactCache | None = None,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
     """This function gives the surface delta of each changed source module.
 
@@ -386,7 +391,9 @@ def _source_deltas(
             unparsed.append(module)
             deltas[module] = _unread_delta(before, after)
             continue
-        delta = surface_delta(before.raw, after.raw, language, path)
+        make = partial(surface_delta, before.raw, after.raw, language, path)
+        key = fact_cache.text_digest(json.dumps([before.raw, after.raw]))
+        delta = fact_cache.kept(cache, "surface", path, key, make)
         if delta is None:
             unparsed.append(module)
             continue
@@ -419,12 +426,17 @@ class SourceChange:
 
 
 def source_change(
-    cfg: Config, base: str, facts: dict[str, Any], head: str = "HEAD"
+    cfg: Config,
+    base: str,
+    facts: dict[str, Any],
+    head: str = "HEAD",
+    cache: fact_cache.FactCache | None = None,
 ) -> SourceChange:
     """This function compares the changed source files of a Git ref and a head.
 
     With the head `WORKING_TREE`, `facts` are the facts of the working tree. For a commit
-    head, the facts come from the commit.
+    head, the facts come from the commit. With a cache, the function uses the kept
+    surface delta of each pair of texts and the kept tests of each side.
     """
     language = extraction.language_for(cfg)
     base_revision, head_revision, merge_base, side = _sides(cfg, base, head, facts)
@@ -448,12 +460,13 @@ def source_change(
         _refused(change_text.at(cfg.root, merge_base, wanted), refused),
         _refused(side.texts(wanted), refused),
     )
-    deltas, unparsed = _source_deltas(language, sources, texts)
+    deltas, unparsed = _source_deltas(language, sources, texts, cache)
     tests_added, tests_removed, unread = change_tests.compare(
         cfg,
         language,
         ({path: texts.base[path] for path in tests}, {path: texts.head[path] for path in tests}),
         (merge_base, side.revision),
+        cache,
     )
     return dataclasses.replace(
         found,

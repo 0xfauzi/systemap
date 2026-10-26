@@ -17,10 +17,11 @@ import os
 from collections import defaultdict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from systemap import file_names, python_calls, python_repo, unknown_causes
+from systemap import fact_cache, file_names, python_calls, python_repo, unknown_causes
 from systemap.pattern_match import matches_test_pattern
 from systemap.source_text import read_problems
 
@@ -29,10 +30,14 @@ EXCERPT = 120
 
 @dataclass
 class PythonTests:
-    """The test patterns of one extraction, and the test files that have a problem."""
+    """The test patterns of one extraction, and the test files that have a problem.
+
+    With a cache, the extraction uses the kept test functions of each test file with the
+    same text. The module paths are in the generation of the cache."""
 
     test_patterns: tuple[str, ...] = ()
     test_issues: list[dict[str, Any]] = field(default_factory=list)
+    cache: fact_cache.FactCache | None = None
 
 
 def is_test_file(path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...]) -> bool:
@@ -174,28 +179,39 @@ def collect_tests(
     refused: list[Path] = []
     files = test_files(repo, tests_dirs, tests.test_patterns, refused)
     for path in [*files, *refused]:
-        try:
-            found = _test_guards(repo, path, tests, (prefixes, known, packages))
-        except unknown_causes.DEPTH_ERRORS:
-            # A test file with too many syntax levels gives a record, not a stop.
-            relative = file_names.shown(path.relative_to(repo).as_posix())
-            problem = (unknown_causes.DEPTH_REASON, unknown_causes.DEPTH)
-            tests.test_issues.append(_issue(relative, 0, problem))
-            continue
+        make = partial(_file_guards, repo, path, (prefixes, known, packages))
+        cache = tests.cache
+        key = None if cache is None else cache.digest(repo, path)
+        found, issues = make() if cache is None else cache.remember("tests", str(path), key, make)
+        tests.test_issues.extend(issues)
         for target, entries in found.items():
             guards[target].extend(entries)
     return guards
 
 
+def _file_guards(
+    repo: Path, path: Path, names: tuple[set[str], set[str], dict[Path, str]]
+) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    """Give the test functions of one test file for each module, and the problems."""
+    issues: list[dict[str, Any]] = []
+    try:
+        return _test_guards(repo, path, issues, names), issues
+    except unknown_causes.DEPTH_ERRORS:
+        # A test file with too many syntax levels gives a record, not a stop.
+        relative = file_names.shown(path.relative_to(repo).as_posix())
+        problem = (unknown_causes.DEPTH_REASON, unknown_causes.DEPTH)
+        return {}, [*issues, _issue(relative, 0, problem)]
+
+
 def _test_guards(
     repo: Path,
     path: Path,
-    tests: PythonTests,
+    issues: list[dict[str, Any]],
     names: tuple[set[str], set[str], dict[Path, str]],
 ) -> dict[str, list[dict[str, Any]]]:
     """Give the test functions of one test file for each module that it imports."""
     prefixes, known, packages = names
-    tree = _parse_test(repo, path, tests.test_issues)
+    tree = _parse_test(repo, path, issues)
     if tree is None:
         return {}
     package = packages.get(path.parent, "")
