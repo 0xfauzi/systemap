@@ -175,7 +175,10 @@ They answer only a request whose Host header is <code>127.0.0.1</code> or <code>
 <span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">curl</span> <span class="a">-s</span> <span class="a">-o</span> /dev/null <span class="a">-w</span> <span class="s">"%{http_code}\n"</span> <span class="a">-H</span> <span class="s">"Host: evil.example:8765"</span> http://127.0.0.1:8765/</span>
 <span class="ln" style="--i:0">403</span></code></pre>
 <p>Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
-The servers have no other access control.
+The servers also refuse a <code>POST</code> request from a page of a different web site.
+A browser identifies such a request with the <code>Sec-Fetch-Site</code> header or the <code>Origin</code> header.
+Each connection has a read time limit of 10 seconds.
+<code>systemap live</code> accepts a maximum of 32 event connections at the same time.
 Other programs on the computer can read the map and send <code>POST /refresh</code> to <code>systemap live</code>.</p>
 <h2 id="what-systemap-writes">What systemap writes</h2>
 <p>systemap writes the map files, the model files (<code>place</code> and <code>journeys</code>), and caches in <code>.systemap/</code>.

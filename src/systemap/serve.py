@@ -49,6 +49,7 @@ from systemap import (
     page,
     page_live,
     repo_files,
+    serve_guard,
 )
 from systemap.config import ArgumentError, Config, ConfigError
 from systemap.live_watch import watch, watched
@@ -67,7 +68,7 @@ KEEP_SECONDS = 15.0
 
 def _listen(handler: Callable[..., BaseHTTPRequestHandler], port: int) -> ThreadingHTTPServer:
     try:
-        return ThreadingHTTPServer(("127.0.0.1", port), handler)
+        return serve_guard.Server(("127.0.0.1", port), handler)
     except (OSError, OverflowError) as exc:
         reason = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
         raise ArgumentError(
@@ -82,16 +83,23 @@ class PageHandler(SimpleHTTPRequestHandler):
     A web page can make its own domain name point at 127.0.0.1 (DNS rebinding). Then the
     browser sends that name in the Host header. The server refuses each request whose Host
     is not 127.0.0.1 or localhost with the server port, so such a page cannot read the map.
+    The server also refuses a POST request from a page of a different site.
     """
+
+    # A client that does not send its request in this time loses the connection.
+    timeout = serve_guard.READ_SECONDS
 
     def parse_request(self) -> bool:
         if not super().parse_request():
             return False
-        port = self.server.server_address[1]  # type: ignore[index] # a TCP server: (host, port)
-        if self.headers.get("Host", "") in {f"127.0.0.1:{port}", f"localhost:{port}"}:
-            return True
-        self.send_error(403, "The server answers only requests to 127.0.0.1 or localhost.")
-        return False
+        port = int(self.server.server_address[1])  # type: ignore[index] # a TCP server: (host, port)
+        if self.headers.get("Host", "") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
+            self.send_error(403, "The server answers only requests to 127.0.0.1 or localhost.")
+            return False
+        if serve_guard.other_site(self.command, self.headers, port):
+            self.send_error(403, "The server refuses a POST request from a different web site.")
+            return False
+        return True
 
     def send_head(self) -> Any:
         """Refuse a file that a symbolic link puts outside the served directory."""
@@ -437,9 +445,13 @@ class LiveMap:
     # -- event readers --
 
     def listen(self) -> queue.Queue[str | None]:
-        """Add an event reader. First, the reader gets the number of the last good version."""
+        """Add an event reader. First, the reader gets the number of the last good version.
+
+        If the server has the maximum number of readers, give ReadersFull."""
         reader: queue.Queue[str | None] = queue.Queue()
         with self._lock:
+            if len(self._readers) >= serve_guard.MAX_READERS:
+                raise serve_guard.readers_full()
             self._readers.append(reader)
             if self._good:
                 reader.put(_event("rendered", {"version": self._good}))
@@ -535,11 +547,19 @@ class LiveHandler(PageHandler):
         self.wfile.write(data)
 
     def _events(self) -> None:
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.end_headers()
-        reader = self.live.listen()
+        """Send the events until the reader closes the connection.
+
+        The connection keeps its time limit. The server does not read after the request,
+        so the limit stops only a write to a reader that does not read."""
         try:
+            reader = self.live.listen()
+        except serve_guard.ReadersFull as exc:
+            self._json(503, {"error": str(exc)})
+            return
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
             for message in _messages(reader):
                 self.wfile.write(message.encode("utf-8"))
                 self.wfile.flush()
