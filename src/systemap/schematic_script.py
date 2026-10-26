@@ -11,7 +11,7 @@ from systemap.theme import Palette
 
 # JSON keeps these characters in a string without an escape. Python
 # str.splitlines and some JavaScript parsers read them as the end of a line.
-_LINE_ENDS = {" ": "\\u2028", " ": "\\u2029", "\u0085": "\\u0085"}
+_LINE_ENDS = {"\u2028": "\\u2028", "\u2029": "\\u2029", "\u0085": "\\u0085"}
 
 
 def line_safe(text: str) -> str:

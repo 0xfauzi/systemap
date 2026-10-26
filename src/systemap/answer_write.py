@@ -244,7 +244,7 @@ def _write(target: Path, raw: bytes, new: str) -> None:
     except UnicodeEncodeError as exc:
         raise AnswerWriteError(
             f"{target.name}: the answers contain text that UTF-8 cannot encode, for example "
-            f"a lone surrogate at position {exc.start}. The command wrote no file."
+            f"a lone surrogate at position {exc.start}. The command did not write {target.name}."
         ) from None
     target.write_bytes(data)
 

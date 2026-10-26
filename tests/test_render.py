@@ -4,6 +4,7 @@ import dataclasses
 import json
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 from conftest import Sample, sample_model
 
@@ -169,7 +170,7 @@ def test_the_two_schemes_share_one_token_table() -> None:
 
 # U+2028, U+2029 and U+0085 are line ends for str.splitlines and for some JavaScript
 # parsers. VT, FF and FS to RS are line ends for str.splitlines only.
-LINE_ENDS = "  \u0085\x0b\x0c\x1c\x1d\x1e"
+LINE_ENDS = "\u2028\u2029\u0085\x0b\x0c\x1c\x1d\x1e"
 
 
 def test_compact_ends_a_line_only_at_a_line_feed() -> None:
@@ -200,7 +201,23 @@ def test_map_text_with_line_ends_keeps_each_page_script_whole(sample: Sample) ->
     scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
     assert scripts
     for body in scripts:
-        assert not set(body) & set("  \u0085")
+        assert not set(body) & set("\u2028\u2029\u0085")
     line = next(s for s in html.split("\n") if s.startswith("var DETAIL = JSON.parse("))
     detail = json.loads(json.loads(line[len("var DETAIL = JSON.parse(") : -len(");")]))
     assert detail[first.id]["does"] == text
+
+
+def test_source_files_end_lines_only_at_a_line_feed() -> None:
+    """Each source file and test file has the same line count for splitlines and readlines.
+
+    The fact code counts lines with str.splitlines. Before the fix, schematic_script.py
+    had a raw U+2028 and a raw U+2029. splitlines then gave 477 lines and readlines
+    gave 475 lines, and each cited row after line 14 was two rows off."""
+    root = Path(__file__).resolve().parents[1]
+    files = [*(root / "src").rglob("*.py"), *(root / "tests").glob("*.py")]
+    bad = [
+        f.relative_to(root).as_posix()
+        for f in files
+        if set(f.read_text(encoding="utf-8")) & set(LINE_ENDS)
+    ]
+    assert bad == []

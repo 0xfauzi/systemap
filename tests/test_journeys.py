@@ -188,7 +188,7 @@ def test_the_walk_is_written_into_the_annotated_list_of_the_initial_model() -> N
     assert grown is not None and grown.startswith("JOURNEYS: tuple[Journey, ...] = (\n    Journey(")
 
 
-@pytest.mark.parametrize("char", [" ", " ", "\u0085", "\x0b", "\x0c", "\x1c"])
+@pytest.mark.parametrize("char", ["\u2028", "\u2029", "\u0085", "\x0b", "\x0c", "\x1c"])
 def test_a_line_end_of_str_splitlines_before_the_list_does_not_stop_the_insert(
     char: str,
 ) -> None:
