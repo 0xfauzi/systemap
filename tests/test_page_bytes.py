@@ -231,14 +231,35 @@ def test_the_page_server_sends_the_policy_of_the_page(sample: Sample, tmp_path: 
     (out / "figure.svg").write_text("<svg><style>a{}</style></svg>", encoding="utf-8")
     (out / "notes.txt").write_text("text", encoding="utf-8")
     for port in _running(serve.make_server(out, 0)):
+        # post-server-4: the header also gives the sites that can show the page in a frame.
+        frames = "; frame-ancestors 'self'"
         for path in ("/", "/index.html", "/child/"):
             status, headers = _headers(port, path)
-            assert status == 200 and headers["Content-Security-Policy"] == page_csp.of_page(html)
+            assert status == 200
+            assert headers["Content-Security-Policy"] == page_csp.of_page(html) + frames
+            assert headers["X-Content-Type-Options"] == "nosniff"
         assert _headers(port, "/figure.svg")[1]["Content-Security-Policy"] == (
-            page_csp.FIGURE_POLICY
+            page_csp.FIGURE_POLICY + frames
         )
         assert "Content-Security-Policy" not in _headers(port, "/notes.txt")[1]
         assert _headers(port, "/missing.html")[0] == 404
+
+
+def test_a_policy_with_a_line_break_gives_no_header(tmp_path: Path) -> None:
+    """Acceptance (post-server-2): before the repair, the server copied the meta content
+    into the header, and a line break in it made the header `X-Injected: 1`."""
+    out = tmp_path / "out"
+    out.mkdir()
+    policy = "default-src 'none'\r\nX-Injected: 1"
+    (out / "index.html").write_text(
+        f'<html><meta http-equiv="Content-Security-Policy" content="{policy}"></html>',
+        encoding="utf-8",
+    )
+    assert page_csp.of_file(out, out / "index.html") == ""
+    for port in _running(serve.make_server(out, 0)):
+        status, headers = _headers(port, "/")
+        assert status == 200
+        assert "X-Injected" not in headers and "Content-Security-Policy" not in headers
 
 
 def test_a_refused_request_gets_no_policy(sample: Sample, tmp_path: Path) -> None:
@@ -266,7 +287,8 @@ def test_the_live_server_sends_the_policy_with_the_live_script(tmp_path: Path) -
             status, headers = _headers(port, "/")
             assert status == 200
             policy = headers["Content-Security-Policy"]
-            assert policy == page_csp.of_page((tmp_path / "out/index.html").read_text())
+            out = (tmp_path / "out/index.html").read_text()
+            assert policy == page_csp.of_page(out) + "; " + serve.FRAMES
             assert "connect-src 'self'" in policy and "script-src 'sha256-" in policy
             assert "Content-Security-Policy" not in _headers(port, "/status")[1]
     finally:

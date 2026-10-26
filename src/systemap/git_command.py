@@ -10,6 +10,12 @@ filter settings for each filter that the repository configuration defines. It al
 not start a filter that the configuration of the submodule names. The caller adds
 `CONTENT` to a command that gives the content of a diff.
 
+A read can need an object that the repository does not have. If the configuration names
+a promisor remote, Git then does a lazy fetch. The fetch can run the upload program of
+the remote, an `ext::` URL, an SSH command, or a credential helper. Each Git process of
+systemap gets the environment of `env`. That environment stops the lazy fetch and each
+transport, and it has priority over `protocol.<name>.allow` in the configuration.
+
 Each command has a time limit. If Git cannot start or does not stop in the time limit,
 the result is the error class of the caller. The error text gives the Git cause.
 """
@@ -48,6 +54,9 @@ _NO_SUBMODULE_STATUS = "--ignore-submodules=dirty"
 # from the files of the user and the system, or from the command line.
 _REPOSITORY_SCOPES = ("local", "worktree")
 _FILTER_KEYS = ("clean", "smudge", "process")
+# These variables stop a lazy fetch. An empty `GIT_ALLOW_PROTOCOL` permits no transport.
+# Thus it also stops the fetch in a Git that does not know `GIT_NO_LAZY_FETCH`.
+_NO_FETCH = {"GIT_NO_LAZY_FETCH": "1", "GIT_ALLOW_PROTOCOL": ""}
 
 
 class GitError(Exception):
@@ -57,6 +66,11 @@ class GitError(Exception):
 def command(*args: str) -> list[str]:
     """This function gives the full Git command line with `SAFE_CONFIG`."""
     return ["git", *SAFE_CONFIG, *args]
+
+
+def env() -> dict[str, str]:
+    """This function gives the environment of a Git process. It stops each lazy fetch."""
+    return {**os.environ, **_NO_FETCH}
 
 
 def run(
@@ -107,7 +121,13 @@ def _start(
     line = command(*(extra or []), *args)
     try:
         return subprocess.run(  # noqa: S603 - git, with arguments that systemap makes
-            line, cwd=cwd, input=stdin, capture_output=True, timeout=timeout, check=False
+            line,
+            cwd=cwd,
+            env=env(),
+            input=stdin,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired as exc:
         raise error(f"git {args[0]} did not stop in the time limit of {timeout:g} s") from exc

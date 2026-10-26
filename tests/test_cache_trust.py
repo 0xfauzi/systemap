@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -217,3 +219,65 @@ def test_each_sequence_from_the_cache_has_the_cache_row(
     assert calls == [1]
     assert "journeys: wrote first (first)" in out
     assert f"      {journeys.FROM_CACHE}" in out
+
+
+def _failing_git(tmp: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Put a Git program on PATH that refuses each repository as Git does for a different
+    owner."""
+    folder = tmp / "fakebin"
+    folder.mkdir()
+    program = folder / "git"
+    program.write_text(
+        "#!/bin/sh\necho \"fatal: detected dubious ownership in repository at '$PWD'\" >&2\n"
+        "exit 128\n",
+        encoding="utf-8",
+    )
+    program.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{folder}{os.pathsep}{os.environ['PATH']}")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake Git is a shell script")
+def test_a_cache_file_in_a_work_tree_is_not_read_if_git_cannot_do_the_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance (SEC-1): before the repair, a Git refusal gave "not tracked". Then the
+    cache read the planted entry."""
+    monkeypatch.delenv(jev.TRUST_TRACKED, raising=False)
+    path = planted_cache(tmp_path, commit=True)
+    _failing_git(tmp_path, monkeypatch)
+    cache = jev.Cache(path, root=tmp_path)
+    assert cache.refused
+    assert cache.entries == {}
+    err = capsys.readouterr().err
+    assert "Git cannot tell if it tracks the file" in err
+    assert "detected dubious ownership" in err
+    monkeypatch.setenv(jev.TRUST_TRACKED, "1")
+    assert jev.Cache(path, root=tmp_path).entries == PLANTED["entries"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake Git is a shell script")
+def test_outside_a_work_tree_a_git_refusal_does_not_stop_the_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(jev.TRUST_TRACKED, raising=False)
+    path = tmp_path / "c.json"
+    path.write_text(json.dumps(PLANTED), encoding="utf-8")
+    _failing_git(tmp_path, monkeypatch)
+    assert jev.Cache(path, root=tmp_path).entries == PLANTED["entries"]
+
+
+def test_the_cache_warning_shows_control_characters_as_escapes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance (SEC-5): before the repair, ESC and BEL of the cache name reached stderr."""
+    monkeypatch.delenv(jev.TRUST_TRACKED, raising=False)
+    name = "c\x1b]0;PWNED\x07\x1b[2J.json"
+    path = tmp_path / name
+    path.write_text(json.dumps(PLANTED), encoding="utf-8")
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "-f", "--", name)
+    git(tmp_path, "commit", "-q", "-m", "clone")
+    assert jev.Cache(path, root=tmp_path).refused
+    err = capsys.readouterr().err
+    assert "\x1b" not in err and "\x07" not in err
+    assert "c\\u001b]0;PWNED\\u0007" in err

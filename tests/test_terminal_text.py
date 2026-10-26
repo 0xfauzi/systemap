@@ -43,7 +43,7 @@ from test_journeys import (
 )
 from test_trend import commit
 
-from systemap import journeys, judgement
+from systemap import file_names, journeys, judgement
 from systemap.cli import main, say
 from systemap.config import Config, load
 from systemap.jev_cli import cmd_journeys
@@ -235,3 +235,12 @@ def test_an_answer_with_no_id_and_an_entry_name_with_a_control_character_is_refu
         "the entry point name 'GET /a\\u001b[2J' contains a control character or a "
         "Unicode line separator. Give a short sequence id, such as read-request",
     )
+
+
+def test_printable_gives_an_escape_for_each_bidirectional_control() -> None:
+    """Acceptance (SEC-8): before the repair, U+202E did not change. A terminal then showed
+    the name `a‮yp.txt` as `atxt.py`. A file name with such a character is refused."""
+    controls = "؜‎‏‪‫‬‭‮⁦⁧⁨⁩"
+    assert printable(controls) == "".join(f"\\u{ord(c):04x}" for c in controls)
+    assert lines("a‮b\nc") == "a\\u202eb\nc"
+    assert not file_names.valid("src/pkg/a‮yp.txt.py")

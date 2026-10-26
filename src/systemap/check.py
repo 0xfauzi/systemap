@@ -38,7 +38,7 @@ from systemap import language as languages
 from systemap.check_report import coverage_line as coverage_line
 from systemap.check_report import report as report
 from systemap.check_report import report_stale as report_stale
-from systemap.config import Config, Ignore
+from systemap.config import Config, Figure, Ignore
 from systemap.contract import unreasoned
 from systemap.entry_names import missing_entry
 from systemap.model import (
@@ -629,7 +629,18 @@ def stale(
             nesting=page.nesting_of(cfg, tree, m, stored),
         )
         out += _stale_file(cfg, m.page_path(cfg), html)
-    for fig in cfg.figures:
+    return out + figure_problems(cfg, tree, stored, cfg.figures)
+
+
+def figure_problems(
+    cfg: Config, tree: nest.Tree, stored: dict[str, Any], figures: tuple[Figure, ...]
+) -> list[str]:
+    """This function compares each figure file of `figures` with its rendered text.
+
+    `render --check` gives only the figures that exist, because `render` does not write
+    the figures."""
+    out: list[str] = []
+    for fig in figures:
         if not tree.has(fig.map):
             raise nest.unknown_map(tree, fig.map)
         m = tree.get(fig.map)

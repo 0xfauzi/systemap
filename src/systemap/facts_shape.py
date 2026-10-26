@@ -21,6 +21,7 @@ from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any
 
 from systemap.config import ConfigError
+from systemap.terminal_text import has_control
 
 # The deepest value that extraction writes has 7 levels: a use in a call site. The limit
 # has space for new fields. A JSON value with more levels is not a facts file.
@@ -106,6 +107,36 @@ def relative_path(value: Any) -> Problem | None:
     return None
 
 
+def file_path(value: Any) -> Problem | None:
+    """Make sure that the value is a relative file path without a control character.
+
+    A finding line can contain the path. A newline in the path then makes a second line."""
+    found = relative_path(value)
+    if found is None and has_control(value):
+        return (), "must not contain a control character"
+    return found
+
+
+def name(value: Any) -> Problem | None:
+    """Make sure that the value is a text value without a control character."""
+    found = TEXT(value)
+    if found is None and has_control(value):
+        return (), "must not contain a control character"
+    return found
+
+
+def plain_keys(inner: Check) -> Check:
+    """Give a check for an object whose keys have no control character. Then `inner`
+    examines the object. A finding line can contain a key, for example a module name."""
+
+    def check(value: Any) -> Problem | None:
+        if isinstance(value, dict) and any(has_control(key) for key in value):
+            return (), "has a key with a control character"
+        return inner(value)
+
+    return check
+
+
 def optional(inner: Check) -> Check:
     """Give a check that also accepts null."""
 
@@ -188,18 +219,18 @@ COMPLETENESS = record(
 )
 MODULE = record(
     {
-        "file": relative_path,
+        "file": file_path,
         "functions": list_of(NAMED),
         "classes": list_of(NAMED),
         "errors": list_of(NAMED),
         "tests_total": INTEGER,
         "tests_primary": INTEGER,
+        "sha": TEXT,
     },
     {
         "id": TEXT,
         "package": TEXT,
         "plane": TEXT,
-        "sha": TEXT,
         "source_sha256": TEXT,
         "syntax_sha": TEXT,
         "tests_digest": TEXT,
@@ -222,17 +253,17 @@ MODULE = record(
     },
 )
 ENTRY_POINT = record(
-    {"kind": TEXT, "module": TEXT, "name": TEXT},
+    {"kind": name, "module": name, "name": name},
     {"target": TEXT, "label": TEXT, "symbol": TEXT, "same_as": TEXT},
 )
 ENTRY_ISSUE = record(
     {"kind": TEXT, "name": TEXT, "target": TEXT, "reason": TEXT},
     {"count": INTEGER, "cause": TEXT},
 )
-TEST_FILE_ISSUE = record({"file": relative_path, "problem": UNKNOWN}, {})
-CONFIG_ISSUE = record({"file": relative_path, "reference": TEXT}, {"cause": TEXT})
+TEST_FILE_ISSUE = record({"file": file_path, "problem": UNKNOWN}, {})
+CONFIG_ISSUE = record({"file": file_path, "reference": TEXT}, {"cause": TEXT})
 FACTS = record(
-    {"components": map_of(MODULE)},
+    {"components": plain_keys(map_of(MODULE))},
     {
         "built_at_commit": TEXT,
         "packages": TEXTS,

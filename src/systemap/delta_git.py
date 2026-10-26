@@ -122,6 +122,7 @@ class _Blobs:
         self._proc = subprocess.Popen(
             git_command.command("cat-file", "--batch"),
             cwd=repo,
+            env=git_command.env(),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=self._errors,

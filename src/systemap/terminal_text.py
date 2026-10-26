@@ -11,6 +11,8 @@ before they write it to the terminal.
 - The C0 control characters U+0000 to U+001F, which include the newline and the tab.
 - DEL (U+007F) and the C1 control characters U+0080 to U+009F.
 - The line separator U+2028 and the paragraph separator U+2029.
+- The bidirectional format characters U+061C, U+200E, U+200F, U+202A to U+202E, and
+  U+2066 to U+2069. A terminal can use them to show text in a different visual order.
 - A surrogate character that has no pair. A file name that is not UTF-8 can give one.
 
 The escape is also a valid escape in a JSON string. Thus a JSON output keeps its
@@ -24,9 +26,10 @@ import re
 import sys
 from typing import TextIO
 
-UNSAFE = re.compile("[\x00-\x1f\x7f-\x9f\u2028\u2029\ud800-\udfff]")
+_BIDI = "\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069"
+UNSAFE = re.compile(f"[\x00-\x1f\x7f-\x9f{_BIDI}\u2028\u2029\ud800-\udfff]")
 # The same characters without the newline. A command output can have more than one line.
-UNSAFE_IN_LINES = re.compile("[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029\ud800-\udfff]")
+UNSAFE_IN_LINES = re.compile(f"[\x00-\x09\x0b-\x1f\x7f-\x9f{_BIDI}\u2028\u2029\ud800-\udfff]")
 
 
 def _escape(match: re.Match[str]) -> str:

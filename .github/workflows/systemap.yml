@@ -73,7 +73,8 @@ jobs:
   # The page output check of the systemap job uses the renderer of the pull request.
   # A pull request from a fork can change the renderer and the committed page together.
   # Then that check passes, and the page script is not easy to examine in the diff.
-  # This job renders the page of the pull request with the code of the base commit.
+  # This job renders the page and the figures of the pull request with the code of the
+  # base commit.
   # If the two pages are different, a maintainer must examine the renderer change.
   base-render:
     if: >-
@@ -105,10 +106,35 @@ jobs:
         working-directory: base
         run: uv sync --frozen
 
+      # The page output check reads the output settings of the pull request. A fork can
+      # set a new out_dir. Then the check compares only the page in that new folder.
+      - name: Compare the output settings with the base commit
+        run: |
+          base/.venv/bin/python - <<'PY'
+          import sys
+          from pathlib import Path
+
+          from systemap import config
+
+
+          def outputs(root):
+              cfg = config.load(Path(root))
+              return cfg.out_dir, cfg.model, sorted((f.out, f.map) for f in cfg.figures)
+
+
+          if outputs("base") != outputs("pr"):
+              print(
+                  "::error title=Output settings::This pull request changes out_dir, model "
+                  "or figures. The base-render job cannot examine the committed page. A "
+                  "maintainer must examine the change."
+              )
+              sys.exit(1)
+          PY
+
       - name: Do the page output check with the base code
         run: |
           base/.venv/bin/systemap --root pr render --check || {
-            echo "::error title=Page from the base code::The renderer of the base commit does not make the committed index.html of this pull request. A maintainer must examine the renderer change and the page."
+            echo "::error title=Page from the base code::The renderer of the base commit does not make the committed index.html or figures of this pull request. A maintainer must examine the renderer change and the output files."
             exit 1
           }
 
