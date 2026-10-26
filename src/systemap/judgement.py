@@ -51,6 +51,7 @@ from systemap.journey_coverage import (
 )
 from systemap.model import Component, Meaning, Model, claimed, flow_layers, is_symbol
 from systemap.source_facts import package_of, unknown_fact_lines
+from systemap.terminal_text import printable
 
 __all__ = ["mentioned"]
 
@@ -726,11 +727,12 @@ def report(
     out += _shown(shown, _with_causes(detail, found), teach)
     out += unknown_causes.fix_lines(found[line] for line in shown if line in found)
     out += [
-        f"  stale answer: '{item}' is {_stale_cause(item)}. Remove it from [judgement] answered."
+        f"  stale answer: '{printable(item)}' is {_stale_cause(item)}. "
+        "Remove it from [judgement] answered."
         for item in result.stale
     ]
-    out += [f"  pending answer: {item}" for item in result.pending or []]
-    out += [f"  policy answer: {item}" for item in result.policies or []]
+    out += [f"  pending answer: {printable(item)}" for item in result.pending or []]
+    out += [f"  policy answer: {printable(item)}" for item in result.policies or []]
     return out
 
 
@@ -776,7 +778,7 @@ def _shown(shown: list[str], detail: dict[str, list[str]] | None, teach: bool) -
     out: list[str] = []
     taught: set[str] = set()
     for line in shown:
-        out.append(f"  {line}")
+        out.append(f"  {printable(line)}")
         if detail:
             out += [f"    {item}" for item in detail.get(line, [])]
         here = kind_of(line)

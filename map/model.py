@@ -131,6 +131,7 @@ COMPONENTS = (
             "systemap.model_edit",
             "systemap.repo_files",
             "systemap.file_names",
+            "systemap.terminal_text",
             "systemap.file_write",
             "systemap.review",
             "systemap.answer_upgrade",
