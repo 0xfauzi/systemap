@@ -296,9 +296,10 @@ def read_answer(
     steps = _steps(raw.get("steps"), model, problems, facts)
     if not steps:
         problems.append("no sequence step could be used")
-    ident = str(raw.get("id") or entry["name"]).strip()
+    given = raw.get("id")
+    ident = str(given or entry["name"]).strip()
     label = str(raw.get("label") or group.label).strip()
-    problems += name_problems(ident, label)
+    problems += name_problems(ident, label) if given else fallback_problems(ident, label)
     if problems:
         return Draft(entry=entry, problems=tuple(problems), answer=text)
     journey = Journey(
@@ -324,6 +325,23 @@ def name_problems(ident: str, label: str) -> list[str]:
         problems.append(
             f"the sequence id '{printable(ident)}' is not correct. An id contains only "
             "letters, digits, '_', '.', and '-'. It starts with a letter, a digit, or '_'"
+        )
+    if has_control(label):
+        problems.append(f"the sequence label '{printable(label)}' {CONTROL}")
+    return problems
+
+
+def fallback_problems(name: str, label: str) -> list[str]:
+    """Refuse an entry name or a label with a control character.
+
+    If the agent gives no id, the sequence id is the name of the entry point.
+    This name comes from the source facts. It can contain spaces, '/', and ':'.
+    Thus the slug rule does not apply to it."""
+    problems = []
+    if has_control(name):
+        problems.append(
+            f"the entry point name '{printable(name)}' contains a control character or a "
+            "Unicode line separator. Give a short sequence id, such as read-request"
         )
     if has_control(label):
         problems.append(f"the sequence label '{printable(label)}' {CONTROL}")

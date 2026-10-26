@@ -31,10 +31,19 @@ from typing import Any
 import pytest
 from conftest import STARTER_MODULES, init_two_cards, write_tree
 from test_decisions import SOURCE, cite, pending, submit
-from test_journeys import ANSWER, answering, args_for, read, with_agent
+from test_journeys import (
+    ANSWER,
+    alone,
+    answering,
+    args_for,
+    read,
+    route,
+    two_card_model,
+    with_agent,
+)
 from test_trend import commit
 
-from systemap import judgement
+from systemap import journeys, judgement
 from systemap.cli import main, say
 from systemap.config import Config, load
 from systemap.jev_cli import cmd_journeys
@@ -206,3 +215,23 @@ def test_decisions_shows_a_hostile_request_id_as_escapes(
     assert code == 1
     assert not RAW.search(out + err)
     assert "result 1: \\u001b]0;owned\\u0007\\u001b[2J is not a current decision request" in err
+
+
+@pytest.mark.parametrize("name", ["GET /a", "pkg.reader:read"])
+def test_an_answer_with_no_id_takes_the_entry_name_as_before(name: str) -> None:
+    # Before the fix, the slug rule refused these normal entry names.
+    noid = {key: value for key, value in ANSWER.items() if key != "id"}
+    draft = journeys.read_answer(json.dumps(noid), two_card_model(), alone(route(name)))
+    assert draft.problems == ()
+    assert draft.journey is not None and draft.journey.id == name
+
+
+def test_an_answer_with_no_id_and_an_entry_name_with_a_control_character_is_refused() -> None:
+    noid = {key: value for key, value in ANSWER.items() if key != "id"}
+    entry = alone(route("GET /a\x1b[2J"))
+    draft = journeys.read_answer(json.dumps(noid), two_card_model(), entry)
+    assert draft.journey is None
+    assert draft.problems == (
+        "the entry point name 'GET /a\\u001b[2J' contains a control character or a "
+        "Unicode line separator. Give a short sequence id, such as read-request",
+    )
