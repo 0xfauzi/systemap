@@ -129,6 +129,22 @@ def test_a_changed_file_with_the_same_size_and_time_is_extracted_again(tmp_path:
     assert now["sha"] != first["sha"]
 
 
+def test_where_the_status_does_not_show_writes_a_changed_file_is_read_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # On Windows, st_ctime is the creation time. A write that keeps the size and the
+    # modification time keeps the full status. This test gives the same status each time.
+    monkeypatch.setattr(fact_cache, "STATUS_SHOWS_WRITES", False)
+    monkeypatch.setattr(fact_cache, "_status", lambda path: (1, 2, 3, 0, 0))
+    write_tree(tmp_path, TREE)
+    cache = fact_cache.FactCache()
+    path = tmp_path / "pkg/reader.py"
+    first = same_as_full(tmp_path, cache)["components"]["pkg.reader"]
+    path.write_bytes(path.read_bytes().replace(b"return", b"assert"))
+    now = same_as_full(tmp_path, cache)["components"]["pkg.reader"]
+    assert now["sha"] != first["sha"]
+
+
 def test_the_live_renderer_gives_the_pages_of_a_render_without_cache(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
     renderer = serve.LiveRenderer(root, "main")

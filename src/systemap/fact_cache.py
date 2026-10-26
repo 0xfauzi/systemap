@@ -12,6 +12,11 @@ the status read, the text is the same. Else the cache reads the text again and c
 its SHA-256 digest. The cache reads the status before the text. Thus a change during an
 extraction gives a different status at the next extraction.
 
+On Windows, `st_ctime` is the creation time of the file, and a write does not change it.
+Thus a write that keeps the size and the modification time also keeps the status. On
+Windows, the cache always reads the text and compares its digest. It does not parse a
+file with the same digest again.
+
 The facts of a file can also change with values that are not in the file: the set of
 modules, the configuration and the parser version. The caller gives these values as the
 generation of the cache. A different generation removes all kept values.
@@ -37,6 +42,9 @@ from systemap import source_text
 # that changed in this time before the status read can change again with the same
 # status. The cache then reads the text.
 RACY_NS = 2_000_000_000
+
+# The status shows each write only where the change time changes on each write.
+STATUS_SHOWS_WRITES = os.name != "nt"
 
 T = TypeVar("T")
 Status = tuple[int, int, int, int, int]
@@ -85,7 +93,12 @@ class FactCache:
         at = time.time_ns()
         status = _status(path)
         seen = self._seen.get(path)
-        if status is not None and seen is not None and seen.status == status:
+        if (
+            STATUS_SHOWS_WRITES
+            and status is not None
+            and seen is not None
+            and seen.status == status
+        ):
             if seen.at - status[3] > RACY_NS:
                 return seen.digest
         try:
