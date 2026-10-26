@@ -3118,3 +3118,87 @@ Acceptance value: with the summary, the median time is at most 0.7 times the med
 Also, the share of correct answers with the summary is equal to or more than the share without it.
 If the test does not satisfy the two values, record the result here and change or remove the summary.
 The maintainer must accept or change the value 0.7. No measurement gives it. The issue gives a target of about 30 seconds for each pull request.
+
+## The route search of the group lines on a large map (2026-10-26)
+
+Findings perf-1 and uiperf-3: at commit d90d08e, the map page did the route search of the flow-group lines for all layers in one idle callback.
+On a page with 72 components, that callback blocked the browser for more than 10 s.
+If the search goes later, the freeze occurs at the first click on a layer.
+
+The change moves the route search to `page_group_lines.py`.
+The search keeps the shapes for each pair of places and uses only the items near each segment.
+The work for each layer goes in small parts in the idle time of the browser.
+If the reader selects a layer before its lines are ready, the search continues for 120 ms at most.
+If the lines are not ready after this time, the map shows the layer without group lines.
+The idle work then does that layer first and draws its lines.
+
+Acceptance, written before the measurement: at 1x CPU on the page with 72 components, the longest task of the load is less than 500 ms.
+The first click on each layer button takes less than 500 ms.
+The page of this repository is not slower than before.
+The group lines and badges are byte-identical to the lines and badges of d90d08e.
+
+Method: three map pages, made with the worktree code and with d90d08e.
+`repo` is this repository. `f36` and `f72` are generated systems with 36 and 72 components.
+Headless Chromium opens each page at 1440 by 900 pixels.
+The load ends when the page has no long task for 1.5 s.
+A click time is the time from the click to two animation frames.
+The scripts are in the scratch folder `p1-groups`: `measure.js`, `bench.js`, `count.js`, `steps.js`, `deferred.js` and `verify_all.sh`.
+
+### Load and layer clicks (ms)
+
+Each cell gives the values of three runs. "Load" is the longest task of the load. "Click" is the longest first click on a layer button.
+
+| page | d90d08e load | d90d08e click | change load | change click |
+|---|---|---|---|---|
+| repo | 101, 124, 161 | 129, 153, 128 | 175, 151, 207 | 154, 160, 217 |
+| f36 | 1103, 1207, 1130 | 62, 67, 90 | 209, 239, 223 | 82, 85, 87 |
+| f72 | 11610, 10079, 10587 | 230, 212, 187 | 217, 634, 578 | 279, 288, 271 |
+
+In the first measurement, two f72 load values were more than 500 ms: 634 and 578.
+A second measurement of f72 with five runs gave the load values 255, 236, 224, 216 and 455 ms, and the click values 242, 232, 257, 264 and 208 ms.
+With the idle work turned off, the f72 load has long tasks to 211 ms and 302 ms in two runs. These tasks are not a part of the route search.
+The longest single part of the idle work on f72 was 11.9 ms and 14.6 ms in two runs, in 672 parts.
+Thus the acceptance value for the load is satisfied in the second measurement, but not in two runs of the first measurement.
+The longest load task of f72 has a variance that is not from the route search. A measurement on a computer with no other load is necessary.
+
+If the reader clicks a layer at once after the load, the f72 click took 294 to 309 ms. The click values of the other measurements are less than 500 ms.
+On the repo page, the change values are up to 64 ms higher than the d90d08e values.
+In all repo runs, the longest click is on the judge layer. That layer has no group lines, thus the route search does not operate on it.
+A measurement with more runs is necessary to show if this difference is real. Other processes operated on the computer during the measurements.
+
+### The route search alone
+
+`bench.js` times the full search of each layer in a new page. The values are the minimum and the median of the runs, in ms.
+
+| page, layer | d90d08e min | d90d08e median | change min | change median |
+|---|---|---|---|---|
+| f72, data | 3483 | 3703 | 802 | 862 |
+| f72, control | 2889 | 2969 | 356 | 398 |
+| f72, all | 4164 | 4205 | 315 | 359 |
+
+`count.js` counts the calls of `cost()`:
+
+| page, layer | groups | d90d08e | change |
+|---|---|---|---|
+| repo, data | 13 | 10,535 | 1,389 |
+| repo, all | 15 | 10,543 | 1,397 |
+| f72, data | 144 | 1,236,270 | 76,823 |
+| f72, control | 141 | 1,160,896 | 67,563 |
+| f72, all | 184 | 1,582,529 | 92,228 |
+
+The test `tests/test_group_line_work.py` counts the calls of `cost()` under the Node page driver, with a bound of 12,000 calls.
+
+### The lines are the same
+
+`verify_all.sh` writes the points of each group line and badge, and the drawn path of each line, for each layer of the three pages.
+The data of the change is byte-identical to the data of d90d08e for repo, f36 and f72.
+A click on a layer before its lines are ready gives the same lines as d90d08e, after the idle work.
+The three SVG figures of this repository are byte-identical. On each page, the only changed lines are lines of the group script.
+
+### Page size
+
+The new script is longer. The compact group script changes from 27,893 bytes to 31,358 bytes.
+The sample page of `tests/test_render.py` changes from 331,990 bytes to 335,455 bytes, an increase of 3,465 bytes.
+The earlier limit of 325 KiB (332,800 bytes) had 810 bytes of space. Thus the change cannot pass the earlier limit.
+The new limit, 328 KiB (335,872 bytes), is the next whole KiB above the measured page (327.6 KiB).
+The maintainer must accept or refuse this new limit.

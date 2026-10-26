@@ -311,7 +311,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="7de818770d48ad53084c6968dcdccb261b75cfeb2a10071a2b79d4b25711ad77",
+        source_review="f8e5acb6e7f1beeb531b9cded8cd7055ed5fd62ef1bf0626ac8e9d256b0a0d01",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -328,6 +328,7 @@ COMPONENTS = (
             "systemap.page_changes_script",
             "systemap.page_changes_map",
             "systemap.page_groups",
+            "systemap.page_group_lines",
             "systemap.page_phone",
             "systemap.page_motion",
             "systemap.page_mapview",
