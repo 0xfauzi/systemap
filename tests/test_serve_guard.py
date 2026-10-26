@@ -194,6 +194,7 @@ def test_accept_pauses_only_when_the_process_has_no_descriptor(
     slept: list[float] = []
     monkeypatch.setattr(serve_guard.time, "sleep", slept.append)
     httpd = serve_guard.Server(("127.0.0.1", 0), serve.PageHandler, bind_and_activate=False)
+    httpd.socket.close()
     httpd.socket = _NoDescriptors(code)  # type: ignore[assignment]
     with pytest.raises(OSError):
         httpd.get_request()

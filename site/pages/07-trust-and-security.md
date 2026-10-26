@@ -111,7 +111,10 @@ $ curl -s -o /dev/null -w "%{http_code}\n" -H "Host: evil.example:8765" http://1
 ```
 
 Thus a web page that makes its own domain name point at 127.0.0.1 cannot read the map.
-The servers have no other access control.
+The servers also refuse a `POST` request from a page of a different web site.
+A browser identifies such a request with the `Sec-Fetch-Site` header or the `Origin` header.
+Each connection has a read time limit of 10 seconds.
+`systemap live` accepts a maximum of 32 event connections at the same time.
 Other programs on the computer can read the map and send `POST /refresh` to `systemap live`.
 
 ## What systemap writes
