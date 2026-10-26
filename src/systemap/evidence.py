@@ -13,9 +13,9 @@ import hashlib
 import pickle
 import re
 from collections import OrderedDict
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 from systemap import flow_review
 from systemap.model import (
@@ -271,7 +271,30 @@ def mechanism_of(flow: Flow, meaning: Meaning, observed_by: Iterable[str]) -> st
 # each render gives the evidence. A key is the digest of the pickle of all inputs, so a
 # changed input gives a different key.
 EVIDENCE_KEEP = 8
+_T = TypeVar("_T")
 _evidence: OrderedDict[str, ByFlow] = OrderedDict()
+
+
+def remembered(
+    cache: OrderedDict[str, _T], keep: int, inputs: object, calculate: Callable[[], _T]
+) -> _T:
+    """Give the cached result for these inputs, or calculate it and keep it.
+
+    The key is the digest of the pickle of the inputs. If pickle cannot copy an input,
+    for example a MappingProxyType field of a Meaning, the function calculates the result
+    and does not keep it. The cache keeps the last `keep` results."""
+    try:
+        key = hashlib.blake2b(pickle.dumps(inputs, 5)).hexdigest()
+    except (TypeError, AttributeError, pickle.PicklingError):
+        return calculate()
+    found = cache.get(key)
+    if found is None:
+        found = calculate()
+        cache[key] = found
+        while len(cache) > keep:
+            cache.popitem(last=False)
+    cache.move_to_end(key)
+    return found
 
 
 def of_model(
@@ -287,14 +310,12 @@ def of_model(
     function gives a copy of the earlier result. Each Evidence record is frozen.
     """
     mechanisms = list(observed_by)
-    key = hashlib.blake2b(pickle.dumps((model, meaning, facts, mechanisms), 5)).hexdigest()
-    found = _evidence.get(key)
-    if found is None:
-        found = _of_model(model, meaning, facts, mechanisms)
-        _evidence[key] = found
-        while len(_evidence) > EVIDENCE_KEEP:
-            _evidence.popitem(last=False)
-    _evidence.move_to_end(key)
+    found = remembered(
+        _evidence,
+        EVIDENCE_KEEP,
+        (model, meaning, facts, mechanisms),
+        lambda: _of_model(model, meaning, facts, mechanisms),
+    )
     out = ByFlow(model.flows)
     out.update(found)
     return out

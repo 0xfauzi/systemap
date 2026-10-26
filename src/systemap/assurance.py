@@ -26,8 +26,6 @@ To add a claim type, add one function to `_TYPES` and its basis texts to `BASIS_
 
 from __future__ import annotations
 
-import hashlib
-import pickle
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -229,17 +227,21 @@ def of_model(
 
     If the inputs are equal to the inputs of an earlier call, the function gives the
     earlier claims. A claim is frozen."""
-    key = hashlib.blake2b(pickle.dumps((map_id, model, meaning, facts), 5)).hexdigest()
-    found = _claims.get(key)
-    if found is None:
-        outcomes = {o.rule.id: o for o in import_rules.evaluate(model, facts)}
-        ctx = _Context(map_id, model, meaning, facts, outcomes)
-        found = tuple(claim for each in _TYPES for claim in each(ctx))
-        _claims[key] = found
-        while len(_claims) > CLAIMS_KEEP:
-            _claims.popitem(last=False)
-    _claims.move_to_end(key)
+    found = evidence.remembered(
+        _claims,
+        CLAIMS_KEEP,
+        (map_id, model, meaning, facts),
+        lambda: _calculate(map_id, model, meaning, facts),
+    )
     return list(found)
+
+
+def _calculate(
+    map_id: str, model: Model, meaning: Meaning, facts: dict[str, Any]
+) -> tuple[Claim, ...]:
+    outcomes = {o.rule.id: o for o in import_rules.evaluate(model, facts)}
+    ctx = _Context(map_id, model, meaning, facts, outcomes)
+    return tuple(claim for each in _TYPES for claim in each(ctx))
 
 
 def clear_claims() -> None:

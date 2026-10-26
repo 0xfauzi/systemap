@@ -3,12 +3,16 @@
 One command renders the same map several times: for the page, for each figure, for the
 check and for the stale check. Before this change, each render calculated route_all,
 place_labels, assurance.of_model and evidence.of_model again. On this repository, `systemap check` took
-13.1 s and a refresh that wrote all outputs took 32.6 s (Router.route was called 400 and
+13.1 s and a refresh that wrote all outputs took 32.4 s (Router.route was called 400 and
 1120 times).
 
 Acceptance:
-- Two renders of the same model call route_all and place_labels one time, and give
-  the same SVG and detail JSON. The old code called each of them two times.
+- Three renders of the same model call route_all, place_labels, the claims and the flow
+  evidence one time. Two equal renders give the same SVG and detail JSON. The old code
+  called each of them three times.
+- If pickle cannot copy an input, such as a MappingProxyType field of a Meaning, the
+  claims, the flow evidence and the render are the same as for a dict. The first cache
+  code stopped with a TypeError for this input.
 - A change to one input of the router or of the label placement gives a new result.
 - A changed model or changed facts give new claims and new flow evidence.
 - A caller that changes a result does not change the cached result.
@@ -17,6 +21,8 @@ Acceptance:
 from __future__ import annotations
 
 import copy
+import pickle
+import types
 from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
@@ -218,3 +224,30 @@ def test_changed_inputs_give_new_flow_evidence(
     evidence.clear_evidence()
     assert changed == [evidence.of_model(*each) for each in args]
     assert evidence.of_model(sample.model, sample.meaning, sample.facts) == expected
+
+
+class _Unpicklable(dict[str, str]):
+    """A Mapping that pickle cannot copy, as a class in a model file that is not in
+    sys.modules after it runs."""
+
+    def __reduce__(self) -> Any:
+        raise pickle.PicklingError("no pickle")
+
+
+@pytest.mark.parametrize("kind", ["proxy", "class"])
+def test_a_meaning_that_pickle_cannot_copy_is_not_kept(
+    sample: Sample, kind: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plain = dict(sample.meaning.plain)
+    other = types.MappingProxyType(plain) if kind == "proxy" else _Unpicklable(plain)
+    meaning = replace(sample.meaning, plain=other)
+    claims = assurance.of_model(sample.model, sample.meaning, sample.facts)
+    flows = evidence.of_model(sample.model, sample.meaning, sample.facts)
+    svg = render_schematic(sample.model, sample.meaning, sample.theme, sample.facts)
+    # The first cache code stopped here with "TypeError: cannot pickle 'mappingproxy'".
+    assert assurance.of_model(sample.model, meaning, sample.facts) == claims
+    calls = _counted(monkeypatch, evidence, "_of_model")
+    assert evidence.of_model(sample.model, meaning, sample.facts) == flows
+    assert len(calls) == 1, "the result for an input without a key must not come from the cache"
+    assert render_schematic(sample.model, meaning, sample.theme, sample.facts) == svg
+    assert len(assurance._claims) == len(evidence._evidence) == 1
