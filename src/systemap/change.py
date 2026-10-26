@@ -433,7 +433,8 @@ def source_change(
     if not files:
         return found
     snapshot_facts = side.facts()
-    tests = [p for p in files if language.is_test_file(p, cfg.test_dirs, cfg.test_patterns)]
+    test_dirs = cfg.test_dirs
+    tests = [p for p in files if language.is_test_file(p, test_dirs, cfg.test_patterns)]
     sources = {
         path: module
         for path in files

@@ -349,6 +349,14 @@ class LiveMap:
         self.say({"event": "error", "version": version, "text": text})
         self._send("error", {"version": version, "text": text})
 
+    def scan_failed(self, text: str) -> None:
+        """Show an error of the file watcher on the page. The files of the page stay."""
+        with self._lock:
+            self._state, self._error = "error", text
+            version = self._version
+        self.say({"event": "error", "version": version, "text": text})
+        self._send("error", {"version": version, "text": text})
+
     def _done(self, version: int, result: Rendered) -> None:
         with self._lock:
             self._write(result.files, version)
