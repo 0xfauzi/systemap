@@ -276,9 +276,13 @@ def _exported_names(node: Any) -> set[str]:
 
 
 def _walk(node: Any) -> Iterator[Any]:
-    yield node
-    for child in node.named_children:
-        yield from _walk(child)
+    """Give the node and each named node below it, in source order. A list is the stack,
+    not recursion, because a deep tree goes above the recursion limit of Python."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(reversed(current.named_children))
 
 
 def _text(node: Any | None) -> str:
@@ -286,13 +290,17 @@ def _text(node: Any | None) -> str:
 
 
 def _syntax_tokens(node: Any) -> Iterator[str]:
-    if node.type == "comment":
-        return
-    if not node.children:
-        yield f"{node.type}:{_text(node)}"
-    else:
-        for child in node.children:
-            yield from _syntax_tokens(child)
+    """Give the type and the text of each leaf node, in source order, without comments.
+    A list is the stack, as in `_walk`."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if current.type == "comment":
+            continue
+        if not current.children:
+            yield f"{current.type}:{_text(current)}"
+        else:
+            stack.extend(reversed(current.children))
 
 
 def _source(node: Any) -> str:
@@ -386,6 +394,21 @@ def _node_module(specifier: str) -> bool:
 
 def _problem(line: int, reason: str, cause: str, source: str) -> dict[str, Any]:
     return {"line": line, "reason": reason, "source": source[:120], "cause": cause}
+
+
+def _empty_surface(problem: dict[str, Any]) -> dict[str, Any]:
+    """Give the surface of a module that has no known surface, with its problem."""
+    return {
+        "docstring": "",
+        "functions": [],
+        "classes": [],
+        "errors": [],
+        "types": [],
+        "constants": [],
+        "names": [],
+        "api": [],
+        "unknown": [problem],
+    }
 
 
 def _mark_star_exports(names: list[dict[str, Any]]) -> None:
@@ -574,24 +597,19 @@ class TypeScriptLanguage(TypeScriptRepository):
         except OSError as exc:
             # The module stays in the facts, with a read problem: its surface is not known.
             raw, problems = "", [unknown_causes.read_problem(exc)]
-        surface = parse_surface(raw, path.as_posix())
         problem = _problem(0, *problems[0], "") if problems else None
-        if surface is None:
-            problem = parse_problem(raw, path.as_posix())
-            surface = {
-                "docstring": "",
-                "functions": [],
-                "classes": [],
-                "errors": [],
-                "types": [],
-                "constants": [],
-                "names": [],
-                "api": [],
-                "unknown": [problem],
-            }
-        surface["unknown"].extend(_problem(0, *found, "") for found in problems)
-        targets = _reexport_targets(path, module, known, paths, context)
-        resolve_reexports(surface, raw, path.as_posix(), targets)
+        try:
+            surface = parse_surface(raw, path.as_posix())
+            if surface is None:
+                problem = parse_problem(raw, path.as_posix())
+                surface = _empty_surface(problem)
+            surface["unknown"].extend(_problem(0, *found, "") for found in problems)
+            targets = _reexport_targets(path, module, known, paths, context)
+            resolve_reexports(surface, raw, path.as_posix(), targets)
+        except unknown_causes.DEPTH_ERRORS:
+            # The module stays in the facts with a DEPTH problem: its surface is not known.
+            problem = _problem(0, unknown_causes.DEPTH_REASON, unknown_causes.DEPTH, "")
+            surface = _empty_surface(problem)
         _mark_star_exports(surface["names"])
         return {
             "file": path.relative_to(repo).as_posix(),
@@ -701,7 +719,15 @@ class TypeScriptLanguage(TypeScriptRepository):
         )
         guards: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for path in files:
-            for module, entries in _test_file_guards(path, repo, paths, context).items():
+            try:
+                file_guards = _test_file_guards(path, repo, paths, context)
+            except unknown_causes.DEPTH_ERRORS:
+                # A test file with too many syntax levels gives a record, not a stop.
+                relative = file_names.shown(path.relative_to(repo).as_posix())
+                problem = _problem(0, unknown_causes.DEPTH_REASON, unknown_causes.DEPTH, "")
+                context.test_issues.append({"file": relative, "problem": problem})
+                continue
+            for module, entries in file_guards.items():
                 guards[module].extend(entries)
         return guards
 
@@ -717,10 +743,17 @@ class TypeScriptLanguage(TypeScriptRepository):
         return typescript_entry.entry_points(repo, prefixes, components, context)
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
-        return parse_surface(raw, path)
+        try:
+            return parse_surface(raw, path)
+        except unknown_causes.DEPTH_ERRORS:
+            # A surface with too many syntax levels is not known, as for a parse error.
+            return None
 
     def test_names(self, raw: str, path: str = "") -> list[str]:
-        return test_names(raw, path)
+        try:
+            return test_names(raw, path)
+        except unknown_causes.DEPTH_ERRORS:
+            return []
 
     def is_test_file(
         self, path: str, tests_dirs: tuple[str, ...], test_patterns: tuple[str, ...] = ()

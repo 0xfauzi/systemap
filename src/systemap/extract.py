@@ -232,7 +232,11 @@ class PythonLanguage(PythonRepository):
         return python_entry.entry_points(repo, prefixes, components, sources), issues
 
     def parse_surface(self, raw: str, path: str = "") -> dict[str, Any] | None:
-        return parse_surface(raw)
+        try:
+            return parse_surface(raw)
+        except unknown_causes.DEPTH_ERRORS:
+            # A surface with too many levels is not known, as for a parse error.
+            return None
 
     def test_names(self, raw: str, path: str = "") -> list[str]:
         return python_tests.test_names(raw)
@@ -564,6 +568,55 @@ def _hide_empty_type_params(tree: ast.AST) -> list[ast.AST]:
     return hidden
 
 
+def _surface_and_syntax(
+    raw: str, module: str, is_package: bool, prefixes: frozenset[str], read: bool
+) -> tuple[dict[str, Any] | None, str]:
+    """Give the public surface and the normalized syntax of a module text.
+
+    A text that was not `read`, or that does not parse, gives no surface. A text that
+    does not parse gives itself as the syntax. If the surface or the syntax has too many
+    levels, the tree cache refuses the text. Then no later step reads its tree, and the
+    module has no surface."""
+    try:
+        surface = (
+            parse_surface(raw, module=module, is_package=is_package, prefixes=prefixes)
+            if read
+            else None
+        )
+        return surface, _normalized(raw)
+    except unknown_causes.DEPTH_ERRORS:
+        python_tree.refuse(raw)
+        return None, raw
+
+
+def _normalized(raw: str) -> str:
+    try:
+        return _dump_python_syntax(python_tree.parse(raw))
+    except (SyntaxError, ValueError):
+        return raw
+
+
+def _parse_issue(raw: str) -> dict[str, Any] | None:
+    """Give the parse problem of a module text that has no surface, or None."""
+    try:
+        python_tree.parse(raw)
+    except python_tree.TooDeep:
+        return {
+            "line": 0,
+            "reason": unknown_causes.DEPTH_REASON,
+            "parser": sys.version.split()[0],
+            "cause": unknown_causes.DEPTH,
+        }
+    except (SyntaxError, ValueError) as exc:
+        return {
+            "line": getattr(exc, "lineno", 0) or 0,
+            "reason": f"source could not be parsed: {type(exc).__name__}",
+            "parser": sys.version.split()[0],
+            "cause": unknown_causes.SYNTAX,
+        }
+    return None
+
+
 def collect_module(
     path: Path, repo: Path, module: str = "", prefixes: frozenset[str] = frozenset()
 ) -> dict[str, Any] | None:
@@ -578,22 +631,10 @@ def collect_module(
             "parser": sys.version.split()[0],
             "cause": unknown_causes.read_cause(exc),
         }
-    surface = (
-        parse_surface(raw, module=module, is_package=path.name == "__init__.py", prefixes=prefixes)
-        if issue is None
-        else None
-    )
+    is_package = path.name == "__init__.py"
+    surface, normalized = _surface_and_syntax(raw, module, is_package, prefixes, issue is None)
     if surface is None:
-        if issue is None:
-            try:
-                python_tree.parse(raw)
-            except (SyntaxError, ValueError) as exc:
-                issue = {
-                    "line": getattr(exc, "lineno", 0) or 0,
-                    "reason": f"source could not be parsed: {type(exc).__name__}",
-                    "parser": sys.version.split()[0],
-                    "cause": unknown_causes.SYNTAX,
-                }
+        issue = issue or _parse_issue(raw)
         surface = {
             "docstring": "",
             "functions": [],
@@ -605,10 +646,6 @@ def collect_module(
             "api": [],
             "executes": False,
         }
-    try:
-        normalized = _dump_python_syntax(python_tree.parse(raw))
-    except (SyntaxError, ValueError):
-        normalized = raw
     record = {
         "file": path.relative_to(repo).as_posix(),
         "loc": len(raw.splitlines()),

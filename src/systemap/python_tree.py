@@ -13,6 +13,11 @@ the oldest trees. A step then parses an old text again. The result is the same.
 One tree can have more nodes than `KEPT`. The cache keeps this tree only until the next
 parse of a different text. Thus two large trees are not in memory at the same time.
 
+A text with too many syntax levels gives `TooDeep`. `ast.parse` then gives RecursionError
+or MemoryError. A later step can also give RecursionError on a tree that parsed, for
+example `ast.dump`. That step calls `refuse`. After that call, each step gets `TooDeep`
+for the text, and does not read the tree again.
+
 The extraction calls `clear` when it is complete. Thus the cache does not keep trees
 between two extractions, for example in the live map.
 
@@ -23,9 +28,12 @@ the same objects.
 from __future__ import annotations
 
 import ast
+import hashlib
 import threading
 from collections import OrderedDict
 from collections.abc import Iterable
+
+from systemap.unknown_causes import DEPTH_ERRORS, DEPTH_REASON
 
 # The maximum total number of nodes in the cached trees. This value is a guard for memory,
 # not a measurement of systemap capacity. The memory size of a node changes with the
@@ -41,13 +49,36 @@ _size = [0]
 # Each cached tree by its identity, with its node list in the order of `ast.walk`.
 _nodes: dict[int, tuple[ast.Module, list[ast.AST]]] = {}
 _lock = threading.Lock()
+# The digests of the refused texts. The cache limit does not remove them.
+_refused: set[str] = set()
+
+
+class TooDeep(ValueError):
+    """The text has too many syntax levels for the parser or for a later step."""
+
+
+def refuse(raw: str) -> None:
+    """Give `TooDeep` for each later parse of the text, until `clear`."""
+    with _lock:
+        _refused.add(_digest(raw))
+        found = _trees.pop(raw, None)
+        entry = _nodes.pop(id(found), None)
+        if found is not None:
+            _size[0] -= len(entry[1]) if entry else 1
+
+
+def _digest(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8", "surrogatepass")).hexdigest()
 
 
 def parse(raw: str) -> ast.Module:
     """Give the syntax tree of a Python module text, as `ast.parse(raw)` gives it.
 
     Text that does not parse gives the SyntaxError or the ValueError of `ast.parse`.
+    Text with too many syntax levels, or a refused text, gives `TooDeep`.
     """
+    if _refused and _digest(raw) in _refused:
+        raise TooDeep(DEPTH_REASON)
     found = _cached(raw)
     if found is None:
         found = _parse(raw)
@@ -78,8 +109,9 @@ def walk(node: ast.AST) -> Iterable[ast.AST]:
 
 
 def clear() -> None:
-    """Remove all trees from the cache."""
+    """Remove all trees and all refused texts from the cache."""
     with _lock:
+        _refused.clear()
         _clear()
 
 
@@ -109,6 +141,8 @@ def _parse(raw: str) -> _Result:
         return ast.parse(raw)
     except (SyntaxError, ValueError) as exc:
         return exc
+    except DEPTH_ERRORS:
+        return TooDeep(DEPTH_REASON)
 
 
 def _keep(raw: str, found: _Result) -> None:

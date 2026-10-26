@@ -1358,6 +1358,10 @@ The group gives one <code>fix:</code> line for each cause that occurs:</p>
 <td>The parser could not parse the source.</td>
 </tr>
 <tr>
+<td><code>depth</code></td>
+<td>The source syntax has too many levels. The parse or a later step went above the recursion limit of Python or the available memory. The module stays in the facts. If the parse or the surface step fails, the surface of the module is not known. If a later step fails, the surface stays, but the import facts or the call sites of the module are not known. A test file gives a <code>test_file_issues</code> record.</td>
+</tr>
+<tr>
 <td><code>declaration</code></td>
 <td>The parser read the syntax, but it has no record for the declaration or export form.</td>
 </tr>

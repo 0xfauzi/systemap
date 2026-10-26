@@ -135,9 +135,13 @@ def _root(raw: str, path: str = "") -> Node | None:
 
 
 def _walk(node: Node) -> Iterator[Node]:
-    yield node
-    for child in node.named_children:
-        yield from _walk(child)
+    """Give the node and each named node below it, in source order. A list is the stack,
+    not recursion, because a deep tree goes above the recursion limit of Python."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        yield current
+        stack.extend(reversed(current.named_children))
 
 
 def _text(node: Node | None) -> str:
