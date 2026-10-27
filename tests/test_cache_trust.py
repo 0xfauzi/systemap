@@ -273,7 +273,11 @@ def test_the_cache_warning_shows_control_characters_as_escapes(
     monkeypatch.delenv(jev.TRUST_TRACKED, raising=False)
     name = "c\x1b]0;PWNED\x07\x1b[2J.json"
     path = tmp_path / name
-    path.write_text(json.dumps(PLANTED), encoding="utf-8")
+    try:
+        path.write_text(json.dumps(PLANTED), encoding="utf-8")
+    except OSError as exc:
+        # Windows refuses control characters in a file name, so such a cache cannot exist.
+        pytest.skip(f"the file system refuses this file name: {exc}")
     git(tmp_path, "init", "-q")
     git(tmp_path, "add", "-f", "--", name)
     git(tmp_path, "commit", "-q", "-m", "clone")
