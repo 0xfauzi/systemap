@@ -65,6 +65,25 @@ A layer is a filtered view of the map.
 - The build backend is hatchling 1.32.4. The release job and the install job make the package with `.github/build-constraints.txt`.
   This file gives a fixed version and the file hashes of each build dependency. The release uses `uv run --locked`.
 
+- Git commands of systemap do not start a lazy fetch from a promisor remote.
+  Each Git process gets `GIT_NO_LAZY_FETCH=1` and an empty `GIT_ALLOW_PROTOCOL`.
+- For a pull request from a fork, the base-render job of CI fails if the pull request changes `out_dir`, `model` or `figures`.
+  `render --check` also compares each figure file that exists with its rendered text.
+- The page servers refuse a GET request for `/events` from a page of a different web site with 403.
+- The page servers send no Content-Security-Policy header if the policy in the meta element has a character that is not printable ASCII.
+- The Content-Security-Policy header of the page servers also contains `frame-ancestors 'self'`.
+  The servers also send `X-Content-Type-Options: nosniff`.
+- If Git cannot do the tracked-cache check in a work tree, the Jev, OpenAI, and agent caches do not read or write the cache file.
+  A warning gives the Git cause.
+- The live fact cache keeps the facts of a file only if the file did not change during the parse.
+- The status comparison of the fact cache uses the later of the modification time and the change time.
+- A facts file must give `sha` for each module.
+  A facts file with a control character in a module key, a file path, or an entry point name gives an error.
+- The cache warning shows each control character as an escape.
+- A results file with too many levels for `systemap decisions submit` gives an error. Previously, it gave a traceback.
+- Terminal output shows each bidirectional format character as an escape.
+  These characters are U+061C, U+200E, U+200F, U+202A to U+202E, and U+2066 to U+2069.
+
 ### Changes
 
 - The TypeScript call-site reader reads a deep syntax tree in linear time.
@@ -207,6 +226,9 @@ A layer is a filtered view of the map.
 - The router finds each flow path in less time. The routes, the figures and the page do not change.
   On a map with 450 flows, `route_all` takes 2.65 s. Previously, it took 8.35 s.
   On a map with 900 flows, it takes 10.91 s. Previously, it took 34.36 s.
+  The time still increases with the square of the number of flows.
+- A strict route search uses an A* search with a cut bound. The routes do not change.
+  On a map with 900 flows, `route_all` takes 4.18 s to 4.25 s. Previously, it took 9.00 s to 9.28 s.
   The time still increases with the square of the number of flows.
 - `systemap live` keeps the source facts of each file between two renders. It extracts only the changed files again.
   The kept facts are the same as the facts of a full extraction.

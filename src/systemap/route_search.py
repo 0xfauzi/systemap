@@ -78,13 +78,25 @@ class Grid:
             out.append(((ni * self.ny + nj) * 2 + orient, orient, seg))
         return out
 
-    def use(self, a: Key, b: Key) -> None:
-        """Add 1 to the use count of the segment between two adjacent grid nodes."""
+    def use(self, a: Key, b: Key) -> int:
+        """Add 1 to the use count of the segment between two adjacent grid nodes.
+
+        Give the segment number.
+        """
         (i0, j0), (i1, j1) = a, b
         key = (min(i0, i1), j0) if j0 == j1 else (i0, min(j0, j1))
         seg = self.number[(0 if j0 == j1 else 1, key)]
         self.used[seg] += 1
         self.plain[seg] = self._plain(seg)
+        return seg
+
+    def classify(self, crossed: list[frozenset[str]]) -> None:
+        """Keep the set of crossed regions of each segment."""
+        for seg, regions in enumerate(crossed):
+            found = self.kinds.setdefault(regions, len(self.regions))
+            if found == len(self.regions):
+                self.regions.append(regions)
+            self.kind[seg] = found
 
     def _plain(self, seg: int) -> tuple[float, float]:
         base = self.lengths[seg] * (USED_LANE_FACTOR if self.used[seg] else 1.0)

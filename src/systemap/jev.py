@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from systemap import file_write, git_command
+from systemap import file_write, git_command, terminal_text
 from systemap.decision import DecisionError
 
 API = "https://api.typesafe.ai/v1"
@@ -286,6 +286,10 @@ def _read_cache(root: Path, path: Path | None) -> tuple[dict[str, Any], dict[str
 TRUST_TRACKED = "SYSTEMAP_TRUST_TRACKED_CACHE"
 
 
+class UnknownTracking(Exception):
+    """Git cannot tell if it tracks a file in a work tree. The text gives the Git cause."""
+
+
 def tracked(path: Path) -> bool:
     """Tell if Git tracks the file at `path`.
 
@@ -294,18 +298,28 @@ def tracked(path: Path) -> bool:
     tracked file. The name comparison ignores the case of letters, and the result is
     True only for a listed file that is the same file as `path`. Thus a different case
     of the name is also found on a file system that ignores the case of letters.
-    If Git cannot do the check, for example outside a repository, the result is False."""
+
+    If Git cannot do the check and no folder of the real file contains `.git`, the
+    result is False. If a folder contains `.git`, the result is UnknownTracking with
+    the Git cause. For example, Git refuses a work tree of a different owner."""
     real = path.resolve()
     try:
         proc = git_command.run(
             real.parent, "ls-files", "-z", "--", f":(literal,icase){real.name}", timeout=60
         )
-    except git_command.GitError:
-        return False
+    except git_command.GitError as exc:
+        return _not_tracked(real, str(exc))
     if proc.returncode != 0:
-        return False
+        return _not_tracked(real, git_command.cause(proc.stderr, proc.returncode))
     names = [n for n in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if n]
     return any(_same(real.parent / n, real) for n in names)
+
+
+def _not_tracked(real: Path, cause: str) -> bool:
+    """Give False outside a work tree. In a work tree, give UnknownTracking with `cause`."""
+    if any((folder / ".git").exists() for folder in real.parents):
+        raise UnknownTracking(cause)
+    return False
 
 
 def _same(one: Path, other: Path) -> bool:
@@ -334,12 +348,34 @@ def tracked_note(root: Path, path: Path) -> str:
     )
 
 
+def unknown_note(root: Path, path: Path, cause: str) -> str:
+    """Give the warning for a cache file that the cache does not use, because Git cannot
+    tell if it tracks the file."""
+    rel = path.relative_to(root).as_posix() if path.is_relative_to(root) else str(path)
+    return (
+        f"systemap did not read or write the cache file {rel}, because Git cannot tell "
+        f"if it tracks the file: {cause}. "
+        "A cloned repository can supply the answers in such a file. "
+        f"If you trust the answers in this file, set {TRUST_TRACKED}=1."
+    )
+
+
 def _refused(root: Path, path: Path) -> bool:
-    """Tell if the cache must not use a file that Git tracks. If so, give the warning."""
-    if os.environ.get(TRUST_TRACKED) == "1" or not tracked(path):
-        return False
-    print(tracked_note(root, path), file=sys.stderr)
-    return True
+    """Tell if the cache must not use a file that Git tracks. If so, give the warning.
+
+    If Git cannot do the check in a work tree, the cache also does not use the file."""
+    note = "" if os.environ.get(TRUST_TRACKED) == "1" else _warning(root, path)
+    if note:
+        print(terminal_text.printable(note), file=sys.stderr)
+    return bool(note)
+
+
+def _warning(root: Path, path: Path) -> str:
+    """Give the warning for a cache file that the cache must not use, or an empty string."""
+    try:
+        return tracked_note(root, path) if tracked(path) else ""
+    except UnknownTracking as exc:
+        return unknown_note(root, path, str(exc))
 
 
 class Cache:

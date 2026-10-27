@@ -27,6 +27,7 @@ from conftest import write_tree
 
 from systemap import (
     config,
+    decisions_submit,
     extract,
     python_tests,
     python_tree,
@@ -318,3 +319,12 @@ def test_the_depth_cause_has_a_fix_line() -> None:
     assert unknown_causes.DEPTH in unknown_causes.CAUSES
     lines = unknown_causes.fix_lines([unknown_causes.DEPTH])
     assert lines == [f"  fix: {unknown_causes.FIX[unknown_causes.DEPTH]}"]
+
+
+def test_a_deep_results_file_gives_a_decision_error(tmp_path: Path) -> None:
+    """Acceptance (SEC-6): before the repair, `decisions submit` stopped with
+    RecursionError. Now the result is DecisionError, and nothing is written."""
+    path = tmp_path / "results.json"
+    path.write_text("[" * 200000 + "]" * 200000, encoding="utf-8")
+    with pytest.raises(decisions_submit.DecisionError, match="the file is not JSON"):
+        decisions_submit.read_results(str(path))

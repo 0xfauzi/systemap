@@ -8,9 +8,16 @@ result of a full extraction.
 A kept value of a file stays valid while the file has the same text. The cache compares
 the file status first: the device, the inode, the size, the modification time and the
 change time. If the status is the same and the file was not changed in the RACY_NS before
-the status read, the text is the same. Else the cache reads the text again and compares
+the status read, the text is the same. The cache uses the later of the modification time
+and the change time, because a program can set an earlier modification time after a
+write. Else the cache reads the text again and compares
 its SHA-256 digest. The cache reads the status before the text. Thus a change during an
 extraction gives a different status at the next extraction.
+
+The value of a file comes from a different read of the file than the digest. If the
+file changes between the two reads, the value is for a different text. Thus
+`remember_file` reads the digest again after it makes the value. It keeps the value only
+if the digest did not change.
 
 On Windows, `st_ctime` is the creation time of the file, and a write does not change it.
 Thus a write that keeps the size and the modification time also keeps the status. On
@@ -99,7 +106,7 @@ class FactCache:
             and seen is not None
             and seen.status == status
         ):
-            if seen.at - status[3] > RACY_NS:
+            if seen.at - max(status[3], status[4]) > RACY_NS:
                 return seen.digest
         try:
             text = source_text.read(repo, path)
@@ -115,15 +122,45 @@ class FactCache:
         """Give the kept value of the name for the key. Else make the value and keep it.
 
         A key of None keeps no value. A cache without a generation keeps no value."""
-        found = self._kept.get((kind, name))
-        if key is not None and found is not None and found[0] == key:
-            value: T = copy.deepcopy(found[1])
+        found = self._found(kind, name, key)
+        if found:
+            value: T = found[0]
             return value
-        value = make()
+        value = self._make(kind, make)
+        self._keep(kind, name, key, value)
+        return value
+
+    def remember_file(
+        self, kind: str, name: str, repo: Path, path: Path, make: Callable[[], T]
+    ) -> T:
+        """Give the kept value of a file with the same text. Else make the value.
+
+        `make` reads the file. The key is the digest of the text before `make`. The cache
+        keeps the value only if the digest after `make` is the same as the key."""
+        key = self.digest(repo, path)
+        found = self._found(kind, name, key)
+        if found:
+            value: T = found[0]
+            return value
+        value = self._make(kind, make)
+        if key is not None and self.digest(repo, path) == key:
+            self._keep(kind, name, key, value)
+        return value
+
+    def _found(self, kind: str, name: str, key: str | None) -> tuple[Any, ...]:
+        """Give a copy of the kept value for the key in a tuple, or an empty tuple."""
+        found = self._kept.get((kind, name))
+        if key is None or found is None or found[0] != key:
+            return ()
+        return (copy.deepcopy(found[1]),)
+
+    def _make(self, kind: str, make: Callable[[], T]) -> T:
         self.made[kind] = self.made.get(kind, 0) + 1
+        return make()
+
+    def _keep(self, kind: str, name: str, key: str | None, value: object) -> None:
         if key is not None and self.generation:
             self._kept[(kind, name)] = (key, copy.deepcopy(value))
-        return value
 
 
 def kept(cache: FactCache | None, kind: str, name: str, key: str, make: Callable[[], T]) -> T:

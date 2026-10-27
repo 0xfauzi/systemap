@@ -93,7 +93,7 @@ def test_a_facts_cache_reader_waits_for_the_lock(tmp_path: Path) -> None:
     path = history.cache_dir(cfg) / f"{sha}-{scope}.json"
     path.parent.mkdir(parents=True)
     # The record has the keys that the shape check of the stored facts requires.
-    record = {"file": "pkg/a.py", "functions": [], "classes": [], "errors": []}
+    record = {"file": "pkg/a.py", "functions": [], "classes": [], "errors": [], "sha": "0" * 12}
     cached = {"components": {"pkg.a": {**record, "tests_total": 0, "tests_primary": 0}}}
     path.write_text(json.dumps(cached), encoding="utf-8", newline="\n")
     waited, facts = waits_for_the_lock(history.lock_of(cfg), lambda: history.facts_at(cfg, sha))

@@ -8,11 +8,18 @@ ci-7: before the change, only the renderer of the pull request examined the comm
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
+import textwrap
 import tomllib
 from pathlib import Path
 
+import pytest
+from conftest import TINY_PACKAGE, init_two_cards, write_tree
+
 from systemap import language as languages
 from systemap import scaffold
+from systemap.cli import main
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -99,3 +106,66 @@ def test_a_fork_pull_request_page_is_rendered_with_the_base_code() -> None:
     assert job.count("persist-credentials: false") == 2
     assert "permissions" not in job
     assert "base/.venv/bin/systemap --root pr render --check" in job
+
+
+def _settings_step() -> str:
+    """Give the Python text of the base-render step that compares the output settings."""
+    text = (WORKFLOWS / "systemap.yml").read_text(encoding="utf-8")
+    job = text.split("\n  base-render:\n", 1)[1].split("\n  delta:\n", 1)[0]
+    step = job.split("base/.venv/bin/python - <<'PY'\n", 1)[1].split("\n          PY\n", 1)[0]
+    return textwrap.dedent(step)
+
+
+def _project(root: Path, settings: str) -> None:
+    root.mkdir()
+    (root / "systemap.toml").write_text(f'name = "x"\n{settings}', encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [
+        'out_dir = "docs/mapx"\n',
+        'model = "other/model.py"\n',
+        '[[figures]]\nout = "figures/new.svg"\n',
+    ],
+)
+def test_a_fork_pull_request_cannot_change_the_output_settings(
+    tmp_path: Path, settings: str
+) -> None:
+    """Acceptance (git-sec-2): before the repair, a fork pull request could set a new
+    out_dir. Then base-render compared only the page in that folder."""
+    _project(tmp_path / "base", "")
+    _project(tmp_path / "pr", settings)
+    step = _settings_step()
+    done = subprocess.run(
+        [sys.executable, "-"], input=step, cwd=tmp_path, capture_output=True, text=True
+    )
+    assert done.returncode == 1, done.stderr
+    assert "::error title=Output settings::" in done.stdout
+    (tmp_path / "pr/systemap.toml").write_text('name = "x"\n', encoding="utf-8")
+    same = subprocess.run(
+        [sys.executable, "-"], input=step, cwd=tmp_path, capture_output=True, text=True
+    )
+    assert same.returncode == 0
+
+
+def test_render_check_compares_each_figure_file(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance (git-sec-2): before the repair, `render --check` did not compare the
+    figures. A script in a figure file then passed the base-render job."""
+    write_tree(tmp_path, TINY_PACKAGE)
+    init_two_cards(tmp_path, "--no-ci")
+    root = ("--root", str(tmp_path))
+    assert main([*root, "refresh"]) == 0
+    assert main([*root, "render", "--check"]) == 0
+    figure = tmp_path / "docs/map/figures/system.svg"
+    figure.write_text(figure.read_text(encoding="utf-8") + "<script>alert(1)</script>")
+    capsys.readouterr()
+    assert main([*root, "render", "--check"]) == 1
+    assert "docs/map/figures/system.svg differs from the rendered output." in (
+        capsys.readouterr().out
+    )
+    # The render command does not write the figures. A missing figure is not stale here.
+    figure.unlink()
+    assert main([*root, "render", "--check"]) == 0

@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
+from systemap.route_astar import Cuts, astar
 from systemap.route_search import FOREIGN_REGION_COST, Grid, search
 from systemap.seat_grid import Placed as Placed
 from systemap.seat_grid import Seating
@@ -246,14 +247,43 @@ class Router:
         # wall. A segment can cross a region without a grid node in that region.
         self.crossed: dict[tuple[int, int, int], set[str]] = {}
         self.ports_used: set[tuple[str, str, float]] = set()
+        # The regions that the stub from a port point to its grid node crosses.
+        self.stub_regions: dict[tuple[Point, Point], set[str]] = {}
         self._nx, self._ny = nx, ny
         self.grid = Grid(self.xs, self.ys, self._closed)
+        self.grid.classify(self._kinds())
+        self.cuts = Cuts(self.grid, self.xs, self.ys)
 
     def _closed(self, orient: int, key: tuple[int, int]) -> bool:
         """Tell if the grid segment goes through a card margin or a block."""
         if orient == 0:
             return key in self.h_block or bool(self.h_cards.get(key))
         return key in self.v_block or bool(self.v_cards.get(key))
+
+    def _kinds(self) -> list[frozenset[str]]:
+        """Give the regions whose interior each grid segment crosses."""
+        found: list[set[str]] = [set() for _ in self.grid.segments]
+        for rid, box in self.regions.items():
+            for seg in self._inside(box):
+                found[seg].add(rid)
+        return [frozenset(regions) for regions in found]
+
+    def _inside(self, box: Box) -> list[int]:
+        """Give the grid segments that go into the interior of the box.
+
+        The comparisons are the comparisons of _crosses, with bisect for the ranges.
+        """
+        bx, by, bw, bh = box
+        xs, ys, number = self.xs, self.ys, self.grid.number
+        # A horizontal segment: by < y < by + bh, x0 < bx + bw and x1 > bx.
+        rows = range(bisect.bisect_right(ys, by), bisect.bisect_left(ys, by + bh))
+        cols = range(max(0, bisect.bisect_right(xs, bx) - 1), bisect.bisect_left(xs, bx + bw))
+        found = [number.get((0, (i, j))) for j in rows for i in cols]
+        # A vertical segment: bx < x < bx + bw, y0 < by + bh and y1 > by.
+        cols = range(bisect.bisect_right(xs, bx), bisect.bisect_left(xs, bx + bw))
+        rows = range(max(0, bisect.bisect_right(ys, by) - 1), bisect.bisect_left(ys, by + bh))
+        found += [number.get((1, (i, j))) for i in cols for j in rows]
+        return [seg for seg in found if seg is not None]
 
     def _mark(self, box: Box, cid: str | None) -> None:
         bx, by, bw, bh = box
@@ -345,7 +375,10 @@ class Router:
         for side, off, p, node, orient, cost in self._ports(cid):
             q = (self.xs[node[0]], self.ys[node[1]])
             length = abs(q[0] - p[0]) + abs(q[1] - p[1])
-            foreign = bool(self._on(p, q) - allowed)
+            stub = self.stub_regions.get((p, q))
+            if stub is None:
+                stub = self.stub_regions[(p, q)] = self._on(p, q)
+            foreign = bool(stub - allowed)
             if foreign and strict:
                 continue
             extra = FOREIGN_REGION_COST + length if foreign else 0.0
@@ -367,14 +400,19 @@ class Router:
             fallback = "No corridor avoids " + ", ".join(crossed or ["an unrelated region"])
         points, src_side, dst_side, nodes = found
         for a, b in zip(nodes, nodes[1:], strict=False):
-            self.grid.use(a, b)
+            seg = self.grid.use(a, b)
+            if self.grid.used[seg] == 1:
+                self.cuts.use(seg)
         return Route(points=points, src_side=src_side, dst_side=dst_side, fallback=fallback)
 
     def _search(
         self, src: str, dst: str, allowed: set[str], strict: bool
     ) -> tuple[list[Point], str, str, list[tuple[int, int]]] | None:
         ports = (self._stubs(src, allowed, strict), self._stubs(dst, allowed, strict))
-        found = search(self.grid, self._segment, allowed, strict, ports)
+        if strict:
+            found = astar(self.cuts, allowed, ports)
+        else:
+            found = search(self.grid, self._segment, allowed, strict, ports)
         if found is None:
             return None
         nodes, (src_side, src_off, src_p, *_), (dst_side, dst_off, dst_p, *_) = found

@@ -187,8 +187,9 @@ def collect_tests(
     for path in [*files, *refused]:
         make = partial(_file_guards, repo, path, (prefixes, known, packages))
         cache = tests.cache
-        key = None if cache is None else cache.digest(repo, path)
-        found, issues = make() if cache is None else cache.remember("tests", str(path), key, make)
+        found, issues = (
+            make() if cache is None else cache.remember_file("tests", str(path), repo, path, make)
+        )
         tests.test_issues.extend(issues)
         for target, entries in found.items():
             guards[target].extend(entries)

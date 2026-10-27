@@ -313,18 +313,35 @@ def cmd_render(args: argparse.Namespace) -> int:
         html = _render_page(p, m, facts, args, source, pr)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
-            current = check.output_text(p.cfg.root, out)
-            if current != html:
-                say(f"{p.cfg.rel(out)} is stale: it differs from the rendered output.")
-                code = STALE
-            else:
-                say(f"{p.cfg.rel(out)} agrees with the rendered output.")
+            code = max(code, _checked_page(p, out, html))
             continue
         file_write.write_atomic(p.cfg.root, out, html)
         say(f"The command wrote {p.cfg.rel(out)} ({out.stat().st_size / 1024:.0f} KB)")
+    if args.check:
+        code = max(code, _checked_figures(p, facts))
     if code == STALE:
         say("run: systemap refresh")
     return code
+
+
+def _checked_page(p: Project, out: Path, html: str) -> int:
+    """Compare the page file with its rendered text, and tell the result."""
+    if check.output_text(p.cfg.root, out) != html:
+        say(f"{p.cfg.rel(out)} is stale: it differs from the rendered output.")
+        return STALE
+    say(f"{p.cfg.rel(out)} agrees with the rendered output.")
+    return OK
+
+
+def _checked_figures(p: Project, facts: dict[str, Any]) -> int:
+    """Compare each figure file that exists with its rendered text, and tell each problem.
+
+    `render` does not write the figures. Thus a missing figure is not stale here."""
+    drawn = tuple(f for f in p.cfg.figures if (p.cfg.out_path / f.out).exists())
+    problems = check.figure_problems(p.cfg, p.tree, facts, drawn)
+    for line in problems:
+        say(line)
+    return STALE if problems else OK
 
 
 # ---- check -----------------------------------------------------------------
