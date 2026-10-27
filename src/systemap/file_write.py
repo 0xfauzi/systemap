@@ -226,12 +226,27 @@ def ignore_caches(root: Path, path: Path | None = None) -> bool:
     target = cache_folder / GIT_IGNORE
     folder(root, target)
     with _parent(root, target) as parent:
+        name = _name(target, parent)
         try:
-            handle = os.open(_name(target, parent), _TEMPORARY_FLAGS, 0o666, dir_fd=parent)
+            handle = os.open(name, _TEMPORARY_FLAGS, 0o666, dir_fd=parent)
         except FileExistsError:
             return False
+        except PermissionError:
+            # Windows gives this error, not FileExistsError, for a folder at the name.
+            if _exists(name, parent):
+                return False
+            raise
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
             out.write(IGNORE_ALL)
+    return True
+
+
+def _exists(name: str, parent: int | None) -> bool:
+    """Find if an entry, also a link, has the name in the parent folder."""
+    try:
+        os.lstat(name, dir_fd=parent)
+    except FileNotFoundError:
+        return False
     return True
 
 

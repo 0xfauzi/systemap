@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import write_tree
@@ -131,6 +132,30 @@ def test_a_link_or_a_folder_at_the_name_stays_as_it_is(tmp_path: Path) -> None:
     (other / IGNORE).mkdir(parents=True)
     assert not file_write.ignore_caches(other)
     assert (other / IGNORE).is_dir()
+
+
+@pytest.mark.parametrize("folder_present", [True, False])
+def test_a_permission_error_is_kept_only_if_no_entry_has_the_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, folder_present: bool
+) -> None:
+    """Windows gives PermissionError, not FileExistsError, for O_EXCL on a folder."""
+    if folder_present:
+        (tmp_path / IGNORE).mkdir(parents=True)
+
+    real_open = os.open
+
+    def refuse(name: str, flags: int, *args: Any, **kwargs: Any) -> int:
+        if flags & os.O_EXCL:
+            raise PermissionError(13, "Permission denied")
+        return real_open(name, flags, *args, **kwargs)
+
+    monkeypatch.setattr(file_write.os, "open", refuse)
+    if folder_present:
+        assert not file_write.ignore_caches(tmp_path)
+        assert (tmp_path / IGNORE).is_dir()
+    else:
+        with pytest.raises(PermissionError):
+            file_write.ignore_caches(tmp_path)
 
 
 def test_a_cache_folder_that_is_a_link_out_of_the_root_is_refused(tmp_path: Path) -> None:
