@@ -138,8 +138,9 @@ Other programs on the computer can read the map and send `POST /refresh` to `sys
 
 systemap writes the map files, the model files (`place` and `journeys`), and caches in `.systemap/`.
 If the file `.systemap/.gitignore` is missing, `init` writes it with the line `*`.
-A command that writes a cache file in `.systemap/` also writes this file if it is missing.
-Thus `git add -A` does not add the caches to the repository.
+A command that writes a Jev, OpenAI, or agent cache file in `.systemap/` also writes this file if it is missing.
+Thus `git add -A` does not add these caches to the repository.
+Other commands, for example `systemap live`, do not write this file.
 systemap does not change an existing `.systemap/.gitignore` file or the `.gitignore` file in the repository root.
 `init` and `skill` write the skill directory.
 [Which command do you use?](reference.html#which-command-do-you-use) gives the files of each command.
