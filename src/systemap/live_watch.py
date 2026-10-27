@@ -19,8 +19,10 @@ from systemap import language as languages
 from systemap.config import ConfigError
 
 # The minimum time between two scans of the watched files. After a slow scan, the
-# watcher waits two times the time of that scan. Thus the scans use not more than one
-# third of the time.
+# watcher waits two times the processor time of that scan. Thus the scans use not more
+# than one third of one processor. This limit does not apply to the time that a scan
+# waits for files. If a scan waits for files on a slow disk, it uses little processor
+# time, and the next scan can start after `SCAN_SECONDS`.
 SCAN_SECONDS = 1.0
 # The clock of the scan time: the processor time of the watcher thread. During a render,
 # the scan thread waits for the Python lock. That wait is not a cost of the scan, and
