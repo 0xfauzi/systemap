@@ -99,8 +99,11 @@ _PREVIOUS_KINDS = "|".join(re.escape(name) for name in PREVIOUS)
 _MAP = r"(?:\S+: )?"
 # A file in a location: no ":", and parentheses only in pairs, as in "app/(shop)/a.ts".
 _FILE = r"[^():]*(?:\([^():]*\)[^():]*)*"
+# A module name. A file name with a space gives a name with a space, as "pkg.my file".
+# A word after a space does not start with "(", because " (" starts the location.
+_MODULE = r"\S+(?: [^\s(]\S*)*"
 # The location of a module record or of a test file, with the earlier line number.
-_WHERE = rf"(?:module \S+ \({_FILE}(?::\d+)?\)|test file [^:]+(?::\d+)?)"
+_WHERE = rf"(?:module {_MODULE} \({_FILE}(?::\d+)?\)|test file [^:]+(?::\d+)?)"
 # A quoted value as Python `repr` gives it.
 _QUOTED = r"""(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
 # The reason of an earlier module record: a parse error, a read error, or an error name.
@@ -120,7 +123,7 @@ EARLIER_FORMS = (
     EarlierForm(
         "parser name",
         re.compile(
-            rf"^(?P<line>{_MAP}unknown surface: module \S+ \({_FILE}(?::\d+)?\): {_ERROR})"
+            rf"^(?P<line>{_MAP}unknown surface: module {_MODULE} \({_FILE}(?::\d+)?\): {_ERROR})"
             r" under Python (?P<parser>\S+)$"
         ),
         r"\g<line> (parser version \g<parser>)",
