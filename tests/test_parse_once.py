@@ -211,11 +211,14 @@ def test_an_extraction_above_the_limit_gives_the_same_facts_with_one_tree(
         held.append(len(python_tree._trees))
 
     monkeypatch.setattr(python_tree, "_keep", keep)
-    assert extract.build(config.load(tmp_path)) == expected
-    first_drop = next(i for i in range(1, len(held)) if held[i] < held[i - 1])
+    try:
+        assert extract.build(config.load(tmp_path)) == expected
+    finally:
+        python_tree.clear()
+    drops = [i for i in range(1, len(held)) if held[i] < held[i - 1]]
+    assert drops, f"the cache did not go above the limit: {held}"
     # Before the change, the cache kept about half of the trees after the limit.
-    assert set(held[first_drop:]) == {1}
-    python_tree.clear()
+    assert set(held[drops[0] :]) == {1}
 
 
 def test_walk_gives_the_nodes_in_the_order_of_ast_walk() -> None:

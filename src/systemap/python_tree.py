@@ -9,7 +9,7 @@ keeps the node list of each tree, and `walk` gives this list.
 The cache keeps the trees of the texts. The total number of nodes in these trees is not
 more than `KEPT`. Each step reads all the modules in the same sequence. Thus, if the trees
 of the repository go above the limit, a cache that removes only the oldest trees has no
-tree for a later step. Such a cache uses memory and time and gives no result.
+tree for a later step. Such a cache uses memory and time, but no step gets a tree from it.
 Thus, when a new tree goes above the limit, the cache removes all the trees. Until
 `clear`, the cache then keeps only the most recent tree. A step then parses an old text
 again. The result is the same.
@@ -132,7 +132,8 @@ def _cached(raw: str) -> _Result | None:
     """Give the cached result of the text, or None.
 
     If the text is not in the cache and the cache holds a tree that is larger than the
-    limit, the function removes that tree before the caller parses the text.
+    limit, the function removes that tree before the caller parses the text. When the
+    cache keeps only one tree, the function removes that tree on each such text.
     """
     with _lock:
         found = _trees.get(raw)
