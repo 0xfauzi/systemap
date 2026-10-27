@@ -41,6 +41,14 @@ A layer is a filtered view of the map.
   A filter name that contains `=` gives an error.
   The command does not examine the files in a submodule. Thus a filter of the submodule configuration does not start.
   A new commit of a submodule is a change. A changed file in a submodule is not a change.
+- The working-tree comparisons of `live` and `judgement --order-by-drift` now use the programs of your user, system or command-line configuration for a filter name that the repository configuration also defines. Example: `git lfs install` together with `git lfs install --local`.
+  A touched or checked-out file of such a filter is no longer a false change. A program that only the repository configuration defines still does not run.
+- If only the repository configuration gives the program of a filter, the live Changes view does not show its changed paths as changed.
+  It gives them in a note under NOT IN THIS COMPARISON: "systemap does not run the Git filters of the repository configuration for these paths. Their changes are not known".
+  `judgement --order-by-drift` uses the text form for a component with such a path.
+- `systemap init` writes `.systemap/.gitignore` with the line `*` if that file is missing. Thus `git add -A` does not add the Jev, OpenAI, and agent caches to the repository.
+- When systemap writes a cache file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
+  systemap does not change an existing `.systemap/.gitignore` file or the `.gitignore` file in the repository root.
 - A file name, a TypeScript export name, a package.json name or `bin` key, or a pyproject.toml script key with a control character cannot make a false finding line.
   The facts do not use such a name. An unknown record with the new cause `name` shows the name with escapes, such as `\u000a`.
 - A `[package_roots]` path or name with a control character gives a configuration error.
@@ -86,6 +94,10 @@ A layer is a filtered view of the map.
 
 ### Changes
 
+- When the syntax trees of a repository go above the limit of the Python tree cache (1048576 nodes), the cache keeps only one tree until the extraction is complete.
+  Previously, the cache removed only the oldest trees. Then it gave no tree again to a later step, and it kept about one million nodes.
+  On a recorded repository with about 1.68 million nodes, extract takes 45 s to 51 s at 405 MB. Previously, it took 66 s to 69 s at 437 MB.
+  A repository below the limit does not change. The facts do not change.
 - The TypeScript call-site reader reads a deep syntax tree in linear time.
   20 files of 1.8 KB take 1.0 s in `systemap extract`. Previously, they took 120.7 s.
 - If a source file has too many syntax levels, `systemap extract` does not stop.
@@ -215,8 +227,8 @@ A layer is a filtered view of the map.
 - A layer switch reads all line lengths and boxes before it writes the reveal masks.
 - At load, the class changes of the first layer start no transitions.
   On the page with 72 components, the longest load task decreases from about 650 ms to about 200 ms.
-- The Sequences view gives a step number on 40 steps only when a sequence has more than 40 steps. The legend gives these steps.
-  A click on a route of 200 steps takes less than 200 ms on a map with 450 flows. Previously, it took 26 s to 28 s.
+- The Sequences view gives a step number on each step again, also when a sequence has more than 40 steps. The legend has no note about the numbered steps now.
+  A click on a sequence of 200 steps on a map with 450 flows takes about 1 s at 1x. Before the grid it took about 30 s.
 - The Changes view shows the source card when a type name is `constructor` or `__proto__`.
   Previously, the card script stopped with an error.
 - The map page with a revision comparison contains the map script one time.

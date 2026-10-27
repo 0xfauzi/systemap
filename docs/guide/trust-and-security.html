@@ -73,13 +73,20 @@ systemap gives these settings to each Git command, so that Git does not start su
 <li><code>-c core.fsmonitor=false</code> and <code>-c core.hooksPath=</code> with the null device of the platform.</li>
 <li><code>-c log.showSignature=false</code>. Thus Git does not start <code>gpg.program</code>.</li>
 <li><code>-c diff.external=</code>, and <code>--no-textconv</code> and <code>--no-ext-diff</code> for each command that reads the content of a diff.</li>
-<li>For a command that compares the working tree, an empty <code>clean</code>, <code>smudge</code>, and <code>process</code> program for each filter of the repository configuration.</li>
+<li>For a command that compares the working tree, a value for each <code>clean</code>, <code>smudge</code>, and <code>process</code> program that the repository configuration defines.
+The value comes from the same filter name in your user, system, or command-line configuration. If these do not define the program, the value is empty.</li>
 <li>For a command that compares the working tree, <code>--ignore-submodules=dirty</code>. A submodule has its own configuration, and that configuration can name a filter. With this option, Git does not read the files of a submodule.</li>
 </ul>
 <p>The filter settings apply only to a filter of the <code>local</code> and <code>worktree</code> scopes.
 A filter of your user or system configuration, for example the <code>git-lfs</code> filter, operates as usual.
-If the repository configuration defines the filter of a large file program, systemap also stops that filter.
-Then a comparison with the working tree can show a file of that program as changed.
+If the repository configuration and your configuration define the same filter name, Git uses the programs of your configuration.
+A program of the repository configuration does not run.
+If only the repository configuration gives the program of a filter, systemap stops that filter.
+systemap also stops a filter if the repository configuration gives a <code>process</code> program and your configuration does not. The empty <code>process</code> value also stops the <code>clean</code> program of your configuration.
+For example, <code>git lfs install --local</code> writes the <code>git-lfs</code> filter only to the repository configuration.
+Then Git cannot correctly compare the files of that filter with the working tree.
+For a change that is not in a commit, the live map does not show these files as changed. The Changes view gives them in a note under NOT IN THIS COMPARISON. If a commit after the merge base changes such a file, the file is a changed file, as usual.
+<code>judgement --order-by-drift</code> gives the full text of a component with such a file, not a diff.
 If a filter name contains <code>=</code>, Git cannot read the setting. Then the command stops with an error and starts no filter.
 A comparison with the working tree shows a new commit of a submodule as a change. It does not show a changed file in a submodule.
 Each Git command has a time limit. The reader of <code>git cat-file --batch</code> stops Git if Git gives no bytes in the time limit. If Git refuses the repository, for example because of dubious ownership, the error gives the Git cause.</p>
@@ -198,6 +205,11 @@ Each connection has a read time limit of 10 seconds.
 Other programs on the computer can read the map and send <code>POST /refresh</code> to <code>systemap live</code>.</p>
 <h2 id="what-systemap-writes">What systemap writes</h2>
 <p>systemap writes the map files, the model files (<code>place</code> and <code>journeys</code>), and caches in <code>.systemap/</code>.
+If the file <code>.systemap/.gitignore</code> is missing, <code>init</code> writes it with the line <code>*</code>.
+A command that writes a Jev, OpenAI, or agent cache file in <code>.systemap/</code> also writes this file if it is missing.
+Thus <code>git add -A</code> does not add these caches to the repository.
+Other commands, for example <code>systemap live</code>, do not write this file.
+systemap does not change an existing <code>.systemap/.gitignore</code> file or the <code>.gitignore</code> file in the repository root.
 <code>init</code> and <code>skill</code> write the skill directory.
 <a href="reference.html#which-command-do-you-use">Which command do you use?</a> gives the files of each command.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="live-map.html" rel="prev"><span class="kicker">Previous</span><span>The live map</span></a><a class="pager__a pager__next" href="limits.html" rel="next"><span class="kicker">Next</span><span>Limits</span></a></nav>
