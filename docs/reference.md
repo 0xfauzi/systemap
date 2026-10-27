@@ -839,8 +839,9 @@ A write replaces a link in the repository. It does not write to the target of th
 The configured cache files, `out_dir`, and `model` must be paths in the repository, without a `..` part.
 An absolute path or a path with a `..` part gives exit code `2`.
 
-When a command writes a Jev, OpenAI, or agent cache file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
-The file has the line `*`. Thus `git add -A` does not add the caches to the repository.
+When a command writes a file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
+These files are the Jev, OpenAI, and agent caches, the facts cache in `.systemap/facts/`, and the decision store `.systemap/decisions.json`.
+The file has the line `*`. Thus `git add -A` does not add these files to the repository.
 The command does not change an existing `.systemap/.gitignore` file, also if it is a link or a folder.
 It does not change the `.gitignore` file in the repository root.
 

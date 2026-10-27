@@ -16,8 +16,9 @@ import pytest
 from conftest import write_tree
 from test_cache_trust import answer, git, route_project, run_journeys
 
-from systemap import file_write, jev
+from systemap import decisions_store, delta, file_write, history, jev
 from systemap.cli import main
+from systemap.config import Config
 
 IGNORE = Path(".systemap/.gitignore")
 
@@ -85,6 +86,28 @@ def test_a_cache_save_without_init_makes_the_file(tmp_path: Path) -> None:
     assert (tmp_path / IGNORE).read_bytes() == b"*\n"
     assert porcelain(tmp_path) == []
     assert not (tmp_path / ".gitignore").exists()
+
+
+def test_a_facts_cache_write_makes_the_file(tmp_path: Path) -> None:
+    """Acceptance: before the change, `.systemap/facts/` showed in `git status`."""
+    write_tree(tmp_path, {"pkg/__init__.py": "", "pkg/reader.py": "X = 1\n"})
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", ".")
+    git(tmp_path, "commit", "-qm", "source")
+    cfg = Config(tmp_path, "Example", (("pkg", "pkg"),), "python")
+    history.facts_at(cfg, delta.resolve(tmp_path, "HEAD"))
+    assert list(history.cache_dir(cfg).glob("*.json"))
+    assert (tmp_path / IGNORE).read_bytes() == b"*\n"
+    assert porcelain(tmp_path) == []
+
+
+def test_a_decisions_store_save_makes_the_file(tmp_path: Path) -> None:
+    """Acceptance: before the change, `.systemap/decisions.json` showed in `git status`."""
+    git(tmp_path, "init", "-q")
+    decisions_store.save(tmp_path, {"k": {"answer": "a"}})
+    assert decisions_store.path(tmp_path).is_file()
+    assert (tmp_path / IGNORE).read_bytes() == b"*\n"
+    assert porcelain(tmp_path) == []
 
 
 def test_a_cache_outside_the_cache_folder_makes_no_file(tmp_path: Path) -> None:

@@ -65,8 +65,8 @@ In Claude Code, the plugin <a href="coding-agents.html#the-live-map-in-claude-co
 <h2 id="what-the-command-writes">What the command writes</h2>
 <p>The command writes the pages and <code>change.svg</code> into a temporary directory, and deletes it when it stops.
 It does not write the output directory, the facts file, or a tracked file.
-It can add the facts of the merge base to a cache in <code>.systemap/facts/</code>. Git shows this directory as untracked unless a <code>.gitignore</code> file contains it.
-If <code>systemap init</code> wrote the file <code>.systemap/.gitignore</code>, Git ignores this directory.</p>
+It can add the facts of the merge base to a cache in <code>.systemap/facts/</code>.
+If the file <code>.systemap/.gitignore</code> is missing, the command then writes it with the line <code>*</code>. Thus Git ignores this directory.</p>
 <h2 id="when-the-command-renders-again">When the command renders again</h2>
 <p>Without <code>--no-watch</code>, the command scans the configuration, model, source, and test files one time each second.
 If a scan takes more than half a second, the next scan starts after two times the time of that scan.

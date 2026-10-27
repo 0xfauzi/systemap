@@ -47,7 +47,8 @@ A layer is a filtered view of the map.
   It gives them in a note under NOT IN THIS COMPARISON: "systemap does not run the Git filters of the repository configuration for these paths. Their changes are not known".
   `judgement --order-by-drift` uses the text form for a component with such a path.
 - `systemap init` writes `.systemap/.gitignore` with the line `*` if that file is missing. Thus `git add -A` does not add the Jev, OpenAI, and agent caches to the repository.
-- When systemap writes a cache file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
+- When systemap writes a file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
+  These files are the Jev, OpenAI, and agent caches, the facts cache in `.systemap/facts/`, and the decision store `.systemap/decisions.json`.
   systemap does not change an existing `.systemap/.gitignore` file or the `.gitignore` file in the repository root.
 - A file name, a TypeScript export name, a package.json name or `bin` key, or a pyproject.toml script key with a control character cannot make a false finding line.
   The facts do not use such a name. An unknown record with the new cause `name` shows the name with escapes, such as `\u000a`.

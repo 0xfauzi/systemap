@@ -561,9 +561,9 @@ Thus systemap does not read or write a cache file that Git tracks. It gives a wa
 This rule also applies to a file that a submodule tracks, and to a link to a tracked file.
 If you trust the answers in that file, set `SYSTEMAP_TRUST_TRACKED_CACHE=1`.
 If the file `.systemap/.gitignore` is missing, `systemap init` writes it with the line `*`.
-When systemap writes a Jev, OpenAI, or agent cache file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
-Thus `git add -A` does not add these caches to the repository.
-Other commands, for example `systemap live`, do not write `.systemap/.gitignore`.
+When systemap writes a file in `.systemap/`, it also writes `.systemap/.gitignore` if that file is missing.
+These files are the Jev, OpenAI, and agent caches, the facts cache in `.systemap/facts/`, and the decision store `.systemap/decisions.json`.
+Thus `git add -A` does not add these files to the repository.
 systemap does not change an existing `.systemap/.gitignore` file. It does not change the `.gitignore` file in the repository root.
 `systemap journeys` writes the row `from the cache` under each sequence whose answer came from the agent cache.
 

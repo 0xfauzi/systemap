@@ -206,9 +206,9 @@ Other programs on the computer can read the map and send <code>POST /refresh</co
 <h2 id="what-systemap-writes">What systemap writes</h2>
 <p>systemap writes the map files, the model files (<code>place</code> and <code>journeys</code>), and caches in <code>.systemap/</code>.
 If the file <code>.systemap/.gitignore</code> is missing, <code>init</code> writes it with the line <code>*</code>.
-A command that writes a Jev, OpenAI, or agent cache file in <code>.systemap/</code> also writes this file if it is missing.
-Thus <code>git add -A</code> does not add these caches to the repository.
-Other commands, for example <code>systemap live</code>, do not write this file.
+A command that writes a file in <code>.systemap/</code> also writes this file if it is missing.
+These files are the Jev, OpenAI, and agent caches, the facts cache in <code>.systemap/facts/</code>, and the decision store <code>.systemap/decisions.json</code>.
+Thus <code>git add -A</code> does not add these files to the repository.
 systemap does not change an existing <code>.systemap/.gitignore</code> file or the <code>.gitignore</code> file in the repository root.
 <code>init</code> and <code>skill</code> write the skill directory.
 <a href="reference.html#which-command-do-you-use">Which command do you use?</a> gives the files of each command.</p>

@@ -1089,8 +1089,9 @@ Remove the file or the link. Then use the command again.</p>
 <p>A write replaces a link in the repository. It does not write to the target of the link.
 The configured cache files, <code>out_dir</code>, and <code>model</code> must be paths in the repository, without a <code>..</code> part.
 An absolute path or a path with a <code>..</code> part gives exit code <code>2</code>.</p>
-<p>When a command writes a Jev, OpenAI, or agent cache file in <code>.systemap/</code>, it also writes <code>.systemap/.gitignore</code> if that file is missing.
-The file has the line <code>*</code>. Thus <code>git add -A</code> does not add the caches to the repository.
+<p>When a command writes a file in <code>.systemap/</code>, it also writes <code>.systemap/.gitignore</code> if that file is missing.
+These files are the Jev, OpenAI, and agent caches, the facts cache in <code>.systemap/facts/</code>, and the decision store <code>.systemap/decisions.json</code>.
+The file has the line <code>*</code>. Thus <code>git add -A</code> does not add these files to the repository.
 The command does not change an existing <code>.systemap/.gitignore</code> file, also if it is a link or a folder.
 It does not change the <code>.gitignore</code> file in the repository root.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>

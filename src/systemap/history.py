@@ -76,6 +76,7 @@ def facts_at(cfg: Config, sha: str) -> dict[str, Any]:
     facts = delta.facts_at(cfg, sha)
     with file_write.locked(cfg.root, lock_of(cfg)):
         file_write.write_atomic(cfg.root, path, json.dumps(facts))
+        file_write.ignore_caches(cfg.root, path)
     return facts
 
 
