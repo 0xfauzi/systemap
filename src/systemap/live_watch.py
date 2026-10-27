@@ -22,6 +22,11 @@ from systemap.config import ConfigError
 # watcher waits two times the time of that scan. Thus the scans use not more than one
 # third of the time.
 SCAN_SECONDS = 1.0
+# The clock of the scan time: the processor time of the watcher thread. During a render,
+# the scan thread waits for the Python lock. That wait is not a cost of the scan, and
+# the wall time of the scan increases by a large quantity. If the watcher waits two times
+# that wall time, it finds a change some seconds late.
+SCAN_CLOCK = time.thread_time
 # The two files that can hold the systemap configuration. `config.load` reads them for
 # each language. The language adapter gives its other configuration files.
 CONFIG_FILES = (config.CONFIG_FILE, "pyproject.toml")
@@ -125,13 +130,14 @@ def watch(
     files: Callable[[], Iterable[Path]],
     stop: Stopper,
     seconds: float = SCAN_SECONDS,
-    clock: Callable[[], float] = time.monotonic,
+    clock: Callable[[], float] = SCAN_CLOCK,
 ) -> None:
     """Scan the files at each interval. After a change, request a version when the next
     scan finds no more change.
 
     If a scan fails, the live map shows the error, and the watcher continues. The interval
-    is `seconds`, or two times the time of the last scan if that time is longer.
+    is `seconds`, or two times the time of the last scan if that time is longer. The
+    `clock` gives the time of a scan. The default is the processor time of the thread.
     """
     scanner = _Scanner(live, files, clock)
     last = scanner.scan({})
