@@ -1,16 +1,15 @@
-"""The cost of the sequence marks on the map (audit finding g1page-1).
+"""The cost of the sequence marks on the map (audit finding g1page-1, scope seqcap).
 
 Acceptance:
 
-- A sequence with 40 steps or fewer has a step number for each step, as before.
-- A sequence with more than 40 steps has numbers on 40 steps only: the first 40 steps of
-  the whole route, or the 40 steps near the current step. The legend gives these steps.
-  The test counts the numbers, not the time. Before the change, the whole route of 3000
-  steps on one flow drew 3000 numbers. Each number examined each number that was already
-  on the map. In Chromium on a map with 72 components and 450 flows, one click on a
-  route of 200 steps took 26 to 28 s before the change and 87 to 187 ms after it.
+- Each step of a sequence has a step number on the map, also when the sequence has more
+  than 40 steps. The step view has a number on each step other than the current step.
+  The legend has no note about a range of numbered steps.
 - The grid of the mark script gives the same count as a scan of all items, also for a box
   with very large or not-a-number coordinates. Thus the marks on a normal map do not change.
+  In Chromium on a map with 72 components and 450 flows, one click on a route of 200 steps
+  took 27.7 to 35.0 s at d7d7a8b and 0.8 to 1.1 s with the grid and all step numbers
+  (bench/jev/README.md, "All step numbers of a long sequence").
 """
 
 from __future__ import annotations
@@ -31,45 +30,37 @@ LONG_ROUTE = r"""
 function longroute(page){
   const {doc, win, svg, A} = page, P = svg.page, E = A.edges.length, out = {};
   doc.querySelector('[data-mode="trace"]').click(); runFrames(win);
-  function add(n, same){
-    const steps = [];
-    for(let k = 0; k < n; k++){
-      const i = same ? 0 : k % E;
-      steps.push({edge:i, acts:[A.edges[i].to], measures:[], say:'Step ' + k});
-    }
-    A.journeys.push({label:'L' + n, steps, drafted:false, starts:''});
-    return A.journeys.length - 1;
+  const steps = [];
+  for(let k = 0; k < 60; k++){
+    const i = k % E;
+    steps.push({edge:i, acts:[A.edges[i].to], measures:[], say:'Step ' + k});
   }
-  function pills(){ return svg.querySelector('.seq-marks').querySelectorAll('.seq-pill').length; }
+  A.journeys.push({label:'L60', steps, drafted:false, starts:''});
+  function numbers(){
+    return svg.querySelector('.seq-marks').querySelectorAll('.seq-pill__n')
+      .map((t) => +t.textContent).sort((a, b) => a - b);
+  }
   function legend(){ return P.legendFor.map((f) => f()).filter((h) => h).join(''); }
-  P.journey.route(add(40, false)); runFrames(win);
-  out.short = pills(); out.shortLegend = legend();
-  P.journey.route(add(3000, true)); runFrames(win);
-  out.whole = pills(); out.wholeLegend = legend();
-  P.journey.step(1500); runFrames(win);
-  out.step = pills(); out.stepLegend = legend();
-  out.numbers = svg.querySelector('.seq-marks').querySelectorAll('.seq-pill__n')
-    .map((t) => +t.textContent).sort((a, b) => a - b);
+  P.journey.route(A.journeys.length - 1); runFrames(win);
+  out.whole = numbers(); out.wholeLegend = legend();
+  P.journey.step(30); runFrames(win);
+  out.step = numbers(); out.stepLegend = legend();
   return out;
 }
 """
 
 
-def test_a_long_sequence_has_numbers_on_forty_steps_only(sample: Sample, tmp_path: Path) -> None:
+def test_each_step_of_a_long_sequence_has_a_number(sample: Sample, tmp_path: Path) -> None:
     html = page.build(
         sample.cfg, sample.model, sample.meaning, sample.theme, sample.facts, {"has_change": False}
     )
     report = drive(html, tmp_path, "longroute", LONG_ROUTE)
-    # 40 steps: a number for each step, and no legend note.
-    assert report["short"] == 40
-    assert "Numbers on steps" not in report["shortLegend"]
-    # 3000 steps: 40 numbers in the whole route, and the legend gives them.
-    assert report["whole"] == 40
-    assert "Numbers on steps 1 to 40 only" in report["wholeLegend"]
-    # Step 1501: the 40 steps near it. The current step has a note, not a number.
-    assert report["step"] == 39
-    assert "Numbers on steps 1481 to 1520 only" in report["stepLegend"]
-    assert report["numbers"] == [n for n in range(1481, 1521) if n != 1501]
+    # 60 steps: a number for each step in the whole route, and no legend note.
+    assert report["whole"] == list(range(1, 61))
+    assert "Numbers on steps" not in report["wholeLegend"]
+    # Step 31: the current step has a note, not a number. All other steps have a number.
+    assert report["step"] == [n for n in range(1, 61) if n != 31]
+    assert "Numbers on steps" not in report["stepLegend"]
 
 
 GRID_CHECK = r"""
