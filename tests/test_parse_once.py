@@ -171,6 +171,53 @@ def test_the_cache_gives_the_same_tree_and_the_same_error(monkeypatch: pytest.Mo
     python_tree.clear()
 
 
+def test_above_the_limit_the_cache_keeps_one_tree(
+    monkeypatch: pytest.MonkeyPatch, parses: collections.Counter[str]
+) -> None:
+    # Each text gives a tree of 5 nodes. Thus the third tree goes above 12.
+    monkeypatch.setattr(python_tree, "KEPT", 12)
+    first = python_tree.parse("b = 2\n")
+    python_tree.parse("a = 1\n")
+    assert python_tree.parse("b = 2\n") is first, "two trees are in the limit"
+    python_tree.parse("c = 3\n")
+    # Before the change, the cache removed only the oldest tree and kept `b = 2`.
+    assert python_tree.parse("b = 2\n") is not first
+    assert parses["b = 2\n"] == 2
+    # The cache keeps one tree until `clear`, also when two trees are in the limit.
+    python_tree.parse("a = 1\n")
+    python_tree.parse("b = 2\n")
+    python_tree.parse("a = 1\n")
+    assert parses["a = 1\n"] == 3
+    python_tree.clear()
+    kept = python_tree.parse("a = 1\n")
+    python_tree.parse("b = 2\n")
+    assert python_tree.parse("a = 1\n") is kept, "clear gives the full limit again"
+
+
+def test_an_extraction_above_the_limit_gives_the_same_facts_with_one_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_tree(tmp_path, ALIAS_TREE)
+    python_tree.clear()
+    expected = extract.build(config.load(tmp_path))
+    texts = _module_texts(tmp_path, expected).values()
+    total = sum(len(list(ast.walk(ast.parse(text)))) for text in texts)
+    monkeypatch.setattr(python_tree, "KEPT", total // 2)
+    held: list[int] = []
+    real = python_tree._keep
+
+    def keep(raw: str, found: Any) -> None:
+        real(raw, found)
+        held.append(len(python_tree._trees))
+
+    monkeypatch.setattr(python_tree, "_keep", keep)
+    assert extract.build(config.load(tmp_path)) == expected
+    first_drop = next(i for i in range(1, len(held)) if held[i] < held[i - 1])
+    # Before the change, the cache kept about half of the trees after the limit.
+    assert set(held[first_drop:]) == {1}
+    python_tree.clear()
+
+
 def test_walk_gives_the_nodes_in_the_order_of_ast_walk() -> None:
     python_tree.clear()
     text = "import a\n\ndef f(x):\n    return a.g(x)\n"
