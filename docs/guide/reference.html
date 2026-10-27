@@ -1089,6 +1089,11 @@ Remove the file or the link. Then use the command again.</p>
 <p>A write replaces a link in the repository. It does not write to the target of the link.
 The configured cache files, <code>out_dir</code>, and <code>model</code> must be paths in the repository, without a <code>..</code> part.
 An absolute path or a path with a <code>..</code> part gives exit code <code>2</code>.</p>
+<p>When a command writes a file in <code>.systemap/</code>, it also writes <code>.systemap/.gitignore</code> if that file is missing.
+These files are the Jev, OpenAI, and agent caches, the facts cache in <code>.systemap/facts/</code>, and the decision store <code>.systemap/decisions.json</code>.
+The file has the line <code>*</code>. Thus <code>git add -A</code> does not add these files to the repository.
+The command does not change an existing <code>.systemap/.gitignore</code> file, also if it is a link or a folder.
+It does not change the <code>.gitignore</code> file in the repository root.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, an empty contract file, the skill directory, and a GitHub
 workflow. The workflow pins this version.
@@ -1100,6 +1105,8 @@ If <code>pyproject.toml</code> has a <code>[tool.systemap]</code> table and <cod
 the command does not write <code>systemap.toml</code>, because the commands read that file before the table.
 Then it writes the model at the <code>model</code> path of the table.
 It writes the skill directory again on each run.
+If <code>.systemap/.gitignore</code> is missing, the command writes it with the line <code>*</code>, so that Git does not add the caches.
+It does not change an existing <code>.systemap/.gitignore</code> file.
 If a symbolic link puts a file in a location that is not in the repository, the command writes no file and exits 2.
 It prints the instruction for your agent.
 <code>--no-ci</code> does not include the workflow.</p>

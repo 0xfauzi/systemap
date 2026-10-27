@@ -585,11 +585,8 @@ function pillScore(rect, c, spec, ctx){
     return p.edge !== spec.edge && inside(p, rect); }));
 }
 function bestSpot(spec, ctx){
-  var best = null, spots = walk(PATH[spec.edge].pts, 6, 16);
-  // On a sequence with more than LONG steps, the script examines about 40 places on a line.
-  var every = ctx.long ? Math.ceil(spots.length / 40) : 1;
-  spots.forEach(function(c, k){
-    if(k % every){ return; }
+  var best = null;
+  walk(PATH[spec.edge].pts, 6, 16).forEach(function(c){
     (spec.label ? ['r', 'l'] : ['r']).forEach(function(side){
       var x = side === 'r' ? c.x - spec.h / 2 : c.x - spec.w + spec.h / 2;
       var rect = {x:x, y:c.y - spec.h / 2, w:spec.w, h:spec.h};
@@ -688,13 +685,6 @@ function callout(no, st, ctx){
   placed.add(best.r);
   return {g:g, rect:best.r};
 }
-// A sequence with more than LONG steps has numbers on LONG steps only: the steps near the
-// current step, or the first steps of the whole route. Each number also examines fewer
-// places. The time to place a number increases with the quantity of numbers and lines.
-// On a map with 72 components and 450 flows, a route with 40 steps took 96 to 117 ms.
-// A route with 200 steps took 199 to 504 ms with all numbers.
-var LONG = 40;
-function numbered(n, s){ return n > LONG ? Math.max(0, Math.min(s - LONG / 2, n - LONG)) : 0; }
 function lineKind(k, s){ return s < 0 ? 'route' : (k < s ? 'was' : (k > s ? 'later' : 'now')); }
 function drawRoute(o){
   // o: {j, s (the current step, or -1 for the whole route), present, area}
@@ -733,14 +723,13 @@ function drawRoute(o){
       'MEASURES', 'meas', tagged[id] || 0); });
   }
   if(start && !tagged[start]){ tag(start, 'START', s < 0 ? 'first' : 'start', 0); }
-  var ctx = {ids:ids, step:step, dots:dots, area:o.area, long:steps.length > LONG};
-  var note = null, pills = [];
+  var ctx = {ids:ids, step:step, dots:dots, area:o.area}, note = null, pills = [];
   if(cur && !o.present){ note = callout(s + 1, cur, ctx); }
-  var specs = [], from = numbered(steps.length, s);
+  var specs = [];
   if(cur && o.present){ specs.push({edge:cur.edge, n:s + 1, kind:'now', label:''}); }
   steps.forEach(function(st, k){
     var kind = lineKind(k, s), e = A.edges[st.edge];
-    if(k === s || (o.present && kind === 'later') || k < from || k >= from + LONG){ return; }
+    if(k === s || (o.present && kind === 'later')){ return; }
     specs.push({edge:st.edge, n:k + 1, kind:kind, label:e ? e.art : ''});
   });
   // The shortest lines have the fewest places for a number: they go first.

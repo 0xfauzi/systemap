@@ -173,10 +173,15 @@ def comparison_limits(ch: dict[str, Any]) -> str:
 
 
 def _not_known_paths(ch: dict[str, Any]) -> list[str]:
-    """Give the paragraphs for the refused paths and the test files that systemap could
-    not read or parse."""
+    """Give the paragraphs for the refused paths, the paths with a stopped Git filter, and
+    the test files that systemap could not read or parse."""
     texts = (
         ("refused_paths", "The Git tree reader refused these paths. Their changes are not known"),
+        (
+            "filtered_paths",
+            "systemap does not run the Git filters of the repository configuration for these "
+            "paths. Their changes are not known",
+        ),
         (
             "unread_tests",
             "systemap could not read or parse these changed test files. "

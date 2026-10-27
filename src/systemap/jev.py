@@ -396,7 +396,11 @@ class Cache:
     A cache file that Git tracks can come from a cloned repository. Its answers are then
     not from a provider or an agent on this computer. Thus the cache does not read or
     write such a file, and `refused` is True. A warning on stderr gives the file. If the
-    environment sets SYSTEMAP_TRUST_TRACKED_CACHE=1, the cache uses the file."""
+    environment sets SYSTEMAP_TRUST_TRACKED_CACHE=1, the cache uses the file.
+
+    Before a save to a file in `.systemap/`, the cache makes the file `.systemap/.gitignore`
+    with the line `*` if the folder has no such file (`file_write.ignore_caches`). Thus Git
+    does not add a cache to the repository after `git add -A`."""
 
     def __init__(self, path: Path | None = None, *, root: Path | None = None) -> None:
         if path is not None and root is None:
@@ -416,6 +420,7 @@ class Cache:
     def save(self) -> None:
         if self.path is None or self.refused:
             return
+        file_write.ignore_caches(self.root, self.path)
         with file_write.locked(self.root, self.path):
             entries, releases = _read_cache(self.root, self.path)
             entries.update(self.entries)

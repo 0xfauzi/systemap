@@ -266,6 +266,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | Git ancestor | A commit reachable through the parent history of another commit. |
 | Git blob | The Git object that stores file contents. |
 | Git ref | A named Git reference to an object or commit. |
+| Git filter | A set of programs in a Git configuration that change the contents of a file between the repository and the working tree. |
 | gutter | The layout space between regions or card columns. |
 | holdout | Recorded evaluation cases excluded from fitting a method (category 7). |
 | import connection | An extracted source import between two component module sets. |

@@ -6,9 +6,13 @@ cache, each step parses the same text again. A large module then takes about ten
 the time of one parse. Each step also reads all the nodes of the tree. Thus the cache
 keeps the node list of each tree, and `walk` gives this list.
 
-The cache keeps the trees of the most recent texts. The total number of nodes in these
-trees is not more than `KEPT`. When a new tree goes above this limit, the cache removes
-the oldest trees. A step then parses an old text again. The result is the same.
+The cache keeps the trees of the texts. The total number of nodes in these trees is not
+more than `KEPT`. Each step reads all the modules in the same sequence. Thus, if the trees
+of the repository go above the limit, a cache that removes only the oldest trees has no
+tree for a later step. Such a cache uses memory and time, but no step gets a tree from it.
+Thus, when a new tree goes above the limit, the cache removes all the trees. Until
+`clear`, the cache then keeps only the most recent tree. A step then parses an old text
+again. The result is the same.
 
 One tree can have more nodes than `KEPT`. The cache keeps this tree only until the next
 parse of a different text. Thus two large trees are not in memory at the same time.
@@ -51,6 +55,8 @@ _nodes: dict[int, tuple[ast.Module, list[ast.AST]]] = {}
 _lock = threading.Lock()
 # The digests of the refused texts. The cache limit does not remove them.
 _refused: set[str] = set()
+# True after a new tree went above `KEPT`. Until `clear`, the cache keeps one tree.
+_one = [False]
 
 
 class TooDeep(ValueError):
@@ -112,6 +118,7 @@ def clear() -> None:
     """Remove all trees and all refused texts from the cache."""
     with _lock:
         _refused.clear()
+        _one[0] = False
         _clear()
 
 
@@ -125,13 +132,14 @@ def _cached(raw: str) -> _Result | None:
     """Give the cached result of the text, or None.
 
     If the text is not in the cache and the cache holds a tree that is larger than the
-    limit, the function removes that tree before the caller parses the text.
+    limit, the function removes that tree before the caller parses the text. When the
+    cache keeps only one tree, the function removes that tree on each such text.
     """
     with _lock:
         found = _trees.get(raw)
         if found is not None:
             _trees.move_to_end(raw)
-        elif _size[0] > KEPT:
+        elif _size[0] > (0 if _one[0] else KEPT):
             _clear()
     return found
 
@@ -148,18 +156,19 @@ def _parse(raw: str) -> _Result:
 def _keep(raw: str, found: _Result) -> None:
     # An error counts as one node.
     nodes = list(ast.walk(found)) if isinstance(found, ast.Module) else []
+    count = max(len(nodes), 1)
     with _lock:
         if raw in _trees:
             return
+        if _trees and not _room(count):
+            _one[0] = True
+            _clear()
         _trees[raw] = found
-        _size[0] += max(len(nodes), 1)
+        _size[0] += count
         if isinstance(found, ast.Module):
             _nodes[id(found)] = (found, nodes)
-        while _size[0] > KEPT and len(_trees) > 1:
-            _remove_oldest()
 
 
-def _remove_oldest() -> None:
-    _old, removed = _trees.popitem(last=False)
-    entry = _nodes.pop(id(removed), None)
-    _size[0] -= len(entry[1]) if entry else 1
+def _room(count: int) -> bool:
+    """Tell if the cache can keep a new tree of `count` nodes with the trees that it has."""
+    return not _one[0] and _size[0] + count <= KEPT

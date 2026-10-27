@@ -29,6 +29,10 @@ functions use the checked path, and a change of a folder after the check is not 
 operates. A different process that tries to get the same lock waits. The operating
 system releases the lock when the process stops, also after a failure. A lock file that
 is a link, a FIFO, or a device gives `RefusedFile`.
+
+`ignore_caches` makes the file `.systemap/.gitignore` with the line `*` if the folder has
+no entry with that name. Then Git does not add the caches in that folder after
+`git add -A`. The function does not change an existing entry.
 """
 
 from __future__ import annotations
@@ -62,6 +66,10 @@ _TEMPORARY_FLAGS = (
     | getattr(os, "O_BINARY", 0)
 )
 LINK = "it is a link"
+CACHE_FOLDER = ".systemap"
+GIT_IGNORE = ".gitignore"
+# The pattern applies to each file in the folder, also to the .gitignore file.
+IGNORE_ALL = "*\n"
 
 
 class RefusedFile(Exception):
@@ -204,6 +212,42 @@ def _keep_mode(path: str, name: str, parent: int | None) -> None:
         return
     if stat.S_ISREG(existing.st_mode):
         os.chmod(name, stat.S_IMODE(existing.st_mode), dir_fd=parent)
+
+
+def ignore_caches(root: Path, path: Path | None = None) -> bool:
+    """Make `.systemap/.gitignore` in the root with the line `*`. Give True for a new file.
+
+    If `path` is not in `.systemap/`, the function does nothing. An entry with the name
+    `.gitignore`, also a link or a folder, stays as it is. The open with O_EXCL does not
+    replace a file that a different process makes at the same time."""
+    cache_folder = root / CACHE_FOLDER
+    if path is not None and not path.is_relative_to(cache_folder):
+        return False
+    target = cache_folder / GIT_IGNORE
+    folder(root, target)
+    with _parent(root, target) as parent:
+        name = _name(target, parent)
+        try:
+            handle = os.open(name, _TEMPORARY_FLAGS, 0o666, dir_fd=parent)
+        except FileExistsError:
+            return False
+        except PermissionError:
+            # Windows gives this error, not FileExistsError, for a folder at the name.
+            if _exists(name, parent):
+                return False
+            raise
+        with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
+            out.write(IGNORE_ALL)
+    return True
+
+
+def _exists(name: str, parent: int | None) -> bool:
+    """Find if an entry, also a link, has the name in the parent folder."""
+    try:
+        os.lstat(name, dir_fd=parent)
+    except FileNotFoundError:
+        return False
+    return True
 
 
 @contextmanager

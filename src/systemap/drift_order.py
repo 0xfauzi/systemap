@@ -18,7 +18,9 @@ The source part has two forms. Both forms have a limit of `CAP` characters.
   of the component between that commit and the working tree. A new file that is not
   in Git is not in the diff.
 - `text`: if Git cannot find that commit, or the diff is empty, the part is the
-  current text of the module files, in path sequence.
+  current text of the module files, in path sequence. A module file that has a stopped
+  Git filter (`git_command.stopped_filters`) also gives this form. Git compares such a
+  file without its filter, so the diff can show changes that do not exist.
 
 A refusal or a request error gives no score. A line without a score goes to the
 end. No other value replaces a missing score.
@@ -229,6 +231,22 @@ def _diff(root: Path, sha: str, paths: list[str]) -> str:
         return ""
 
 
+def _source_diff(root: Path, sha: str | None, paths: list[str]) -> str:
+    """Give the diff of the paths, or an empty text if the diff form does not apply.
+
+    The diff form does not apply without a commit or a path. It also does not apply if a
+    path has a stopped Git filter, or if Git cannot give the filters.
+    """
+    if not (sha and paths):
+        return ""
+    try:
+        if git_command.stopped_filters(root, paths, delta.DeltaError):
+            return ""
+    except (delta.DeltaError, OSError):
+        return ""
+    return _diff(root, sha, paths)
+
+
 def _text(root: Path, paths: list[str]) -> str:
     parts = []
     for rel in paths:
@@ -245,7 +263,7 @@ def source_of(cfg: Config, target: Target, facts: dict[str, Any]) -> dict[str, A
     paths = files_of(target.card, facts)
     folder = cfg.rel(target.map.path.parent)
     sha = reviewed_commit(cfg.root, folder, target.card.source_review)
-    form, body = "diff", (_diff(cfg.root, sha, paths) if sha and paths else "")
+    form, body = "diff", _source_diff(cfg.root, sha, paths)
     if not body.strip():
         form, body = "text", _text(cfg.root, paths)
     return {"form": form, "text": body[:CAP], "cut": len(body) > CAP}

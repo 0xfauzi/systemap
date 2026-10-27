@@ -4,8 +4,10 @@ A repository that another person controls can name programs in `.git/config`. Gi
 runs some of these programs during a read: `core.fsmonitor`, the hooks, an external
 diff, a `textconv` program, a filter, and `gpg.program`. Each Git command of systemap
 goes through this module. The module adds `SAFE_CONFIG` before the Git command. A
-command that compares the working tree also gets `filter.<name>.clean=` and the other
-filter settings for each filter that the repository configuration defines. It also gets
+command that compares the working tree also gets `filter.<name>.clean` and the other
+filter settings for each filter that the repository configuration defines. Each setting
+gets the value of the same filter in the configuration of the user, the system, or the
+command line. If these scopes do not define the setting, its value is empty. It also gets
 `--ignore-submodules=dirty`. Thus Git does not read the files of a submodule, and does
 not start a filter that the configuration of the submodule names. The caller adds
 `CONTENT` to a command that gives the content of a diff.
@@ -136,49 +138,135 @@ def _start(
 
 
 def _no_filters(cwd: Path, error: type[Exception]) -> list[str]:
-    """This function gives the settings that stop each filter of the repository scopes.
+    """This function gives the settings that stop each filter program of the repository scopes.
 
     Git runs the `clean` program of a filter when it compares a file of the working tree.
-    The settings make each program of the filter empty, and Git then does not run it. A
-    filter of the user or the system configuration is not changed. If a filter name
-    contains `=`, Git cannot read the setting. Then the result is `error`.
-
-    Git 2.25 and earlier do not know `--show-scope`. With such a Git, the function stops
-    the filters of all scopes.
+    For each `clean`, `smudge` and `process` setting that a repository scope defines, the
+    result gives the value of the same key in the user, the system, or the command scope.
+    If these scopes do not define the key, the value is empty, and Git then does not run
+    the program of the repository. A filter that only the user or the system configuration
+    defines is not changed. If a filter name contains `=`, Git cannot read the setting.
+    Then the result is `error`.
     """
-    listing = ["config", "--null", "--get-regexp", r"^filter\."]
-    proc = _start(cwd, [*listing[:1], "--show-scope", *listing[1:]], None, SHORT, error)
-    names = _filter_names(proc.stdout)
-    if proc.returncode not in (0, 1):
-        names = _filter_names(_start(cwd, listing, None, SHORT, error).stdout, scoped=False)
+    repository, trusted = _filters(cwd, error)
     out: list[str] = []
-    for name in sorted(names):
+    for name in sorted(_names(repository)):
         if "=" in name:
             raise error(
                 f"the repository configuration has the filter name {name!r}. "
                 "systemap cannot stop this filter, because the name contains '='"
             )
-        for key in _FILTER_KEYS:
-            out += ["-c", f"filter.{name}.{key}="]
-        out += ["-c", f"filter.{name}.required=false"]
+        for part in _FILTER_KEYS:
+            key = f"filter.{name}.{part}"
+            if key in repository:
+                out += ["-c", f"{key}={trusted.get(key, '')}"]
+        out += ["-c", f"filter.{name}.required={_required(name, repository, trusted)}"]
     return out
 
 
-def _filter_names(listing: bytes, scoped: bool = True) -> set[str]:
-    """This function gives the filter names of the repository scopes in a listing.
+def _required(name: str, repository: set[str], trusted: dict[str, str]) -> str:
+    """This function gives the `required` value of a filter for the `_no_filters` settings.
+
+    It is the trusted value if Git runs a program of the filter. Otherwise it is `false`,
+    because Git gives an error for a required filter without a program.
+    """
+    if _runs(name, repository, trusted):
+        return trusted.get(f"filter.{name}.required", "false")
+    return "false"
+
+
+def stopped_filters(cwd: Path, paths: list[str], error: type[Exception]) -> dict[str, str]:
+    """This function gives each path that has a stopped filter, with the filter name.
+
+    A filter is stopped if a repository scope defines it, and the settings of `_no_filters`
+    leave it without a `clean` or `process` program. Git then compares the working-tree
+    file of such a path without its filter. Thus the comparison can show a change that
+    does not exist. One `git check-attr` command gives the filter of each path. If Git
+    gives an error, the result is `error`.
+    """
+    if not paths:
+        return {}
+    repository, trusted = _filters(cwd, error)
+    stopped = {name for name in _names(repository) if not _runs(name, repository, trusted)}
+    if not stopped:
+        return {}
+    data = "".join(f"{path}\0" for path in paths).encode("utf-8", "surrogateescape")
+    proc = _start(cwd, ["check-attr", "-z", "--stdin", "filter"], data, SHORT, error)
+    if proc.returncode:
+        raise error(f"git check-attr gave an error: {cause(proc.stderr, proc.returncode)}")
+    fields = proc.stdout.decode("utf-8", "surrogateescape").split("\0")
+    return {
+        path: value
+        for path, value in zip(fields[0::3], fields[2::3], strict=False)
+        if value in stopped
+    }
+
+
+def _runs(name: str, repository: set[str], trusted: dict[str, str]) -> bool:
+    """This function tells if Git runs a program of the filter with the `_no_filters` settings.
+
+    If the `process` key has a value, Git uses only that key, also if the value is empty.
+    Otherwise, Git uses the `clean` key.
+    """
+    process = f"filter.{name}.process"
+    if process in repository or process in trusted:
+        return bool(trusted.get(process))
+    return bool(trusted.get(f"filter.{name}.clean"))
+
+
+def _filters(cwd: Path, error: type[Exception]) -> tuple[set[str], dict[str, str]]:
+    """This function gives the filter keys of the repository scopes and the trusted settings.
+
+    The trusted settings are the filter settings of the user, the system, and the command
+    scopes. Git 2.25 and earlier do not know `--show-scope`. With such a Git, each filter
+    key of each scope is a key of a repository scope, and no setting is trusted.
+    """
+    listing = ["config", "--null", "--get-regexp", r"^filter\."]
+    proc = _start(cwd, [*listing[:1], "--show-scope", *listing[1:]], None, SHORT, error)
+    if proc.returncode in (0, 1):
+        return _repository_keys(proc.stdout), _trusted(proc.stdout)
+    return _repository_keys(_start(cwd, listing, None, SHORT, error).stdout, scoped=False), {}
+
+
+def _trusted(listing: bytes) -> dict[str, str]:
+    """This function gives the filter settings of the scopes that a repository cannot supply.
+
+    Git lists the scopes in the sequence system, user, repository, and command. Thus the
+    last value of a key is the value that Git uses. A program setting without a value is
+    not a program, and the result does not include it. A `required` setting without a
+    value is `true`.
+    """
+    fields = listing.decode("utf-8", "surrogateescape").split("\0")
+    found: dict[str, str] = {}
+    for scope, record in zip(fields[0::2], fields[1::2], strict=False):
+        key, newline, value = record.partition("\n")
+        if scope in _REPOSITORY_SCOPES or not (newline or key.endswith(".required")):
+            continue
+        found[key] = value if newline else "true"
+    return found
+
+
+def _repository_keys(listing: bytes, scoped: bool = True) -> set[str]:
+    """This function gives the filter keys of the repository scopes in a listing.
 
     If `scoped` is true, the listing has a scope and a record for each setting, with NUL
     after each one. Otherwise, the listing has only the records, and each record is in a
-    repository scope. A record is the key, a newline, and the value. The name is the part
-    of the key between the first and the last dot.
+    repository scope. A record is the key, a newline, and the value. A key without a
+    filter name is not in the result.
     """
     fields = listing.decode("utf-8", "surrogateescape").split("\0")
     pairs = (
         zip(fields[0::2], fields[1::2], strict=False) if scoped else (("local", f) for f in fields)
     )
-    names: set[str] = set()
+    keys: set[str] = set()
     for scope, record in pairs:
         key = record.partition("\n")[0]
         if scope in _REPOSITORY_SCOPES and key.count(".") >= 2:
-            names.add(key[len("filter.") : key.rindex(".")])
-    return names
+            keys.add(key)
+    return keys
+
+
+def _names(keys: set[str]) -> set[str]:
+    """This function gives the filter names of the keys. The name of a key is the part
+    between the first and the last dot."""
+    return {key[len("filter.") : key.rindex(".")] for key in keys}

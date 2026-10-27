@@ -81,6 +81,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # The confined writer itself.
     ("file_write.py", "write_atomic", "os.replace"): "the confined writer",
     ("file_write.py", "_temporary", "os.open"): "the confined writer: a new temporary file",
+    ("file_write.py", "ignore_caches", "os.open"): "a new file in the confined cache folder",
     # The configuration file that config.load read with repo_files: a regular file in the
     # repository. The write keeps its bytes, also a byte order mark.
     ("answer_write.py", "_write", "target.write_bytes"): "the configuration that config.load read",

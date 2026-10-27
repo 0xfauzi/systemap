@@ -133,6 +133,20 @@ def _changed_files(repo: Path, merge_base: str, *head: str) -> list[str]:
     return [f for f in _text(proc.stdout, "surrogateescape").split("\0") if f]
 
 
+def _filtered(repo: Path, merge_base: str, changed: list[str]) -> dict[str, str]:
+    """This function gives each changed path whose working-tree comparison is not known.
+
+    Such a path has a stopped filter (`git_command.stopped_filters`). Thus Git can report
+    a change that does not exist. A path that a commit after the merge base changed has
+    a real change, and the result does not include it. The value is the filter name.
+    """
+    found = git_command.stopped_filters(repo, changed, ChangeError)
+    if not found:
+        return {}
+    committed = set(_changed_files(repo, merge_base, "HEAD"))
+    return {path: name for path, name in found.items() if path not in committed}
+
+
 def _untracked_files(repo: Path) -> list[str]:
     """This function lists the files that Git does not track and does not ignore.
 
@@ -178,6 +192,9 @@ def comparison_base(repo: Path, base: str) -> str:
 class _Commit:
     """The head of a comparison at a commit. Git gives the files, the facts and the text."""
 
+    # Git compares two commits without a filter program. Thus no path is filtered.
+    filtered_paths: tuple[str, ...] = ()
+
     def __init__(self, cfg: Config, revision: str) -> None:
         self.cfg, self.revision = cfg, revision
 
@@ -196,6 +213,8 @@ class _WorkingTree:
 
     The changed files are the commits since the merge base, the edits that are not in a
     commit, and the untracked files. The disk gives the text. The caller gives the facts.
+    A changed path that has a stopped filter is not a changed file. Its line is in
+    `filtered_paths`.
     """
 
     # The working tree has no commit. The test comparison reads its files on disk.
@@ -203,10 +222,16 @@ class _WorkingTree:
 
     def __init__(self, cfg: Config, facts: dict[str, Any]) -> None:
         self.cfg, self._facts = cfg, facts
+        self.filtered_paths: tuple[str, ...] = ()
 
     def files(self, merge_base: str) -> list[str]:
         changed = _changed_files(self.cfg.root, merge_base)
-        return sorted(set(changed) | set(_untracked_files(self.cfg.root)))
+        filtered = _filtered(self.cfg.root, merge_base, changed)
+        self.filtered_paths = tuple(
+            f"{path} (filter {filtered[path]})" for path in sorted(filtered)
+        )
+        kept = [path for path in changed if path not in filtered]
+        return sorted(set(kept) | set(_untracked_files(self.cfg.root)))
 
     def facts(self) -> dict[str, Any]:
         return self._facts
@@ -437,6 +462,7 @@ class SourceChange:
     tests_removed: dict[str, set[str]] = dataclasses.field(default_factory=dict)
     unread_tests: tuple[str, ...] = ()
     refused_paths: tuple[str, ...] = ()
+    filtered_paths: tuple[str, ...] = ()
 
 
 def source_change(
@@ -454,8 +480,10 @@ def source_change(
     """
     language = extraction.language_for(cfg)
     base_revision, head_revision, merge_base, side = _sides(cfg, base, head, facts)
-    found = SourceChange(base, head, base_revision, head_revision, merge_base)
     files = side.files(merge_base)
+    found = SourceChange(
+        base, head, base_revision, head_revision, merge_base, filtered_paths=side.filtered_paths
+    )
     if not files:
         return found
     snapshot_facts = side.facts()
@@ -572,6 +600,7 @@ def compute(
         "unparsed": [],
         "unread_tests": [],
         "refused_paths": [],
+        "filtered_paths": list(source.filtered_paths),
     }
     if not source.files:
         return empty

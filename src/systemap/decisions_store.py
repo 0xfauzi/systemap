@@ -88,6 +88,7 @@ def save(root: Path, records: dict[str, dict[str, Any]]) -> None:
     The store and its folder must be in the repository (`file_write`)."""
     text = json.dumps({"version": VERSION, "records": records}, indent=2, sort_keys=True)
     file_write.write_atomic(root, path(root), text + "\n")
+    file_write.ignore_caches(root, path(root))
 
 
 def _same_source(record: dict[str, Any], request: Request) -> bool:

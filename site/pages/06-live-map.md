@@ -31,7 +31,8 @@ The [reference](reference.html#systemap-live-port-8765-base-ref-no-watch-json) g
 
 The command writes the pages and `change.svg` into a temporary directory, and deletes it when it stops.
 It does not write the output directory, the facts file, or a tracked file.
-It can add the facts of the merge base to a cache in `.systemap/facts/`. Git shows this directory as untracked unless `.gitignore` contains it.
+It can add the facts of the merge base to a cache in `.systemap/facts/`.
+If the file `.systemap/.gitignore` is missing, the command then writes it with the line `*`. Thus Git ignores this directory.
 
 ## When the command renders again
 
