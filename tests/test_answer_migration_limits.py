@@ -16,6 +16,10 @@ Acceptance values:
    warning. Before the change, 4 cases got the warning "Change it to" a different line.
 6. The earlier `entry point` group line for a component name with a space changes to the
    current line. Before the change, it stayed the same.
+7. The earlier parse error line of a module whose name has a space changes to the current
+   line, and an exact answer in the earlier form applies to the current line. The name
+   comes from a file name with a space. At commit d7d7a8b the line changed. At commit
+   de31fe3 it stayed the same, and the answer was stale.
 """
 
 from __future__ import annotations
@@ -120,6 +124,8 @@ HOSTILE = (
     "unknown surface: module m (a): source could not be read: " + " Source excerpt: x" * 8250,
     "entry point 7 " + "a_" * 66000 + " into A",
     "entry point 7 a_s into " + "a " * 66000 + "have no sequence (component b)",
+    "unknown surface: module m" + " a" * 66000 + " (b): x under Python 3",
+    "unknown surface: module m" + " a" * 66000 + " (b): x (parser version 3)",
 )
 
 
@@ -201,3 +207,20 @@ def test_an_entry_group_line_for_a_component_name_with_a_space_changes() -> None
     earlier = "entry point 7 public_functions into My Api have no sequence (component My Api)"
     current = "entry point 7 public functions into My Api have no sequence (component My Api)"
     assert answer_migrations.current_line(earlier) == current
+
+
+# A Python module from the file `pkg/my file.py`, which Python could not read.
+SPACED = "unknown surface: module pkg.my file (pkg/my file.py): source could not be read: x"
+
+
+@pytest.mark.parametrize(
+    "earlier", [f"{SPACED} under Python 3.11.9", f"{SPACED} (parser version 3.11.9)"]
+)
+def test_an_earlier_parse_error_line_for_a_module_name_with_a_space_changes(
+    earlier: str,
+) -> None:
+    """Acceptance 7."""
+    assert answer_migrations.current_line(earlier) == SPACED
+    answer = Answer(items=(earlier,), reason="known", evidence="digest")
+    result = judgement.apply_answers([SPACED], [answer], {SPACED: "digest"})
+    assert (result.open, result.stale, result.pending) == ([], [], [])
