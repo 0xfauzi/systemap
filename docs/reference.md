@@ -1751,7 +1751,7 @@ After a good version, the command removes the pages of the maps that the version
 
 - Without `--no-watch`, the command scans the configuration files, the model files,
   and the source and test files one time each second.
-  If a scan takes more than half a second, the next scan starts after two times the time of that scan.
+  If a scan uses more than half a second of processor time, the next scan starts after two times that processor time.
   The scan includes the language configuration files below each package root, such as `packages/web/src/lib/package.json`.
   It also includes these files in the folders between a package root and the repository root, such as `packages/web/tsconfig.json`.
   The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name `build` or `dist`.

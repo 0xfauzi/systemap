@@ -23,6 +23,7 @@ Acceptance, written before the change:
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -189,6 +190,23 @@ def test_after_a_slow_scan_the_watcher_waits_two_times_its_time(tmp_path: Path) 
     fast = Ticks(lambda: None)
     live_watch.watch(Requests(), lambda: live_watch.watched(tmp_path), fast, 1.0, clock=lambda: 0)
     assert fast.waits == [1.0, 1.0]
+
+
+def test_a_wait_in_a_scan_does_not_make_the_interval_longer() -> None:
+    """A scan that waits, for example for the Python lock during a render, uses no
+    processor time. Thus the watcher does not wait two times that wait (audit reg-live).
+
+    Before this change, the watcher used the wall time. A scan of 0.2 s with no work
+    gave an interval of 0.4 s in place of 0.1 s.
+    """
+
+    def files() -> list[Path]:
+        time.sleep(0.2)
+        return []
+
+    ticks = Ticks(lambda: None)
+    live_watch.watch(Requests(), files, ticks, 0.1)
+    assert ticks.waits == [0.1, 0.1]
 
 
 class _CountedStrip:

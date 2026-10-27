@@ -237,6 +237,12 @@ A layer is a filtered view of the map.
 - A live render compares the sources one time. Previously, the change figure compared them a second time.
 - `systemap live` does not hold its state lock while it writes an event line.
   An output that no process reads does not stop `GET /status`, `GET /events`, `POST /refresh`, or the file scan.
+- The file watcher of `systemap live` uses the processor time of its thread for the time of a scan. Previously, it used the wall time.
+  During a render, a scan waits for the Python lock, and the watcher then waited two times that wait.
+  On a map with 72 components, a change got to the render 3.3 s to 3.8 s after the save. Now this time is 1.0 s to 1.9 s.
+  The scans use not more than one third of one processor. This limit does not apply to the time that a scan waits for files.
+- An earlier `unknown surface` answer for a module name with a space selects the current finding line again.
+  The migration patterns did not accept a space in a module name.
 
 ## 2.0.0 - 2026-10-13
 
