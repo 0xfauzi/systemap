@@ -2351,7 +2351,7 @@ and the untracked files that Git does not ignore.</p>
 <li>
 <p>Without <code>--no-watch</code>, the command scans the configuration files, the model files,
 and the source and test files one time each second.
-If a scan takes more than half a second, the next scan starts after two times the time of that scan.
+If a scan uses more than half a second of processor time, the next scan starts after two times that processor time.
 The scan includes the language configuration files below each package root, such as <code>packages/web/src/lib/package.json</code>.
 It also includes these files in the folders between a package root and the repository root, such as <code>packages/web/tsconfig.json</code>.
 The scan skips the same folders as the source extraction of the language. For TypeScript, it does not skip a folder with the name <code>build</code> or <code>dist</code>.
