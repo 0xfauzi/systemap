@@ -3383,6 +3383,32 @@ At 200 steps and 1x, the slowest operation of the change took 1105, 901 and 849 
 The fastest d7d7a8b operation in the same runs took 27727, 28411 and 29155 ms. The acceptance passes.
 With the number limit, the scope seqcap measurement gave 146 to 374 ms for 200 steps at 1x. Thus the change makes a long sequence slower than the number limit did.
 
+### A long sequence on one flow (failure)
+
+The review of this change measured the case of audit finding g1page-1: a route of 3000 steps on one flow.
+Acceptance, written before the measurement: with the change, route, start and step each take not more than 1000 ms at 1x on the page with 450 flows, in each of 3 runs.
+
+Method: `same.js` in the scratch folder `fu-seqcap-review`, started by `same.sh` in the scratch folder `fu-seqcap-v`.
+The runs of ddf8236 and of the change alternate on the same host in the same session. The load average was 1.7 to 2.1 on 4 cores.
+
+| Page | Run | Route / start / step (ms) | Numbers, route / step |
+|---|---|---|---|
+| ddf8236 | 1 | 395 / 496 / 489 | 40 / 39 |
+| ddf8236 | 2 | 451 / 465 / 308 | 40 / 39 |
+| ddf8236 | 3 | 469 / 577 / 323 | 40 / 39 |
+| Change | 1 | 4458 / 5074 / 5018 | 3000 / 2999 |
+| Change | 2 | 5090 / 5475 / 4719 | 3000 / 2999 |
+| Change | 3 | 4906 / 4125 / 5605 | 3000 / 2999 |
+
+The acceptance fails. With the change, each click takes 4.1 to 5.6 s. At ddf8236, each click takes 0.3 to 0.6 s.
+The review got 4.5 to 8.7 s for the change and 0.36 to 0.9 s for ddf8236 in a different session.
+No page error occurred. The d7d7a8b time for this route is not measured.
+The change keeps option C for this case. The number of steps in a sequence has no limit.
+If the maintainer must have a limit, a step limit in `journeys._steps` is an option. This option needs a new measurement.
+
+The Node harness of the tests also draws all 3000 numbers for this route on the sample page. It took 11.5 s in one run.
+Thus this change adds no test for this route: the test would add 11.5 s to each test run.
+
 ### The marks are the same
 
 `dump.js` writes the marks of the whole route and of step N/2 + 1 for each synthetic sequence.
