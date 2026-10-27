@@ -22,7 +22,7 @@ from typing import Any
 
 import pytest
 
-from systemap import change, drift_order, git_command, page_changes
+from systemap import change, config, drift_order, git_command, page_changes
 
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the filters are shell commands")
 
@@ -127,6 +127,18 @@ def test_a_path_with_a_stopped_filter_is_not_a_changed_file(
     side = change._WorkingTree(SimpleNamespace(root=root), {})  # type: ignore[arg-type]
     assert side.files("HEAD") == []
     assert side.filtered_paths == ("a.py (filter kw)",)
+    assert not hits.exists()
+
+
+def test_the_change_data_gives_the_paths_with_a_stopped_filter(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Acceptance (gitfilters O3): `compute` gives `filtered_paths` and no change."""
+    root, hits = _local_only(tmp_path, monkeypatch)
+    cfg = config.load(root)
+    found = change.compute(cfg, None, "HEAD", {}, change.WORKING_TREE)  # type: ignore[arg-type]
+    assert found["filtered_paths"] == ["a.py (filter kw)"]
+    assert found["has_change"] is False
     assert not hits.exists()
 
 
