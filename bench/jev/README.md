@@ -3348,6 +3348,54 @@ Thus the merged limit is 332 KiB (339,968 bytes).
 After the next merge with the change of "Map page bytes and the security policy", the sample page is 337,662 bytes (329.7 KiB).
 Thus the merged limit is 330 KiB (337,920 bytes).
 
+## All step numbers of a long sequence (2026-10-27)
+
+Scope seqcap: the number limit of the earlier section removed the step numbers of a sequence with more than 40 steps.
+The lines of these steps had no number on the map.
+The maintainer selected option C: remove the number limit and keep the grid.
+
+The change removes `LONG`, `numbered()` and `ctx.long` from `page_sequences.py`, and the legend note from `page_sequence_script.py`.
+Each step number examines all places on its line again. The grid (`GRID_JS`) stays.
+
+Acceptance, written before the measurement:
+
+- The marks of synthetic sequences of 30, 41, 60, 100 and 200 steps are byte-identical to the marks of d7d7a8b.
+- The marks of each sequence of this repository and of the page with 450 flows are byte-identical to the marks of d7d7a8b.
+- At 1x CPU, on the page with 72 components and 450 flows, a sequence of 200 steps has a click time that is not more than one tenth of the d7d7a8b time. The slowest of route, start and step must obey this limit in each of 3 runs.
+
+Method: the method of the earlier section, on the same host in the same session. The load average was 1.1 to 2.5 on 4 cores.
+The scripts are in the scratch folder `fu-seqcap`: `render.sh`, `marks.sh`, `dump.js`, `marks.js`, `cmp.py`, `time.sh`, `seqtime.js`, `summ.py` and `pagebytes.py`.
+The time limit of the session stopped the third run at 4x. This run was done again alone after the other runs.
+
+### Click times (ms)
+
+Each cell gives the range of 3 runs for route / start / step.
+
+| N | d7d7a8b, 1x | change, 1x | change, 4x |
+|---|---|---|---|
+| 30 | 1044-1290 / 1018-1396 / 873-1023 | 215-246 / 156-267 / 153-192 | 1018-1235 / 903-1297 / 789-1051 |
+| 41 | not measured | 144-222 / 149-169 / 173-210 | 696-977 / 867-960 / 957-1397 |
+| 60 | 2362-2795 / 2480-2687 / 2487-2930 | 217-247 / 207-251 / 262-329 | 1037-1387 / 1086-1227 / 1159-1440 |
+| 100 | 7313-7860 / 6787-7779 / 7349-8728 | 378-671 / 376-394 / 364-467 | 1960-2617 / 1825-2617 / 1809-2555 |
+| 200 | 28411-31591 / 27727-32184 / 29502-35031 | 849-1029 / 769-1105 / 769-1064 | 5369-5764 / 4366-5576 / 4237-5355 |
+
+At 200 steps and 1x, the slowest operation of the change took 1105, 901 and 849 ms.
+The fastest d7d7a8b operation in the same runs took 27727, 28411 and 29155 ms. The acceptance passes.
+With the number limit, the scope seqcap measurement gave 146 to 374 ms for 200 steps at 1x. Thus the change makes a long sequence slower than the number limit did.
+
+### The marks are the same
+
+`dump.js` writes the marks of the whole route and of step N/2 + 1 for each synthetic sequence.
+For N = 30, 41, 60, 100 and 200, the marks of the change are byte-identical to d7d7a8b in the two views.
+The change draws N numbers on the whole route and N - 1 numbers in the step view, as d7d7a8b does.
+`marks.js` writes the lines and marks of the whole route and of each step of each sequence.
+For the 15 sequences of this repository (78 views) and the 4 sequences of the page with 450 flows (28 views), the data is byte-identical to d7d7a8b.
+
+### Page size
+
+The sample page of `tests/test_render.py` changes from 337,662 bytes to 337,127 bytes, a decrease of 535 bytes.
+The limit of 330 KiB stays the same.
+
 ## Map page bytes and the security policy (2026-10-26)
 
 This change is for four findings of the audit at commit 65e5464:

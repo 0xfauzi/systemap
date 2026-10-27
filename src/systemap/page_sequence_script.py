@@ -468,19 +468,13 @@ function kindsLg(j){
   return A.layers.filter(function(l){ return on[l.id]; }).map(function(l){
     return lg('<i class="lg__line" style="--c:' + l.colour + '"></i>', l.label); }).join('');
 }
-function numbersLg(j){
-  // A long sequence has numbers on LONG steps only. The panel gives all steps.
-  var n = j.steps.length, from = numbered(n, cur.view === 'steps' ? cur.s : -1);
-  return n > LONG ? lg('', 'Numbers on steps ' + (from + 1) + ' to '
-    + (from + LONG) + ' only') : '';
-}
 P.legendFor.push(function(){
   if(!shownNow()){ return null; }
   var j = J(), h = kindsLg(j);
   if(cur.view !== 'steps'){
     return h + lg('<i class="seq-lg-n">1</i>', 'Step')
       + lg('<i class="seq-tag seq-tag--start">START</i>', 'Entry point')
-      + lg('<i class="seq-lg-quiet"></i>', 'Not in this sequence') + numbersLg(j);
+      + lg('<i class="seq-lg-quiet"></i>', 'Not in this sequence');
   }
   var st = j.steps[cur.s];
   h += lg('<i class="lg__line seq-lg-now"></i>', 'This step');
@@ -490,7 +484,7 @@ P.legendFor.push(function(){
     h += lg('<i class="seq-tag seq-tag--acts">ACTS</i>', 'Acting component'); }
   if((st.measures || []).length){
     h += lg('<i class="seq-tag seq-tag--meas">MEASURES</i>', 'Measurement component'); }
-  return h + numbersLg(j);
+  return h;
 });
 
 // ---- the interfaces ----------------------------------------------------------------
