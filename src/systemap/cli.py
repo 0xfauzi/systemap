@@ -159,6 +159,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     adapter = languages.repository(language)
     skill.check(root / skill.DEFAULT_DIR, root)
     say(*scaffold.write(root, name, package, roots, ci=scaffold.ci_mode(args), language=adapter))
+    say(_ignore_caches(root))
     skill_path = skill.write(root / skill.DEFAULT_DIR, root)
     references = len(skill.files()) - 1
     say(
@@ -168,6 +169,12 @@ def cmd_init(args: argparse.Namespace) -> int:
     say(*scaffold.tooling_note(root, adapter))
     say("Next, give this instruction to your coding agent:", f"  {AGENT_SENTENCE}")
     return OK
+
+
+def _ignore_caches(root: Path) -> str:
+    """Make `.systemap/.gitignore` if it is missing, and give the output line of init."""
+    rel = f"{file_write.CACHE_FOLDER}/{file_write.GIT_IGNORE}"
+    return f"wrote {rel}" if file_write.ignore_caches(root) else f"kept {rel} (file exists)"
 
 
 # ---- extract ---------------------------------------------------------------
