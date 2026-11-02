@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 
 MAX_LINES = 800
 FREEZE_OVERSIZE = False
@@ -44,6 +44,11 @@ FREEZE_OVERSIZE = False
 
 def emit(text: str = "") -> None:
     sys.stdout.write(text + "\n")
+
+
+def git_path(path: PurePath, repo: PurePath) -> str:
+    """The path relative to the repo, with forward slashes, as Git expects."""
+    return path.relative_to(repo).as_posix()
 
 
 def find_repo() -> Path | None:
@@ -100,7 +105,7 @@ def survey(repo: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     notes: list[str] = []
     for name in paths:
         try:
-            rel = str(Path(name).resolve().relative_to(repo))
+            rel = git_path(Path(name).resolve(), repo)
         except ValueError:
             # A path outside this repo. Nothing here to compare it against.
             continue

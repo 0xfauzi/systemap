@@ -42,11 +42,12 @@ actually good for. 10 is also McCabe's own 1976 recommendation.
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePath
 
 # Pinned so the number this gate produces is reproducible. Ruff's mccabe is not
 # interchangeable with other tools': measured on this tree, ruff and lizard agree
@@ -77,7 +78,7 @@ CENSUS = [
 ]
 
 REPORT = re.compile(
-    r"^(?P<path>.*?):\d+:\d+: C901 `(?P<name>.+?)` "
+    r"^(?P<path>.*?):(?P<line>\d+):\d+: C901 `(?P<name>.+?)` "
     r"is too complex \((?P<value>\d+) > 0\)$"
 )
 
@@ -93,8 +94,41 @@ def emit(text: str = "") -> None:
     sys.stdout.write(text + "\n")
 
 
+class MeasurementError(Exception):
+    """Ruff did not give a measurement that this hook can read."""
+
+
+def git_path(path: PurePath, repo: PurePath) -> str:
+    """The path relative to the repo, with forward slashes, as Git expects."""
+    return path.relative_to(repo).as_posix()
+
+
+def qualified_names(source: Path) -> dict[int, str]:
+    """Map the line of each `def` in a file to its qualified name."""
+    try:
+        tree = ast.parse(source.read_bytes())
+    except (OSError, SyntaxError, ValueError):
+        return {}
+    names: dict[int, str] = {}
+    pending: list[tuple[ast.AST, str]] = [(tree, "")]
+    while pending:
+        node, prefix = pending.pop()
+        for child in ast.iter_child_nodes(node):
+            inner = prefix
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                inner = f"{prefix}{child.name}"
+                names[child.lineno] = inner
+                inner += "."
+            pending.append((child, inner))
+    return names
+
+
 def census(root: Path) -> dict[tuple[str, str], int]:
-    """Map (relative path, function name) -> cyclomatic complexity for a tree."""
+    """Map (relative path, qualified name) -> cyclomatic complexity for a tree.
+
+    The qualified name keeps `A.parse` and `B.parse` apart. Ruff gives only the
+    bare name, so the `def` line from ruff finds the qualified name in the file.
+    """
     proc = subprocess.run(
         [*RUFF, "check", ".", *CENSUS],
         cwd=root,
@@ -102,17 +136,27 @@ def census(root: Path) -> dict[tuple[str, str], int]:
         text=True,
         check=False,
     )
+    # Ruff exits 0 with no function, 1 with functions, and 2 when it fails.
+    if proc.returncode not in (0, 1):
+        raise MeasurementError(
+            f"ruff stopped with exit status {proc.returncode}: {proc.stderr.strip()}"
+        )
     found: dict[tuple[str, str], list[int]] = {}
+    lines: dict[str, dict[int, str]] = {}
     for raw in proc.stdout.splitlines():
         match = REPORT.match(raw.strip())
         if match is None:
             continue
-        key = (match.group("path").lstrip("./"), match.group("name"))
-        found.setdefault(key, []).append(int(match.group("value")))
-    # One file can define two functions with the same name: a method on two
-    # classes, or a redefinition under `if TYPE_CHECKING`. Taking the worst value
-    # per name is the conservative read - it never lets a regression hide behind
-    # a namesake.
+        path = match.group("path").lstrip("./")
+        if path not in lines:
+            lines[path] = qualified_names(root / path)
+        name = lines[path].get(int(match.group("line")), match.group("name"))
+        found.setdefault((path, name), []).append(int(match.group("value")))
+    if proc.returncode == 1 and not found:
+        raise MeasurementError(f"cannot read the ruff output: {proc.stdout.strip()}")
+    # One file can define the same qualified name two times: a redefinition
+    # under `if TYPE_CHECKING`. Taking the worst value per name is the
+    # conservative read - it never lets a regression hide behind a namesake.
     return {key: max(values) for key, values in found.items()}
 
 
@@ -206,7 +250,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     try:
-        rel = [str(Path(p).resolve().relative_to(repo)) for p in paths]
+        rel = [git_path(Path(p).resolve(), repo) for p in paths]
     except ValueError:
         # A path outside this repo. Nothing to compare it against here.
         return 0
@@ -218,7 +262,12 @@ def main(argv: list[str]) -> int:
         index.mkdir()
         materialise(rel, repo, "HEAD", head)
         materialise(rel, repo, compare_from, index)
-        failures, notes = classify(census(head), census(index))
+        try:
+            failures, notes = classify(census(head), census(index))
+        except MeasurementError as error:
+            emit("Cyclomatic complexity ratchet: no measurement.")
+            emit(f"  {error}")
+            return 2
 
     if not failures:
         for note in notes:
