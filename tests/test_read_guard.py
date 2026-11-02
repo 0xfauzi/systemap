@@ -79,7 +79,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("journeys.py", "_proposed_meaning", "shutil.copyfile"): MODEL,
     # ---- writes that do not use file_write.write_atomic ----
     # The confined writer itself.
-    ("file_write.py", "write_atomic", "os.replace"): "the confined writer",
+    ("file_write.py", "_replace", "os.replace"): "the confined writer",
     ("file_write.py", "_temporary", "os.open"): "the confined writer: a new temporary file",
     ("file_write.py", "ignore_caches", "os.open"): "a new file in the confined cache folder",
     # The configuration file that config.load read with repo_files: a regular file in the
