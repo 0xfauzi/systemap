@@ -21,49 +21,24 @@ and its order do not change, and the `test_files` ratio in `bench/python_paths.p
 
 from __future__ import annotations
 
-import os
-import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import opened_folders, write_tree
 
 from systemap import python_tests
 from systemap.language import NO_SOURCE, SOURCE
 from systemap.python_repo import PYTHON_REPOSITORY, PYTHON_SKIP, python_paths
 
 SKIPPED = {f"{name}/pkg/deep/x.py": "X = 1\n" for name in sorted(PYTHON_SKIP)}
-_OPENED: list[str] = []
-_ACTIVE = [False]
-
-
-def _hook(event: str, args: tuple[Any, ...]) -> None:
-    if _ACTIVE[0] and event in ("os.scandir", "os.listdir") and args:
-        _OPENED.append(os.fspath(args[0]) if args[0] is not None else "")
-
-
-sys.addaudithook(_hook)
-
 Record = Callable[[Callable[[], object]], tuple[object, list[str]]]
 
 
 @pytest.fixture
-def opened() -> Iterator[Record]:
+def opened() -> Record:
     """Give a function that operates a call and gives its result and the opened folders."""
-
-    def record(call: Callable[[], object]) -> tuple[object, list[str]]:
-        _OPENED.clear()
-        _ACTIVE[0] = True
-        try:
-            result = call()
-        finally:
-            _ACTIVE[0] = False
-        return result, list(_OPENED)
-
-    yield record
-    _ACTIVE[0] = False
+    return opened_folders
 
 
 def _skipped_folders(paths: list[str], base: Path) -> list[str]:

@@ -22,28 +22,16 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import threading
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import audit_events, write_tree
 
 from systemap import config, extract, live_watch
 from systemap.config import ConfigError
-
-_OPENED: list[str] = []
-_ACTIVE = [False]
-
-
-def _hook(event: str, args: tuple[Any, ...]) -> None:
-    if _ACTIVE[0] and event == "open" and args and isinstance(args[0], str | bytes | Path):
-        _OPENED.append(os.fsdecode(args[0]))
-
-
-sys.addaudithook(_hook)
 
 
 def _tree(extends: str, references: list[str] | None = None) -> dict[str, str]:
@@ -71,16 +59,18 @@ def layout(tmp_path: Path) -> Iterator[tuple[Path, Path]]:
 def _watched(repo: Path) -> tuple[list[Path] | None, list[str]]:
     """Operate the watcher in a thread. Give its result, or None after 5 seconds."""
     found: list[list[Path]] = []
-    _OPENED.clear()
-    _ACTIVE[0] = True
-    try:
+    opened: list[str] = []
+
+    def record(event: str, args: tuple[Any, ...]) -> None:
+        if event == "open" and args and isinstance(args[0], str | bytes | Path):
+            opened.append(os.fsdecode(args[0]))
+
+    with audit_events(record):
         thread = threading.Thread(target=lambda: found.append(live_watch.watched(repo)))
         thread.daemon = True
         thread.start()
         thread.join(5)
-    finally:
-        _ACTIVE[0] = False
-    return (found[0] if found else None), list(_OPENED)
+    return (found[0] if found else None), list(opened)
 
 
 def _assert_confined(repo: Path, outside: Path, cause: str, target: Path) -> None:

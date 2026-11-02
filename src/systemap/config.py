@@ -207,6 +207,7 @@ class Config:
     jev_model: str = "jev-latest"
     jev_cache: str = ".systemap/jev-cache.json"
     # No value starts a request: only --decide makes delta ask the provider.
+    # true gives a delta warning that the value no longer sends questions.
     # false stops the hints that tell what Jev can add.
     jev_enabled: bool | None = None
     # The decision provider of the commands that ask questions. A key never selects it.

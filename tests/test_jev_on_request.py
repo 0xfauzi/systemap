@@ -22,7 +22,7 @@ import pytest
 from jev_replay import serve
 from test_delta_jev import Fake, git, renamed
 
-from systemap import jev
+from systemap import jev, jev_cli
 from systemap.cli import main
 
 __all__ = ["renamed"]
@@ -88,7 +88,8 @@ def test_jev_enabled_true_sends_zero_requests(
     assert counter.requests == []
     assert code == 1
     assert "decision move" not in out
-    assert err.count("hint:") == 1 and "--decide" in err
+    assert jev_cli.ENABLED_WARNING in err
+    assert "hint:" not in err
 
 
 def test_the_jev_option_sends_requests_with_no_configuration(

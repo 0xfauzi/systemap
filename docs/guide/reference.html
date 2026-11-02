@@ -518,6 +518,7 @@ in 80% of predictions. It was in the first three in 88%.</p>
 <p><code>delta</code> sends questions to Jev only when you give <code>--decide</code>.
 <code>--decide</code> also must have <code>TYPESAFE_API_KEY</code>.
 A key alone does not select Jev. <code>[jev] enabled = true</code> in <code>systemap.toml</code> also does not select Jev.
+With that line and without <code>--decide</code>, <code>delta</code> prints a warning that the line no longer sends questions.
 Without <code>--decide</code>, <code>delta</code> sends no data to Jev.
 If the request cannot complete, <code>--decide</code> gives the cause.
 <code>--no-decide</code> sends nothing.
@@ -2582,7 +2583,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[jev]</code></td>
 <td><code>model = &quot;jev-latest&quot;</code>, <code>cache = &quot;.systemap/jev-cache.json&quot;</code>, <code>enabled</code> unset</td>
-<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --decide</code>. <code>enabled</code> does not start a request: without <code>--decide</code>, <code>delta</code> sends no question, also with a key. <code>enabled = false</code> stops the hints.</td>
+<td>The model and cache for <code>audit</code>, <code>triage</code>, <code>plan</code>, <code>delta</code>, and <code>suggest --decide</code>. <code>enabled</code> does not start a request: without <code>--decide</code>, <code>delta</code> sends no question, also with a key. <code>enabled = true</code> gives a <code>delta</code> warning that the value has no effect. <code>enabled = false</code> stops the hints.</td>
 </tr>
 <tr>
 <td><code>[openai]</code></td>

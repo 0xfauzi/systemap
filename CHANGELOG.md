@@ -16,7 +16,8 @@ A layer is a filtered view of the map.
   Without `--provider`, they print `no data was sent` and exit 1. `plan --check` sends no data.
   `audit --dry-run` reads the Jev model list only with `--provider`.
   `delta` sends questions only with `--decide`. `[jev] enabled = true` no longer starts a request,
-  because a cloned repository can contain any `systemap.toml`. `[jev] enabled = false` still stops the hints.
+  because a cloned repository can contain any `systemap.toml`. With `[jev] enabled = true` and no `--decide`,
+  `delta` prints a warning that the line no longer sends questions. `[jev] enabled = false` still stops the hints.
   With the earlier code, `tests/test_no_outbound.py` found 7 command runs that sent data with no option on the command line. After this change, it finds 0.
 
   Step: add `--provider jev` to each `audit`, `triage`, and `plan "<task>"` command in scripts and CI files.

@@ -694,8 +694,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
         url, problem = delta_git.comment_page_url(p.cfg, base_sha)
         warn(*problem)
         delta_link.write(args.comment, url, args.pr, pr_summary.markdown(found), root)
-    if args.decide is None and d.added and d.removed:
-        jev_cli.delta_hint(p.cfg)
+    jev_cli.delta_hint(p.cfg, args.decide, bool(d.added and d.removed))
     return STALE if d.open else OK
 
 

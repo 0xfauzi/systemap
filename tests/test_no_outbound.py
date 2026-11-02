@@ -24,12 +24,12 @@ import contextlib
 import ntpath
 import os
 import shutil
-import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import audit_events
 from test_delta_jev import make_renamed
 
 from systemap import cli, git_command, jev, openai_provider, providers
@@ -37,31 +37,22 @@ from systemap.cli import main
 
 # The events that send data out, or that start a different program.
 NETWORK = {"socket.connect", "socket.getaddrinfo", "socket.gethostbyname", "urllib.Request"}
-STARTED: list[tuple[str, tuple[Any, ...]]] = []
-WATCHING: list[bool] = []
-
-
-def _hook(event: str, args: tuple[Any, ...]) -> None:
-    if not WATCHING:
-        return
-    if event in NETWORK or event == "subprocess.Popen":
-        STARTED.append((event, args))
-    if event in NETWORK:
-        # Stop the connection. The test fails on the recorded event.
-        raise RuntimeError(f"systemap tried to send data out: {event} {args!r}")
-
-
-sys.addaudithook(_hook)
 
 
 @contextlib.contextmanager
 def watched() -> Iterator[list[tuple[str, tuple[Any, ...]]]]:
-    STARTED.clear()
-    WATCHING.append(True)
-    try:
-        yield STARTED
-    finally:
-        WATCHING.clear()
+    """Record each network event and each subprocess while the block runs."""
+    started: list[tuple[str, tuple[Any, ...]]] = []
+
+    def record(event: str, args: tuple[Any, ...]) -> None:
+        if event in NETWORK or event == "subprocess.Popen":
+            started.append((event, args))
+        if event in NETWORK:
+            # Stop the connection. The test fails on the recorded event.
+            raise RuntimeError(f"systemap tried to send data out: {event} {args!r}")
+
+    with audit_events(record):
+        yield started
 
 
 def program_name(executable: Any, argv: Any) -> str:

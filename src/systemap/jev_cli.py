@@ -116,9 +116,25 @@ def hint(cfg: config.Config, text: str) -> None:
         show(text, file=sys.stderr)
 
 
-def delta_hint(cfg: config.Config) -> None:
-    """Print the delta hint to stderr, with or without a key, unless `[jev] enabled = false`."""
-    if cfg.jev_enabled is not False:
+# In 2.0.0, `[jev] enabled = true` started delta requests. It no longer does.
+ENABLED_WARNING = (
+    "warning: [jev] enabled = true in systemap.toml no longer sends questions. "
+    "Give --decide to receive the suggestions of the decision provider. "
+    "Remove the line to stop this warning."
+)
+
+
+def delta_hint(cfg: config.Config, decide: bool | None, unpaired: bool) -> None:
+    """Without --decide or --no-decide, print one line to stderr about the provider.
+
+    `[jev] enabled = true` gives the warning that the line has no effect. Without a value,
+    the hint tells what --decide adds if delta has unpaired modules. `[jev] enabled =
+    false` stops both lines."""
+    if decide is not None or cfg.jev_enabled is False:
+        return
+    if cfg.jev_enabled is True:
+        show(ENABLED_WARNING, file=sys.stderr)
+    elif unpaired:
         show(DELTA_HINT, file=sys.stderr)
 
 
