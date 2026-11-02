@@ -227,6 +227,8 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
     assert facts is not None
     point = next(p for p in facts["entry_points"] if p["module"] == "pkg.gateway.routes")
     identity = source_facts.entry_identity(point)
+    before = judgement.run_tree(nest.load(load(nested)), facts)
+    assert any("GET /read" in line and "has no sequence" in line for line in before)
     top_path = nested / "map/model.py"
     source = top_path.read_text(encoding="utf-8")
     source = source.replace(
@@ -240,7 +242,7 @@ def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> Non
     )
     top_path.write_text(source, encoding="utf-8")
     lines = judgement.run_tree(nest.load(load(nested)), facts)
-    assert not any("GET /read" in line and "has no journey" in line for line in lines)
+    assert not any("GET /read" in line and "has no sequence" in line for line in lines)
 
 
 def test_journeys_command_writes_child_route_in_child_model(
@@ -667,7 +669,7 @@ def test_place_writes_into_a_sub_maps_file(
         "Style: place: The command wrote map/style.py: 4 components placed, 0 kept. The command set all boxes and the canvas"
         in out
     )
-    assert "Gateway: place: wrote" not in out
+    assert "Gateway: place: The command wrote" not in out
     assert out.rstrip().endswith("run: systemap check")
     assert (nested / "map/style.py").read_text(encoding="utf-8") == placed
     assert run("--root", str(nested), "check") == 0

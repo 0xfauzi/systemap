@@ -287,7 +287,7 @@ def test_flows_observed_by_in_the_configuration(tmp_path: Path) -> None:
     write_tree(tmp_path, {"systemap.toml": '[flows]\nobserved_by = ["queue", "subprocess"]\n'})
     cfg = config.load(tmp_path)
     assert cfg.observed_by == ("queue", "subprocess")
-    assert config.load(tmp_path.parent / "nowhere").observed_by == () if False else True
+    assert config.load(tmp_path.parent / "nowhere").observed_by == ()
     for text, message in (
         ('[flows]\nobserved_by = "queue"\n', "observed_by must be a list of strings."),
         ('[flows]\nobserved_by = [""]\n', "must contain a word for each mechanism"),

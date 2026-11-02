@@ -591,7 +591,12 @@ function main() {
   page.reload = reload;
   const scenarios = {keyboard, framing, submap, theme, workspace};
   scenarios.live = live;
-  const report = (scenarios[scenario] || keyboard)(page);
+  // An unknown name is an error: a test whose scenario is absent gets no keyboard report.
+  if (!Object.prototype.hasOwnProperty.call(scenarios, scenario)) {
+    process.stderr.write(`page_driver: unknown scenario: ${scenario}\n`);
+    process.exit(2);
+  }
+  const report = scenarios[scenario](page);
   process.stdout.write(JSON.stringify(report) + '\n');
 }
 
