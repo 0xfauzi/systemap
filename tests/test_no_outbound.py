@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import ntpath
 import os
 import shutil
 import sys
@@ -63,12 +64,23 @@ def watched() -> Iterator[list[tuple[str, tuple[Any, ...]]]]:
         WATCHING.clear()
 
 
+def program_name(executable: Any, argv: Any) -> str:
+    """Give the file name of the started program, without the folder.
+
+    On Windows, the audit event can give no executable. Then the first item of the
+    arguments is the program. The arguments can be one string on Windows."""
+    if executable is None:
+        first = argv.split()[0] if isinstance(argv, (str, bytes)) else next(iter(argv), "")
+        executable = first
+    return ntpath.basename(os.fsdecode(executable)).lower()
+
+
 def outbound(events: list[tuple[str, tuple[Any, ...]]]) -> list[str]:
     """Give each event that is not a Git process with the no-fetch environment."""
     bad = []
     for event, args in events:
         if event == "subprocess.Popen":
-            program = Path(os.fsdecode(args[0])).name
+            program = program_name(args[0], args[1])
             env = args[3] or {}
             no_fetch = all(env.get(k) == v for k, v in git_command._NO_FETCH.items())
             if program in {"git", "git.exe"} and no_fetch:
