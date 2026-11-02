@@ -1,4 +1,4 @@
-"""On Windows, `write_atomic` tries the replace again after a PermissionError.
+"""On Windows, `write_atomic` tries `os.replace` again after a PermissionError.
 
 On Windows CI, `os.replace` in `write_atomic` gave "PermissionError: [WinError 5]" two
 times in PR #135. No systemap process had the file open. A different program, for
