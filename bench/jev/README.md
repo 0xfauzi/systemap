@@ -694,6 +694,41 @@ uv run --python 3.11 python bench/jev/syntax_portability.py > /tmp/syntax-311.js
 uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.json
 ```
 
+### Python 3.12 patch versions and f-string format specs (issue #126, 2026-11-02)
+
+CPython 3.12.3 adds `Constant('')` at the end of a format spec that contains a replacement field, for example `f"{x:<{width}}"`.
+CPython 3.11, 3.12.13 and 3.13 do not add it. Thus the source-review digest of such a module was different on 3.12.3.
+The change removes each empty string constant from the parts of each f-string before the dump.
+
+Acceptance, written before the run in the docstring of `fstring_digest.py`:
+
+1. With the change, each file gives the same digest on 3.11, 3.12.3, 3.12.13 and 3.13.
+2. On 3.11, 3.12.13 and 3.13, the change gives the earlier digest for 100% of the files.
+
+Method: `fstring_digest.py` gives two digests for each file: the earlier dump and the dump with the change.
+The files are 441 Python files that Git tracks in this repository, 613 files of the 3.12.13 standard library without `test/`, `lib2to3/` and `site-packages/`, and three control files: 1,057 files.
+The control files are the reproduction of the issue, five other format specs with replacement fields, and three f-strings without one.
+The interpreters are CPython 3.11.18, 3.12.3, 3.12.13 and 3.13.18. Each run uses `uv run --isolated --python VERSION`.
+
+| Interpreter | Files | Files with `Constant('')` | Change gives a different digest |
+|---|---|---|---|
+| 3.11.18 | 1,054 | 0 | 0 |
+| 3.12.3 | 1,057 | 2 | 2 |
+| 3.12.13 | 1,057 | 0 | 0 |
+| 3.13.18 | 1,057 | 0 | 0 |
+
+3.11 does not parse 3 standard library files, so the comparison of the four interpreters uses 1,054 files.
+
+Results:
+
+- Acceptance 1 passes. With the change, the four interpreters give the same digest for each of the 1,054 files.
+- Acceptance 2 passes. On 3.11, 3.12.13 and 3.13, the change gives the earlier digest for each file.
+- On 3.12.3, the two control files with a replacement field in a format spec get a new digest. That digest is the digest of the other interpreters.
+- No file of this repository or of the standard library has such a format spec. A user on 3.12.3 gets new digests only for modules with this construct.
+
+`tests/test_syntax_dump.py` makes the 3.12.3 tree from the parsed tree. Thus the test gives the same result on each interpreter in CI.
+The test also passed with `uv run --isolated` on 3.12.3, 3.12.13 and 3.13.
+
 
 ## Flow selection measurements
 

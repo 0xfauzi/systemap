@@ -575,12 +575,39 @@ def _dump_python_syntax(tree: ast.AST) -> str:
     # lists by default. Retain the 3.11 representation for shared syntax,
     # while retaining nonempty type parameters as meaningful source.
     hidden = _hide_empty_type_params(tree)
+    emptied = _hide_empty_strings(tree)
     empty_fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
     try:
         return ast.dump(tree, include_attributes=False, **empty_fields)
     finally:
-        for node in hidden:
-            del vars(node)["_fields"]
+        _restore(hidden, emptied)
+
+
+def _restore(hidden: list[ast.AST], emptied: list[tuple[ast.JoinedStr, list[ast.expr]]]) -> None:
+    """Remove the changes of `_hide_empty_type_params` and `_hide_empty_strings`."""
+    for node in hidden:
+        del vars(node)["_fields"]
+    for joined, values in emptied:
+        joined.values = values
+
+
+def _hide_empty_strings(tree: ast.AST) -> list[tuple[ast.JoinedStr, list[ast.expr]]]:
+    """Remove each empty string constant from the parts of each f-string for the dump.
+
+    CPython 3.12.3 adds `Constant('')` at the end of a format spec that contains a
+    replacement field, for example `f"{x:<{width}}"`. CPython 3.11, 3.12.13 and 3.13 do
+    not add it (issue 126). The function gives each changed node with its earlier parts.
+    The caller must restore them after the dump.
+    """
+    emptied: list[tuple[ast.JoinedStr, list[ast.expr]]] = []
+    for node in python_tree.walk(tree):
+        if not isinstance(node, ast.JoinedStr):
+            continue
+        kept = [v for v in node.values if not (isinstance(v, ast.Constant) and v.value == "")]
+        if len(kept) != len(node.values):
+            emptied.append((node, node.values))
+            node.values = kept
+    return emptied
 
 
 def _hide_empty_type_params(tree: ast.AST) -> list[ast.AST]:
