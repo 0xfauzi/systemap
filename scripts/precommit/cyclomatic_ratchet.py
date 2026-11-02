@@ -13,9 +13,9 @@ goes from 20 to 40, which is the case most worth catching.
 
 So this does for cyclomatic complexity what `complexipy --staged` does for
 cognitive complexity. It reads each function's C901 value in the git INDEX and
-in HEAD, matches them by name, and fails only when this commit adds a function
-above the gate or pushes an existing one past it. Existing debt is grandfathered
-by construction: no baseline file, no suppression comments.
+in HEAD, matches them by qualified name, and fails only when this commit adds a
+function above the gate or pushes an existing one past it. Existing debt is
+grandfathered by construction: no baseline file, no suppression comments.
 
 WHY NOT diff-quality
 --------------------
@@ -95,20 +95,40 @@ def emit(text: str = "") -> None:
 
 
 class MeasurementError(Exception):
-    """Ruff did not give a measurement that this hook can read."""
+    """A tool did not give a measurement that this hook can read."""
 
 
-def git_path(path: PurePath, repo: PurePath) -> str:
-    """The path relative to the repo, with forward slashes, as Git expects."""
-    return path.relative_to(repo).as_posix()
+# One C901 row: the line of the `def`, the bare name, and the cyclomatic value.
+Row = tuple[int, str, int]
+Census = dict[tuple[str, str], int]
+
+SYNTAX = re.compile(r"^(?P<path>.*?):\d+:\d+: invalid-syntax: ")
+DEFINITION = re.compile(rb"^[ \t]*(?:async[ \t]+)?def[ \t]", re.MULTILINE)
 
 
-def qualified_names(source: Path) -> dict[int, str]:
-    """Map the line of each `def` in a file to its qualified name."""
+def git_path(path: PurePath, repo: PurePath) -> str | None:
+    """The path relative to the repo, with forward slashes, as Git expects.
+
+    None for a path outside the repo.
+    """
+    try:
+        return path.relative_to(repo).as_posix()
+    except ValueError:
+        return None
+
+
+def qualified_names(source: Path) -> dict[int, str] | None:
+    """Map the line of each `def` in a file to its qualified name.
+
+    An empty map for a file that does not exist. None for a file that this
+    Python cannot parse, for example new syntax on an old `python3`.
+    """
     try:
         tree = ast.parse(source.read_bytes())
-    except (OSError, SyntaxError, ValueError):
+    except OSError:
         return {}
+    except (SyntaxError, ValueError):
+        return None
     names: dict[int, str] = {}
     pending: list[tuple[ast.AST, str]] = [(tree, "")]
     while pending:
@@ -123,41 +143,135 @@ def qualified_names(source: Path) -> dict[int, str]:
     return names
 
 
-def census(root: Path) -> dict[tuple[str, str], int]:
-    """Map (relative path, qualified name) -> cyclomatic complexity for a tree.
-
-    The qualified name keeps `A.parse` and `B.parse` apart. Ruff gives only the
-    bare name, so the `def` line from ruff finds the qualified name in the file.
-    """
-    proc = subprocess.run(
-        [*RUFF, "check", ".", *CENSUS],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    # Ruff exits 0 with no function, 1 with functions, and 2 when it fails.
+def run_ruff(root: Path, paths: list[str]) -> str:
+    """The concise C901 report of ruff for the paths in a tree."""
+    try:
+        proc = subprocess.run(
+            [*RUFF, "check", *CENSUS, "--", *paths],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise MeasurementError(f"cannot start ruff: {error}") from error
+    # Ruff exits 0 with no diagnostic, 1 with diagnostics, and 2 when it fails.
     if proc.returncode not in (0, 1):
         raise MeasurementError(
             f"ruff stopped with exit status {proc.returncode}: {proc.stderr.strip()}"
         )
-    found: dict[tuple[str, str], list[int]] = {}
-    lines: dict[str, dict[int, str]] = {}
-    for raw in proc.stdout.splitlines():
-        match = REPORT.match(raw.strip())
-        if match is None:
-            continue
-        path = match.group("path").lstrip("./")
-        if path not in lines:
-            lines[path] = qualified_names(root / path)
-        name = lines[path].get(int(match.group("line")), match.group("name"))
-        found.setdefault((path, name), []).append(int(match.group("value")))
-    if proc.returncode == 1 and not found:
-        raise MeasurementError(f"cannot read the ruff output: {proc.stdout.strip()}")
-    # One file can define the same qualified name two times: a redefinition
-    # under `if TYPE_CHECKING`. Taking the worst value per name is the
-    # conservative read - it never lets a regression hide behind a namesake.
-    return {key: max(values) for key, values in found.items()}
+    return proc.stdout
+
+
+def read_report(output: str) -> tuple[dict[str, list[Row]], set[str]]:
+    """The C901 rows for each path, and the paths that ruff cannot parse."""
+    rows: dict[str, list[Row]] = {}
+    broken: set[str] = set()
+    for raw in output.splitlines():
+        line = raw.strip()
+        match = REPORT.match(line)
+        if match is not None:
+            row = (int(match["line"]), match["name"], int(match["value"]))
+            rows.setdefault(Path(match["path"]).as_posix(), []).append(row)
+        elif (bad := SYNTAX.match(line)) is not None:
+            broken.add(Path(bad["path"]).as_posix())
+    return rows, broken
+
+
+def file_rows(root: Path, rel: str, rows: list[Row], broken: bool) -> list[Row] | None:
+    """The rows of one file, or None when ruff cannot parse the file.
+
+    A file with a `def` must give at least one row. If it gives none, the
+    output of ruff is not in the form that REPORT reads.
+    """
+    if rows or broken:
+        return rows or None
+    if DEFINITION.search((root / rel).read_bytes()):
+        raise MeasurementError(f"cannot read the ruff output for {rel}")
+    return []
+
+
+def census(root: Path, paths: list[str]) -> dict[str, list[Row] | None]:
+    """The C901 rows of each path that is in the tree.
+
+    The paths go to ruff explicitly. Thus the default exclusions of ruff, for
+    example `build/`, do not remove a staged file from the measurement.
+    """
+    present = [rel for rel in paths if (root / rel).is_file()]
+    if not present:
+        return {}
+    rows, broken = read_report(run_ruff(root, present))
+    return {
+        rel: file_rows(root, rel, rows.get(rel, []), rel in broken) for rel in present
+    }
+
+
+def name_rows(rel: str, rows: list[Row], names: dict[int, str]) -> Census:
+    """Key each row by (path, qualified name).
+
+    The qualified name keeps `A.parse` and `B.parse` apart. Ruff gives only the
+    bare name, so the `def` line from ruff finds the qualified name in the file.
+    One file can define the same qualified name two times: a redefinition under
+    `if TYPE_CHECKING`. Taking the worst value per name is the conservative
+    read - it never lets a regression hide behind a namesake.
+    """
+    found: Census = {}
+    for line, bare, value in rows:
+        key = (rel, names.get(line, bare))
+        found[key] = max(value, found.get(key, value))
+    return found
+
+
+def measure(head: Path, index: Path, paths: list[str]) -> tuple[Census, Census]:
+    """Map (relative path, qualified name) -> cyclomatic complexity, per tree.
+
+    A file that ruff cannot parse at HEAD has no baseline, as a new file has.
+    A file that ruff cannot parse in the index cannot be measured.
+    """
+    before_rows = census(head, paths)
+    before: Census = {}
+    after: Census = {}
+    for rel, rows in census(index, paths).items():
+        if rows is None:
+            raise MeasurementError(f"ruff cannot parse {rel}")
+        old = before_rows.get(rel) or []
+        new_names = qualified_names(index / rel)
+        old_names = qualified_names(head / rel) if old else {}
+        if new_names is None or old_names is None:
+            # This Python cannot parse a file that ruff can parse. Bare names
+            # on the two sides still match each other.
+            new_names = old_names = {}
+        before.update(name_rows(rel, old, old_names))
+        after.update(name_rows(rel, rows, new_names))
+    return before, after
+
+
+def absent(ref: str, rel: str, stderr: bytes) -> None:
+    """A path that `ref` does not have.
+
+    HEAD does not have a file that this commit adds. The index must have each
+    staged file, so a failure there is a failure of the measurement.
+    """
+    if ref:
+        return
+    message = stderr.decode(errors="replace").strip()
+    raise MeasurementError(f"git cannot show the staged version of {rel}: {message}")
+
+
+def read_version(repo: Path, ref: str, rel: str) -> bytes | None:
+    """The content of `rel` at `ref`, or None when `ref` does not have it."""
+    if ref == WORKTREE:
+        source = repo / rel
+        return source.read_bytes() if source.is_file() else None
+    spec = f"{ref}:{rel}" if ref else f":{rel}"
+    proc = subprocess.run(
+        ["git", "-C", str(repo), "show", spec],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode == 0:
+        return proc.stdout
+    return absent(ref, rel, proc.stderr)
 
 
 def materialise(paths: list[str], repo: Path, ref: str, dest: Path) -> None:
@@ -168,24 +282,12 @@ def materialise(paths: list[str], repo: Path, ref: str, dest: Path) -> None:
     every function in it reads as new, which is correct.
     """
     for rel in paths:
+        content = read_version(repo, ref, rel)
+        if content is None:
+            continue
         out = dest / rel
-        if ref == WORKTREE:
-            source = repo / rel
-            if not source.is_file():
-                continue
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(source.read_bytes())
-            continue
-        spec = f"{ref}:{rel}" if ref else f":{rel}"
-        proc = subprocess.run(
-            ["git", "-C", str(repo), "show", spec],
-            capture_output=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            continue
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(proc.stdout)
+        out.write_bytes(content)
 
 
 def find_repo() -> Path | None:
@@ -206,13 +308,12 @@ def find_repo() -> Path | None:
         # No repo, or no commits yet. There is nothing to compare against, so
         # there is no regression to report. Passing is the honest answer.
         return None
-    return Path(top)
+    # Resolved as the staged paths are, so that a symbolic link or a substituted
+    # drive does not put each path outside the repo.
+    return Path(top).resolve()
 
 
-def classify(
-    before: dict[tuple[str, str], int],
-    after: dict[tuple[str, str], int],
-) -> tuple[list[str], list[str]]:
+def classify(before: Census, after: Census) -> tuple[list[str], list[str]]:
     """Split each changed function into blocking failures and informational notes."""
     failures: list[str] = []
     notes: list[str] = []
@@ -239,6 +340,23 @@ def classify(
     return failures, notes
 
 
+def compare(
+    rel: list[str], repo: Path, compare_from: str
+) -> tuple[list[str], list[str]]:
+    """Measure each path at HEAD and at `compare_from`, then classify the change.
+
+    `rel` has no path outside the repo: such a path has no version to compare.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        head = Path(tmp) / "head"
+        index = Path(tmp) / "index"
+        head.mkdir()
+        index.mkdir()
+        materialise(rel, repo, "HEAD", head)
+        materialise(rel, repo, compare_from, index)
+        return classify(*measure(head, index, rel))
+
+
 def main(argv: list[str]) -> int:
     compare_from = WORKTREE if "--worktree" in argv else ""
     paths = [p for p in argv if p.endswith(".py")]
@@ -249,25 +367,13 @@ def main(argv: list[str]) -> int:
     if repo is None:
         return 0
 
+    rel = [git_path(Path(p).resolve(), repo) for p in paths]
     try:
-        rel = [git_path(Path(p).resolve(), repo) for p in paths]
-    except ValueError:
-        # A path outside this repo. Nothing to compare it against here.
-        return 0
-
-    with tempfile.TemporaryDirectory() as tmp:
-        head = Path(tmp) / "head"
-        index = Path(tmp) / "index"
-        head.mkdir()
-        index.mkdir()
-        materialise(rel, repo, "HEAD", head)
-        materialise(rel, repo, compare_from, index)
-        try:
-            failures, notes = classify(census(head), census(index))
-        except MeasurementError as error:
-            emit("Cyclomatic complexity ratchet: no measurement.")
-            emit(f"  {error}")
-            return 2
+        failures, notes = compare([r for r in rel if r is not None], repo, compare_from)
+    except MeasurementError as error:
+        emit("Cyclomatic complexity ratchet: no measurement.")
+        emit(f"  {error}")
+        return 2
 
     if not failures:
         for note in notes:
