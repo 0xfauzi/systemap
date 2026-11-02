@@ -237,6 +237,6 @@ def test_the_driver_refuses_an_unknown_scenario(sample: Sample, tmp_path: Path) 
     html = sample_page(sample, tmp_path)
     args = [shutil.which("node") or "node", str(DRIVER), str(html), "--scenario", "nosuch"]
     proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
-    assert proc.returncode != 0
+    assert proc.returncode == 2
     assert proc.stdout == ""
     assert "unknown scenario: nosuch" in proc.stderr

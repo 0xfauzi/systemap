@@ -22,7 +22,7 @@ import pytest
 from conftest import page_detail_text, write_tree
 from test_keyboard import DRIVER, needs_node
 
-from systemap import nest, place, source_facts
+from systemap import facts_file, judgement, nest, place, source_facts
 from systemap.cli import main
 
 TREE = {
@@ -219,7 +219,6 @@ def add_child_route(root: Path) -> None:
 
 
 def test_parent_explicit_coverage_satisfies_child_judgement(nested: Path) -> None:
-    from systemap import facts_file, judgement
     from systemap.config import load
 
     add_child_route(nested)
@@ -669,6 +668,7 @@ def test_place_writes_into_a_sub_maps_file(
         "Style: place: The command wrote map/style.py: 4 components placed, 0 kept. The command set all boxes and the canvas"
         in out
     )
+    assert "Gateway: place: 0 components placed, 5 kept" in out
     assert "Gateway: place: The command wrote" not in out
     assert out.rstrip().endswith("run: systemap check")
     assert (nested / "map/style.py").read_text(encoding="utf-8") == placed

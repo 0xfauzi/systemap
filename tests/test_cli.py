@@ -122,7 +122,7 @@ def test_init_writes_an_empty_model_and_a_pinned_workflow(tmp_path: Path) -> Non
     assert 'out = "figures/system.svg"' in toml
     assert "system.html" not in toml
     workflow = (tmp_path / ".github/workflows/systemap.yml").read_text(encoding="utf-8")
-    # Nothing is on PyPI yet: the pin is the release tag, and moves to PyPI at 1.0.
+    # The workflow pins the package version of the systemap that wrote it.
     pin = f'uvx --from "systemap=={__version__}" systemap'
     for command in ("extract --check", "check", "judgement --strict", "render --check"):
         assert f"{pin} {command}" in workflow, command

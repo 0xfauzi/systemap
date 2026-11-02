@@ -13,7 +13,7 @@
 //     node tests/page_driver.js PAGE.html [--reduced] [--system-reduced] [--light]
 //                                         [--viewport WxH]
 //                                         [--stored NAME] [--no-storage] [--phone]
-//                                         [--scenario keyboard|framing|submap|theme]
+//                                         [--scenario keyboard|framing|submap|theme|workspace|live]
 //
 // prints one JSON object; tests/test_keyboard.py, tests/test_framing.py,
 // tests/test_nested.py and tests/test_theme.py read it. --reduced stores
@@ -580,6 +580,13 @@ function main() {
   const scenario = flag('--scenario', 'keyboard');
   const prefs = {light: args.includes('--light'), stored: flag('--stored', null), noStorage: args.includes('--no-storage'),
     systemReduced: args.includes('--system-reduced'), phone: args.includes('--phone')};
+  const scenarios = {keyboard, framing, submap, theme, workspace};
+  scenarios.live = live;
+  // An unknown name is an error: a test whose scenario is absent gets no keyboard report.
+  if (!Object.prototype.hasOwnProperty.call(scenarios, scenario)) {
+    process.stderr.write(`page_driver: unknown scenario: ${scenario}\n`);
+    process.exit(2);
+  }
   const html = fs.readFileSync(file, 'utf8');
   const page = boot(html, reduced, viewport, prefs);
   // A reload: the same page in a new window, with the link fragment of the old one.
@@ -589,13 +596,6 @@ function main() {
     return next;
   };
   page.reload = reload;
-  const scenarios = {keyboard, framing, submap, theme, workspace};
-  scenarios.live = live;
-  // An unknown name is an error: a test whose scenario is absent gets no keyboard report.
-  if (!Object.prototype.hasOwnProperty.call(scenarios, scenario)) {
-    process.stderr.write(`page_driver: unknown scenario: ${scenario}\n`);
-    process.exit(2);
-  }
   const report = scenarios[scenario](page);
   process.stdout.write(JSON.stringify(report) + '\n');
 }
