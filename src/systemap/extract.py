@@ -16,7 +16,7 @@ import json
 import re
 import sys
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -574,52 +574,40 @@ def _dump_python_syntax(tree: ast.AST) -> str:
     # Python 3.12 added empty type_params; 3.13 stopped dumping empty
     # lists by default. Retain the 3.11 representation for shared syntax,
     # while retaining nonempty type parameters as meaningful source.
-    hidden = _hide_empty_type_params(tree)
-    emptied = _hide_empty_strings(tree)
     empty_fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
-    try:
+    with _hidden_for_dump(tree):
         return ast.dump(tree, include_attributes=False, **empty_fields)
-    finally:
-        _restore(hidden, emptied)
 
 
-def _restore(hidden: list[ast.AST], emptied: list[tuple[ast.JoinedStr, list[ast.expr]]]) -> None:
-    """Remove the changes of `_hide_empty_type_params` and `_hide_empty_strings`."""
-    for node in hidden:
-        del vars(node)["_fields"]
-    for joined, values in emptied:
-        joined.values = values
+def _is_empty_string(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value == ""
 
 
-def _hide_empty_strings(tree: ast.AST) -> list[tuple[ast.JoinedStr, list[ast.expr]]]:
-    """Remove each empty string constant from the parts of each f-string for the dump.
+@contextlib.contextmanager
+def _hidden_for_dump(tree: ast.AST) -> Iterator[None]:
+    """Change the tree for the dump in one walk. Restore each changed node at the end.
 
-    CPython 3.12.3 adds `Constant('')` at the end of a format spec that contains a
-    replacement field, for example `f"{x:<{width}}"`. CPython 3.11, 3.12.13 and 3.13 do
-    not add it (issue 126). The function gives each changed node with its earlier parts.
-    The caller must restore them after the dump.
+    - An empty `type_params` field leaves the fields that `ast.dump` writes.
+    - Each f-string loses each empty string constant from its parts. CPython 3.12.3 adds
+      `Constant('')` at the end of a format spec that ends with a replacement field, for
+      example `f"{x:<{width}}"`. CPython 3.11, 3.12.13 and 3.13 do not add it (issue 126).
     """
+    hidden: list[ast.AST] = []
     emptied: list[tuple[ast.JoinedStr, list[ast.expr]]] = []
-    for node in python_tree.walk(tree):
-        if not isinstance(node, ast.JoinedStr):
-            continue
-        kept = [v for v in node.values if not (isinstance(v, ast.Constant) and v.value == "")]
-        if len(kept) != len(node.values):
-            emptied.append((node, node.values))
-            node.values = kept
-    return emptied
-
-
-def _hide_empty_type_params(tree: ast.AST) -> list[ast.AST]:
-    """Remove an empty `type_params` field from the fields that `ast.dump` writes.
-
-    The function gives the changed nodes. The caller must remove the change after the
-    dump.
-    """
-    hidden = [node for node in python_tree.walk(tree) if getattr(node, "type_params", None) == []]
-    for node in hidden:
-        vars(node)["_fields"] = tuple(field for field in node._fields if field != "type_params")
-    return hidden
+    try:
+        for node in python_tree.walk(tree):
+            if getattr(node, "type_params", None) == []:
+                hidden.append(node)
+                vars(node)["_fields"] = tuple(f for f in node._fields if f != "type_params")
+            elif isinstance(node, ast.JoinedStr) and any(map(_is_empty_string, node.values)):
+                emptied.append((node, node.values))
+                node.values = [v for v in node.values if not _is_empty_string(v)]
+        yield
+    finally:
+        for node in hidden:
+            del vars(node)["_fields"]
+        for joined, values in emptied:
+            joined.values = values
 
 
 def _surface_and_syntax(

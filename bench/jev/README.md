@@ -696,8 +696,9 @@ uv run --python 3.13 python bench/jev/syntax_portability.py > /tmp/syntax-313.js
 
 ### Python 3.12 patch versions and f-string format specs (issue #126, 2026-11-02)
 
-CPython 3.12.3 adds `Constant('')` at the end of a format spec that contains a replacement field, for example `f"{x:<{width}}"`.
-CPython 3.11, 3.12.13 and 3.13 do not add it. Thus the source-review digest of such a module was different on 3.12.3.
+CPython 3.12.3 adds `Constant('')` at the end of a format spec that ends with a replacement field, for example `f"{x:<{width}}"`.
+A spec that ends with text, for example `f"{x:{w}.{p}f}"` or `f"{x:{w}>}"`, gets no empty constant. CPython 3.11, 3.12.13 and 3.13 do not add it.
+Ten spec shapes were parsed on 3.12.3 and 3.13 to find this rule. `SHAPES` in `tests/test_syntax_dump.py` records the result. Thus the source-review digest of such a module was different on 3.12.3.
 The change removes each empty string constant from the parts of each f-string before the dump.
 
 Acceptance, written before the run in the docstring of `fstring_digest.py`:
@@ -705,29 +706,49 @@ Acceptance, written before the run in the docstring of `fstring_digest.py`:
 1. With the change, each file gives the same digest on 3.11, 3.12.3, 3.12.13 and 3.13.
 2. On 3.11, 3.12.13 and 3.13, the change gives the earlier digest for 100% of the files.
 
-Method: `fstring_digest.py` gives two digests for each file: the earlier dump and the dump with the change.
-The files are 441 Python files that Git tracks in this repository, 613 files of the 3.12.13 standard library without `test/`, `lib2to3/` and `site-packages/`, and three control files: 1,057 files.
-The control files are the reproduction of the issue, five other format specs with replacement fields, and three f-strings without one.
+Method: `fstring_digest.py` gives the digest with the change and the count of empty constants for each file.
+The change removes exactly these constants, so a file gets a different digest if and only if the count is more than 0.
+An earlier form of the script also gave the earlier digest directly. Its run gave the same result for each file.
+The files are 443 Python files that Git tracks in this repository, 613 files of the 3.12.13 standard library without `test/`, `lib2to3/` and `site-packages/`, and three control files: 1,059 files.
+The control files are the reproduction of the issue, five other format specs with replacement fields (four of them end with a replacement field), and three f-strings without one.
 The interpreters are CPython 3.11.18, 3.12.3, 3.12.13 and 3.13.18. Each run uses `uv run --isolated --python VERSION`.
 
-| Interpreter | Files | Files with `Constant('')` | Change gives a different digest |
-|---|---|---|---|
-| 3.11.18 | 1,054 | 0 | 0 |
-| 3.12.3 | 1,057 | 2 | 2 |
-| 3.12.13 | 1,057 | 0 | 0 |
-| 3.13.18 | 1,057 | 0 | 0 |
+| Interpreter | Files | Files with `Constant('')`, which get a different digest |
+|---|---|---|
+| 3.11.18 | 1,056 | 0 |
+| 3.12.3 | 1,059 | 2 |
+| 3.12.13 | 1,059 | 0 |
+| 3.13.18 | 1,059 | 0 |
 
-3.11 does not parse 3 standard library files, so the comparison of the four interpreters uses 1,054 files.
+3.11 does not parse 3 standard library files, so the comparison of the four interpreters uses 1,056 files.
 
 Results:
 
-- Acceptance 1 passes. With the change, the four interpreters give the same digest for each of the 1,054 files.
+- Acceptance 1 passes. With the change, the four interpreters give the same digest for each of the 1,056 files.
 - Acceptance 2 passes. On 3.11, 3.12.13 and 3.13, the change gives the earlier digest for each file.
 - On 3.12.3, the two control files with a replacement field in a format spec get a new digest. That digest is the digest of the other interpreters.
-- No file of this repository or of the standard library has such a format spec. A user on 3.12.3 gets new digests only for modules with this construct.
+- No file of this repository or of the standard library has a format spec that ends with a replacement field.
+  The standard library has format specs with replacement fields that end with text, for example in `fractions.py` and `locale.py`. 3.12.3 gives them no empty constant, so their digests do not change.
+  A user on 3.12.3 gets new digests only for modules with a format spec that ends with a replacement field.
 
 `tests/test_syntax_dump.py` makes the 3.12.3 tree from the parsed tree. Thus the test gives the same result on each interpreter in CI.
-The test also passed with `uv run --isolated` on 3.12.3, 3.12.13 and 3.13.
+The test also passed with `uv run --isolated` on 3.12.3, 3.12.13 and 3.13. With the `extract.py` of the base commit, 8 tests of `test_syntax_dump.py` and `test_parse_once.py` fail.
+
+Time of the dump. Acceptance, written before the run: the change costs at most 5% more total time of `_dump_python_syntax` over the 443 tracked files, median of 5 rounds.
+The rounds alternate between the dump of the base commit and the dump of the change, on 3.11.18, after one round to fill the walk cache.
+In 3 runs, the median times were 1.064, 1.028 and 1.046 s for the base commit and 1.078, 1.049 and 1.073 s for the change: 1.014, 1.020 and 1.025 times. The acceptance passes.
+The first form of the change built a new list for each f-string. It took 1.030 and 1.066 times the base time. Thus the change now examines the parts first and makes a list only for an f-string with an empty constant.
+The time on 3.12 and 3.13 is not measured.
+
+### Facts that also change with the interpreter
+
+The review of this change found two other values that depend on the interpreter. They are not in the source-review digest, and this change does not correct them.
+An extraction of this repository on 3.11.18, 3.12.3 and 3.13.18 gave these differences in `docs/map/map.json`:
+
+- On 3.13, the `api` fingerprints of 81 modules are different. They use `ast.dump` without `show_empty`, and 3.13 does not write empty lists by default.
+- On 3.12.3, the `constants` previews of 2 modules are different. They use `ast.unparse`, and 3.12.3 writes the quotes of an f-string differently from 3.11. Other 3.12 versions are not measured.
+
+`systemap extract --check` compares these stored facts. Thus a person who extracts on a different interpreter from CI can get a stale result. This needs its own issue.
 
 
 ## Flow selection measurements

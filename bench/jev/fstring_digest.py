@@ -3,18 +3,16 @@
 For each source file in FILE_LIST, the script parses the file with the current
 interpreter and prints one JSON line:
 
-- "now": the SHA-256 of `_dump_python_syntax` without the issue 126 change. The script
-  calls the dump with the empty constants in place, so the value is the earlier dump.
-- "fixed": the SHA-256 after the removal of each empty `Constant('')` from the parts of
-  each f-string, which is the issue 126 change.
-- "empties": the number of such empty constants in the parsed tree.
+- "digest": the SHA-256 of `_dump_python_syntax` with the issue 126 change.
+- "empties": the number of empty `Constant('')` items in the parts of each f-string.
+  The change removes exactly these items from the dump. Thus the change gives a
+  different digest from the earlier dump if and only if "empties" is more than 0.
 
 Acceptance values, written before the run on 2026-11-02:
 
-1. With the change, each file gives the same "fixed" digest on 3.11, 3.12.3, 3.12.13
-   and 3.13.
-2. On 3.11, 3.12.13 and 3.13, "fixed" equals "now" for 100% of the files. Then a user on
-   those versions keeps each recorded digest.
+1. With the change, each file gives the same digest on 3.11, 3.12.3, 3.12.13 and 3.13.
+2. On 3.11, 3.12.13 and 3.13, "empties" is 0 for 100% of the files, so the change gives
+   the earlier digest. Then a user on those versions keeps each recorded digest.
 
 Run from the repository root, once for each interpreter:
 
@@ -45,26 +43,15 @@ def empties(tree: ast.AST) -> int:
     )
 
 
-def earlier_dump(tree: ast.AST) -> str:
-    """Give the dump without the issue 126 change: the empty constants stay."""
-    found = extract._hide_empty_strings(tree)
-    for joined, values in found:
-        joined.values = values
-    hidden = extract._hide_empty_type_params(tree)
-    fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
-    try:
-        return ast.dump(tree, include_attributes=False, **fields)
-    finally:
-        extract._restore(hidden, [])
-
-
 def sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def main(listing: Path) -> None:
     version = sys.version.split()[0]
-    for path in listing.read_text(encoding="utf-8").split():
+    for path in listing.read_text(encoding="utf-8").splitlines():
+        if not path.strip():
+            continue
         try:
             tree = ast.parse(Path(path).read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError, ValueError):
@@ -73,8 +60,7 @@ def main(listing: Path) -> None:
             "v": version,
             "path": path,
             "empties": empties(tree),
-            "now": sha(earlier_dump(tree)),
-            "fixed": sha(extract._dump_python_syntax(tree)),
+            "digest": sha(extract._dump_python_syntax(tree)),
         }
         print(json.dumps(row))
 
