@@ -18,8 +18,8 @@ write does not go to the target of the link. A reader gets the full previous fil
 full new file. Two writers do not use the same temporary file. A new file gets the mode
 of a usual write: 0666 without the bits of the umask. A regular file that is at the path
 keeps its mode. On Windows, a different program can open the new file for a short
-time, and the replace gives PermissionError. Then `write_atomic` tries the replace again
-a small number of times.
+time. Then `os.replace` gives PermissionError, and `write_atomic` waits and tries
+`os.replace` again a small number of times.
 
 A different process can change a folder of the path to a link after the check. Where
 `repo_files.WALK` is true, `write_atomic` and `locked` open the resolved folder one part
@@ -75,8 +75,9 @@ GIT_IGNORE = ".gitignore"
 IGNORE_ALL = "*\n"
 # On Windows, a different program, for example an antivirus scan, can open the new
 # file for a short time. Then `os.replace` gives PermissionError. If RETRY_REPLACE is
-# true, `write_atomic` tries the replace again after each wait in REPLACE_WAITS.
-# These values are a limit. They are not a measurement.
+# true, `write_atomic` waits for each time in REPLACE_WAITS and tries `os.replace` again.
+# These values are a limit. They are not a measurement. A measurement on Windows CI is
+# necessary to know if the limit is sufficient.
 RETRY_REPLACE = os.name == "nt"
 REPLACE_WAITS = (0.05, 0.1, 0.2, 0.4)
 
@@ -201,8 +202,10 @@ def write_atomic(root: Path, path: Path, text: str) -> None:
 def _replace(name: str, target: str, parent: int | None) -> None:
     """Replace the target with the temporary file.
 
-    If RETRY_REPLACE is true, a PermissionError causes a wait and a new attempt. After
-    the last wait in REPLACE_WAITS, the next PermissionError goes to the caller."""
+    If RETRY_REPLACE is true, after a PermissionError, wait for the next time in
+    REPLACE_WAITS and try again. After the last time in REPLACE_WAITS, the next
+    PermissionError goes to the caller. A different OSError goes to the caller at once.
+    """
     waits = REPLACE_WAITS if RETRY_REPLACE else ()
     for wait in waits:
         try:

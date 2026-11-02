@@ -10,6 +10,7 @@ Acceptance, written before the change:
 2. If RETRY_REPLACE is true, more PermissionErrors than the limit give PermissionError.
    No temporary file stays.
 3. If RETRY_REPLACE is false, the first PermissionError goes to the caller at once.
+4. An OSError that is not PermissionError goes to the caller at once.
 """
 
 from __future__ import annotations
@@ -82,4 +83,19 @@ def test_without_retry_the_first_failure_raises_at_once(
         file_write.write_atomic(tmp_path, target, "new")
     assert waits == []
     assert not target.exists()
+    assert leftovers(tmp_path) == []
+
+
+def test_a_different_error_raises_at_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(file_write, "RETRY_REPLACE", True)
+    waits: list[float] = []
+
+    def replace(*args: Any, **kwargs: Any) -> None:
+        raise IsADirectoryError(21, "Is a directory")
+
+    monkeypatch.setattr(file_write.os, "replace", replace)
+    monkeypatch.setattr(file_write.time, "sleep", waits.append)
+    with pytest.raises(IsADirectoryError):
+        file_write.write_atomic(tmp_path, tmp_path / "cache.json", "new")
+    assert waits == []
     assert leftovers(tmp_path) == []

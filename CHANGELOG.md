@@ -27,7 +27,7 @@ A layer is a filtered view of the map.
 
 - `systemap decisions status` no longer stops with `KeyError` when the decision store has a supported record for a component that the model does not have.
   Such a record does not count as supported.
-- On Windows, if `os.replace` gives `PermissionError` when systemap writes a file, systemap tries the replace again a maximum of 4 times with a short wait. A different program, for example an antivirus scan, can cause this error.
+- On Windows, if `os.replace` gives `PermissionError` when systemap writes a file, systemap waits for a short time and tries `os.replace` again, a maximum of 4 more times. A different program, for example an antivirus scan, can cause this error.
 
 ### Security
 
