@@ -486,13 +486,16 @@ On this repository, the command takes about 7 to 8 seconds to render the map.
 - **Read changes across a year.** `systemap history` reads repository samples.
   Its report shows parts that grew and the associated commits.
 
-- **Make a work plan.** `systemap plan "<task>"` shows parts likely to change.
+- **Make a work plan.** `systemap plan "<task>" --provider jev` shows parts likely to change.
   After the work, the command compares the projection with the changed parts.
 
 - **Send semantic questions to a decision provider.** A decision provider is a model API that gives typed answers.
-  `systemap audit` sends questions about module claims, sentences, and flows to TypeSafe's Jev or to OpenAI Decisions.
-  Set `TYPESAFE_API_KEY` for Jev. For OpenAI, set `OPENAI_API_KEY` and give `--provider openai`.
-  A key alone does not select OpenAI. `delta` sends questions only with `--decide` or `[jev] enabled = true`.
+  `systemap audit --provider jev` sends questions about module claims, sentences, and flows to TypeSafe's Jev.
+  `--provider openai` sends them to OpenAI Decisions.
+  Set `TYPESAFE_API_KEY` for Jev, or `OPENAI_API_KEY` for OpenAI.
+  systemap sends no data by default. `audit`, `plan`, and `triage` send data only with `--provider`.
+  `delta` and `suggest` send data only with `--decide`.
+  A key or a setting in `systemap.toml` does not start a request.
 
 - **Put the stale source reviews in sequence.** With `TYPESAFE_API_KEY`, `systemap judgement --order-by-drift` sends one Jev question for each open stale source review.
   The question contains the claims of the component and a diff or the text of its module files.

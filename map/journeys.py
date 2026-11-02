@@ -58,7 +58,7 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="Before source changes, the agent or maintainer runs systemap plan with a task description.",
+                say="Before source changes, the agent or maintainer runs systemap plan with a task description and --provider.",
             ),
             Step(
                 acts=("SecondOpinion",),
@@ -104,7 +104,7 @@ JOURNEYS = (
                 acts=("Agent",),
                 measures=(),
                 edge=("Agent", "CLI"),
-                say="With a Jev key and no open judgement findings, the agent runs systemap audit. For an issue, the maintainer runs systemap triage.",
+                say="If the maintainer asks and no judgement findings are open, the agent runs systemap audit --provider jev. For an issue, the maintainer runs systemap triage --provider jev.",
             ),
             Step(
                 acts=("SecondOpinion",),

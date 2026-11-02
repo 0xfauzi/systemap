@@ -21,7 +21,8 @@ The skill tells the agent to:
 - record each source review with `systemap review` or `systemap decisions`, and not by a change of the model file,
 - give the maintainer a completion report: the check results, the recorded answers, the open questions, and the uncertain claims.
 
-With `TYPESAFE_API_KEY`, the agent also uses `systemap suggest --decide` and `systemap audit`.
+If the maintainer asks, the agent also uses `systemap suggest --decide` and `systemap audit --provider jev`.
+These commands must have `TYPESAFE_API_KEY`.
 `--decide` replaces `--jev`, which stays for one release.
 For a map that is already in use, the agent starts with [`systemap delta`](pull-requests-and-ci.html#systemap-delta).
 

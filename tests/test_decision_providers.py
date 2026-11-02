@@ -94,7 +94,9 @@ def test_the_audit_report_gives_the_count_of_refused_questions(
     two_cards: tuple[Path, Refusing], capsys: pytest.CaptureFixture[str]
 ) -> None:
     root, refusing = two_cards
-    args = argparse.Namespace(root_path=root, kind=list(audit.KINDS), dry_run=False, brief=True)
+    args = argparse.Namespace(
+        root_path=root, kind=list(audit.KINDS), dry_run=False, brief=True, provider="jev"
+    )
     assert jev_cli.cmd_audit(args) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[0] == "audit: nothing to confirm"
@@ -110,11 +112,11 @@ def test_triage_and_plan_give_the_reason_and_exit_1(
     two_cards: tuple[Path, Refusing], capsys: pytest.CaptureFixture[str]
 ) -> None:
     root, refusing = two_cards
-    assert main(["--root", str(root), "triage", "the reader fails"]) == 1
+    assert main(["--root", str(root), "triage", "the reader fails", "--provider", "jev"]) == 1
     assert capsys.readouterr().out == (
         "triage: the decision provider gave a refusal: the policy does not permit this question\n"
     )
-    assert main(["--root", str(root), "plan", "change the reader"]) == 1
+    assert main(["--root", str(root), "plan", "change the reader", "--provider", "jev"]) == 1
     assert capsys.readouterr().out.startswith("plan: the decision provider gave a refusal")
     assert not (root / ".systemap/plans").exists()
     assert [q.key for q in refusing.asked] == ["triage", "plan"]

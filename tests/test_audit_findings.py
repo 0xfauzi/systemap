@@ -83,7 +83,9 @@ def use_fake(monkeypatch: pytest.MonkeyPatch, fake: Fake) -> None:
 
 
 def audit_args(root: Path, *kinds: str, dry_run: bool = False) -> argparse.Namespace:
-    return argparse.Namespace(root_path=root, kind=list(kinds), dry_run=dry_run, brief=True)
+    return argparse.Namespace(
+        root_path=root, kind=list(kinds), dry_run=dry_run, brief=True, provider="jev"
+    )
 
 
 # ---- finding 4: an answer that does not fit is a message, not a traceback ---------
@@ -94,11 +96,11 @@ def test_audit_triage_plan_and_suggest_say_why_a_bad_answer_stops_them(
 ) -> None:
     bad = Fake(lambda name, q: {"type": q["type"]})
     use_fake(monkeypatch, bad)
-    assert main(["--root", str(two_cards), "audit"]) == 1
+    assert main(["--root", str(two_cards), "audit", "--provider", "jev"]) == 1
     assert capsys.readouterr().out.startswith("audit: Jev gave an incorrect answer")
-    assert main(["--root", str(two_cards), "triage", "the reader fails"]) == 1
+    assert main(["--root", str(two_cards), "triage", "the reader fails", "--provider", "jev"]) == 1
     assert capsys.readouterr().out.startswith("triage: Jev gave an incorrect answer")
-    assert main(["--root", str(two_cards), "plan", "change the reader"]) == 1
+    assert main(["--root", str(two_cards), "plan", "change the reader", "--provider", "jev"]) == 1
     assert capsys.readouterr().out.startswith("plan: Jev gave an incorrect answer")
     assert main(["--root", str(two_cards), "suggest", "--jev"]) == 1
     assert capsys.readouterr().out.startswith("suggest --decide: Jev gave an incorrect answer")
@@ -140,11 +142,11 @@ def test_triage_and_plan_use_the_choice_when_jev_gives_no_probabilities(
 ) -> None:
     only_choice = Fake(lambda name, q: {"type": "choice", "choice": "Writer", "confidence": 0.9})
     use_fake(monkeypatch, only_choice)
-    assert main(["--root", str(two_cards), "triage", "the writer fails"]) == 0
+    assert main(["--root", str(two_cards), "triage", "the writer fails", "--provider", "jev"]) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[0] == "triage: confidence 0.90"
     assert out[1].startswith("  0.90  Writer: pkg.writer")
-    assert main(["--root", str(two_cards), "plan", "change the writer"]) == 0
+    assert main(["--root", str(two_cards), "plan", "change the writer", "--provider", "jev"]) == 0
     assert "  Writer (0.90)" in capsys.readouterr().out
 
 

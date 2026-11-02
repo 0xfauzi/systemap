@@ -64,7 +64,18 @@ def _audit(
     recorder = Recorder()
     monkeypatch.setenv(jev.KEY_ENV, "a test key")
     monkeypatch.setattr(jev, "http_send", lambda key, base=jev.API: recorder)
-    code = main(["--root", str(root), "audit", "--kind", "decision sentence", "--brief"])
+    code = main(
+        [
+            "--root",
+            str(root),
+            "audit",
+            "--kind",
+            "decision sentence",
+            "--brief",
+            "--provider",
+            "jev",
+        ]
+    )
     out, err = capsys.readouterr()
     return code, out, err
 

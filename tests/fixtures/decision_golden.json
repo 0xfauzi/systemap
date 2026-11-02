@@ -138,7 +138,7 @@
  "dry run": {
   "code": 0,
   "out": [
-   "audit --dry-run: 7 questions (unknown until a key is set), 3,946 characters of state and questions",
+   "audit --dry-run: 7 questions (unknown without --provider and a key), 3,946 characters of state and questions",
    "  by type: flow 1, governs 1, owner 3, sentence 2",
    "  outgoing data: module names, docstrings, public names, internal imports, component ids and sentences, invariants, flow sentences, and source lines with imports between components. A docstring has 600 characters at most. A flow has 60 source lines and 12 lines from the facts at most."
   ]

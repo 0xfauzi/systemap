@@ -95,28 +95,27 @@ def _facts(cfg: config.Config) -> dict[str, Any] | None:
 
 # What Jev can add, for a command that sends no Jev request.
 JUDGEMENT_HINT = (
-    "hint: Set TYPESAFE_API_KEY to use systemap audit. Then Jev reads each module and "
-    "its component. It gives a list of the modules that are probably in an incorrect "
-    "component. Set [jev] enabled = false in systemap.toml to stop this hint."
+    "hint: Set TYPESAFE_API_KEY and run systemap audit --provider jev. Then Jev reads each "
+    "module and its component. It gives a list of the modules that are probably in an "
+    "incorrect component. Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 DELTA_HINT = (
     "hint: To receive suggestions from the decision provider for moved modules and for "
-    "modules without a component, give --decide or set [jev] enabled = true in "
-    "systemap.toml. Jev must have TYPESAFE_API_KEY. OpenAI must have OPENAI_API_KEY. "
+    "modules without a component, give --decide. "
+    "Jev must have TYPESAFE_API_KEY. OpenAI must have OPENAI_API_KEY. "
     "The suggestions do not change the delta result. "
     "Set [jev] enabled = false in systemap.toml to stop this hint."
 )
 
 
-def uses_jev(cfg: config.Config, flag: bool | None) -> bool:
-    """Use an explicit flag, or an explicit `[jev] enabled = true` and an API key.
+def uses_jev(flag: bool | None) -> bool:
+    """Ask the provider only if the command line gives `--decide`.
 
-    A key alone does not select Jev. Thus a key in the environment sends no source.
-    The key must be the key of the selected provider.
+    A key in the environment and `[jev] enabled = true` do not select the provider.
+    A cloned repository can contain any configuration file. Thus a configuration file
+    does not start a request.
     """
-    if flag is not None:
-        return flag
-    return cfg.jev_enabled is True and providers.has_key(cfg)
+    return flag is True
 
 
 def hint(cfg: config.Config, text: str) -> None:
@@ -148,7 +147,11 @@ def _kind_warnings(cfg: config.Config, tree: nest.Tree, facts: dict[str, Any]) -
 
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Give the provider findings with exit 0, or exit 1 if the request cannot complete."""
-    cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
+    option = getattr(args, "provider", None)
+    if not args.dry_run and option is None:
+        show(f"audit: {providers.NOT_SELECTED}")
+        return STALE
+    cfg = providers.chosen(config.load(args.root_path), option)
     facts = _facts(cfg)
     if facts is None:
         return STALE
@@ -160,7 +163,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     plan = audit.make_plan(tree, facts, cfg, kinds)
     if args.dry_run:
-        return _dry_run(cfg, plan, send)
+        return _dry_run(cfg, plan, send, option is not None)
     try:
         client = _client(cfg, send)
         answers = client.decide(plan.questions)
@@ -205,11 +208,12 @@ def _measured_kinds(cfg: config.Config, kinds: tuple[str, ...]) -> tuple[str, ..
     return tuple(k for k in kinds if k not in skipped)
 
 
-def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None) -> int:
-    """Count the questions. With a key, get only the model list to count cached answers."""
+def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None, chosen: bool) -> int:
+    """Count the questions. With `--provider` and a key, get only the model list to count
+    the cached answers. Without `--provider`, send nothing."""
     pending: int | str | None = None
     chars = providers.chars(cfg, plan.questions)
-    if send is not None or providers.has_key(cfg):
+    if chosen and (send is not None or providers.has_key(cfg)):
         try:
             pending = _client(cfg, send).pending(plan.questions)
         except DecisionError as exc:
@@ -230,7 +234,11 @@ def _neighbours(model: Any, cid: str) -> str:
 
 def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Predict the three components an issue fix will probably change."""
-    cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
+    option = getattr(args, "provider", None)
+    if option is None:
+        show(f"triage: {providers.NOT_SELECTED}")
+        return STALE
+    cfg = providers.chosen(config.load(args.root_path), option)
     facts = _facts(cfg)
     if facts is None:
         return STALE
@@ -545,9 +553,13 @@ def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
 
 def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Predict changed components and give their adjacent flows, sequences, and rules."""
-    cfg = providers.chosen(config.load(args.root_path), getattr(args, "provider", None))
+    option = getattr(args, "provider", None)
+    cfg = providers.chosen(config.load(args.root_path), option)
     if args.check:
         return _check_plan(cfg, args)
+    if option is None:
+        show(f"plan: {providers.NOT_SELECTED}")
+        return STALE
     text = sys.stdin.read() if args.task == "-" else (args.task or "")
     if not text.strip():
         show("plan: give the task in your own words, or - to read it from stdin")
@@ -672,15 +684,17 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "It can give possible owners for modules without a component. It can identify claims "
         "that do not agree with the source. "
         "The command sends facts and model text to the API of the decision provider. "
+        "It sends data only if you give --provider. "
         "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
-    providers.add_option(s)
+    providers.add_option(s, required=True)
     s.add_argument(
         "--dry-run",
         action="store_true",
-        help="Count the proposed questions. Send no map data. With a key, the command reads "
-        "only the model list from the API, to count the cached answers.",
+        help="Count the proposed questions. Send no map data. With --provider and a key, the "
+        "command reads only the model list from the API, to count the cached answers. "
+        "Without --provider, the command sends nothing.",
     )
     s.add_argument(
         "--kind",
@@ -733,10 +747,12 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         description="The decision provider compares a task with the purpose of each component. "
         "The output gives the probable components with their flows, sequences, and rules. "
         "The --check option compares the saved plan projection with the changed code. "
+        "A task is sent to the decision provider only if you give --provider. "
+        "The --check option sends no data. "
         "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
-    providers.add_option(s)
+    providers.add_option(s, required=True)
     s.add_argument("task", nargs="?", help="Give the task, or - to read stdin.")
     s.add_argument("--check", metavar="ID", help="Compare a saved plan with changed components.")
     s.add_argument(
@@ -754,10 +770,11 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "It gives the three components that the fix will probably change. It also gives their "
         "modules and their flows on the map. "
         "Give the text as an argument, or - to read stdin. "
+        "The command sends the text only if you give --provider. "
         "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
-    providers.add_option(s)
+    providers.add_option(s, required=True)
     s.add_argument("text", help="Give the issue title and text, or - to read stdin.")
     s.set_defaults(func=lambda args: cmd_triage(_rooted(args)))
 

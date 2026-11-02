@@ -126,7 +126,8 @@ Give the maintainer the completion report from SKILL.md, with the recorded answe
 
 ## Decision provider source questions
 
-With `TYPESAFE_API_KEY`, run `systemap audit` after check and judgement pass.
+If the maintainer asks for an audit, run `systemap audit --provider jev` after check and judgement pass.
+This command must have `TYPESAFE_API_KEY`.
 The decision provider (Jev or OpenAI) can find differences between the source and authored claims.
 Each answer is a question for source examination, not source evidence.
 

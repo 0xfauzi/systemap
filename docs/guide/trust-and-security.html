@@ -112,13 +112,16 @@ A coding agent program needs its own keys, for example <code>OPENAI_API_KEY</cod
 Thus the agent command can read each key in your environment, for example <code>GH_TOKEN</code> or <code>TYPESAFE_API_KEY</code>.
 The question to the agent contains map text and source facts. The agent command can send this question to a model API.</p>
 <h2 id="what-systemap-sends">What systemap sends</h2>
-<p>Only the six commands in the table send data on the network.
+<p>systemap sends no data on the network by default.
+Only the six commands in the table can send data, and each one must have an option on the command line.
+A key in the environment does not start a request.
+A setting in <code>systemap.toml</code> also does not start a request, because a cloned repository can contain any <code>systemap.toml</code>.
 Each of these commands sends questions to a decision provider: a model API that gives typed answers.
 A command sends no data if it has no question, or if the key of its provider is not set.</p>
 <p>There are two decision providers:</p>
 <ul>
 <li>Jev is the TypeSafe model at <code>https://api.typesafe.ai/v1</code>, and the default provider. <code>TYPESAFE_BASE_URL</code> selects a different server. Each Jev request must have <code>TYPESAFE_API_KEY</code>.</li>
-<li>OpenAI Decisions is at <code>https://api.openai.com/v1/decisions</code>. A request goes to OpenAI only with <code>OPENAI_API_KEY</code>, and with <code>--provider openai</code> or <code>[decisions] provider = &quot;openai&quot;</code>. A key alone does not select OpenAI.</li>
+<li>OpenAI Decisions is at <code>https://api.openai.com/v1/decisions</code>. A request goes to OpenAI only with <code>OPENAI_API_KEY</code> and a selection of OpenAI. A key alone does not select OpenAI.</li>
 </ul>
 <div class="table" role="region" tabindex="0" aria-labelledby="what-systemap-sends">
 <table>
@@ -133,38 +136,38 @@ A command sends no data if it has no question, or if the key of its provider is 
 <tbody>
 <tr>
 <td><code>audit</code></td>
-<td>The selected provider.</td>
-<td>The key of that provider.</td>
+<td>The provider of <code>--provider</code>.</td>
+<td><code>--provider</code>, and the key of that provider.</td>
 <td>Module names, docstrings, public names, internal imports, component IDs and sentences, invariants, flow sentences, and source lines at connections between components.</td>
 </tr>
 <tr>
 <td><code>delta</code></td>
 <td>The selected provider.</td>
-<td><code>--decide</code>, or <code>[jev] enabled = true</code> without <code>--no-decide</code>. Also the key of that provider.</td>
+<td><code>--decide</code>, and the key of that provider.</td>
 <td>The names, files, docstrings, public names, and internal imports of removed modules, added modules, and modules without a component. Also the component IDs and sentences.</td>
 </tr>
 <tr>
 <td><code>suggest --decide</code></td>
 <td>Jev only. With OpenAI, the command sends no data.</td>
-<td><code>TYPESAFE_API_KEY</code>.</td>
+<td><code>--decide</code>, and <code>TYPESAFE_API_KEY</code>.</td>
 <td>The names, docstrings, public names, and internal imports of two modules for each question.</td>
 </tr>
 <tr>
 <td><code>triage TEXT</code></td>
 <td>Jev only. With OpenAI, the command sends no data.</td>
-<td><code>TYPESAFE_API_KEY</code>.</td>
+<td><code>--provider jev</code>, and <code>TYPESAFE_API_KEY</code>.</td>
 <td>The system name, the first 2,000 characters of the issue text, and the component IDs and sentences.</td>
 </tr>
 <tr>
 <td><code>plan &quot;&lt;task&gt;&quot;</code></td>
 <td>Jev only. With OpenAI, the command sends no data.</td>
-<td><code>TYPESAFE_API_KEY</code>.</td>
+<td><code>--provider jev</code>, and <code>TYPESAFE_API_KEY</code>.</td>
 <td>The system name, the first 2,000 characters of the task text, and the component IDs and sentences.</td>
 </tr>
 <tr>
 <td><code>judgement --order-by-drift</code></td>
 <td>Jev only. With OpenAI selected, the command sends no data and gives the cause: no measured drift result.</td>
-<td><code>TYPESAFE_API_KEY</code> and one or more open <code>stale source review</code> lines.</td>
+<td><code>--order-by-drift</code>, <code>TYPESAFE_API_KEY</code>, and one or more open <code>stale source review</code> lines.</td>
 <td>For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters.</td>
 </tr>
 </tbody>
@@ -172,7 +175,14 @@ A command sends no data if it has no question, or if the key of its provider is 
 </div>
 <p>Before the questions, each Jev command reads the Jev model list. This request sends only the key.
 The model list request also occurs when the Jev cache has all the answers. A cached answer does not go to the provider again.</p>
-<p><code>systemap audit --dry-run</code> lists the types of data that <code>audit</code> sends. With Jev and <code>TYPESAFE_API_KEY</code>, it reads the model list but sends no map data. With OpenAI, it sends no request.</p>
+<p><code>systemap audit --dry-run</code> lists the types of data that <code>audit</code> sends. Without <code>--provider</code>, it sends no request. With <code>--provider jev</code> and <code>TYPESAFE_API_KEY</code>, it reads the model list but sends no map data. With OpenAI, it sends no request.</p>
+<p>Two other commands can start a program that uses the network:</p>
+<ul>
+<li><code>render --base REF --pr N</code> runs <code>gh pr view N</code> to get the title and counts of the pull request. Without <code>--pr</code>, it does not run <code>gh</code>.</li>
+<li><code>journeys</code> runs the <code>[agent]</code> command only if the environment sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>.</li>
+</ul>
+<p><code>tests/test_no_outbound.py</code> runs each command without these options. It sets the two keys and a <code>systemap.toml</code> that selects a provider and an agent. The test fails if a command opens a network connection, looks up a host name, or starts a program other than Git.
+Each Git process gets an environment that stops a fetch.</p>
 <p>All other commands send no data on the network.
 These commands include <code>check</code>, <code>refresh</code>, <code>render</code>, <code>review</code>, <code>decisions</code>, <code>plan --check</code>, and <code>judgement</code> without <code>--order-by-drift</code>.
 <code>journeys</code> sends no data, but <a href="#the-agent-command">the agent command</a> can send its question to a model API.

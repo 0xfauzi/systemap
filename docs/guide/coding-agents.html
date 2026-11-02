@@ -62,7 +62,8 @@ Give the agent the instruction from <code>init</code>:</p>
 <li>record each source review with <code>systemap review</code> or <code>systemap decisions</code>, and not by a change of the model file,</li>
 <li>give the maintainer a completion report: the check results, the recorded answers, the open questions, and the uncertain claims.</li>
 </ul>
-<p>With <code>TYPESAFE_API_KEY</code>, the agent also uses <code>systemap suggest --decide</code> and <code>systemap audit</code>.
+<p>If the maintainer asks, the agent also uses <code>systemap suggest --decide</code> and <code>systemap audit --provider jev</code>.
+These commands must have <code>TYPESAFE_API_KEY</code>.
 <code>--decide</code> replaces <code>--jev</code>, which stays for one release.
 For a map that is already in use, the agent starts with <a href="pull-requests-and-ci.html#systemap-delta"><code>systemap delta</code></a>.</p>
 <h2 id="source-reviews-and-verdicts">Source reviews and verdicts</h2>

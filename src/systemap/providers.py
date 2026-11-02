@@ -3,6 +3,11 @@
 The provider comes from the `--provider` option, or else from `[decisions] provider`
 in the configuration. The default is Jev. A key in the environment never selects a
 provider: with `OPENAI_API_KEY` set and no selection, no request goes to OpenAI.
+
+systemap sends no data by default. A command sends a request only when its command
+line asks for one: `audit`, `plan`, and `triage` must have `--provider`, and the other
+commands must have `--decide` or `--order-by-drift`. A configuration file cannot start a
+request, because a cloned repository can contain any configuration file.
 If the selected provider fails, the command shows the failure and stops. It does not
 use a different provider.
 
@@ -47,15 +52,33 @@ class Metered(Protocol):
     def pending(self, questions: Sequence[Question]) -> int: ...
 
 
-def add_option(parser: argparse.ArgumentParser) -> None:
-    """Add the `--provider` option to a command that asks questions."""
+# The error of a command that must have `--provider` on its command line.
+NOT_SELECTED = (
+    "no data was sent. This command sends data to a decision provider only if you give "
+    "--provider jev or --provider openai"
+)
+
+
+def add_option(parser: argparse.ArgumentParser, *, required: bool = False) -> None:
+    """Add the `--provider` option to a command that asks questions.
+
+    With `required`, the command sends no request without the option."""
+    if required:
+        text = (
+            "Select the decision provider and permit the request. Without this option, "
+            "the command sends no data. [decisions] provider in systemap.toml and a key in "
+            "the environment do not permit a request. "
+        )
+    else:
+        text = (
+            "Select the decision provider. The default is [decisions] provider in "
+            'systemap.toml, or "jev". A key in the environment does not select a provider. '
+        )
     parser.add_argument(
         "--provider",
         choices=PROVIDERS,
         default=None,
-        help="Select the decision provider. The default is [decisions] provider in "
-        'systemap.toml, or "jev". A key in the environment does not select a provider. '
-        "OpenAI gets the question state (module facts and map text) and the questions.",
+        help=text + "OpenAI gets the question state (module facts and map text) and the questions.",
     )
 
 

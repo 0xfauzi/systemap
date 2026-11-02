@@ -651,7 +651,7 @@ def _taught(open_lines: list[Line], teach: bool) -> list[str]:
 
 def _sent(pending: int | str | None) -> str:
     if pending is None:
-        return "unknown until a key is set"
+        return "unknown without --provider and a key"
     if isinstance(pending, str):
         return pending
     return f"{pending} not in the cache"

@@ -79,28 +79,39 @@ The question to the agent contains map text and source facts. The agent command 
 
 ## What systemap sends
 
-Only the six commands in the table send data on the network.
+systemap sends no data on the network by default.
+Only the six commands in the table can send data, and each one must have an option on the command line.
+A key in the environment does not start a request.
+A setting in `systemap.toml` also does not start a request, because a cloned repository can contain any `systemap.toml`.
 Each of these commands sends questions to a decision provider: a model API that gives typed answers.
 A command sends no data if it has no question, or if the key of its provider is not set.
 
 There are two decision providers:
 
 - Jev is the TypeSafe model at `https://api.typesafe.ai/v1`, and the default provider. `TYPESAFE_BASE_URL` selects a different server. Each Jev request must have `TYPESAFE_API_KEY`.
-- OpenAI Decisions is at `https://api.openai.com/v1/decisions`. A request goes to OpenAI only with `OPENAI_API_KEY`, and with `--provider openai` or `[decisions] provider = "openai"`. A key alone does not select OpenAI.
+- OpenAI Decisions is at `https://api.openai.com/v1/decisions`. A request goes to OpenAI only with `OPENAI_API_KEY` and a selection of OpenAI. A key alone does not select OpenAI.
 
 | Command | Provider | Condition | Data in the questions |
 |---|---|---|---|
-| `audit` | The selected provider. | The key of that provider. | Module names, docstrings, public names, internal imports, component IDs and sentences, invariants, flow sentences, and source lines at connections between components. |
-| `delta` | The selected provider. | `--decide`, or `[jev] enabled = true` without `--no-decide`. Also the key of that provider. | The names, files, docstrings, public names, and internal imports of removed modules, added modules, and modules without a component. Also the component IDs and sentences. |
-| `suggest --decide` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The names, docstrings, public names, and internal imports of two modules for each question. |
-| `triage TEXT` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the issue text, and the component IDs and sentences. |
-| `plan "<task>"` | Jev only. With OpenAI, the command sends no data. | `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the task text, and the component IDs and sentences. |
-| `judgement --order-by-drift` | Jev only. With OpenAI selected, the command sends no data and gives the cause: no measured drift result. | `TYPESAFE_API_KEY` and one or more open `stale source review` lines. | For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters. |
+| `audit` | The provider of `--provider`. | `--provider`, and the key of that provider. | Module names, docstrings, public names, internal imports, component IDs and sentences, invariants, flow sentences, and source lines at connections between components. |
+| `delta` | The selected provider. | `--decide`, and the key of that provider. | The names, files, docstrings, public names, and internal imports of removed modules, added modules, and modules without a component. Also the component IDs and sentences. |
+| `suggest --decide` | Jev only. With OpenAI, the command sends no data. | `--decide`, and `TYPESAFE_API_KEY`. | The names, docstrings, public names, and internal imports of two modules for each question. |
+| `triage TEXT` | Jev only. With OpenAI, the command sends no data. | `--provider jev`, and `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the issue text, and the component IDs and sentences. |
+| `plan "<task>"` | Jev only. With OpenAI, the command sends no data. | `--provider jev`, and `TYPESAFE_API_KEY`. | The system name, the first 2,000 characters of the task text, and the component IDs and sentences. |
+| `judgement --order-by-drift` | Jev only. With OpenAI selected, the command sends no data and gives the cause: no measured drift result. | `--order-by-drift`, `TYPESAFE_API_KEY`, and one or more open `stale source review` lines. | For each stale component: its sentences, flows, sequences, and invariants, and a diff or the text of its module files, to 12,000 characters. |
 
 Before the questions, each Jev command reads the Jev model list. This request sends only the key.
 The model list request also occurs when the Jev cache has all the answers. A cached answer does not go to the provider again.
 
-`systemap audit --dry-run` lists the types of data that `audit` sends. With Jev and `TYPESAFE_API_KEY`, it reads the model list but sends no map data. With OpenAI, it sends no request.
+`systemap audit --dry-run` lists the types of data that `audit` sends. Without `--provider`, it sends no request. With `--provider jev` and `TYPESAFE_API_KEY`, it reads the model list but sends no map data. With OpenAI, it sends no request.
+
+Two other commands can start a program that uses the network:
+
+- `render --base REF --pr N` runs `gh pr view N` to get the title and counts of the pull request. Without `--pr`, it does not run `gh`.
+- `journeys` runs the `[agent]` command only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+
+`tests/test_no_outbound.py` runs each command without these options. It sets the two keys and a `systemap.toml` that selects a provider and an agent. The test fails if a command opens a network connection, looks up a host name, or starts a program other than Git.
+Each Git process gets an environment that stops a fetch.
 
 All other commands send no data on the network.
 These commands include `check`, `refresh`, `render`, `review`, `decisions`, `plan --check`, and `judgement` without `--order-by-drift`.

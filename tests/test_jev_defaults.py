@@ -33,29 +33,21 @@ def disable(root: Path) -> None:
     )
 
 
-def test_delta_asks_jev_only_when_jev_is_selected(
+def test_delta_asks_jev_only_when_the_command_line_selects_it(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Only --decide selects the provider. A key or `[jev] enabled = true` does not."""
     cfg = load_config(project)
     assert cfg.jev_enabled is None
-    assert not jev_cli.uses_jev(cfg, None)
+    assert not jev_cli.uses_jev(None)
     monkeypatch.setenv(jev.KEY_ENV, "a key")
-    # A key alone does not select Jev.
-    assert not jev_cli.uses_jev(cfg, None)
-    assert not jev_cli.uses_jev(cfg, False)
-    assert jev_cli.uses_jev(cfg, True)
+    assert not jev_cli.uses_jev(None)
+    assert not jev_cli.uses_jev(False)
+    assert jev_cli.uses_jev(True)
     toml = project / "systemap.toml"
-    before = toml.read_text(encoding="utf-8")
-    toml.write_text(before + "\n[jev]\nenabled = true\n", encoding="utf-8")
-    assert jev_cli.uses_jev(load_config(project), None)
-    assert not jev_cli.uses_jev(load_config(project), False)
-    monkeypatch.delenv(jev.KEY_ENV)
-    assert not jev_cli.uses_jev(load_config(project), None)
-    toml.write_text(before, encoding="utf-8")
-    disable(project)
-    assert not jev_cli.uses_jev(load_config(project), None)
-    # an explicit --jev still asks, and says so when it cannot
-    assert jev_cli.uses_jev(load_config(project), True)
+    toml.write_text(toml.read_text(encoding="utf-8") + "\n[jev]\nenabled = true\n", "utf-8")
+    assert load_config(project).jev_enabled is True
+    assert not jev_cli.uses_jev(None)
 
 
 def test_judgement_says_what_jev_would_add_on_stderr_only(
