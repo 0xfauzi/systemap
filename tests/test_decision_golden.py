@@ -128,13 +128,16 @@ def roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
 
 
 COMMANDS: dict[str, tuple[str, tuple[str, ...]]] = {
-    "decision mis-fold": ("asked", ("audit", "--kind", "decision mis-fold")),
-    "decision owner": ("asked", ("audit", "--kind", "decision owner")),
-    "decision sentence": ("asked", ("audit", "--kind", "decision sentence")),
-    "decision flow": ("asked", ("audit", "--kind", "decision flow")),
-    "decision governs": ("asked", ("audit", "--kind", "decision governs")),
-    "triage": ("asked", ("triage", "Reading a file with a BOM leaves the BOM in the request")),
-    "plan": ("asked", ("plan", "read the input in parts")),
+    "decision mis-fold": ("asked", ("audit", "--kind", "decision mis-fold", "--provider", "jev")),
+    "decision owner": ("asked", ("audit", "--kind", "decision owner", "--provider", "jev")),
+    "decision sentence": ("asked", ("audit", "--kind", "decision sentence", "--provider", "jev")),
+    "decision flow": ("asked", ("audit", "--kind", "decision flow", "--provider", "jev")),
+    "decision governs": ("asked", ("audit", "--kind", "decision governs", "--provider", "jev")),
+    "triage": (
+        "asked",
+        ("triage", "Reading a file with a BOM leaves the BOM in the request", "--provider", "jev"),
+    ),
+    "plan": ("asked", ("plan", "read the input in parts", "--provider", "jev")),
     "suggest": ("asked", ("suggest", "--decide")),
     "delta": ("changed", ("delta", "--base", "HEAD~1", "--decide")),
 }

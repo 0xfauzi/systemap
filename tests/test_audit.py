@@ -499,11 +499,11 @@ def test_audit_cli_end_to_end_over_http(
     synthetic = Synthetic()
     with serve(synthetic) as url:
         monkeypatch.setenv(jev.BASE_ENV, url)
-        assert main(["--root", str(two_cards), "audit"]) == 0
+        assert main(["--root", str(two_cards), "audit", "--provider", "jev"]) == 0
         first = capsys.readouterr().out
         first_calls = len(synthetic.requests)
         assert first_calls > 0
-        assert main(["--root", str(two_cards), "audit"]) == 0
+        assert main(["--root", str(two_cards), "audit", "--provider", "jev"]) == 0
         second = capsys.readouterr().out
     assert len(synthetic.requests) == first_calls
     assert first.splitlines()[0].startswith("audit: ")
@@ -517,7 +517,7 @@ def test_audit_dry_run_sends_no_question(
     recording = Recording("jev_two_cards")
     with serve(recording) as url:
         monkeypatch.setenv(jev.BASE_ENV, url)
-        assert main(["--root", str(two_cards), "audit", "--dry-run"]) == 0
+        assert main(["--root", str(two_cards), "audit", "--dry-run", "--provider", "jev"]) == 0
     assert recording.sent == [("GET", "/models")]
     assert "audit --dry-run: " in capsys.readouterr().out
 
@@ -526,7 +526,7 @@ def test_audit_without_a_key_says_so_and_exits_1(
     two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv(jev.KEY_ENV)
-    assert main(["--root", str(two_cards), "audit"]) == 1
+    assert main(["--root", str(two_cards), "audit", "--provider", "jev"]) == 1
     assert "set TYPESAFE_API_KEY" in capsys.readouterr().out
 
 
@@ -537,7 +537,7 @@ def test_triage_names_the_cards_with_their_modules(
     with serve(synthetic) as url:
         monkeypatch.setenv(jev.BASE_ENV, url)
         text = "Reading a file with a BOM leaves the BOM in the first request's body"
-        assert main(["--root", str(two_cards), "triage", text]) == 0
+        assert main(["--root", str(two_cards), "triage", text, "--provider", "jev"]) == 0
     assert len(synthetic.requests) == 1
     assert synthetic.requests[0]["state"]["report"] == text
     out = capsys.readouterr().out.splitlines()

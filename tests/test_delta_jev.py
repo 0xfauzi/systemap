@@ -92,6 +92,11 @@ def model_source(ledger: str, reviews: dict[str, str] | None = None) -> str:
 def renamed(tmp_path: Path) -> Path:
     """pkg/ledger.py becomes pkg/records_store.py with the same names and other bodies.
     Delta cannot pair the two modules, so it gives a move candidate."""
+    return make_renamed(tmp_path)
+
+
+def make_renamed(tmp_path: Path) -> Path:
+    """Write the two commits of the `renamed` fixture in `tmp_path`."""
     write_tree(
         tmp_path,
         {

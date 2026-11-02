@@ -686,8 +686,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
     # Provider answers are suggestions: they never change the lines or the exit code.
     cfg = providers.chosen(p.cfg, args.provider)
-    selected = jev_cli.uses_jev(cfg, args.decide)
-    asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
+    asked = delta_jev.ask(cfg, p.tree, base, head, d, permitted=args.decide is True)
     say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
@@ -695,8 +694,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
         url, problem = delta_git.comment_page_url(p.cfg, base_sha)
         warn(*problem)
         delta_link.write(args.comment, url, args.pr, pr_summary.markdown(found), root)
-    if args.decide is None and not selected and d.added and d.removed:
-        jev_cli.delta_hint(p.cfg)
+    jev_cli.delta_hint(p.cfg, args.decide, bool(d.added and d.removed))
     return STALE if d.open else OK
 
 
@@ -1250,9 +1248,9 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Ask the decision provider for possible module moves and owners of modules "
             "without components. The answers are suggestions. They do not change the delta "
-            "lines or the exit code. Use --no-decide to send no request. Without --decide, "
-            "delta sends questions only if systemap.toml sets [jev] enabled = true and the "
-            "key of the provider is set. --jev and --no-jev are the previous names of these "
+            "lines or the exit code. Without --decide, delta sends no request. "
+            "[jev] enabled = true in systemap.toml does not send a request. "
+            "--no-decide also stops the hint. --jev and --no-jev are the previous names of these "
             "options. They stay for one release."
         ),
     )

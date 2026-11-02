@@ -109,6 +109,7 @@ def args_for(cfg: Config, **kw: Any) -> argparse.Namespace:
         "task": None,
         "check": None,
         "base": "main",
+        "provider": "jev",
         **kw,
     }
     return argparse.Namespace(**values)

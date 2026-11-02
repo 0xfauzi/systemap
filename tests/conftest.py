@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import sys
 import textwrap
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import pytest
 
@@ -26,11 +30,49 @@ from systemap.model import (
     all_layers,
 )
 
+# One audit hook for the test suite. Python cannot remove an audit hook, so a hook for
+# each test module stays for the full run and gets each event of every later test.
+AuditRecorder = Callable[[str, tuple[Any, ...]], None]
+T = TypeVar("T")
+_RECORDERS: list[AuditRecorder] = []
+
+
+def _audit(event: str, args: tuple[Any, ...]) -> None:
+    if _RECORDERS:
+        for recorder in tuple(_RECORDERS):
+            recorder(event, args)
+
+
+sys.addaudithook(_audit)
+
+
+@contextlib.contextmanager
+def audit_events(recorder: AuditRecorder) -> Iterator[None]:
+    """Give each audit event to `recorder` while the block runs."""
+    _RECORDERS.append(recorder)
+    try:
+        yield
+    finally:
+        _RECORDERS.remove(recorder)
+
+
+def opened_folders(call: Callable[[], T]) -> tuple[T, list[str]]:
+    """Operate `call`. Give its result and each folder that it lists."""
+    folders: list[str] = []
+
+    def record(event: str, args: tuple[Any, ...]) -> None:
+        if event in ("os.scandir", "os.listdir") and args:
+            folders.append(os.fspath(args[0]) if args[0] is not None else "")
+
+    with audit_events(record):
+        result = call()
+    return result, folders
+
 
 @pytest.fixture(autouse=True)
 def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No test sends to Jev: the maintainer's key is removed, because `audit --dry-run`
-    and `[jev] enabled = true` use it. A test that means to ask sets its own key and a
+    """No test sends to Jev: the maintainer's key is removed, because `audit --dry-run
+    --provider jev` uses it. A test that means to ask sets its own key and a
     recorded transport (jev_replay reads the real key at import, for recording).
     The OpenAI key is also removed. A test that selects OpenAI injects its transport."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)

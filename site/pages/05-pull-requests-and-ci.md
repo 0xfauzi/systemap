@@ -48,7 +48,7 @@ After the agent did the four actions, the exit code was 0.
 `systemap explain "<kind>"` gives the meaning and the action of a line kind.
 The [reference](reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide) gives the options.
 
-`delta` sends questions to a decision provider only with `--decide` or `[jev] enabled = true`. A key alone sends no request.
+`delta` sends questions to a decision provider only with `--decide`. A key or `[jev] enabled = true` sends no request.
 The answers are suggestions under their own heading. They do not change the delta lines or the exit code.
 
 ## Changes that the upgrade from 1.2.0 makes in CI

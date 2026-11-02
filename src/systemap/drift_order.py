@@ -381,12 +381,16 @@ def with_provider(
     facts: dict[str, Any],
     open_lines: Sequence[str],
     send: jev.Send | None = None,
+    *,
+    permitted: bool,
 ) -> Order:
-    """Give scores from the selected provider, with its configured cache."""
+    """Give scores from the selected provider, with its configured cache.
+
+    `permitted` is true only with `--order-by-drift` on the command line."""
 
     def make() -> DecisionProvider:
         providers.require_drift(cfg)
-        return providers.select(cfg, send)
+        return providers.select(cfg, send, permitted=permitted)
 
     return order(
         cfg,
@@ -411,7 +415,7 @@ def text(
     """Give the text report parts. Without `--order-by-drift`, give them with no change."""
     if not args.order_by_drift:
         return result, crossings, []
-    found = with_provider(cfg, tree, facts, result.open)
+    found = with_provider(cfg, tree, facts, result.open, permitted=args.order_by_drift)
     return found.applied(result), {**(crossings or {}), **found.rows()}, found.notes()
 
 
@@ -431,7 +435,7 @@ def payload(
     kind = args.kind or ""
     if not args.order_by_drift:
         return judgement_json.payload(given, crossings, reviews, kind), []
-    found = with_provider(cfg, tree, facts, given.result.open)
+    found = with_provider(cfg, tree, facts, given.result.open, permitted=args.order_by_drift)
     ordered = dataclasses.replace(given, result=found.applied(given.result))
     obj = judgement_json.payload(ordered, crossings, reviews, kind)
     for row in obj["open"]:

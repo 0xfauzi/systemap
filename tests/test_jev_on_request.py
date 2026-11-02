@@ -3,8 +3,9 @@
 The selection does not read the language of the project. The tests use a Python
 fixture and a TypeScript fixture.
 
-The user selects Jev with `--jev`, or with `[jev] enabled = true` in systemap.toml.
-A key in the environment alone does not select Jev.
+The user selects Jev only with `--decide` (or its previous name `--jev`) on the command
+line. A key in the environment and `[jev] enabled = true` in systemap.toml do not select
+Jev, because a cloned repository can contain any systemap.toml.
 
 Each test counts the requests at a local HTTP server. The command uses its real
 HTTPS transport with TYPESAFE_BASE_URL at that server. No request goes to Jev.
@@ -21,7 +22,7 @@ import pytest
 from jev_replay import serve
 from test_delta_jev import Fake, git, renamed
 
-from systemap import jev
+from systemap import jev, jev_cli
 from systemap.cli import main
 
 __all__ = ["renamed"]
@@ -75,18 +76,19 @@ def test_a_key_without_a_jev_table_sends_zero_requests(
     assert "Jev suggestions" not in out
     # One hint tells how to select Jev.
     assert err.count("hint:") == 1
-    assert "--decide" in err and "[jev] enabled = true" in err
+    assert "--decide" in err and "[jev] enabled = true" not in err
 
 
-def test_jev_enabled_true_sends_the_same_requests_as_before(
+def test_jev_enabled_true_sends_zero_requests(
     renamed: Path, counter: Counter, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance: with [jev] enabled = true, delta sends the requests in SELECTED."""
+    """Acceptance: with a key and [jev] enabled = true, delta sends 0 requests."""
     add_jev(renamed, "enabled = true")
     code, out, err = delta(renamed, capsys)
-    assert [(m, p) for m, p, _ in counter.requests] == SELECTED
+    assert counter.requests == []
     assert code == 1
-    assert "decision move: pkg.ledger -> pkg.records_store" in out
+    assert "decision move" not in out
+    assert jev_cli.ENABLED_WARNING in err
     assert "hint:" not in err
 
 
@@ -98,18 +100,6 @@ def test_the_jev_option_sends_requests_with_no_configuration(
     assert [(m, p) for m, p, _ in counter.requests] == SELECTED
     assert "decision move: pkg.ledger -> pkg.records_store" in out
     assert "hint:" not in err
-
-
-def test_the_option_and_the_configuration_send_the_same_bodies(
-    renamed: Path, counter: Counter, capsys: pytest.CaptureFixture[str]
-) -> None:
-    delta(renamed, capsys, "--jev")
-    by_option = list(counter.requests)
-    counter.requests.clear()
-    (renamed / ".systemap/jev-cache.json").unlink()
-    add_jev(renamed, "enabled = true")
-    delta(renamed, capsys)
-    assert counter.requests == by_option
 
 
 def test_no_jev_sends_zero_requests_with_jev_enabled_true(

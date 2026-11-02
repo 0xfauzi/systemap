@@ -107,7 +107,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
    | `contract reason` | An invariant or an import rule has no `reason`. | Write the reason in the contract file from the code, the documentation, or the commit history. Do not record an answer. |
 
-   When Jev is available, run `systemap audit`. Act on or answer its `decision ...` lines.
+   If the maintainer asks for a Jev audit, run `systemap audit --provider jev`. Act on or answer its `decision ...` lines.
 5. **render**: Run `systemap refresh`. Then run `systemap describe`.
    The description gives component counts, route bends, gutter use, and layer contents.
 
@@ -190,14 +190,14 @@ Its actors represent adjacent components. Commands examine every nested map.
 | `systemap check` | Examine map consistency and coverage. Exit 0 means success, 1 means failed checks, and 2 means that the command cannot use the configuration or model. |
 | `systemap suggest` | Show initial package assignments. `--decide` uses the answers of the decision provider. Examine all proposals against source. |
 | `systemap judgement` | Show possible map errors. Correct each one or record an answer. `--strict` exits 1 for unanswered lines. `--kind KIND` shows only the lines of that kind. `--verbose` lists crossing imports. |
-| `systemap audit` | Ask the decision provider about source meaning. Record its answers under `[judgement]`. |
-| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means that you must update the map. `--comment FILE` writes the architecture summary for the pull request. `--no-decide` prevents model calls. |
-| `systemap triage "<issue>"` | Ask Jev for three components that the issue can affect, with modules and adjacent components. |
+| `systemap audit --provider P` | Ask the decision provider about source meaning. Record its answers under `[judgement]`. Without `--provider`, the command sends no data. |
+| `systemap delta --base REF` | Compare source and map claims across revisions. Exit 1 means that you must update the map. `--comment FILE` writes the architecture summary for the pull request. Only `--decide` sends data to a model. |
+| `systemap triage "<issue>" --provider P` | Ask the decision provider for three components that the issue can affect, with modules and adjacent components. |
 | `systemap describe` | Show components per region, bends and length per route, gutter use, and layer contents. |
 | `systemap refresh` | Extract facts, do checks, render configured output, and examine the result. |
 | `systemap figure --out FILE` | Make one figure. Use `--mode system`, `--layer ID`, `--map ID`, or `--components A,B` as applicable. |
 | `systemap journeys` | Ask the configured agent for draft sequences. The command needs `SYSTEMAP_TRUST_AGENT_COMMAND=1` from the maintainer. Do not set it yourself. The command rejects invalid steps. Examine each draft before removal of `drafted=True`. |
-| `systemap plan "<task>"` | Ask Jev which components the task can affect. `--check ID --base REF` compares a saved plan with source changes. |
+| `systemap plan "<task>" --provider P` | Ask the decision provider which components the task can affect. `--check ID --base REF` compares a saved plan with source changes and sends no data. |
 | `systemap history` | Show source changes at older commits, assigned to the current components. |
 | `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. |
 | `systemap explain KIND` | Show the meaning, reason, and action for a finding kind. `--brief` removes explanations from other command output. |

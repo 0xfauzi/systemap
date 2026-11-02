@@ -206,8 +206,15 @@ def ask(
     head: dict[str, Any],
     d: Delta,
     send: jev.Send | None = None,
+    *,
+    permitted: bool,
 ) -> Asked:
-    """Ask the provider about the delta. A missing key or an error gives a reason."""
+    """Ask the provider about the delta. A missing key or an error gives a reason.
+
+    `permitted` is true only with `--decide` on the command line. A key or a
+    configuration value does not permit a request. Without it, ask nothing."""
+    if not permitted:
+        return NOTHING
     left = unpaired(base, head).left
     owners = unclaimed(d)
     unmeasured = _unmeasured(cfg, bool(left), bool(owners))
@@ -219,7 +226,7 @@ def ask(
     if not left and not owners:
         return Asked(errors=reasons) if reasons else NOTHING
     try:
-        provider = providers.select(cfg, send)
+        provider = providers.select(cfg, send, permitted=permitted)
     except DecisionError as exc:
         return Asked(errors=(f"{LABEL}: {exc}", *reasons))
     counted = Counted(provider)

@@ -16,14 +16,11 @@ Acceptance, written before the change:
 
 from __future__ import annotations
 
-import os
-import sys
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import opened_folders, write_tree
 
 from systemap.language import CONFIG_ONLY, NO_SOURCE, SOURCE
 from systemap.typescript_repo import TYPESCRIPT_REPOSITORY
@@ -35,33 +32,12 @@ SKIPPED = {
     ".venv/lib/x.ts": "export const x = 1;\n",
     ".git/hooks/x.ts": "export const x = 1;\n",
 }
-_OPENED: list[str] = []
-_ACTIVE = [False]
-
-
-def _hook(event: str, args: tuple[Any, ...]) -> None:
-    if _ACTIVE[0] and event in ("os.scandir", "os.listdir") and args:
-        _OPENED.append(os.fspath(args[0]) if args[0] is not None else "")
-
-
-sys.addaudithook(_hook)
 
 
 @pytest.fixture
-def opened() -> Iterator[Callable[[Callable[[], object]], tuple[object, list[str]]]]:
+def opened() -> Callable[[Callable[[], object]], tuple[object, list[str]]]:
     """Give a function that operates a call and gives its result and the opened folders."""
-
-    def record(call: Callable[[], object]) -> tuple[object, list[str]]:
-        _OPENED.clear()
-        _ACTIVE[0] = True
-        try:
-            result = call()
-        finally:
-            _ACTIVE[0] = False
-        return result, list(_OPENED)
-
-    yield record
-    _ACTIVE[0] = False
+    return opened_folders
 
 
 def _skipped_folders(paths: list[str]) -> list[str]:

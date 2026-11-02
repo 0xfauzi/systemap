@@ -352,17 +352,18 @@ for example `jev mis-fold: Writer claims pkg.emit, which reads like Reader`.
 Previous versions also used the `jev` names.
 An answer with the earlier line text matches the current line, with the same evidence digest.
 
-`systemap triage "<issue>"` gives the three components likely to change in an
+`systemap triage "<issue>" --provider jev` gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
 On 80 closed issues from two repositories, the component of the pull request with the fix was first
 in 80% of predictions. It was in the first three in 88%.
 
-`delta` sends questions to Jev only when you select Jev.
-To select Jev, give `--decide`, or set `[jev] enabled = true` in `systemap.toml`.
-`[jev] enabled = true` also must have `TYPESAFE_API_KEY`.
-A key alone does not select Jev. Without a selection, `delta` sends no data to Jev.
+`delta` sends questions to Jev only when you give `--decide`.
+`--decide` also must have `TYPESAFE_API_KEY`.
+A key alone does not select Jev. `[jev] enabled = true` in `systemap.toml` also does not select Jev.
+With that line and without `--decide`, `delta` prints a warning that the line no longer sends questions.
+Without `--decide`, `delta` sends no data to Jev.
 If the request cannot complete, `--decide` gives the cause.
-`--no-decide` sends nothing, also with `[jev] enabled = true`.
+`--no-decide` sends nothing.
 `--jev` and `--no-jev` are the previous names of these options.
 If delta has no question for Jev, it sends nothing and prints no Jev line.
 
@@ -412,6 +413,9 @@ To select OpenAI, give `--provider openai` to the command, or set `[decisions] p
 `--provider jev` selects Jev, also when the configuration selects OpenAI.
 A key in the environment does not select a provider.
 With `OPENAI_API_KEY` set and no selection, no request goes to OpenAI.
+`[decisions] provider` selects the provider, but it does not permit a request.
+`audit`, `triage`, and `plan` send data only with `--provider` on the command line.
+The other commands send data only with `--decide` or `--order-by-drift`.
 If the selected provider does not give the answers, the command gives the cause and stops. It does not use the other provider.
 
 OpenAI gets the same data as Jev:
@@ -575,7 +579,7 @@ For example, `delta --decide --provider openai` prints `OpenAI suggestions`. Wit
 To change a configuration to the new names, do these steps:
 
 1. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
-2. If you changed an `items` group, use `systemap audit`.
+2. If you changed an `items` group, use `systemap audit --provider jev`.
 3. Examine the source of each `pending answer` line again. Then record the digest from that line.
 4. Replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files.
 5. Use `systemap judgement --strict`. Make sure that it prints no warning.
@@ -1362,8 +1366,8 @@ than one-third of the map.
 
 - `--decide` enables the suggestions of the decision provider for modules with changed
   names and content, and for unclaimed modules. The suggestions do not change
-  the delta lines or the exit code. `[jev] enabled = true` in `systemap.toml`
-  and the key of the provider also enable them. A key alone does not enable them.
+  the delta lines or the exit code. Only `--decide` enables them.
+  A key and `[jev] enabled = true` in `systemap.toml` do not enable them.
   The heading of the suggestions names the provider, for example `Jev suggestions`.
 
 - `--no-decide` sends nothing.
@@ -1371,7 +1375,7 @@ than one-third of the map.
 - `--jev` and `--no-jev` are aliases: the previous names of `--decide` and `--no-decide`. They stay for one release.
 
 - `--provider jev|openai` selects the decision provider of `--decide`.
-  With `openai`, `[jev] enabled = true` must have `OPENAI_API_KEY`.
+  With `openai`, `--decide` must have `OPENAI_API_KEY`.
   OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
 
 - `--brief` prints the lines without the explanation rows. `systemap explain KIND` gives the full explanation.
@@ -1391,9 +1395,10 @@ A gutter line counts the labels that the flow paths put in that gutter.
 The sequence section gives steps, the entry point where each sequence starts, steps without import
 evidence, unconfirmed agent drafts, and covered entry counts.
 
-### `systemap audit [--dry-run] [--kind KIND]...`
+### `systemap audit --provider P [--dry-run] [--kind KIND]...`
 
 Sends questions about semantic claims to the decision provider.
+Without `--provider`, the command sends no data and exits 1.
 The finding kinds are `decision mis-fold`, `decision owner`, `decision sentence`, and
 `decision governs`. `--kind "decision flow"` also sends questions about flow claims.
 `--kind` also accepts the previous `jev` names for one release, with a warning.
@@ -1405,15 +1410,19 @@ Set `TYPESAFE_API_KEY` for Jev, or `OPENAI_API_KEY` for OpenAI, before you run t
 - Use `--kind KIND` again to select another question kind.
 
 - `--dry-run` lists proposed questions and does not send them.
+  Without `--provider`, it sends no request.
+  With `--provider jev` and a key, it reads only the Jev model list to count the cached answers.
 
-- `--provider jev|openai` selects the decision provider.
+- `--provider jev|openai` selects the decision provider and permits the request.
+  A key or `[decisions] provider` does not permit a request.
   With `openai`, the command does not send the `decision mis-fold` questions and gives the cause.
 
 - `--brief` prints the findings without the explanation rows.
 
-### `systemap plan "<task>" [--check ID] [--base REF]`
+### `systemap plan "<task>" --provider P` and `systemap plan --check ID [--base REF]`
 
 Predicts components likely to change in a task.
+Without `--provider`, the command sends no data and exits 1. `--check` sends no data.
 Jev compares the task with each component's function.
 The projection includes components with probability of at least 0.05.
 The report includes flows, sequences, and rules for each component.
@@ -1435,17 +1444,18 @@ Set `TYPESAFE_API_KEY` before you run the command.
 
 - `-` instead of a task reads stdin.
 
-- `--provider jev|openai` selects the decision provider.
+- `--provider jev|openai` selects the decision provider and permits the request.
   OpenAI has no measured threshold for plan. Thus `--provider openai` sends nothing and exits 1.
 
-### `systemap triage TEXT`
+### `systemap triage TEXT --provider P`
 
 Predicts the three components likely to change in an issue fix.
 The report includes their modules and adjacent components.
 `-` reads stdin. The text limit is 2,000 characters.
+Without `--provider`, the command sends no data and exits 1.
 Set `TYPESAFE_API_KEY` before you run the command.
 
-- `--provider jev|openai` selects the decision provider.
+- `--provider jev|openai` selects the decision provider and permits the request.
   The OpenAI triage measurement did not satisfy the holdout rule. Thus `--provider openai` sends nothing and exits 1.
 
 ### `systemap journeys [--limit N] [--dry-run]`
@@ -1841,7 +1851,7 @@ Unknown keys are rejected.
 | `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
 | `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, `suggest --decide`, and `judgement --order-by-drift`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |
-| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. With `enabled = true` and `TYPESAFE_API_KEY`, `delta` sends questions to Jev without `--decide`. With `enabled` unset, `delta` sends no question without `--decide`, also with a key. `enabled = false` stops the hints. |
+| `[jev]` | `model = "jev-latest"`, `cache = ".systemap/jev-cache.json"`, `enabled` unset | The model and cache for `audit`, `triage`, `plan`, `delta`, and `suggest --decide`. `enabled` does not start a request: without `--decide`, `delta` sends no question, also with a key. `enabled = true` gives a `delta` warning that the value has no effect. `enabled = false` stops the hints. |
 | `[openai]` | `model = "gpt-6-luna"`, `cache = ".systemap/openai-cache.json"` | The OpenAI Decisions model and the cache of its answers. systemap uses them only when you select OpenAI. |
 | `[agent]` | `command` unset, `timeout = 300`, `cache = ".systemap/agent-cache.json"` | The command for sequence generation. It reads the question from stdin, for example `command = "claude -p --output-format json"`. With no command, nothing executes and the reason is printed. systemap starts the command only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`, because a repository can set any command. The "Trust and security" guide page gives the trust model. |
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, the comment of `systemap delta --comment FILE --pr N` also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |

@@ -34,7 +34,7 @@ from test_decision_providers import tree_of
 from test_delta_jev import git, renamed
 from test_jev_on_request import renamed_ts
 
-from systemap import audit, decision, delta_jev, extract, jev, jev_cli, jev_provider
+from systemap import audit, decision, delta_jev, extract, jev, jev_cli, jev_provider, providers
 from systemap import openai_provider as oa
 from systemap.cli import main
 from systemap.config import ConfigError
@@ -285,7 +285,8 @@ def test_a_key_without_a_selection_sends_zero_requests_to_openai(
     assert _run(two_cards, "suggest", "--jev") == 1
     _run(renamed, "delta", "--base", "HEAD~1", "--jev")
     out = capsys.readouterr().out
-    assert out.count("set TYPESAFE_API_KEY") == 5
+    assert out.count(providers.NOT_SELECTED) == 3
+    assert out.count("set TYPESAFE_API_KEY") == 2
     assert counted.requests == []
 
 
@@ -298,7 +299,7 @@ def test_a_key_without_a_selection_sends_zero_requests_for_typescript(
     assert counted.requests, "the control: an explicit selection sends requests"
 
 
-def test_the_option_and_the_configuration_select_openai(
+def test_the_option_selects_openai_and_the_configuration_alone_sends_nothing(
     two_cards: Path, counted: Decisions, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert _run(two_cards, "audit", "--provider", "openai") == 0
@@ -307,12 +308,13 @@ def test_the_option_and_the_configuration_select_openai(
     (two_cards / ".systemap/openai-cache.json").unlink()
     toml = two_cards / "systemap.toml"
     toml.write_text(toml.read_text() + '\n[decisions]\nprovider = "openai"\n')
-    assert _run(two_cards, "audit") == 0
-    assert len(counted.requests) == 2 * by_option
+    assert _run(two_cards, "audit") == 1
+    assert len(counted.requests) == by_option
     assert _run(two_cards, "audit", "--provider", "jev") == 1
-    assert len(counted.requests) == 2 * by_option
+    assert len(counted.requests) == by_option
     out = capsys.readouterr()
     assert "openai: " in out.out and "set TYPESAFE_API_KEY" in out.out
+    assert providers.NOT_SELECTED in out.out
 
 
 def test_an_incorrect_provider_name_is_a_configuration_error(two_cards: Path) -> None:

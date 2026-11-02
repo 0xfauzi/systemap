@@ -206,8 +206,9 @@ class Config:
     observed_by: tuple[str, ...] = ()
     jev_model: str = "jev-latest"
     jev_cache: str = ".systemap/jev-cache.json"
-    # None: no explicit value. Only true makes delta ask Jev without --jev.
-    # false also stops the hints that tell what Jev can add.
+    # No value starts a request: only --decide makes delta ask the provider.
+    # true gives a delta warning that the value no longer sends questions.
+    # false stops the hints that tell what Jev can add.
     jev_enabled: bool | None = None
     # The decision provider of the commands that ask questions. A key never selects it.
     decision_provider: str = "jev"

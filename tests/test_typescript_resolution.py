@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import opened_folders, write_tree
 
 from systemap import config, extract
 from systemap.config import ConfigError
@@ -426,17 +426,8 @@ def test_source_discovery_does_not_enter_node_modules(tmp_path: Path) -> None:
             "node_modules/pkg/deep/more/index.ts": "export const x = 1;\n",
         },
     )
-    opened: list[str] = []
-    active = [True]
-
-    def hook(event: str, args: tuple[Any, ...]) -> None:
-        if active[0] and event in ("os.scandir", "os.listdir") and args:
-            opened.append(os.fspath(args[0]) if args[0] is not None else "")
-
-    sys.addaudithook(hook)
-    try:
-        found = list(TYPESCRIPT.source_paths(tmp_path, tmp_path, (), ()))
-    finally:
-        active[0] = False
+    found, opened = opened_folders(
+        lambda: list(TYPESCRIPT.source_paths(tmp_path, tmp_path, (), ()))
+    )
     assert found == [tmp_path / "src" / "main.ts"]
     assert opened and not [path for path in opened if "node_modules" in Path(path).parts]
