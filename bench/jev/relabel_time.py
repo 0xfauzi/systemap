@@ -187,7 +187,7 @@ def render(root: Path, label_js: str) -> str:
         cfg = config.load(root)
         tree = nest.load(cfg)
         m = tree.top
-        facts = facts_file.read_facts(cfg.facts_path)
+        facts = facts_file.read_facts(cfg.facts_path, cfg.root)
         nesting = page.nesting_of(cfg, tree, m, facts)
         return page.build(cfg, m.model, m.meaning, m.theme, facts, {"has_change": False}, nesting)
     finally:

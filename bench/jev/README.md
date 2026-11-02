@@ -410,8 +410,12 @@ The table gives measured sample counts and times:
 
 | repository | samples | cold | warm | windows that moved |
 |---|---|---|---|---|
-| mealie | 25 | 29.3s | 0.3s | 24 of 24 |
+| mealie | 25 | 29.3s | 0.3s | 14 of 24 |
 | rich | 8 | 5.8s | 0.0s | 1 of 7 |
+
+The `results/history-<repository>.json` files contain the windows of the two runs.
+In `results/history-mealie.json`, 14 of the 24 windows have a change.
+That file records 0.3s cold. The repository does not contain the result file of the 29.3s run.
 
 The two runs completed in the permitted time.
 Facts at a commit do not change, so the command caches them under `.systemap/facts/`.

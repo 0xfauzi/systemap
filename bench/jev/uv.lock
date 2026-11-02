@@ -219,7 +219,7 @@ wheels = [
 
 [[package]]
 name = "systemap"
-version = "1.2.0"
+version = "2.0.0"
 source = { editable = "../../" }
 
 [package.metadata]
@@ -231,12 +231,19 @@ provides-extras = ["typescript"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "markdown-it-py", specifier = "==4.2.0" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "pre-commit", specifier = ">=4,<5" },
+    { name = "pygments", specifier = "==2.21.0" },
     { name = "pytest", specifier = ">=8" },
     { name = "ruff", specifier = ">=0.5" },
     { name = "tree-sitter", specifier = ">=0.25,<0.26" },
     { name = "tree-sitter-typescript", specifier = ">=0.23,<0.24" },
+]
+fonts = [{ name = "fonttools", extras = ["woff"], specifier = "==4.66.1" }]
+site = [
+    { name = "markdown-it-py", specifier = "==4.2.0" },
+    { name = "pygments", specifier = "==2.21.0" },
 ]
 
 [[package]]

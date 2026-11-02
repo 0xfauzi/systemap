@@ -15,7 +15,7 @@ import json
 import subprocess
 import sys
 
-from common import DATA, REPOS, choice, first_sentence, load, row, write
+from common import DATA, REPOS, choice, first_sentence, load, read_labels, row, write
 
 from systemap.delta import facts_at
 from systemap.moves import find as _moves
@@ -241,11 +241,11 @@ def pick() -> None:
 
 
 def score_labels(path: str) -> None:
-    """labels.json: {item id: "successor" | "unrelated" | "unsure"}. The truth becomes git's
+    """labels.json: {item id: {"label": "successor" | "unrelated" | "unsure", ...}}. The truth becomes git's
     renames plus every pairing a person called a successor."""
     from score import results, rows
 
-    labels = json.loads(open(path).read())
+    labels = read_labels(path)
     data, res = rows("moves"), results("moves")
     both = [(d, res[i]["answers"]["became"]) for i, d in data.items() if i in res]
 

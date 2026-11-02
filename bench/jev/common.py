@@ -183,6 +183,14 @@ def row(exp: str, repo: str, id_: str, state: Any, questions: dict, label: dict)
     }
 
 
+def read_labels(path: str | Path) -> dict[str, str]:
+    """Read a label file: {item id: {"label": ..., "reason": ...}}.
+
+    A value can also be the label itself, as in the first label files."""
+    raw = json.loads(Path(path).read_text())
+    return {i: v["label"] if isinstance(v, dict) else v for i, v in raw.items()}
+
+
 def noul(instructions: str) -> dict[str, str]:
     return {"type": "noul", "instructions": instructions}
 

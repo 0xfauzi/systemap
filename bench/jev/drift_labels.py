@@ -19,7 +19,7 @@ import random
 import sys
 
 from build_meaning import DRIFT_QS, git, model_components, module_files
-from common import DATA, SCRATCH, row, write
+from common import DATA, SCRATCH, read_labels, row, write
 
 KSTRL = SCRATCH / "kstrl-first-map-20260826T114300Z/repo"
 MAP_AT = "9e27946"  # the commit holding the benchmark's first map
@@ -98,10 +98,12 @@ def pick(n: int = 60) -> None:
 
 
 def score(path: str) -> None:
-    """labels.json: {item id: "holds" | "stale" | "unsure"}. Unsure items are left out."""
+    """labels.json: {item id: {"label": "holds" | "stale" | "unsure", "reason": ...}}.
+
+    `common.read_labels` also reads a flat label as the value. Unsure items are left out."""
     from score import auc, results, rows
 
-    labels = json.loads(open(path).read())
+    labels = read_labels(path)
     p = {}
     for exp in ("drift_kstrl", "drift"):
         p.update({i: r["answers"]["does_holds"]["noul"] for i, r in results(exp).items()})
