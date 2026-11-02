@@ -75,7 +75,7 @@ from pathlib import Path
 from typing import Any
 
 import build_flows
-from common import DEV_REPOS, HERE, HOLDOUT_REPOS, SCRATCH, SET, SYSTEMAP, Repo
+from common import DEV_REPOS, HERE, HOLDOUT_REPOS, SCRATCH, SET, SYSTEMAP, Repo, folder_packages
 from import_context import DEFAULT, WHOLE, code_between
 from import_context import bindings as _bindings
 
@@ -129,18 +129,6 @@ def root_of(name: str, facts: dict[str, Any]) -> Path:
 
 def facts_dir() -> Path:
     return HERE / "data" / ("" if SET == "dev" else "holdout")
-
-
-def folder_packages(facts: dict[str, Any]) -> dict[str, Any]:
-    """Write the folder package into each cached record, as `call_site_context.py` does.
-
-    Format 2 wrote the first name part as `package`. `audit.modules_by_card` reads the
-    folder package: the parent package, or the name of a package root.
-    """
-    prefixes = set(facts["packages"])
-    for module, record in facts["components"].items():
-        record["package"] = module if module in prefixes else module.rsplit(".", 1)[0]
-    return facts
 
 
 def load_repo(name: str) -> tuple[Repo, Any]:

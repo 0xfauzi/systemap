@@ -11,8 +11,10 @@ import importlib
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 import tomllib
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -24,16 +26,26 @@ JEV = ROOT / "bench" / "jev"
 
 
 @pytest.fixture
-def jev_script(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """Import a script from `bench/jev/`, which imports its neighbours by name."""
+def jev_script(monkeypatch: pytest.MonkeyPatch) -> Iterator[Any]:
+    """Import a script from `bench/jev/`, which imports its neighbours by name.
+
+    After the test, the fixture removes each module that it imported from `bench/jev/`.
+    Thus each test gets new modules, and no later test can import them by name."""
     monkeypatch.syspath_prepend(str(JEV))
-    for name in ("common", "score", "drift_labels", "moves", "relabel_time", "draft", "turns"):
-        monkeypatch.delitem(sys.modules, name, raising=False)
 
-    def load(name: str) -> ModuleType:
-        return importlib.import_module(name)
+    def from_jev() -> set[str]:
+        return {
+            n
+            for n, m in sys.modules.items()
+            if JEV in Path(getattr(m, "__file__", None) or "/").parents
+        }
 
-    return load
+    for name in from_jev():
+        del sys.modules[name]
+
+    yield importlib.import_module
+    for name in from_jev():
+        del sys.modules[name]
 
 
 def test_score_package_helpers_use_the_package_facts(jev_script: Any) -> None:
@@ -101,6 +113,8 @@ def test_relabel_time_renders_the_self_map(jev_script: Any) -> None:
     relabel_time = jev_script("relabel_time")
     html = relabel_time.render(ROOT, relabel_time.current_head())
     assert html.startswith("<!")
+    # The page shows the modules of the facts. Without the facts, it shows no module.
+    assert "src/systemap/facts_file.py" in html
 
 
 def test_draft_reads_the_facts_of_a_run(
@@ -166,3 +180,36 @@ def test_benchmark_lock_records_the_project_version() -> None:
     lock = tomllib.loads((JEV / "uv.lock").read_text(encoding="utf-8"))
     locked = next(p for p in lock["package"] if p["name"] == "systemap")
     assert locked["version"] == project["project"]["version"]
+
+
+def test_typescript_adapter_measures_a_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = _load_by_path(ROOT / "bench" / "typescript_adapter.py")
+    repo = tmp_path / "ky"
+    (repo / "source").mkdir(parents=True)
+    (repo / "test").mkdir()
+    (repo / "source" / "a.ts").write_text("export function f(): number { return 1 }\n")
+    (repo / "test" / "a.ts").write_text('import { f } from "../source/a"\nf()\n')
+    (repo / "systemap.toml").write_text(adapter.DEFAULT_CONFIG)
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-C", str(repo)]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "-A"], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "a"], check=True)
+    head = subprocess.check_output([*git, "rev-parse", "HEAD"], text=True).strip()
+    monkeypatch.setitem(adapter.REVISIONS, "ky", head)
+    found = adapter.measure("ky", tmp_path)
+    assert (found["commit"], found["exports_total"], found["tests_total"]) == (head, 1, 1)
+
+
+def test_cached_facts_of_an_earlier_format_get_the_folder_packages(jev_script: Any) -> None:
+    common = jev_script("common")
+    old = {
+        "version": 2,
+        "packages": ["app"],
+        "components": {"app": {"package": "app"}, "app.web.views": {"package": "app"}},
+    }
+    facts = common.cached_facts(json.dumps(old))
+    assert facts["components"]["app.web.views"]["package"] == "app.web"
+    current = {**old, "version": common.extract.FORMAT}
+    assert common.cached_facts(json.dumps(current)) == current

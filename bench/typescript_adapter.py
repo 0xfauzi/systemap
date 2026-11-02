@@ -70,13 +70,6 @@ def _test_counts(
     return attributed, len(files)
 
 
-def _module(root: Any, raw: str) -> Any:
-    """Give the module facts that `typescript_surface._record_export` reads."""
-    local_names: dict[str, dict[str, Any]] = dict(surface.import_names(root))
-    local_names.update((n, {"kind": k}) for n, k in surface._declared_kinds(root).items())
-    return surface._Module(local_names, surface._declaration_nodes(root), raw.encode())
-
-
 def _export_counts(repo: Path) -> tuple[int, int, int]:
     accounted = total = unparsed = 0
     for path in repo.rglob("*"):
@@ -90,20 +83,12 @@ def _export_counts(repo: Path) -> tuple[int, int, int]:
         if root is None:
             unparsed += 1
             continue
-        module = _module(root, raw)
+        module = surface.module_facts(root, raw)
         for node in root.named_children:
             if node.type != "export_statement":
                 continue
             total += 1
-            one: dict[str, Any] = {
-                "functions": [],
-                "classes": [],
-                "errors": [],
-                "types": [],
-                "constants": [],
-                "names": [],
-                "unknown": [],
-            }
+            one: dict[str, Any] = surface.empty_surface()
             surface._record_export(node, one, module)
             accounted += bool(one["names"] or one["unknown"])
     return accounted, total, unparsed
@@ -123,7 +108,7 @@ def measure(name: str, checkout_dir: Path) -> dict[str, Any]:
     started = time.perf_counter()
     facts = extract.build(cfg)
     with tempfile.TemporaryDirectory() as temp:
-        facts_file.write_facts(Path(temp) / "facts.json", facts)
+        facts_file.write_facts(Path(temp) / "facts.json", facts, Path(temp))
     elapsed = time.perf_counter() - started
     paths = {module: repo / item["file"] for module, item in facts["components"].items()}
     attributed, tests = _test_counts(name, repo, paths, cfg)

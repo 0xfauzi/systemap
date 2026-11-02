@@ -97,6 +97,28 @@ class Repo:
         return [c for c in self.model.components if c.kind != "actor"]
 
 
+def folder_packages(facts: dict[str, Any]) -> dict[str, Any]:
+    """Write the folder package into each cached record, as `call_site_context.py` does.
+
+    Format 2 wrote the first name part as `package`. `audit.modules_by_card` reads the
+    folder package: the parent package, or the name of a package root.
+    """
+    prefixes = set(facts.get("packages", ()))
+    for module, record in facts["components"].items():
+        record["package"] = module if module in prefixes else module.rsplit(".", 1)[0]
+    return facts
+
+
+def cached_facts(text: str) -> dict[str, Any]:
+    """Read a cached facts file. A file of an earlier format gets the folder packages.
+
+    `source_facts.package_of` reads the `package` fact. Format 2 wrote a different package,
+    and an earlier format can have no `package` fact.
+    """
+    facts = json.loads(text)
+    return facts if facts.get("version") == extract.FORMAT else folder_packages(facts)
+
+
 @cache
 def load(name: str) -> Repo:
     root = REPOS[name]
@@ -104,7 +126,7 @@ def load(name: str) -> Repo:
     tree = nest.load(cfg)
     cache_file = DATA / f"facts-{name}.json"
     if cache_file.exists():
-        facts = json.loads(cache_file.read_text())
+        facts = cached_facts(cache_file.read_text())
     else:
         facts = extract.build(cfg)
         cache_file.write_text(json.dumps(facts))
