@@ -578,7 +578,7 @@ For example, `delta --decide --provider openai` prints `OpenAI suggestions`. Wit
 To change a configuration to the new names, do these steps:
 
 1. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
-2. If you changed an `items` group, use `systemap audit`.
+2. If you changed an `items` group, use `systemap audit --provider jev`.
 3. Examine the source of each `pending answer` line again. Then record the digest from that line.
 4. Replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files.
 5. Use `systemap judgement --strict`. Make sure that it prints no warning.

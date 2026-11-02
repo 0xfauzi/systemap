@@ -59,11 +59,12 @@ NOT_SELECTED = (
 )
 
 
-def add_option(parser: argparse.ArgumentParser, *, required: bool = False) -> None:
+def add_option(parser: argparse.ArgumentParser, *, gated: bool = False) -> None:
     """Add the `--provider` option to a command that asks questions.
 
-    With `required`, the command sends no request without the option."""
-    if required:
+    With `gated`, the option is the permission for a request (`select`). The option
+    stays optional in argparse, so that the command gives `NOT_SELECTED` as its error."""
+    if gated:
         text = (
             "Select the decision provider and permit the request. Without this option, "
             "the command sends no data. [decisions] provider in systemap.toml and a key in "
@@ -89,8 +90,13 @@ def chosen(cfg: Config, option: str | None) -> Config:
     return dataclasses.replace(cfg, decision_provider=option)
 
 
-def select(cfg: Config, send: jev.Send | None = None) -> Metered:
-    """Make the selected provider, with an injected transport or the environment key."""
+def select(cfg: Config, send: jev.Send | None = None, *, permitted: bool) -> Metered:
+    """Make the selected provider, with an injected transport or the environment key.
+
+    `permitted` must come from an option on the command line. Without it, raise
+    DecisionError and send nothing. This is the one gate for each request."""
+    if not permitted:
+        raise DecisionError(NOT_SELECTED)
     if cfg.decision_provider == openai_provider.NAME:
         return openai_provider.from_env(cfg.openai_model, cfg.openai_cache_path, send, cfg.root)
     return jev_provider.from_env(cfg.jev_model, cfg.jev_cache_path, send, cfg.root)

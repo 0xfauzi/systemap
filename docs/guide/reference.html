@@ -834,7 +834,7 @@ For example, <code>delta --decide --provider openai</code> prints <code>OpenAI s
 <p>To change a configuration to the new names, do these steps:</p>
 <ol>
 <li>In <code>systemap.toml</code>, replace each previous name in <code>[judgement] answered</code> with its new name.</li>
-<li>If you changed an <code>items</code> group, use <code>systemap audit</code>.</li>
+<li>If you changed an <code>items</code> group, use <code>systemap audit --provider jev</code>.</li>
 <li>Examine the source of each <code>pending answer</code> line again. Then record the digest from that line.</li>
 <li>Replace <code>--jev</code> with <code>--decide</code> and <code>--no-jev</code> with <code>--no-decide</code> in scripts and CI files.</li>
 <li>Use <code>systemap judgement --strict</code>. Make sure that it prints no warning.</li>

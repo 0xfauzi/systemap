@@ -69,8 +69,10 @@ SAME_Q = (
 )
 
 
-def _client(cfg: config.Config, send: jev.Send | None = None) -> providers.Metered:
-    return providers.select(cfg, send)
+def _client(
+    cfg: config.Config, send: jev.Send | None = None, *, permitted: bool
+) -> providers.Metered:
+    return providers.select(cfg, send, permitted=permitted)
 
 
 def _one(provider: DecisionProvider, question: decision.Question, label: str) -> ChoiceAnswer:
@@ -108,16 +110,6 @@ DELTA_HINT = (
 )
 
 
-def uses_jev(flag: bool | None) -> bool:
-    """Ask the provider only if the command line gives `--decide`.
-
-    A key in the environment and `[jev] enabled = true` do not select the provider.
-    A cloned repository can contain any configuration file. Thus a configuration file
-    does not start a request.
-    """
-    return flag is True
-
-
 def hint(cfg: config.Config, text: str) -> None:
     """Print a Jev hint to stderr without an API key, unless `[jev] enabled = false`."""
     if cfg.jev_enabled is not False and not jev.has_key():
@@ -148,9 +140,6 @@ def _kind_warnings(cfg: config.Config, tree: nest.Tree, facts: dict[str, Any]) -
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Give the provider findings with exit 0, or exit 1 if the request cannot complete."""
     option = getattr(args, "provider", None)
-    if not args.dry_run and option is None:
-        show(f"audit: {providers.NOT_SELECTED}")
-        return STALE
     cfg = providers.chosen(config.load(args.root_path), option)
     facts = _facts(cfg)
     if facts is None:
@@ -165,7 +154,7 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     if args.dry_run:
         return _dry_run(cfg, plan, send, option is not None)
     try:
-        client = _client(cfg, send)
+        client = _client(cfg, send, permitted=option is not None)
         answers = client.decide(plan.questions)
         found = audit.lines(plan, answers, decision.thresholds(client.name))
     except DecisionError as exc:
@@ -208,14 +197,14 @@ def _measured_kinds(cfg: config.Config, kinds: tuple[str, ...]) -> tuple[str, ..
     return tuple(k for k in kinds if k not in skipped)
 
 
-def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None, chosen: bool) -> int:
+def _dry_run(cfg: config.Config, plan: audit.Plan, send: jev.Send | None, permitted: bool) -> int:
     """Count the questions. With `--provider` and a key, get only the model list to count
     the cached answers. Without `--provider`, send nothing."""
-    pending: int | str | None = None
+    pending: int | str | None = None if permitted else "unknown without --provider"
     chars = providers.chars(cfg, plan.questions)
-    if chosen and (send is not None or providers.has_key(cfg)):
+    if permitted and (send is not None or providers.has_key(cfg)):
         try:
-            pending = _client(cfg, send).pending(plan.questions)
+            pending = _client(cfg, send, permitted=True).pending(plan.questions)
         except DecisionError as exc:
             show(*audit.dry_run(plan, f"unknown: {exc}", chars), sep="\n")
             return STALE
@@ -235,9 +224,6 @@ def _neighbours(model: Any, cid: str) -> str:
 def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Predict the three components an issue fix will probably change."""
     option = getattr(args, "provider", None)
-    if option is None:
-        show(f"triage: {providers.NOT_SELECTED}")
-        return STALE
     cfg = providers.chosen(config.load(args.root_path), option)
     facts = _facts(cfg)
     if facts is None:
@@ -248,8 +234,8 @@ def cmd_triage(args: argparse.Namespace, send: jev.Send | None = None) -> int:
         return STALE
     top = nest.load(cfg).top
     try:
+        client = _client(cfg, send, permitted=option is not None)
         providers.require_triage(cfg)
-        client = _client(cfg, send)
         answer = _one(client, triage_question(cfg, top, text), "triage")
         spread = decision.spread(answer)
     except DecisionError as exc:
@@ -536,7 +522,8 @@ def cmd_suggest_jev(cfg: config.Config, facts: dict[str, Any]) -> int:
     """Print the module groups from the provider answers, or the reason for no groups."""
     try:
         providers.require(cfg, "same_at")
-        client = _client(cfg)
+        # The caller gives this function only for `suggest --decide`.
+        client = _client(cfg, permitted=True)
     except DecisionError as exc:
         show(f"{SUGGEST}: {exc}")
         return STALE
@@ -557,17 +544,14 @@ def cmd_plan(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     cfg = providers.chosen(config.load(args.root_path), option)
     if args.check:
         return _check_plan(cfg, args)
-    if option is None:
-        show(f"plan: {providers.NOT_SELECTED}")
-        return STALE
     text = sys.stdin.read() if args.task == "-" else (args.task or "")
     if not text.strip():
         show("plan: give the task in your own words, or - to read it from stdin")
         return STALE
     top = nest.load(cfg).top
     try:
+        client = _client(cfg, send, permitted=option is not None)
         cut = providers.require(cfg, "plan_cut")
-        client = _client(cfg, send)
         spread = decision.spread(_one(client, plan_question(cfg, top, text), "plan"))
     except DecisionError as exc:
         show(f"plan: {exc}")
@@ -597,7 +581,7 @@ def _plan_lines(made: plan_mod.Projection, cfg: config.Config, where: Path | Non
     if not made.cards:
         return [
             "plan: no component is a clear candidate for this work",
-            "  give the task in the system's terms, or run: systemap triage",
+            "  give the task in the system's terms, or run: systemap triage --provider jev",
         ]
     out = [f"plan {made.id}: {len(made.cards)} components this work will probably change"]
     for one in made.around:
@@ -688,7 +672,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
-    providers.add_option(s, required=True)
+    providers.add_option(s, gated=True)
     s.add_argument(
         "--dry-run",
         action="store_true",
@@ -752,7 +736,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
-    providers.add_option(s, required=True)
+    providers.add_option(s, gated=True)
     s.add_argument("task", nargs="?", help="Give the task, or - to read stdin.")
     s.add_argument("--check", metavar="ID", help="Compare a saved plan with changed components.")
     s.add_argument(
@@ -774,7 +758,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "Set TYPESAFE_API_KEY (Jev) or OPENAI_API_KEY (OpenAI) before use.",
     )
     add_root(s)
-    providers.add_option(s, required=True)
+    providers.add_option(s, gated=True)
     s.add_argument("text", help="Give the issue title and text, or - to read stdin.")
     s.set_defaults(func=lambda args: cmd_triage(_rooted(args)))
 

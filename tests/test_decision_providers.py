@@ -71,7 +71,7 @@ def two_cards(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Re
     init_two_cards(tmp_path, "--no-ci")
     assert main(["--root", str(tmp_path), "extract"]) == 0
     refusing = Refusing()
-    monkeypatch.setattr(jev_cli, "_client", lambda cfg, send=None: refusing)
+    monkeypatch.setattr(jev_cli, "_client", lambda cfg, send=None, *, permitted: refusing)
     return tmp_path, refusing
 
 

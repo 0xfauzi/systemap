@@ -350,16 +350,17 @@ class Model:
         return any(c.id == cid and c.model_end for c in self.components)
 
     def kind_of(self, cid: str) -> str:
-        for c in self.components:
-            if c.id == cid:
-                return c.kind
-        return ""
+        found = self.find(cid)
+        return found.kind if found else ""
+
+    def find(self, cid: str) -> Component | None:
+        """Give the component with this ID, or None. Use it for an ID from stored data."""
+        return next((c for c in self.components if c.id == cid), None)
 
     def component(self, cid: str) -> Component:
-        for c in self.components:
-            if c.id == cid:
-                return c
-        raise KeyError(cid)
+        if (found := self.find(cid)) is None:
+            raise KeyError(cid)
+        return found
 
     def rules_of(self, cid: str) -> list[int]:
         """The applicable invariant numbers, in numerical order."""

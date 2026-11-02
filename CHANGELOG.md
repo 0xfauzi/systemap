@@ -9,6 +9,24 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+### Changes that can break a script or a CI job
+
+- systemap sends no data to a decision provider by default.
+  `audit`, `triage`, and `plan "<task>"` send data only with `--provider jev` or `--provider openai`.
+  Without `--provider`, they print `no data was sent` and exit 1. `plan --check` sends no data.
+  `audit --dry-run` reads the Jev model list only with `--provider`.
+  `delta` sends questions only with `--decide`. `[jev] enabled = true` no longer starts a request,
+  because a cloned repository can contain any `systemap.toml`. `[jev] enabled = false` still stops the hints.
+  With the earlier code, `tests/test_no_outbound.py` found 7 command runs that sent data with no option on the command line. After this change, it finds 0.
+
+  Step: add `--provider jev` to each `audit`, `triage`, and `plan "<task>"` command in scripts and CI files.
+  If a repository used `[jev] enabled = true` for `delta` suggestions, give `delta --decide`.
+
+### Corrections
+
+- `systemap decisions status` no longer stops with `KeyError` when the decision store has a supported record for a component that the model does not have.
+  Such a record does not count as supported.
+
 ### Security
 
 - The page servers refuse a POST request from a page of a different web site with 403.
@@ -340,7 +358,7 @@ Each item gives the change, and then the step that you must do.
   After this change, a key alone sends no request. Without an explicit `[jev] enabled` value, `delta` prints one hint.
   In the tests, a key with no `[jev]` table sent 3 requests before the change, and 0 requests after it.
 
-  Step: to keep the suggestions, give `delta --decide`, or set `[jev] enabled = true` in `systemap.toml`.
+  Step: to keep the suggestions, give `delta --decide`. (In this release, `[jev] enabled = true` also selected Jev. The next release removed that path.)
   `[jev] enabled = false` stops the hint.
 
 - Maps use the `plain` writing profile by default. The `[writing] profile` key selects `plain` or `asd-ste100`.

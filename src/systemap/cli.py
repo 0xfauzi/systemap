@@ -686,8 +686,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
     d = delta.compute_tree(p.cfg, p.tree, base, head, base_ref=args.base, head_ref=args.head)
     # Provider answers are suggestions: they never change the lines or the exit code.
     cfg = providers.chosen(p.cfg, args.provider)
-    selected = jev_cli.uses_jev(args.decide)
-    asked = delta_jev.ask(cfg, p.tree, base, head, d) if selected else delta_jev.NOTHING
+    asked = delta_jev.ask(cfg, p.tree, base, head, d, permitted=args.decide is True)
     say(*delta_git.refused_lines(base, head))
     say(*delta.report(d, teach=not args.brief), *delta_jev.text(asked, not args.brief))
     if args.comment:
@@ -695,7 +694,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
         url, problem = delta_git.comment_page_url(p.cfg, base_sha)
         warn(*problem)
         delta_link.write(args.comment, url, args.pr, pr_summary.markdown(found), root)
-    if args.decide is None and not selected and d.added and d.removed:
+    if args.decide is None and d.added and d.removed:
         jev_cli.delta_hint(p.cfg)
     return STALE if d.open else OK
 
@@ -1252,7 +1251,7 @@ def build_parser() -> argparse.ArgumentParser:
             "without components. The answers are suggestions. They do not change the delta "
             "lines or the exit code. Without --decide, delta sends no request. "
             "[jev] enabled = true in systemap.toml does not send a request. "
-            "--no-decide is the default. --jev and --no-jev are the previous names of these "
+            "--no-decide also stops the hint. --jev and --no-jev are the previous names of these "
             "options. They stay for one release."
         ),
     )

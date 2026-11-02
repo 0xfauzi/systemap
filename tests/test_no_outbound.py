@@ -22,18 +22,17 @@ from __future__ import annotations
 import argparse
 import contextlib
 import os
+import shutil
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-from test_delta_jev import renamed
+from test_delta_jev import make_renamed
 
-from systemap import cli, jev, openai_provider, providers
+from systemap import cli, git_command, jev, openai_provider, providers
 from systemap.cli import main
-
-__all__ = ["renamed"]
 
 # The events that send data out, or that start a different program.
 NETWORK = {"socket.connect", "socket.getaddrinfo", "socket.gethostbyname", "urllib.Request"}
@@ -71,7 +70,7 @@ def outbound(events: list[tuple[str, tuple[Any, ...]]]) -> list[str]:
         if event == "subprocess.Popen":
             program = Path(os.fsdecode(args[0])).name
             env = args[3] or {}
-            no_fetch = env.get("GIT_ALLOW_PROTOCOL") == "" and env.get("GIT_NO_LAZY_FETCH") == "1"
+            no_fetch = all(env.get(k) == v for k, v in git_command._NO_FETCH.items())
             if program in {"git", "git.exe"} and no_fetch:
                 continue
         bad.append(f"{event}: {args!r}"[:300])
@@ -146,19 +145,26 @@ def test_each_command_is_listed() -> None:
     assert commands() - listed == set()
 
 
-@pytest.fixture(params=["jev", "openai"])
-def worst_case(
-    renamed: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
-) -> Path:
-    monkeypatch.setenv(jev.KEY_ENV, "a test key")
-    monkeypatch.setenv(openai_provider.KEY_ENV, "a test key")
-    monkeypatch.delenv("SYSTEMAP_TRUST_AGENT_COMMAND", raising=False)
-    toml = renamed / "systemap.toml"
+@pytest.fixture(scope="module", params=["jev", "openai"])
+def template(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The worst-case repository with current facts, made one time for each provider."""
+    root = make_renamed(tmp_path_factory.mktemp(f"template-{request.param}"))
+    toml = root / "systemap.toml"
     toml.write_text(
         toml.read_text(encoding="utf-8") + WORST_CASE.format(provider=request.param), "utf-8"
     )
-    assert main(["--root", str(renamed), "extract"]) in (0, 1)
-    return renamed
+    assert main(["--root", str(root), "extract"]) in (0, 1)
+    return root
+
+
+@pytest.fixture
+def worst_case(template: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A copy of the template for one test, with the two keys in the environment.
+
+    The autouse fixtures in conftest.py remove the keys and the agent permission first."""
+    monkeypatch.setenv(jev.KEY_ENV, "a test key")
+    monkeypatch.setenv(openai_provider.KEY_ENV, "a test key")
+    return Path(shutil.copytree(template, tmp_path / "repo"))
 
 
 @pytest.mark.parametrize("name", list(RUN))

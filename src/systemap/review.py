@@ -175,7 +175,7 @@ def _digest(
 ) -> str:
     if target.found is not None:
         return _flow_digest(m, model, meaning, facts, target.found)
-    card = next((c for c in model.components if c.id == target.component), None)
+    card = model.find(target.component)
     if card is None:
         raise ReviewError(f"{m.rel}: the map has no component {target.component}.")
     digest = card_review.digest(card, model, meaning, facts)

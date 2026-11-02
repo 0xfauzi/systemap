@@ -26,7 +26,7 @@ from systemap.flow_review import REVIEWED
 
 
 def _card_digest(m: nest.Map, target: str, facts: dict[str, Any]) -> str | None:
-    card = next((c for c in m.model.components if c.id == target), None)
+    card = m.model.find(target)
     if card is None or card_review.state(card, m.model, m.meaning, facts) != card_review.CURRENT:
         return None
     return card_review.digest(card, m.model, m.meaning, facts)
