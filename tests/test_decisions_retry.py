@@ -50,6 +50,7 @@ from test_decisions import (
     submit,
 )
 
+from systemap import config, nest
 from systemap.cli import main
 
 PERSON = "person must"
@@ -253,3 +254,32 @@ def test_a_damaged_store_gives_an_error(
         assert code == 1, argv
         assert str(store) in err and cause in err and "Remove the file" in err
     assert store.read_text(encoding="utf-8") == text
+
+
+def remove_component(root: Path, card: str) -> None:
+    """Give the component a different ID in each map file. Thus the model has no `card`."""
+    for path in (root / "map").glob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace(f'"{card}"', f'"{card}Moved"'), encoding="utf-8")
+    assert all(c.id != card for c in nest.load(config.load(root)).top.model.components)
+
+
+def test_a_supported_record_of_a_removed_component_is_not_counted(
+    mapped: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Issue 127: the record stays in the store. `status` does not stop with KeyError."""
+    card, name, _new = CASES[language(mapped)]
+    request = of_type(pending(mapped, capsys), "source_review", card)
+    code, _out, err = submit(
+        mapped, capsys, verdict(request, "supported", "Agrees.", cite(mapped, name))
+    )
+    assert code == 0, err
+    remove_component(mapped, card)
+    for argv in (("decisions", "status", "--json"), ("decisions", "status")):
+        code, out, err = run(mapped, capsys, *argv)
+        assert "KeyError" not in err, argv
+        assert out, argv
+    _code, data, text = status(mapped, capsys)
+    assert data["supported"] == 0
+    assert data["supported_records"] == 1
+    assert ", 0 supported," in text
