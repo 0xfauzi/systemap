@@ -1,4 +1,4 @@
-'`systemap place`: a position for every card without one, and `--all`.\n\nWhat `place` is held to, each as a test: the anonymised\n144-module fixture with every position stripped is placed and the\ngeometry check is clean with no manual move, in under ten seconds; a\ncard with a position is kept where it was; a second run changes nothing;\nthe self-map with its positions stripped is clean after `place`. Then\nthe edit in place: only the `x=` and `y=` values, the boxes and the\ncanvas move, byte for byte, and the file reloads to the positions\ncomputed. Then `place --all`: every card laid out again but the ones\nmarked `pinned=True`, which stay, and the refusal for a full box names\nit.\n\n"Clean" here is the geometry the placement decides: placement, routes,\nlabels and type size (`check.Result.problems`, `through` and\n`across`). The fixture\'s facts are module names only, so its coverage\nand entry rules are not what these tests measure.\n'
+'`systemap place`: a position for every card without one, and `--all`.\n\nWhat `place` is held to, each as a test: the anonymised\n144-module fixture with every position stripped is placed and the\ngeometry check is clean with no manual move; a\ncard with a position is kept where it was; a second run changes nothing;\nthe self-map with its positions stripped is clean after `place`. Then\nthe edit in place: only the `x=` and `y=` values, the boxes and the\ncanvas move, byte for byte, and the file reloads to the positions\ncomputed. Then `place --all`: every card laid out again but the ones\nmarked `pinned=True`, which stay, and the refusal for a full box names\nit.\n\n"Clean" here is the geometry the placement decides: placement, routes,\nlabels and type size (`check.Result.problems`, `through` and\n`across`). The fixture\'s facts are module names only, so its coverage\nand entry rules are not what these tests measure.\n'
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def assert_clean(model: Model, meaning: Meaning, facts: dict[str, Any]) -> None:
     assert (result.through, result.across) == (0, 0)
 
 
-# ---- (a) the fixture, stripped: clean, no manual move, under ten seconds -------------
+# ---- (a) the fixture, stripped: clean, no manual move --------------------------------
 
 
 def test_fixture_stripped_is_clean_after_place() -> None:
