@@ -519,3 +519,16 @@ def init_two_cards(root: Path, *argv: str) -> None:
     assert main(["--root", str(root), "init", *argv]) == 0
     (root / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
     (root / "map/contract.py").write_text(TWO_CARD_CONTRACT, encoding="utf-8")
+
+
+def set_version(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
+    """Make the package version `version` for one test.
+
+    In 3.0.x, `flow_review.VERSION` stopped the one-time upgrade of the 2.0.0 forms from
+    3.1.0 (issue 143). The function also sets that name, so that a test of a later version
+    fails if a version stops the upgrade again."""
+    import systemap
+    from systemap import flow_review
+
+    monkeypatch.setattr(systemap, "__version__", version)
+    monkeypatch.setattr(flow_review, "VERSION", version, raising=False)

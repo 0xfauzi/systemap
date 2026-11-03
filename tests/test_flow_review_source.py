@@ -18,6 +18,8 @@ Acceptance values, for a Python fixture and a TypeScript fixture:
    `judgement --json` gives the flow in `earlier_flow_reviews`. `systemap extract` records
    the source records one time. The component digests do not change. After that, a
    change to the source in the source records makes the review stale.
+7. Each version accepts a 2.0.0 review digest as an earlier review, and `extract` records
+   it one time, also on 3.1.0 and 4.0.0 (issue 143).
 
 The tests send no request to a model.
 """
@@ -29,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import set_version, write_tree
 
 from systemap import card_review, config, evidence, extract, facts_file, flow_review, nest
 from systemap.cli import main
@@ -359,20 +361,36 @@ def test_the_record_changes_only_the_digests_of_two_flows_in_one_file(
     assert path.read_text(encoding="utf-8") == expected
 
 
-def test_a_claim_digest_from_2_0_0_is_stale_from_3_1_0(
-    tmp_path: Path, case: str, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("version", ["2.0.9", "3.0.0", "3.0.9", "3.1.0", "3.1rc1", "4.0.0"])
+def test_a_claim_digest_from_2_0_0_is_an_earlier_review_on_each_version(
+    tmp_path: Path, case: str, version: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A 2.0.0 claim digest is an earlier review in the 2.0 and 3.0 releases, then stale."""
+    """Acceptance 7: no version stops the one-time upgrade of a 2.0.0 claim digest."""
+    set_version(monkeypatch, version)
     package = _project(tmp_path, case)
     flow, m = _flow(tmp_path)
     _write_model(tmp_path, package, flow.source_refs, flow_review.claim_digest(flow, m.meaning))
     cfg = config.load(tmp_path)
     facts_file.write_facts(cfg.facts_path, _facts(tmp_path), tmp_path)
-    for version in ("2.0.9", "3.0.0", "3.0.9"):
-        monkeypatch.setattr(flow_review, "VERSION", version)
-        assert _state(tmp_path) == flow_review.EARLIER, version
-    for version in ("3.1.0", "3.1rc1", "3.1.0rc1", "4.0.0"):
-        monkeypatch.setattr(flow_review, "VERSION", version)
-        assert _state(tmp_path) == flow_review.STALE, version
+    assert _state(tmp_path) == flow_review.EARLIER
     flow, m = _flow(tmp_path)
-    assert not flow_review.needs_record(flow, m.meaning)
+    assert flow_review.needs_record(flow, m.meaning)
+
+
+def test_extract_on_4_0_0_records_a_claim_digest_from_2_0_0_one_time(
+    tmp_path: Path, case: str, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Acceptance 7: on 4.0.0, extract writes the earlier-review digest one time."""
+    set_version(monkeypatch, "4.0.0")
+    package = _project(tmp_path, case)
+    flow, m = _flow(tmp_path)
+    _write_model(tmp_path, package, flow.source_refs, flow_review.claim_digest(flow, m.meaning))
+    cfg = config.load(tmp_path)
+    facts_file.write_facts(cfg.facts_path, _facts(tmp_path), tmp_path)
+    _code, out = _cli(tmp_path, capsys, "extract")
+    assert "recorded the source records of 1 flow reviews" in out
+    flow, m = _flow(tmp_path)
+    assert flow.review_digest == flow_review.earlier_digest(flow, m.meaning)
+    assert _state(tmp_path) == flow_review.EARLIER
+    _code, out = _cli(tmp_path, capsys, "extract")
+    assert "recorded" not in out

@@ -9,8 +9,8 @@ current digest.
 agrees with the earlier form of the evidence at this source. Then the answer was current
 before the update, and nothing changed after it. The new digest keeps the answer current.
 A 2.0.0 digest that does not agree with the source stays in the file, and the answer
-stays pending, as before. Only the 2.0 and 3.0 releases do the replacement, as for the
-flow reviews (`flow_review.claim_digest_accepted`). From 3.1.0, a 2.0.0 digest is pending.
+stays pending, as before. Each release does the replacement, as for the flow reviews
+(`flow_review.needs_record`). Thus a project can go from 2.0.0 to any later release.
 
 The replacement does not examine an answer. It writes only the `evidence` value, and it
 keeps all other text of the configuration file (`answer_write.renew_evidence`).
@@ -27,7 +27,6 @@ from systemap import (
     answer_write,
     audit,
     decision_kinds,
-    flow_review,
     judgement,
     nest,
 )
@@ -41,7 +40,7 @@ def record(cfg: Config, tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
 
     Give one line if the command wrote the file, or one warning line if it cannot write
     it. Without such answers, give no line."""
-    if not flow_review.claim_digest_accepted() or not cfg.source:
+    if not cfg.source:
         return []
     exact = [a for a in cfg.judgement_answered if a.items and _DIGEST.fullmatch(a.evidence)]
     if not exact:

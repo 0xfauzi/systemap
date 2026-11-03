@@ -10,8 +10,8 @@ the record does not resolve, and a record with the new digest gives a new review
 systemap 2.0.0 recorded a review digest of the claim only (`claim_digest`). Two digests
 give the state `earlier`, with the label "review earlier than source tracking":
 
-- the claim digest. This digest records no source. Only the 2.0 and 3.0 releases accept
-  it (`claim_digest_accepted`). From 3.1.0, it is stale.
+- the claim digest. This digest records no source. Each release accepts it, so that
+  each release can do the one-time upgrade below.
 - the earlier-review digest (`earlier_digest`). `systemap refresh` and `systemap extract`
   write it one time in place of the claim digest. It records the source records at that
   time.
@@ -30,7 +30,6 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
-from systemap import __version__
 from systemap.model import Flow, Meaning, source_parsed
 
 CURRENT = "current"
@@ -43,19 +42,6 @@ REVIEWED = (CURRENT, EARLIER)
 EARLIER_LABEL = "review earlier than source tracking"
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
-# A claim digest from 2.0.0 is an earlier review only in the 2.0 and 3.0 releases. From
-# 3.1.0, it is stale, because it records no source. PyPI has no 2.x release after 2.0.0,
-# so 3.0 also does the one-time upgrade for users of 2.0.0. Tests change VERSION.
-CLAIM_DIGEST_LAST = (3, 0)
-VERSION = __version__
-
-
-def claim_digest_accepted() -> bool:
-    """Tell if this version accepts a claim digest from 2.0.0 as an earlier review."""
-    found = re.match(r"(\d+)\.(\d+)", VERSION)
-    if found is None:
-        return False
-    return (int(found[1]), int(found[2])) <= CLAIM_DIGEST_LAST
 
 
 def claim(flow: Flow, meaning: Meaning) -> tuple[str, ...]:
@@ -134,7 +120,7 @@ def form(flow: Flow, meaning: Meaning) -> str:
         return CURRENT
     if flow.review_digest == earlier_digest(flow, meaning):
         return EARLIER
-    if claim_digest_accepted() and flow.review_digest == claim_digest(flow, meaning):
+    if flow.review_digest == claim_digest(flow, meaning):
         return EARLIER
     return STALE
 
@@ -167,6 +153,4 @@ def recorded_value(flow: Flow, meaning: Meaning) -> str:
 
 def needs_record(flow: Flow, meaning: Meaning) -> bool:
     """Find if the review digest of a flow is a claim digest without the source records."""
-    if not claim_digest_accepted():
-        return False
     return bool(flow.source_refs) and flow.review_digest == claim_digest(flow, meaning)

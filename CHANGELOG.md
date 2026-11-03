@@ -7,13 +7,21 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+### Corrections
+
+- Each release does the one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence (issue 143).
+  In 3.0.x, the version stopped this upgrade from 3.1.0. Then a project that went from 2.0.0 directly to 3.1.0 or later got stale flow reviews and pending answers.
+  Now `systemap refresh` and `systemap extract` do the upgrade on each version. You do not have to install 3.0 first.
+
 ## 3.0.0 - 2026-11-03
 
 ### Changes that can break a script or a CI job
 
 - The facts format is 13 (2.0.0 wrote 12). After the upgrade, run `systemap refresh` one time and commit the output.
-- The one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence runs in 3.0. Run `systemap refresh` on 3.0 before you install 3.1 or later.
-  From 3.1.0, a 2.0.0 flow review that only gives the claim is stale, and an answer with 2.0.0 evidence is pending.
+- `systemap refresh` and `systemap extract` do a one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence.
+  From the next release, each release also does this upgrade. Thus, you do not have to run `systemap refresh` on 3.0 before you install a later release.
 - The previous `jev` finding kinds, line forms and options (`--jev`, `--no-jev`, `suggest --jev`) stay until 3.1.0. 2.0.0 said that only that release reads them.
 
 - systemap sends no data to a decision provider by default.
