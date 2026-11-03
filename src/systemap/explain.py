@@ -435,7 +435,7 @@ AUDIT = {
 }
 
 # The previous names of the decision kinds give the explanation of the new name.
-# systemap reads the previous names for one release.
+# systemap reads the previous names until 3.1.0.
 PREVIOUS = {old: AUDIT[new] for old, new in decision_kinds.PREVIOUS.items()}
 
 # ---- what `systemap check` refuses -------------------------------------------------

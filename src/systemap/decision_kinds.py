@@ -5,7 +5,7 @@ and `OWNER`. The names do not name a provider, because Jev or OpenAI can give th
 answers.
 
 Before this release, each kind name started with "jev". `PREVIOUS` gives the previous
-name of each kind. For one release, an answer in `[judgement] answered` can use an
+name of each kind. Until 3.1.0, an answer in `[judgement] answered` can use an
 previous name, and it matches the line with the current name. `answer_migrations` changes
 an item with a previous name to the current line. `warnings` gives one warning for each
 previous name in the answers.
@@ -31,7 +31,7 @@ MOVE = "decision move"
 # The kinds that `systemap audit` prints, and that `--kind` selects.
 KINDS = (MISFOLD, OWNER, SENTENCE, FLOW, GOVERNS)
 
-# The previous name of each kind. systemap reads these names for one release.
+# The previous name of each kind. systemap reads these names until 3.1.0.
 PREVIOUS = {
     "jev mis-fold": MISFOLD,
     "jev owner": OWNER,
@@ -110,7 +110,7 @@ def warnings(answers: Iterable[Answered]) -> list[str]:
     """Give one warning for each previous kind name in `[judgement] answered`."""
     return [
         f'warning: [judgement] answered uses the previous name "{name}". '
-        f'Change it to "{PREVIOUS[name]}". Only this release reads the previous names.'
+        f'Change it to "{PREVIOUS[name]}". From 3.1.0, systemap does not read the previous names.'
         for name in previous_names(answers)
     ]
 
@@ -119,5 +119,5 @@ def option_warning(name: str) -> str:
     """Give the warning for an previous kind name in the `--kind` option."""
     return (
         f'warning: "{name}" is the previous name of "{PREVIOUS[name]}". Use the new name. '
-        "Only this release reads the previous names."
+        "From 3.1.0, systemap does not read the previous names."
     )

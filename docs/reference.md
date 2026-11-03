@@ -481,7 +481,7 @@ This release also reads the previous names:
 - `systemap explain "jev flow"` gives the text of the new diagnostic kind.
 
 `audit` and `judgement` print one warning to stderr for each previous name in `[judgement] answered`.
-The warning gives the new name. Only this release reads the previous names.
+The warning gives the new name. From 3.1.0, systemap does not read the previous names.
 
 The evidence digest of a line is the same for the previous name and the new name.
 systemap calculates the digest of a line from the same line with its previous name.
@@ -570,7 +570,7 @@ The report gives the row `stale answer: '<item>' is no longer a finding: judgeme
 Remove the item from `[judgement] answered`.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
-The previous options stay for one release. They send the same requests as the new options.
+The previous options stay until 3.1.0. They send the same requests as the new options.
 `[jev] enabled` and the other keys of the `[jev]` table do not change.
 
 The printed text gives the name of the provider that gave the answers.
@@ -1156,7 +1156,7 @@ With a model, it also shows maps above forty components and large
 components that can become nested maps.
 
 - `--decide` uses the module-pair answers of the decision provider instead of package groups.
-  Set `TYPESAFE_API_KEY` for this option. `--jev` is the previous name of `--decide`. It stays for one release.
+  Set `TYPESAFE_API_KEY` for this option. `--jev` is the previous name of `--decide`. It stays until 3.1.0.
 
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
@@ -1372,7 +1372,7 @@ than one-third of the map.
 
 - `--no-decide` sends nothing.
 
-- `--jev` and `--no-jev` are aliases: the previous names of `--decide` and `--no-decide`. They stay for one release.
+- `--jev` and `--no-jev` are aliases: the previous names of `--decide` and `--no-decide`. They stay until 3.1.0.
 
 - `--provider jev|openai` selects the decision provider of `--decide`.
   With `openai`, `--decide` must have `OPENAI_API_KEY`.
@@ -1401,7 +1401,7 @@ Sends questions about semantic claims to the decision provider.
 Without `--provider`, the command sends no data and exits 1.
 The finding kinds are `decision mis-fold`, `decision owner`, `decision sentence`, and
 `decision governs`. `--kind "decision flow"` also sends questions about flow claims.
-`--kind` also accepts the previous `jev` names for one release, with a warning.
+`--kind` also accepts the previous `jev` names until 3.1.0, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.
 
@@ -1847,7 +1847,7 @@ Unknown keys are rejected.
 | `[facts]` | none | `model_sdks = [...]` adds import names to the SDK list of the language adapter. A `-` at the start removes a name of that list (`"-google.adk"`). The Python list contains Python import names, and the TypeScript list contains npm package names. |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[rules]` | `unknown = "warn"` | `unknown = "fail"` makes `systemap check` and `systemap rules` exit 1 for an import rule with the result `unknown`. With `"warn"`, the commands print the result and do not reject the map. A different value or key gives a configuration error. |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. The previous `jev` names stay correct for one release, with a warning. |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. The previous `jev` names stay correct until 3.1.0, with a warning. |
 | `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
 | `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, `suggest --decide`, and `judgement --order-by-drift`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |

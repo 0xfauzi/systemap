@@ -51,6 +51,17 @@ The [reference](reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-
 `delta` sends questions to a decision provider only with `--decide`. A key or `[jev] enabled = true` sends no request.
 The answers are suggestions under their own heading. They do not change the delta lines or the exit code.
 
+## Changes that the upgrade to 3.0.0 makes in CI
+
+These changes can change the result of a CI job after you install 3.0.0:
+
+- The facts format is 13. A facts file from 2.0.0 is stale, so `extract --check` and `check` exit 1. Run `systemap refresh` one time, and commit the output.
+- Do that refresh on 3.0. It also does the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. From 3.1.0, a flow review from 2.0.0 that gives only the claim is stale, and an answer with evidence from 2.0.0 is pending.
+- `audit`, `triage`, and `plan "<task>"` send data only with `--provider`. Without it, they print `no data was sent` and exit 1. Add `--provider jev` to each of these commands in a CI job.
+- `delta` sends questions only with `--decide`. With `[jev] enabled = true` and no `--decide`, it prints a warning and sends no question.
+- `journeys` starts the `[agent]` command only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.
+- The previous `jev` names and options stay until 3.1.0.
+
 ## Changes that the upgrade from 1.2.0 makes in CI
 
 These changes can change the result of a CI job after you install 2.0.0:
@@ -59,7 +70,7 @@ These changes can change the result of a CI job after you install 2.0.0:
 - systemap reads the model file as data. A model file that needs code stops each command. Run `SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert` one time.
 - The facts format is 12. A facts file of an earlier format is stale, so `extract --check` and `check` exit 1. Run `systemap refresh`, and commit the facts file.
 - Each exact answer that is not for a `crossing import` line is pending one time. `judgement` prints the new digest. Examine the source again, and write the digest in `evidence`.
-- The `jev ...` finding kinds are now `decision ...` kinds. Some `unknown surface` and `entry point` lines have a new form. The earlier names and lines give a warning for one release.
+- The `jev ...` finding kinds are now `decision ...` kinds. Some `unknown surface` and `entry point` lines have a new form. The earlier names and lines give a warning until 3.1.0.
 - `judgement --strict` exits 1 for a model without components. `judgement --json` has schema version 3.
 - A configured cache path, `out_dir`, or `model` that is absolute or has a `..` part is a configuration error.
 - With `[judgement] require_reviews = true`, a component without a `source_review` digest is a finding, and `judgement --strict` exits 1.

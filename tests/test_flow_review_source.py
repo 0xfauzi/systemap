@@ -371,7 +371,8 @@ def test_a_claim_digest_from_2_0_0_is_stale_from_3_1_0(
     for version in ("2.0.9", "3.0.0", "3.0.9"):
         monkeypatch.setattr(flow_review, "VERSION", version)
         assert _state(tmp_path) == flow_review.EARLIER, version
-    monkeypatch.setattr(flow_review, "VERSION", "3.1.0")
-    assert _state(tmp_path) == flow_review.STALE
+    for version in ("3.1.0", "3.1rc1", "3.1.0rc1", "4.0.0"):
+        monkeypatch.setattr(flow_review, "VERSION", version)
+        assert _state(tmp_path) == flow_review.STALE, version
     flow, m = _flow(tmp_path)
     assert not flow_review.needs_record(flow, m.meaning)

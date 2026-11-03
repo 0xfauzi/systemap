@@ -704,7 +704,7 @@ The previous names started with <code>jev</code>. The new names start with <code
 <li><code>systemap explain &quot;jev flow&quot;</code> gives the text of the new diagnostic kind.</li>
 </ul>
 <p><code>audit</code> and <code>judgement</code> print one warning to stderr for each previous name in <code>[judgement] answered</code>.
-The warning gives the new name. Only this release reads the previous names.</p>
+The warning gives the new name. From 3.1.0, systemap does not read the previous names.</p>
 <p>The evidence digest of a line is the same for the previous name and the new name.
 systemap calculates the digest of a line from the same line with its previous name.
 Thus an exact answer with one item keeps its <code>evidence</code> value after you change the name.
@@ -828,7 +828,7 @@ An answer for an <code>unknown surface: test file</code> line is a stale answer.
 The report gives the row <code>stale answer: '&lt;item&gt;' is no longer a finding: judgement gives no line about a test file.</code>
 Remove the item from <code>[judgement] answered</code>.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
-The previous options stay for one release. They send the same requests as the new options.
+The previous options stay until 3.1.0. They send the same requests as the new options.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
 <p>The printed text gives the name of the provider that gave the answers.
 For example, <code>delta --decide --provider openai</code> prints <code>OpenAI suggestions</code>. With Jev, it prints <code>Jev suggestions</code>.</p>
@@ -1469,7 +1469,7 @@ components that can become nested maps.</p>
 <ul>
 <li>
 <p><code>--decide</code> uses the module-pair answers of the decision provider instead of package groups.
-Set <code>TYPESAFE_API_KEY</code> for this option. <code>--jev</code> is the previous name of <code>--decide</code>. It stays for one release.</p>
+Set <code>TYPESAFE_API_KEY</code> for this option. <code>--jev</code> is the previous name of <code>--decide</code>. It stays until 3.1.0.</p>
 </li>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider.
@@ -1826,7 +1826,7 @@ The heading of the suggestions names the provider, for example <code>Jev suggest
 <p><code>--no-decide</code> sends nothing.</p>
 </li>
 <li>
-<p><code>--jev</code> and <code>--no-jev</code> are aliases: the previous names of <code>--decide</code> and <code>--no-decide</code>. They stay for one release.</p>
+<p><code>--jev</code> and <code>--no-jev</code> are aliases: the previous names of <code>--decide</code> and <code>--no-decide</code>. They stay until 3.1.0.</p>
 </li>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider of <code>--decide</code>.
@@ -1855,7 +1855,7 @@ evidence, unconfirmed agent drafts, and covered entry counts.</p>
 Without <code>--provider</code>, the command sends no data and exits 1.
 The finding kinds are <code>decision mis-fold</code>, <code>decision owner</code>, <code>decision sentence</code>, and
 <code>decision governs</code>. <code>--kind &quot;decision flow&quot;</code> also sends questions about flow claims.
-<code>--kind</code> also accepts the previous <code>jev</code> names for one release, with a warning.
+<code>--kind</code> also accepts the previous <code>jev</code> names until 3.1.0, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.</p>
 <p>Set <code>TYPESAFE_API_KEY</code> for Jev, or <code>OPENAI_API_KEY</code> for OpenAI, before you run the command.</p>
@@ -2563,7 +2563,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[judgement]</code></td>
 <td>none</td>
-<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. The previous <code>jev</code> names stay correct for one release, with a warning.</td>
+<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. The previous <code>jev</code> names stay correct until 3.1.0, with a warning.</td>
 </tr>
 <tr>
 <td><code>[judgement] require_reviews</code></td>

@@ -101,7 +101,7 @@ def test_an_earlier_name_with_its_previous_digest_closes_the_new_line(
     warnings = [line for line in err.splitlines() if line.startswith("warning:")]
     assert warnings == [
         'warning: [judgement] answered uses the previous name "jev sentence". '
-        'Change it to "decision sentence". Only this release reads the previous names.'
+        'Change it to "decision sentence". From 3.1.0, systemap does not read the previous names.'
     ]
     assert main(["--root", str(root), "judgement"]) == 0
     assert capsys.readouterr().err.count("warning:") == 1
@@ -160,7 +160,7 @@ def test_an_earlier_family_kind_closes_the_new_lines_and_a_nested_line_migrates(
     assert decision_kinds.previous_line(line.text).startswith("Core: jev flow: ")
     assert decision_kinds.warnings([family]) == [
         'warning: [judgement] answered uses the previous name "jev flow". '
-        'Change it to "decision flow". Only this release reads the previous names.'
+        'Change it to "decision flow". From 3.1.0, systemap does not read the previous names.'
     ]
 
 
@@ -248,7 +248,7 @@ def test_the_help_names_the_earlier_options(capsys: pytest.CaptureFixture[str]) 
             main([command, "--help"])
         out = " ".join(capsys.readouterr().out.split())
         assert "--decide" in out and "--jev" in out
-        assert "previous name" in out and "one release" in out
+        assert "previous name" in out and "until 3.1.0" in out
 
 
 # ---- the explanations ------------------------------------------------------------------

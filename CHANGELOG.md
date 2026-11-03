@@ -14,6 +14,7 @@ A layer is a filtered view of the map.
 - The facts format is 13 (2.0.0 wrote 12). After the upgrade, run `systemap refresh` one time and commit the output.
 - The one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence runs in 3.0. Run `systemap refresh` on 3.0 before you install 3.1 or later.
   From 3.1.0, a 2.0.0 flow review that only gives the claim is stale, and an answer with 2.0.0 evidence is pending.
+- The previous `jev` finding kinds, line forms and options (`--jev`, `--no-jev`, `suggest --jev`) stay until 3.1.0. 2.0.0 said that only that release reads them.
 
 - systemap sends no data to a decision provider by default.
   `audit`, `triage`, and `plan "<task>"` send data only with `--provider jev` or `--provider openai`.

@@ -44,16 +44,18 @@ EARLIER_LABEL = "review earlier than source tracking"
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 # A claim digest from 2.0.0 is an earlier review only in the 2.0 and 3.0 releases. From
-# 3.1.0, it is stale, because it records no source. No 2.x release after 2.0.0 was
-# published, so 3.0 keeps the one-time upgrade for users of 2.0.0. Tests change VERSION.
+# 3.1.0, it is stale, because it records no source. PyPI has no 2.x release after 2.0.0,
+# so 3.0 also does the one-time upgrade for users of 2.0.0. Tests change VERSION.
 CLAIM_DIGEST_LAST = (3, 0)
 VERSION = __version__
 
 
 def claim_digest_accepted() -> bool:
     """Tell if this version accepts a claim digest from 2.0.0 as an earlier review."""
-    major, minor = (int(part) for part in VERSION.split(".")[:2])
-    return (major, minor) <= CLAIM_DIGEST_LAST
+    found = re.match(r"(\d+)\.(\d+)", VERSION)
+    if found is None:
+        return False
+    return (int(found[1]), int(found[2])) <= CLAIM_DIGEST_LAST
 
 
 def claim(flow: Flow, meaning: Meaning) -> tuple[str, ...]:

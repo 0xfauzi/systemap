@@ -1251,7 +1251,7 @@ def build_parser() -> argparse.ArgumentParser:
             "lines or the exit code. Without --decide, delta sends no request. "
             "[jev] enabled = true in systemap.toml does not send a request. "
             "--no-decide also stops the hint. --jev and --no-jev are the previous names of these "
-            "options. They stay for one release."
+            "options. They stay until 3.1.0."
         ),
     )
     providers.add_option(s)
@@ -1280,7 +1280,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Use the answers of the decision provider about module pairs to make groups. "
             "This option must have the key of the provider. --jev is the previous name of "
-            "this option. It stays for one release."
+            "this option. It stays until 3.1.0."
         ),
     )
     providers.add_option(s)
