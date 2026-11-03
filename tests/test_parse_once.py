@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import ast
 import collections
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 from conftest import TINY_PACKAGE, write_tree
+from test_syntax_dump import SOURCE, as_on_3_12_3
 
 from systemap import (
     config,
@@ -233,8 +234,14 @@ def test_walk_gives_the_nodes_in_the_order_of_ast_walk() -> None:
     python_tree.clear()
 
 
-def test_the_syntax_digest_does_not_change_the_shared_tree() -> None:
-    tree = ast.parse("def f(x: int) -> int:\n    return x\n\nclass C:\n    pass\n")
+@pytest.mark.parametrize("as_on", [lambda tree: tree, as_on_3_12_3], ids=["parsed", "3.12.3"])
+def test_the_syntax_digest_does_not_change_the_shared_tree(
+    as_on: Callable[[ast.AST], ast.AST],
+) -> None:
+    """The dump hides empty `type_params` and empty f-string parts (issue 126) and then
+    restores them."""
+    source = "def f(x: int) -> int:\n    return x\n\nclass C:\n    pass\n" + SOURCE
+    tree = as_on(ast.parse(source))
     before = ast.dump(tree, include_attributes=True)
     extract._dump_python_syntax(tree)
     assert ast.dump(tree, include_attributes=True) == before

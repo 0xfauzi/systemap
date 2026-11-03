@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 
 MAX_LINES = 800
 FREEZE_OVERSIZE = False
@@ -44,6 +44,33 @@ FREEZE_OVERSIZE = False
 
 def emit(text: str = "") -> None:
     sys.stdout.write(text + "\n")
+
+
+class MeasurementError(Exception):
+    """Git did not give a measurement that this hook can read."""
+
+
+def git_path(path: PurePath, repo: PurePath) -> str | None:
+    """The path relative to the repo, with forward slashes, as Git expects.
+
+    None for a path outside the repo.
+    """
+    try:
+        return path.relative_to(repo).as_posix()
+    except ValueError:
+        return None
+
+
+def absent(ref: str, rel: str, stderr: bytes) -> None:
+    """A path that `ref` does not have.
+
+    HEAD does not have a file that this commit adds. The index must have each
+    staged file, so a failure there is a failure of the measurement.
+    """
+    if ref:
+        return
+    message = stderr.decode(errors="replace").strip()
+    raise MeasurementError(f"git cannot show the staged version of {rel}: {message}")
 
 
 def find_repo() -> Path | None:
@@ -64,7 +91,9 @@ def find_repo() -> Path | None:
         # No repo, or no commits yet: nothing to compare against, so nothing to
         # report. Passing is the honest answer.
         return None
-    return Path(top)
+    # Resolved as the staged paths are, so that a symbolic link or a substituted
+    # drive does not put each path outside the repo.
+    return Path(top).resolve()
 
 
 def line_count_at(repo: Path, ref: str, rel: str) -> int | None:
@@ -74,7 +103,7 @@ def line_count_at(repo: Path, ref: str, rel: str) -> int | None:
         ["git", "-C", str(repo), "show", spec], capture_output=True, check=False
     )
     if proc.returncode != 0:
-        return None
+        return absent(ref, rel, proc.stderr)
     return proc.stdout.count(b"\n")
 
 
@@ -99,9 +128,8 @@ def survey(repo: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     failures: list[str] = []
     notes: list[str] = []
     for name in paths:
-        try:
-            rel = str(Path(name).resolve().relative_to(repo))
-        except ValueError:
+        rel = git_path(Path(name).resolve(), repo)
+        if rel is None:
             # A path outside this repo. Nothing here to compare it against.
             continue
         failure, note = classify(repo, rel)
@@ -121,8 +149,17 @@ def main(argv: list[str]) -> int:
     if repo is None:
         return 0
 
-    failures, notes = survey(repo, paths)
+    try:
+        failures, notes = survey(repo, paths)
+    except MeasurementError as error:
+        emit("File length ratchet: no measurement.")
+        emit(f"  {error}")
+        return 2
+    return report(failures, notes)
 
+
+def report(failures: list[str], notes: list[str]) -> int:
+    """Write the result of the survey and give the exit status."""
     if not failures:
         for note in notes:
             emit(note)
