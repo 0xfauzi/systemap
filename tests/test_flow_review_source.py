@@ -359,18 +359,19 @@ def test_the_record_changes_only_the_digests_of_two_flows_in_one_file(
     assert path.read_text(encoding="utf-8") == expected
 
 
-def test_a_claim_digest_from_2_0_0_is_stale_from_2_1_0(
+def test_a_claim_digest_from_2_0_0_is_stale_from_3_1_0(
     tmp_path: Path, case: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A 2.0.0 claim digest is an earlier review in 2.0 releases only, then stale."""
+    """A 2.0.0 claim digest is an earlier review in the 2.0 and 3.0 releases, then stale."""
     package = _project(tmp_path, case)
     flow, m = _flow(tmp_path)
     _write_model(tmp_path, package, flow.source_refs, flow_review.claim_digest(flow, m.meaning))
     cfg = config.load(tmp_path)
     facts_file.write_facts(cfg.facts_path, _facts(tmp_path), tmp_path)
-    monkeypatch.setattr(flow_review, "VERSION", "2.0.9")
-    assert _state(tmp_path) == flow_review.EARLIER
-    monkeypatch.setattr(flow_review, "VERSION", "2.1.0")
+    for version in ("2.0.9", "3.0.0", "3.0.9"):
+        monkeypatch.setattr(flow_review, "VERSION", version)
+        assert _state(tmp_path) == flow_review.EARLIER, version
+    monkeypatch.setattr(flow_review, "VERSION", "3.1.0")
     assert _state(tmp_path) == flow_review.STALE
     flow, m = _flow(tmp_path)
     assert not flow_review.needs_record(flow, m.meaning)

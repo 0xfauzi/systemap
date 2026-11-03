@@ -252,12 +252,12 @@ An `entry point` line with the full evidence also has all entry point records.
 
 Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
 
-In the 2.0 releases, the first `systemap refresh` or `systemap extract` examines each `evidence` value in the 2.0.0 form.
+In the 2.0 and 3.0 releases, the first `systemap refresh` or `systemap extract` examines each `evidence` value in the 2.0.0 form.
 If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
 The command changes only the `evidence` value, and it keeps all other text of the configuration file.
 
 A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
-From 2.1.0, an answer with a 2.0.0 value is pending. `judgement` prints the new digest in the `pending answer` line.
+From 3.1.0, an answer with a 2.0.0 value is pending. `judgement` prints the new digest in the `pending answer` line.
 
 Migration from facts format 10: the evidence of an `unknown surface` line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.
@@ -782,7 +782,7 @@ for example `/map/contract.py @team-leads`. `systemap init` prints this line. It
 ### The rules of a map from before the contract file
 
 A map from before the contract file gives its rules in `Model(..., invariants=..., import_rules=...)`.
-In the 2.x releases, systemap reads the rules from the model file or from the contract file.
+From 2.0, systemap reads the rules from the model file or from the contract file.
 If the two files give rules, systemap refuses the map with a configuration error that names the two files.
 
 The first `systemap refresh` or `systemap extract` moves the rules to the contract file one time, for each map.

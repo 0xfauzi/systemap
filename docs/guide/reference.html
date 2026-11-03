@@ -394,11 +394,11 @@ For example, a new import of a module from a different component does not open a
 The model files are the model file, the contract file, and each file that they import.
 An <code>entry point</code> line with the full evidence also has all entry point records.</p>
 <p>Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.</p>
-<p>In the 2.0 releases, the first <code>systemap refresh</code> or <code>systemap extract</code> examines each <code>evidence</code> value in the 2.0.0 form.
+<p>In the 2.0 and 3.0 releases, the first <code>systemap refresh</code> or <code>systemap extract</code> examines each <code>evidence</code> value in the 2.0.0 form.
 If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
 The command changes only the <code>evidence</code> value, and it keeps all other text of the configuration file.</p>
 <p>A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
-From 2.1.0, an answer with a 2.0.0 value is pending. <code>judgement</code> prints the new digest in the <code>pending answer</code> line.</p>
+From 3.1.0, an answer with a 2.0.0 value is pending. <code>judgement</code> prints the new digest in the <code>pending answer</code> line.</p>
 <p>Migration from facts format 10: the evidence of an <code>unknown surface</code> line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.</p>
 <p>Migration: the full evidence of a model file that imports other model files changed.
@@ -1020,7 +1020,7 @@ Thus the next agent reads the cause before it proposes the change again.</p>
 for example <code>/map/contract.py @team-leads</code>. <code>systemap init</code> prints this line. It does not write <code>CODEOWNERS</code>, because it cannot know the team.</p>
 <h3 id="the-rules-of-a-map-from-before-the-contract-file">The rules of a map from before the contract file</h3>
 <p>A map from before the contract file gives its rules in <code>Model(..., invariants=..., import_rules=...)</code>.
-In the 2.x releases, systemap reads the rules from the model file or from the contract file.
+From 2.0, systemap reads the rules from the model file or from the contract file.
 If the two files give rules, systemap refuses the map with a configuration error that names the two files.</p>
 <p>The first <code>systemap refresh</code> or <code>systemap extract</code> moves the rules to the contract file one time, for each map.
 The command removes only the <code>invariants</code> and <code>import_rules</code> values with their assignments and comments.
@@ -2726,7 +2726,7 @@ Each unknown record must have a correction or accepted answer under
 <footer class="foot" id="footer">
 <div class="foot__in">
 <a class="brand brand--small" href="../"><svg class="mark" viewBox="0 0 512 512" aria-hidden="true"><path class="mark__path" pathLength="1" d="M380,132 H172 V256 H340 V380 H132"/><circle class="mark__dot" cx="380" cy="132" r="44"/><circle class="mark__dot" cx="132" cy="380" r="44"/></svg><span class="brand__name">systemap</span></a>
-<span class="foot__v">Version <code>2.0.0</code></span>
+<span class="foot__v">Version <code>3.0.0</code></span>
 <span class="foot__links"><a href="https://github.com/0xfauzi/systemap/blob/main/LICENSE">MIT license</a><a href="https://github.com/0xfauzi/systemap">GitHub</a><a href="https://pypi.org/project/systemap/">PyPI</a><a href="https://github.com/0xfauzi/systemap/blob/main/CHANGELOG.md">Changelog</a></span>
 <span class="foot__font">The page font is Inter, under the <a href="../assets/Inter-OFL.txt">SIL Open Font License 1.1</a>.</span>
 </div>
