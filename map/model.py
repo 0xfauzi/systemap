@@ -165,7 +165,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="3c8234d2cdf99df0c5713c98d3f1903bc5320f6f93674ad41081474beb989741",
+        source_review="36b35055ae82044e15b62d0731b62f62b76598a2bc9a1598477524262fca4634",
         does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. An import of a declaration file is not an unresolved import. Relative imports and path aliases can also name declaration files. A comment directly before a TypeScript variable does not become the module description without a blank line or a module tag. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(

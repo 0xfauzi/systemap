@@ -114,7 +114,7 @@ def repos(run: Path) -> tuple[Repo, Repo, int] | None:
     model, meaning, edits = found
     root = run / "repo"
     cfg = config.load(root)
-    facts = facts_file.read_facts(cfg.facts_path)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     mods = [m for m, r in facts["components"].items() if not is_empty_marker(r)]
     top = nest.load(cfg).top
     name = run.name.split("-first-map")[0]

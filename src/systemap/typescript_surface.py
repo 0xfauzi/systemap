@@ -232,6 +232,19 @@ class _Module:
     source: bytes
 
 
+def module_facts(root: Node, raw: str) -> _Module:
+    """This function gives the facts of the module that `_record_export` reads."""
+    local_names: dict[str, dict[str, Any]] = dict(import_names(root))
+    local_names.update((name, {"kind": kind}) for name, kind in _declared_kinds(root).items())
+    return _Module(local_names, _declaration_nodes(root), raw.encode("utf-8"))
+
+
+def empty_surface() -> dict[str, list[Any]]:
+    """This function gives the lists of a public surface, with no names in them."""
+    keys = ("functions", "classes", "errors", "types", "constants", "names", "unknown")
+    return {key: [] for key in keys}
+
+
 def _local_exports(node: Node, module: _Module, surface: dict[str, Any]) -> bool:
     """This function records `export { name }` for a declared or an imported local name,
     and tells if the statement gives a public name.
@@ -746,37 +759,9 @@ def parse_surface(raw: str, path: str = "") -> dict[str, Any] | None:
     root = _root(raw, path)
     if root is None:
         return None
-    functions: list[dict[str, str]] = []
-    classes: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
-    types: list[dict[str, Any]] = []
-    constants: list[dict[str, str]] = []
-    names: list[dict[str, Any]] = []
-    unknown: list[dict[str, Any]] = []
-    local_names: dict[str, dict[str, Any]] = dict(import_names(root))
-    local_names.update((name, {"kind": kind}) for name, kind in _declared_kinds(root).items())
-    source = raw.encode("utf-8")
-    module = _Module(local_names, _declaration_nodes(root), source)
-    surface = {
-        "functions": functions,
-        "classes": classes,
-        "errors": errors,
-        "types": types,
-        "constants": constants,
-        "names": names,
-        "unknown": unknown,
-    }
+    module = module_facts(root, raw)
+    surface = empty_surface()
     for export in (node for node in root.named_children if node.type == "export_statement"):
         _record_export(export, surface, module)
-    api = _exported_api(root, _ApiContext(source, unknown=unknown))
-    return {
-        "docstring": docstring(root),
-        "functions": functions,
-        "classes": classes,
-        "errors": errors,
-        "types": types,
-        "constants": constants,
-        "names": names,
-        "unknown": unknown,
-        "api": api,
-    }
+    api = _exported_api(root, _ApiContext(module.source, unknown=surface["unknown"]))
+    return {"docstring": docstring(root), **surface, "api": api}

@@ -14,7 +14,7 @@ bench/scratch/
 # Jev experiment inputs: rebuilt by bench/jev/build.py from bench/scratch and git
 bench/jev/data/
 bench/jev/.venv/
-bench/jev/label-page/items.json
+bench/jev/results/labels/label-page/items.json
 .systemap/
 
 # Claude Code writes its plugin API declarations here when it loads the plugin

@@ -23,7 +23,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
-from systemap import config, extract, facts_file
+from systemap import config, extract, facts_file, source_facts
 from systemap import typescript as ts
 from systemap import typescript_surface as surface
 
@@ -78,24 +78,18 @@ def _export_counts(repo: Path) -> tuple[int, int, int]:
         relative = path.relative_to(repo)
         if path.name.endswith(".d.ts") or any(part in SKIP_PARTS for part in relative.parts):
             continue
-        root = surface._root(path.read_text(encoding="utf-8"), path.as_posix())
+        raw = path.read_text(encoding="utf-8")
+        root = surface._root(raw, path.as_posix())
         if root is None:
             unparsed += 1
             continue
-        kinds = surface._declared_kinds(root)
+        module = surface.module_facts(root, raw)
         for node in root.named_children:
             if node.type != "export_statement":
                 continue
             total += 1
-            one: dict[str, Any] = {
-                "functions": [],
-                "classes": [],
-                "errors": [],
-                "constants": [],
-                "names": [],
-                "unknown": [],
-            }
-            surface._record_export(node, one, kinds)
+            one: dict[str, Any] = surface.empty_surface()
+            surface._record_export(node, one, module)
             accounted += bool(one["names"] or one["unknown"])
     return accounted, total, unparsed
 
@@ -114,7 +108,7 @@ def measure(name: str, checkout_dir: Path) -> dict[str, Any]:
     started = time.perf_counter()
     facts = extract.build(cfg)
     with tempfile.TemporaryDirectory() as temp:
-        facts_file.write_facts(Path(temp) / "facts.json", facts)
+        facts_file.write_facts(Path(temp) / "facts.json", facts, Path(temp))
     elapsed = time.perf_counter() - started
     paths = {module: repo / item["file"] for module, item in facts["components"].items()}
     attributed, tests = _test_counts(name, repo, paths, cfg)
@@ -129,7 +123,7 @@ def measure(name: str, checkout_dir: Path) -> dict[str, Any]:
         "unparsed_modules": unparsed,
         "tests_attributed": attributed,
         "tests_total": tests,
-        "unknown_lines": len(extract.unknown_fact_lines(facts)),
+        "unknown_lines": len(source_facts.unknown_fact_lines(facts)),
         "tree_sitter": version("tree-sitter"),
         "tree_sitter_typescript": version("tree-sitter-typescript"),
         "python": platform.python_version(),

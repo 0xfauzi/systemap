@@ -96,7 +96,10 @@ def comp_words(repo, cid) -> set[str]:
 
 def package_guess(repo, m: str) -> str | None:
     """Leave-one-out: the component that claims most other modules in m's package."""
-    votes = Counter(c for o, c in repo.owner.items() if o != m and package_of(o) == package_of(m))
+    pkg = package_of(m, repo.records)
+    votes = Counter(
+        c for o, c in repo.owner.items() if o != m and package_of(o, repo.records) == pkg
+    )
     return votes.most_common(1)[0][0] if votes else None
 
 
@@ -115,7 +118,7 @@ def misfold_fires(repo, m: str, cid: str) -> bool:
         return False
     if share_a_word(words(m), comp_words(repo, cid)):
         return False
-    return not any(share_a_package(m, o) for o in others)
+    return not any(share_a_package(m, o, repo.records) for o in others)
 
 
 # ---- experiments ----------------------------------------------------------
@@ -271,7 +274,8 @@ def score_pairs():
 
     def pkg(d):
         a, b = d["id"].split("|")
-        return 1.0 if package_of(a) == package_of(b) else 0.0
+        records = load(d["repo"]).records
+        return 1.0 if package_of(a, records) == package_of(b, records) else 0.0
 
     print(
         f"   baseline same-package AUC      {auc([pkg(d) for _, d in by['same']], [pkg(d) for _, d in by['hard'] + by['easy']]):.3f}"

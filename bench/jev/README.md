@@ -204,6 +204,8 @@ A Claude subagent read the full Git commits and labelled each set one time.
 It did not see Jev's answers.
 The `results/labels/agent-*.json` files contain a reason for each item.
 The scores are in `results/labels/report.txt`.
+The `results/labels/label-page/index.html` file is the archived page for manual labels in these tests.
+You cannot operate this page from this repository, because no command makes its input file `items.json` and the page must have the host API of claude.ai.
 
 Test 8 examined moves: 20 successors and 12 unrelated cases.
 This factual question has evidence in Git, so the agent's labels were accepted as the reference truth.
@@ -410,8 +412,12 @@ The table gives measured sample counts and times:
 
 | repository | samples | cold | warm | windows that moved |
 |---|---|---|---|---|
-| mealie | 25 | 29.3s | 0.3s | 24 of 24 |
+| mealie | 25 | 29.3s | 0.3s | 14 of 24 |
 | rich | 8 | 5.8s | 0.0s | 1 of 7 |
+
+The `results/history-<repository>.json` files contain the windows of the two runs.
+In `results/history-mealie.json`, 14 of the 24 windows have a change.
+That file records 0.3s cold. The repository does not contain the result file of the 29.3s run.
 
 The two runs completed in the permitted time.
 Facts at a commit do not change, so the command caches them under `.systemap/facts/`.
