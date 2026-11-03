@@ -133,7 +133,7 @@ def test_reexport_resolution_and_relative_sources() -> None:
     }
 
 
-def test_facts_format_is_9_and_an_older_file_is_stale(tmp_path: Path) -> None:
+def test_facts_format_and_an_older_file_is_stale(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     fresh = extract.build(cfg)

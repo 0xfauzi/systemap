@@ -228,3 +228,15 @@ def test_focus_ring_and_reduced_motion_in_every_scheme(
 def test_the_schemes_accents_differ() -> None:
     accents = {t["accent"] for t in theme_mod.SCHEMES.values()}
     assert len(accents) == len(theme_mod.SCHEMES)
+
+
+@needs_node
+def test_the_driver_refuses_an_unknown_scenario(sample: Sample, tmp_path: Path) -> None:
+    """A test that adds a scenario with a text replacement must not get the keyboard
+    report when the replacement does not apply."""
+    html = sample_page(sample, tmp_path)
+    args = [shutil.which("node") or "node", str(DRIVER), str(html), "--scenario", "nosuch"]
+    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
+    assert proc.returncode == 2
+    assert proc.stdout == ""
+    assert "unknown scenario: nosuch" in proc.stderr
