@@ -17,7 +17,9 @@ the path. Then it replaces the path with that file. A link at the path is replac
 write does not go to the target of the link. A reader gets the full previous file or the
 full new file. Two writers do not use the same temporary file. A new file gets the mode
 of a usual write: 0666 without the bits of the umask. A regular file that is at the path
-keeps its mode.
+keeps its mode. On Windows, a different program can open the new file for a short
+time. Then `os.replace` gives PermissionError, and `write_atomic` waits and tries
+`os.replace` again a small number of times.
 
 A different process can change a folder of the path to a link after the check. Where
 `repo_files.WALK` is true, `write_atomic` and `locked` open the resolved folder one part
@@ -42,6 +44,7 @@ import os
 import secrets
 import stat
 import sys
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -70,6 +73,13 @@ CACHE_FOLDER = ".systemap"
 GIT_IGNORE = ".gitignore"
 # The pattern applies to each file in the folder, also to the .gitignore file.
 IGNORE_ALL = "*\n"
+# On Windows, a different program, for example an antivirus scan, can open the new
+# file for a short time. Then `os.replace` gives PermissionError. If RETRY_REPLACE is
+# true, `write_atomic` waits for each time in REPLACE_WAITS and tries `os.replace` again.
+# These values are a limit. They are not a measurement. A measurement on Windows CI is
+# necessary to know if the limit is sufficient.
+RETRY_REPLACE = os.name == "nt"
+REPLACE_WAITS = (0.05, 0.1, 0.2, 0.4)
 
 
 class RefusedFile(Exception):
@@ -182,11 +192,29 @@ def write_atomic(root: Path, path: Path, text: str) -> None:
             with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
                 out.write(text)
             _keep_mode(_name(path, parent), name, parent)
-            os.replace(name, _name(path, parent), src_dir_fd=parent, dst_dir_fd=parent)
+            _replace(name, _name(path, parent), parent)
         except BaseException:
             with suppress(FileNotFoundError):
                 os.unlink(name, dir_fd=parent)
             raise
+
+
+def _replace(name: str, target: str, parent: int | None) -> None:
+    """Replace the target with the temporary file.
+
+    If RETRY_REPLACE is true, after a PermissionError, wait for the next time in
+    REPLACE_WAITS and try again. After the last time in REPLACE_WAITS, the next
+    PermissionError goes to the caller. A different OSError goes to the caller at once.
+    """
+    waits = REPLACE_WAITS if RETRY_REPLACE else ()
+    for wait in waits:
+        try:
+            os.replace(name, target, src_dir_fd=parent, dst_dir_fd=parent)
+        except PermissionError:
+            time.sleep(wait)
+        else:
+            return
+    os.replace(name, target, src_dir_fd=parent, dst_dir_fd=parent)
 
 
 def _temporary(path: Path, parent: int | None) -> tuple[int, str]:

@@ -25,8 +25,13 @@ A layer is a filtered view of the map.
 
 ### Corrections
 
+- The source-review digest of a Python module is the same on CPython 3.12.3 and on the other supported versions.
+  CPython 3.12.3 adds an empty string constant at the end of a format spec that ends with a replacement field, for example `f"{x:<{width}}"`.
+  The syntax dump now removes it. On 3.11, 3.12.13 and 3.13, no recorded digest changes. On 3.12.3, a module with this construct gets the digest of the other versions one time.
+  `bench/jev/README.md` gives the measurement (issue #126).
 - `systemap decisions status` no longer stops with `KeyError` when the decision store has a supported record for a component that the model does not have.
   Such a record does not count as supported.
+- On Windows, if `os.replace` gives `PermissionError` when `file_write.write_atomic` writes a cache file or an output file, systemap waits for a short time and tries `os.replace` again, a maximum of 4 more times. A different program, for example an antivirus scan, can cause this error.
 
 ### Security
 
