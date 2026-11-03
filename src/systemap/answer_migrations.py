@@ -32,7 +32,7 @@ form has one pattern in `EARLIER_FORMS`. These lines changed:
   The current line shows each such character as an escape (`terminal_text.printable`).
   This form is the first form, so the other forms read the line with the escapes.
 
-For one release, an answer item in an earlier form selects the line in the current form.
+Until 3.1.0, an answer item in an earlier form selects the line in the current form.
 `current_line` applies the patterns in their sequence. Thus an item can change in two or
 more steps. `warnings` gives one warning for each item in an earlier form, and also the
 warnings for the previous decision kind names. An item that is a current line gets no
@@ -302,7 +302,7 @@ def warnings(answers: Iterable[Answered], present: Container[str] = ()) -> list[
     ]
     return decision_kinds.warnings(given) + [
         f'warning: [judgement] answered uses the earlier line "{item}". Change it to '
-        f'"{now[item]}". Only this release reads the earlier line.'
+        f'"{now[item]}". From 3.1.0, systemap does not read the earlier line.'
         for item in earlier
     ]
 

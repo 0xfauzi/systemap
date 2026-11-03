@@ -10,8 +10,8 @@ the record does not resolve, and a record with the new digest gives a new review
 systemap 2.0.0 recorded a review digest of the claim only (`claim_digest`). Two digests
 give the state `earlier`, with the label "review earlier than source tracking":
 
-- the claim digest. This digest records no source. Only the 2.0 releases accept it
-  (`claim_digest_accepted`). From 2.1.0, it is stale.
+- the claim digest. This digest records no source. Only the 2.0 and 3.0 releases accept
+  it (`claim_digest_accepted`). From 3.1.0, it is stale.
 - the earlier-review digest (`earlier_digest`). `systemap refresh` and `systemap extract`
   write it one time in place of the claim digest. It records the source records at that
   time.
@@ -43,16 +43,19 @@ REVIEWED = (CURRENT, EARLIER)
 EARLIER_LABEL = "review earlier than source tracking"
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
-# A claim digest from 2.0.0 is an earlier review only in the 2.0 releases. From 2.1.0, it
-# is stale, because it records no source. Tests change VERSION.
-CLAIM_DIGEST_LAST = (2, 0)
+# A claim digest from 2.0.0 is an earlier review only in the 2.0 and 3.0 releases. From
+# 3.1.0, it is stale, because it records no source. PyPI has no 2.x release after 2.0.0,
+# so 3.0 also does the one-time upgrade for users of 2.0.0. Tests change VERSION.
+CLAIM_DIGEST_LAST = (3, 0)
 VERSION = __version__
 
 
 def claim_digest_accepted() -> bool:
     """Tell if this version accepts a claim digest from 2.0.0 as an earlier review."""
-    major, minor = (int(part) for part in VERSION.split(".")[:2])
-    return (major, minor) <= CLAIM_DIGEST_LAST
+    found = re.match(r"(\d+)\.(\d+)", VERSION)
+    if found is None:
+        return False
+    return (int(found[1]), int(found[2])) <= CLAIM_DIGEST_LAST
 
 
 def claim(flow: Flow, meaning: Meaning) -> tuple[str, ...]:

@@ -55,7 +55,7 @@ def test_an_earlier_decision_line_still_gets_the_warning_in_audit(
     assert jev_cli.cmd_audit(audit_args(two_cards, dry_run=True), send=Fake()) == 0
     assert capsys.readouterr().err.splitlines() == [
         'warning: [judgement] answered uses the previous name "jev sentence". '
-        'Change it to "decision sentence". Only this release reads the previous names.'
+        'Change it to "decision sentence". From 3.1.0, systemap does not read the previous names.'
     ]
 
 

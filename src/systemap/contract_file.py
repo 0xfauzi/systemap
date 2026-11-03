@@ -1,6 +1,6 @@
 """The contract reader gives the rules of a map from its contract file and its model file.
 
-In the 2.x releases, a map can give its rules in the contract file or in the model file.
+From 2.0, a map can give its rules in the contract file or in the model file.
 The model file of an earlier map gives them, until `systemap refresh` or `systemap
 extract` moves them one time (`contract_move`). If the two files give rules, the reader
 refuses the map, because the two files do not tell which rules apply.

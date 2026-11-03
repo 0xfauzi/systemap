@@ -9,8 +9,8 @@ current digest.
 agrees with the earlier form of the evidence at this source. Then the answer was current
 before the update, and nothing changed after it. The new digest keeps the answer current.
 A 2.0.0 digest that does not agree with the source stays in the file, and the answer
-stays pending, as before. Only the 2.0 releases do the replacement, as for the flow
-reviews (`flow_review.claim_digest_accepted`). From 2.1.0, a 2.0.0 digest is pending.
+stays pending, as before. Only the 2.0 and 3.0 releases do the replacement, as for the
+flow reviews (`flow_review.claim_digest_accepted`). From 3.1.0, a 2.0.0 digest is pending.
 
 The replacement does not examine an answer. It writes only the `evidence` value, and it
 keeps all other text of the configuration file (`answer_write.renew_evidence`).

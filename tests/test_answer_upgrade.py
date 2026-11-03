@@ -10,7 +10,7 @@ fixture:
    the earlier `crossing import` line form. A second `extract` writes nothing.
 2. An answer with a 2.0.0 digest that does not agree with the source (a comment changed
    after the answer) stays pending, and `extract` writes nothing.
-3. From 2.1.0, `extract` writes nothing, and the answer with a 2.0.0 digest is pending.
+3. From 3.1.0, `extract` writes nothing, and the answer with a 2.0.0 digest is pending.
 
 A probe on this repository gave the evidence: the earlier form gave the 6 digests that
 80e418b recorded in `systemap.toml`.
@@ -88,11 +88,11 @@ def test_an_answer_from_2_0_0_that_does_not_agree_stays_pending(project: Path) -
     assert len(pending(project)) == 2
 
 
-def test_from_2_1_0_an_answer_from_2_0_0_is_pending(
+def test_from_3_1_0_an_answer_from_2_0_0_is_pending(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Acceptance 3."""
-    monkeypatch.setattr(flow_review, "VERSION", "2.1.0")
+    monkeypatch.setattr(flow_review, "VERSION", "3.1.0")
     answer_earlier(project)
     toml = project / "systemap.toml"
     before = toml.read_text(encoding="utf-8")

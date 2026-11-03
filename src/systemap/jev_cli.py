@@ -705,8 +705,8 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         help="Select this question type. Use the option again for more types (one of: "
         + ", ".join(f'"{k}"' for k in config.AUDIT_KINDS)
         + f'). The default does not include "{decision_kinds.FLOW}". Its holdout result was '
-        'less than the threshold. The previous names, such as "jev flow", stay correct for '
-        "one release.",
+        'less than the threshold. The previous names, such as "jev flow", stay correct until '
+        "3.1.0.",
     )
     s.add_argument(
         "--brief",
