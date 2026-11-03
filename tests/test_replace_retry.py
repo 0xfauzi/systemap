@@ -26,15 +26,22 @@ from systemap import file_write
 REAL_REPLACE = os.replace
 
 
-def fail_replace(monkeypatch: pytest.MonkeyPatch, failures: int) -> list[float]:
-    """Make `os.replace` give PermissionError `failures` times. Give the list of waits."""
+def fail_replace(
+    monkeypatch: pytest.MonkeyPatch,
+    failures: int,
+    error: OSError | None = None,
+) -> list[float]:
+    """Make `os.replace` give the error `failures` times. Give the list of waits.
+
+    The default error is PermissionError.
+    """
     calls = {"count": 0}
     waits: list[float] = []
 
     def replace(*args: Any, **kwargs: Any) -> None:
         calls["count"] += 1
         if calls["count"] <= failures:
-            raise PermissionError(13, "Access is denied")
+            raise error or PermissionError(13, "Access is denied")
         REAL_REPLACE(*args, **kwargs)
 
     monkeypatch.setattr(file_write.os, "replace", replace)
@@ -88,13 +95,7 @@ def test_without_retry_the_first_failure_raises_at_once(
 
 def test_a_different_error_raises_at_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(file_write, "RETRY_REPLACE", True)
-    waits: list[float] = []
-
-    def replace(*args: Any, **kwargs: Any) -> None:
-        raise IsADirectoryError(21, "Is a directory")
-
-    monkeypatch.setattr(file_write.os, "replace", replace)
-    monkeypatch.setattr(file_write.time, "sleep", waits.append)
+    waits = fail_replace(monkeypatch, 1, IsADirectoryError(21, "Is a directory"))
     with pytest.raises(IsADirectoryError):
         file_write.write_atomic(tmp_path, tmp_path / "cache.json", "new")
     assert waits == []
