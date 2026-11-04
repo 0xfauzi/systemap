@@ -168,8 +168,8 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="00b376afa36e4aaac2502afb6a40fa3e77bd61409e063c749032a464cbc49ea1",
-        does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. An import of a declaration file is not an unresolved import. Relative imports and path aliases can also name declaration files. A comment directly before a TypeScript variable does not become the module description without a blank line or a module tag. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
+        source_review="0e39b64ab8f471e50fa974292eda80a20881cd4ba7518a331a003bc1690488bf",
+        does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. An import of a declaration file is not an unresolved import. Relative imports and path aliases can also name declaration files. A comment directly before a TypeScript variable does not become the module description without a blank line or a module tag. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Writes the Python syntax digest and the api fingerprints from the syntax text of systemap, and takes the Python signatures and constant values from the source text. Thus these values are the same on each supported Python version. A Python syntax node that the syntax text does not know stops the extraction. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
             "systemap.extract",
@@ -205,6 +205,8 @@ COMPONENTS = (
             "systemap.python_repo",
             "systemap.python_syntax",
             "systemap.python_tree",
+            "systemap.source_segment",
+            "systemap.syntax_text",
             "systemap.python_tests",
             "systemap.pattern_match",
             "systemap.source_facts",
@@ -297,7 +299,7 @@ COMPONENTS = (
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="6463c8b5f9da30a03443fe05ee73594459d1d9b74923dda4e593d44bc41a58a8",
+        source_review="85a768b0ced9dc21ba948ae54df96971e786f53dd3335c89fadfebba4d40c936",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=(
@@ -313,7 +315,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="bc9a0281332289dd79832a9ad59b3ed17833c3790b2560e9630fb705ba4de062",
+        source_review="176fa763587e8b64e7ea19024f0bb382d7aff1e92d5d5f914b93eeaecad3aaec",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -550,6 +552,7 @@ RELATIONS = {
     ("ChangeDetector", "Page"): "With --base, the page shows source changes and components that import changed modules. Imports do not show program execution or effects.",
     ("ChangeDetector", "Figures"): "The change detector gives changed components and components with import connections for a revision comparison. A plan figure reads component IDs directly.",
     ("Model", "Placer"): "The placer reads component cards, regions and flows. It keeps positions in the model. With --all, it keeps only pinned positions.",
+    ("Config", "Placer"): "The placer holds the lock of a model file from the read to the end of the write. Thus a different command cannot write that model file at the same time.",
     ("Placer", "Model"): "The placer writes positions, boxes and canvas size in map/model.py. It keeps all other file bytes unchanged.",
     ("Model", "FactsExtractor"): "The extractor uses model claims to find modules that are no longer in the repository.",
     ("Model", "ChangeDetector"): "The change detector gives changed modules their component identifiers. It compares recorded source reviews with digests of source and claims.",
@@ -608,6 +611,7 @@ VERBS = {
 VERB_OVERRIDES = {
     ("Config", "CLI"): ("gives settings to", "reads settings from"),
     ("Scaffold", "Model"): ("writes", "uses initial files from"),
+    ("Config", "Placer"): ("gives the model file lock to", "holds the model file lock of"),
     ("Placer", "Model"): ("writes positions in", "receives positions from"),
     ("Skill", "Agent"): ("gives instructions to", "reads instructions from"),
     ("Agent", "Model"): ("writes", "receives text from"),
