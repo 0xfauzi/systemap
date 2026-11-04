@@ -45,11 +45,10 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("skill.py", "files", "read_text"): "package data",
     ("skill.py", "files", "entry.read_text"): "package data",
     # The configuration file. config.load read it before with repo_files.read_text.
-    ("answer_write.py", "add", "target.read_bytes"): "the configuration that config.load read",
-    ("answer_write.py", "renew_evidence", "target.read_bytes"): (
-        "the configuration that config.load read"
-    ),
+    ("answer_write.py", "_add", "target.read_bytes"): "the configuration that config.load read",
+    ("answer_write.py", "_renew", "target.read_bytes"): ("the configuration that config.load read"),
     ("decisions_submit.py", "_write_answers", "target.read_bytes"): "the same configuration",
+    ("decisions_submit.py", "_restored", "target.read_bytes"): "the same configuration",
     # A path that decisions.confined gave: repo_files.checked examined it.
     ("decisions.py", "file_digest", "path.read_bytes"): "a path from decisions.confined",
     ("decisions_submit.py", "_citation_errors", "full.read_bytes"): "a path from confined",
@@ -60,6 +59,8 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("delta_git.py", "write_tree", "target.open"): "a write of a Git blob",
     # The confined open functions.
     ("file_write.py", "_create", "os.open"): "the lock open that refuses a link and a FIFO",
+    ("file_write.py", "_take", "os.open"): "the lock open with O_EXCL that refuses a link",
+    ("file_write.py", "_holder", "os.open"): "a lock file that O_NOFOLLOW opens, for its holder",
     ("repo_files.py", "_open", "os.open"): "the confined reader",
     ("repo_files.py", "_open_below", "os.open"): "the confined reader: a file in an open folder",
     ("repo_files.py", "open_folder", "os.open"): "the confined walk: the resolved root",
@@ -72,8 +73,8 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("judgement_evidence.py", "model_digest", "path.read_bytes"): MODEL,
     ("model_convert.py", "_siblings", "path.read_text"): MODEL,
     ("model_convert.py", "convert", "read_text"): MODEL,
-    ("model_write.py", "write_models", "path.read_bytes"): MODEL,
-    ("place_source.py", "write", "path.read_bytes"): MODEL,
+    ("model_write.py", "_write_all", "path.read_bytes"): MODEL,
+    ("place_source.py", "_write_checked", "path.read_bytes"): MODEL,
     ("review.py", "_definition", "path.read_bytes"): MODEL,
     ("review.py", "_same", "shutil.copyfile"): MODEL,
     ("journeys.py", "_proposed_meaning", "shutil.copyfile"): MODEL,
@@ -85,7 +86,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # The configuration file that config.load read with repo_files: a regular file in the
     # repository. The write keeps its bytes, also a byte order mark.
     ("answer_write.py", "_write", "target.write_bytes"): "the configuration that config.load read",
-    ("decisions_submit.py", "_write_answers", "target.write_bytes"): "the same configuration",
+    ("decisions_submit.py", "_restored", "target.write_bytes"): "the same configuration",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
     ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
     ("model_write.py", "_replace", "os.replace"): MODEL,
@@ -95,8 +96,8 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     # A copy of the model files in a new temporary folder.
     ("review.py", "_same", "write_text"): "a file in a temporary folder of the command",
     # The contract move: the model file and the contract file of a loaded map.
-    ("contract_move.py", "_move", "read_bytes"): MODEL,
-    ("contract_move.py", "_move", "target.read_bytes"): MODEL,
+    ("contract_move.py", "_move_locked", "read_bytes"): MODEL,
+    ("contract_move.py", "_move_locked", "target.read_bytes"): MODEL,
     ("contract_move.py", "_same", "shutil.copyfile"): MODEL,
     ("contract_move.py", "_same", "write_text"): "a file in a temporary folder of the command",
     # init and skill: each path is examined with repo_files.inside before the write.

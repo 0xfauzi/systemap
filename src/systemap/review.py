@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import dataclasses
 import shutil
 import tempfile
@@ -33,6 +34,7 @@ from systemap import (
     contract_file,
     evidence,
     extraction,
+    file_write,
     flow_ids,
     flow_review,
     model_edit,
@@ -126,6 +128,30 @@ def review(
     Without `facts`, the command extracts the facts from the source in the working tree.
     """
     m = _map(cfg, map_id)
+    # The lock of each model file of the map covers the read and the write. A different
+    # writer cannot change these files between them. A dry run writes no file and takes
+    # no lock.
+    lock = contextlib.nullcontext() if dry_run else file_write.exclusive_files(model_files(m))
+    with lock:
+        return _write(cfg, m, target, dry_run, facts)
+
+
+def model_files(m: nest.Map) -> tuple[Path, ...]:
+    """Give the model files of the map that the reader that runs no code can read."""
+    try:
+        return model_load.files(m.path, m.rel, m.root)
+    except model_load.ModelFileError as exc:
+        raise ReviewError(f"{exc}\n{NOT_DATA}") from exc
+
+
+def _write(
+    cfg: config.Config,
+    m: nest.Map,
+    target: Target,
+    dry_run: bool,
+    facts: dict[str, Any] | None,
+) -> list[str]:
+    """Write the digest into the one model file that defines the target."""
     model, meaning = _data(m)
     target = _with_flow(m, model, target)
     facts = facts if facts is not None else extraction.build(cfg)

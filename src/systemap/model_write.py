@@ -1,4 +1,12 @@
-"""The model writer prepares replacements and restores saved files after an I/O error."""
+"""The model writer prepares replacements and restores saved files after an I/O error.
+
+Each write holds the lock `<model file>.lock` of each file that it writes
+(`file_write.exclusive_file`). A different process that writes the same model file at the
+same time gets `file_write.HeldLock`, and it writes nothing. Two processes that write
+different model files do not stop each other. The lock covers the write only. A command
+that reads a model file, and writes it later, holds the lock for all of that time
+(`place_source.write`).
+"""
 
 from __future__ import annotations
 
@@ -6,6 +14,8 @@ import os
 import stat
 import tempfile
 from pathlib import Path
+
+from systemap import file_write
 
 
 def _stage(path: Path, data: bytes) -> Path:
@@ -56,6 +66,11 @@ def write_models(sources: dict[Path, str]) -> None:
     """
     for path, source in sources.items():
         compile(source, str(path), "exec")
+    with file_write.exclusive_files(sources):
+        _write_all(sources)
+
+
+def _write_all(sources: dict[Path, str]) -> None:
     staged: dict[Path, Path] = {}
     backups: dict[Path, Path] = {}
     try:
@@ -84,9 +99,10 @@ def replace_bytes(path: Path, data: bytes) -> None:
     If the replacement returns an error, the function removes the temporary file and
     the previous file stays at the path.
     """
-    temporary = _stage(path, data)
-    try:
-        os.replace(temporary, path)
-    except OSError:
-        temporary.unlink(missing_ok=True)
-        raise
+    with file_write.exclusive_file(path):
+        temporary = _stage(path, data)
+        try:
+            os.replace(temporary, path)
+        except OSError:
+            temporary.unlink(missing_ok=True)
+            raise

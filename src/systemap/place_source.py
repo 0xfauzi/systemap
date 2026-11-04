@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-from systemap import model_write
+from systemap import file_write, model_write
 from systemap.model import Component, Container, Model, Region
 from systemap.place import PlaceError, Placement
 
@@ -219,8 +219,19 @@ def write(
     `expected` is the model with the placement applied. `load` reads a model file and
     raises an error for a file that it cannot read. If `load` raises an error, or a value
     is not the expected value, the function restores the previous bytes and raises
-    PlaceError.
+    PlaceError. The function holds the lock of the model file from the read to the end.
     """
+    with file_write.exclusive_file(path):
+        _write_checked(path, label, placement, expected, load)
+
+
+def _write_checked(
+    path: Path,
+    label: str,
+    placement: Placement,
+    expected: Model,
+    load: Callable[[Path, str], Model],
+) -> None:
     raw = path.read_bytes()
     # The text gets LF line ends, as with universal newlines. Thus the command writes a
     # CRLF file from a Windows checkout with LF line ends.

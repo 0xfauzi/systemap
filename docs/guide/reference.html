@@ -895,7 +895,10 @@ A moved module shows its component and model file.</p>
 </li>
 <li>
 <p><code>suggest</code> shows maps above forty components.
-It lists the components with the most modules as possible nested maps.</p>
+It lists the components with the most modules as possible nested maps.
+For each component, it gives the <code>map=</code> value: the map id in lower case, with <code>_</code> in place of each <code>/</code>, and <code>.py</code>.
+For example, the map <code>Gateway/Routes</code> has the file <code>map/gateway_routes.py</code> and the value <code>map=&quot;gateway_routes.py&quot;</code>.
+All model files are in the folder of the top model file.</p>
 </li>
 </ul>
 <p>A second nested level uses an id such as <code>Gateway/Routes</code>.
@@ -1098,6 +1101,18 @@ These files are the Jev, OpenAI, and agent caches, the facts cache in <code>.sys
 The file has the line <code>*</code>. Thus <code>git add -A</code> does not add these files to the repository.
 The command does not change an existing <code>.systemap/.gitignore</code> file, also if it is a link or a folder.
 It does not change the <code>.gitignore</code> file in the repository root.</p>
+<p>Only one command at a time can write the shared files.
+<code>extract</code>, <code>refresh</code>, <code>render</code>, <code>figure --out</code>, and <code>decisions submit</code> make the lock file <code>.systemap/write.lock</code>.
+The lock file contains the process ID, the command, and the time.
+If a different command holds the lock, the command stops with exit code <code>1</code>.
+It does not wait, and it writes no file that the lock controls.
+Each write of a model file also makes the lock file <code>&lt;model file&gt;.lock</code>, for example <code>map/gateway.py.lock</code>.
+Thus two commands can write two different model files at the same time.
+A command removes its lock file when it stops, also after an error.
+If a process stops before it can remove its lock file, the file stays.
+Then the error gives the path and the command that holds the lock.
+If no systemap command operates, remove the lock file. Then use the command again.
+Do not commit a lock file. A committed lock file stops each write in each clone of the repository.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, an empty contract file, the skill directory, and a GitHub
 workflow. The workflow pins this version.

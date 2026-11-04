@@ -214,7 +214,8 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # Windows takes about 14 minutes on main, so 15 minutes left too little room.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
