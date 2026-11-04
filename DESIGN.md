@@ -654,8 +654,11 @@ No more than one directional cue moves. The cue does not show a recorded run.
 
 Escape closes the newest item first. The order is the Find dialog, the keyboard keys, the source panel of the commit,
 full screen, the sequence, the selection, and then the panel.
-A nested map opens in a dialog above an inert background.
-The dialog gives the keyboard focus back to its control when it closes.
+Each nested map has its own page. The page does not show a nested map in a frame.
+A link, a double-click, or a second Enter on a card that opens a map goes to the page of that map.
+The Back control of the browser goes back to the parent page.
+The header of a nested page shows the map path, with one link for each ancestor map.
+The U key goes to the parent map. The T key opens the list of child maps.
 
 Finding identifiers, authored claims, and evidence states keep their meaning.
 Source records show missing evidence without a different claim.

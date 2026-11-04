@@ -375,7 +375,7 @@ _SCRIPT = r"""
     return !!(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '')));
   }
   function covered(){
-    return ['keys', 'present', 'submap'].some(function(id){
+    return ['keys', 'present'].some(function(id){
       var n = byId(id); return n && !n.hidden; });
   }
   // Ctrl+K or Cmd+K opens and closes the dialog. The / key opens it.

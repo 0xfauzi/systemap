@@ -13,6 +13,7 @@ from typing import Any
 from systemap.model import (
     AGENT_KINDS,
     CARD_H,
+    Component,
     Container,
     Meaning,
     Model,
@@ -555,3 +556,17 @@ def geometry(model: Model) -> Geometry:
         },
         region_of={c.id: c.region or "" for c in model.components},
     )
+
+
+def opens_label(c: Component, opens: Mapping[str, Mapping[str, Any]]) -> str:
+    """Give the end of the card label for a card that opens a map, or nothing.
+
+    The stacked second card has `aria-hidden`, so this text tells a screen reader that
+    the card opens a map. A figure without the child map records gives no count."""
+    if not c.opens:
+        return ""
+    inside = opens.get(c.id) or {}
+    name, cards = inside.get("name") or c.id, int(inside.get("cards") or 0)
+    if not cards:
+        return f", opens the map {name}"
+    return f", opens the map {name} with {cards} component{'' if cards == 1 else 's'}"

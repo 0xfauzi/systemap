@@ -7,6 +7,18 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+### Changes
+
+- A card that opens a map goes to the page of the nested map. The page no longer shows the nested map in a frame above the parent map.
+  Thus the URL identifies the nested map, and the Back control of the browser goes back. The page policy has `frame-src 'none'`.
+- The header of a nested page shows the map path, with one link for each ancestor map. The page title gives the map ID and the level.
+  On a phone, the header shows the parent link with the mark `<` and the name of the current map.
+- In the Changes view, a link to a nested map adds `#changes`.
+- The U key goes to the parent map and selects the card that opens the current map. The T key opens the list of child maps.
+- The label of a card that opens a map gives the name of the map and its component count. Screen readers do not read the second card.
+
 ## 3.0.0 - 2026-11-03
 
 ### Changes that can break a script or a CI job

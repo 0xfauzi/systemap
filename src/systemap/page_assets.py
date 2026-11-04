@@ -198,13 +198,7 @@ body[data-mode="trace"] .trace-controls,body[data-mode="change"] .change-control
 .zoom{position:fixed;top:62px;right:20px;z-index:12}
 .readpanel{margin-top:52px;height:calc(100svh - 104px)}}
 
-/* ---- the map inside a card ------------------------------------------------ */
-.submap{position:fixed;inset:1rem;z-index:40;background:var(--bg);border:1px solid var(--line-2);
-display:flex;flex-direction:column;box-shadow:0 8px 60px color-mix(in srgb,#000 50%,transparent)}
-.submap__bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem;
-border-bottom:1px solid var(--line)}
-.submap__crumb{font-size:13px;overflow-wrap:anywhere;min-width:0}
-.submap__frame{flex:1;width:100%;border:0;background:var(--bg)}body.submap-open{overflow:hidden}
+/* ---- the list of child maps ---------------------------------------------- */
 .map-links{padding:1rem 24px;font-size:13px}
 
 /* ---- narrow windows ----------------------------------------------------- */

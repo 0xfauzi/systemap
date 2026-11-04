@@ -146,8 +146,7 @@ function childframe(page) {
   const node = svg.querySelectorAll('.node').find((n) => n.dataset.id === childCard());
   dispatch(node, new EventImpl('dblclick', {bubbles: true}));
   runFrames(win);
-  return {hidden: doc.getElementById('submap').hidden,
-    src: doc.getElementById('submapframe').getAttribute('src')};
+  return {frames: doc.querySelectorAll('iframe').length, href: win.location.href};
 }
 """
 
@@ -170,7 +169,7 @@ def test_a_child_map_link_is_a_quoted_relative_path(sample: Sample, tmp_path: Pa
     assert all(urlsplit(u).scheme in ("", "data", "about") for u in parser.urls), parser.urls
     scenario = f"function childCard() {{ return {json.dumps(CARD)}; }}\n" + SUBMAP
     report = drive(html, tmp_path, "childframe", scenario)
-    assert report == {"hidden": False, "src": QUOTED}
+    assert report == {"frames": 0, "href": QUOTED}
 
 
 FRAGMENT = r"""

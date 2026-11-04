@@ -850,6 +850,11 @@ The target module exports <code>MODEL</code> and <code>MEANING</code>.
 The nested map shows the parent component's internal structure.
 The component ID is also the directory name of the nested page.
 Thus the ID must not contain <code>/</code> or <code>\</code>, and it must not be <code>.</code> or <code>..</code>.</p>
+<p>Each map has its own page. The <code>Open map</code> link of a card goes to the page of the nested map.
+In the Changes view, the link adds <code>#changes</code>.
+The header of a nested page shows the map path, with one link for each ancestor map.
+The page title gives the map ID and its level, for example <code>demo system map: Gateway/Routes (level 2)</code>.
+The page policy permits no frame (<code>frame-src 'none'</code>).</p>
 <p>Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
 Only one component can open a nested model file.

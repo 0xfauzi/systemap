@@ -597,6 +597,12 @@ The nested map shows the parent component's internal structure.
 The component ID is also the directory name of the nested page.
 Thus the ID must not contain `/` or `\`, and it must not be `.` or `..`.
 
+Each map has its own page. The `Open map` link of a card goes to the page of the nested map.
+In the Changes view, the link adds `#changes`.
+The header of a nested page shows the map path, with one link for each ancestor map.
+The page title gives the map ID and its level, for example `demo system map: Gateway/Routes (level 2)`.
+The page policy permits no frame (`frame-src 'none'`).
+
 Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
 Only one component can open a nested model file.
