@@ -191,6 +191,36 @@ def test_a_value_on_more_lines_becomes_one_line(text: str, flat: str) -> None:
     assert source_segment.flat(text) == flat
 
 
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 701 f-strings start in 3.12")
+def test_a_hash_in_a_nested_string_of_an_f_string_is_not_a_comment() -> None:
+    raw = 'KEYS = [\n    f"{d["#"]}",  # the key\n]\n'
+    surface = extract.parse_surface(raw)
+    assert surface is not None
+    assert surface["constants"] == [{"name": "KEYS", "value": '[f"{d["#"]}",]'}]
+
+
+def test_a_large_integer_gives_the_same_text_with_each_conversion_limit() -> None:
+    tree = ast.parse("MASK = 0x" + "f" * 4000 + "\nSMALL = 12\n")
+    limit = sys.get_int_max_str_digits()
+    try:
+        texts = set()
+        for digits in (0, 640, limit):
+            sys.set_int_max_str_digits(digits)
+            texts.add(syntax_text.text(tree))
+    finally:
+        sys.set_int_max_str_digits(limit)
+    assert len(texts) == 1
+    (text,) = texts
+    assert "value=0x" + "f" * 4000 in text
+    assert "value=12" in text
+
+
+def test_a_deep_tree_has_the_same_depth_limit_as_ast_dump() -> None:
+    tree = ast.parse("X = " + "+".join(["1"] * 900) + "\n")
+    ast.dump(tree)
+    assert syntax_text.text(tree).count("BinOp(") == 899
+
+
 class Spam(ast.expr):
     """A node class that no Python version has."""
 

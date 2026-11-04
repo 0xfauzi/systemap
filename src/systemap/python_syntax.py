@@ -102,8 +102,18 @@ def fingerprint(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     change of the formatting or of the comments does not change the fingerprint. A
     function without a decorator gives the signature line only.
     """
-    prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
-    line = f"{prefix}{node.name}({syntax_text.text(node.args)})"
-    if node.returns is not None:
-        line += f" -> {syntax_text.text(node.returns)}"
+    returns = None if node.returns is None else syntax_text.text(node.returns)
+    line = function_line(node, syntax_text.text(node.args), returns)
     return "\n".join([*(f"@{syntax_text.text(item)}" for item in node.decorator_list), line])
+
+
+def function_line(
+    node: ast.FunctionDef | ast.AsyncFunctionDef, arguments: str, returns: str | None
+) -> str:
+    """Give `def name(arguments) -> returns`, with `async def` for an async function.
+
+    The fingerprint and the stored signature (`source_segment.signature`) use this form.
+    """
+    prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
+    line = f"{prefix}{node.name}({arguments})"
+    return line if returns is None else f"{line} -> {returns}"

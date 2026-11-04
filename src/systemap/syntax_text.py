@@ -8,7 +8,8 @@ of each node. The text is the same on each supported Python version.
 The rules of the text:
 
 - A node is its class name and its fields in the sequence of `FIELDS`, for example
-  `Name(id='x', ctx=Load())`. A list is `[a, b]`. A literal value is its `repr`.
+  `Name(id='x', ctx=Load())`. A list is `[a, b]`. A literal value is its `repr`, but an
+  integer with more than `INT_BITS` bits is its hexadecimal text.
 - The text does not include a field whose value is `None` or an empty list. A `None`
   item in a list stays, because the position of each item is a part of the list.
 - The parts of an f-string or a template string do not include an empty string
@@ -233,7 +234,9 @@ def _plan(node: ast.AST) -> tuple[str, ...]:
 
 def _write(node: ast.AST, out: list[str]) -> None:
     kind = type(node)
-    fields = _plans.get(kind) or _plan(node)
+    fields = _plans.get(kind)
+    if fields is None:
+        fields = _plan(node)
     out.append(kind.__name__ + "(")
     first = True
     for field in fields:
@@ -242,7 +245,10 @@ def _write(node: ast.AST, out: list[str]) -> None:
             continue
         out.append(f"{field}=" if first else f", {field}=")
         first = False
-        _write_value(value, out)
+        if isinstance(value, ast.AST):
+            _write(value, out)
+        else:
+            _write_value(value, out)
     out.append(")")
 
 
@@ -257,14 +263,17 @@ def _value(node: ast.AST, name: str, field: str) -> object:
 
 
 def _write_value(value: object, out: list[str]) -> None:
-    if isinstance(value, ast.AST):
-        _write(value, out)
-    elif isinstance(value, list):
+    """Write a list or a literal value. `_write` writes a node field directly, so that a
+    node below a node uses one stack frame, as in `ast.dump`."""
+    if isinstance(value, list):
         out.append("[")
         for index, item in enumerate(value):
             if index:
                 out.append(", ")
-            _write_value(item, out)
+            if isinstance(item, ast.AST):
+                _write(item, out)
+            else:
+                out.append(_literal(item))
         out.append("]")
     else:
         out.append(_literal(value))
@@ -274,16 +283,19 @@ def _empty_string(node: object) -> bool:
     return isinstance(node, ast.Constant) and isinstance(node.value, str) and not node.value
 
 
+# An integer with more bits than this has more than 600 decimal digits. The lowest
+# conversion limit that Python accepts is 640 digits, thus `repr` of a smaller integer
+# always operates.
+INT_BITS = 2000
+
 _LITERALS = (str, bytes, bool, int, float, complex, type(None), type(...))
 
 
 def _literal(value: object) -> str:
     if not isinstance(value, _LITERALS):
         raise UnknownSyntax(f"a literal value of the type {type(value).__name__}")
-    if isinstance(value, int) and not isinstance(value, bool):
-        try:
-            return repr(value)
-        except ValueError:
-            # An integer with more digits than the conversion limit of the interpreter.
-            return hex(value)
+    if isinstance(value, int) and value.bit_length() > INT_BITS:
+        # The decimal text of a large integer depends on the conversion limit of the
+        # process (PYTHONINTMAXSTRDIGITS). The hexadecimal text does not.
+        return hex(value)
     return repr(value)

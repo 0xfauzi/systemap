@@ -328,13 +328,15 @@ def parse_surface(
     names: list[dict[str, str]] = []
     statements = _active_statements(tree.body)
     source = source_segment.Source(raw)
+    # The class nodes that are errors. `_python_api` puts them in the `refusals` bucket.
+    refusals: set[ast.ClassDef] = set()
     for node in statements:
         if isinstance(node, ast.ImportFrom) and is_package and module:
             names.extend(_surface_reexports(node, module, prefixes))
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             _surface_function(node, source, names, functions)
         elif isinstance(node, ast.ClassDef):
-            _surface_class(node, source, names, classes, errors)
+            _surface_class(node, source, names, (classes, errors), refusals)
         elif isinstance(node, ast.Assign | ast.AnnAssign):
             _surface_assignment(node, source, names, constants)
         elif isinstance(node, TYPE_ALIAS):
@@ -348,7 +350,7 @@ def parse_surface(
         "types": types,
         "constants": constants,
         "names": names,
-        "api": _python_api(statements, source),
+        "api": _python_api(statements, refusals),
         "executes": any(
             isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) for node in statements
         ),
@@ -381,12 +383,16 @@ def _surface_class(
     node: ast.ClassDef,
     source: source_segment.Source,
     names: list[dict[str, str]],
-    classes: list[dict[str, Any]],
-    errors: list[dict[str, Any]],
+    records: tuple[list[dict[str, Any]], list[dict[str, Any]]],
+    refusals: set[ast.ClassDef],
 ) -> None:
+    """Record a public class in `classes` or, for an error, in `errors` and `refusals`."""
     if node.name.startswith("_"):
         return
+    classes, errors = records
     is_error = _is_error(node, source)
+    if is_error:
+        refusals.add(node)
     record = {
         "name": node.name,
         "methods": [
@@ -468,14 +474,14 @@ def _is_error(node: ast.ClassDef, source: source_segment.Source) -> bool:
     )
 
 
-def _python_api(body: list[ast.stmt], source: source_segment.Source) -> list[dict[str, str]]:
+def _python_api(body: list[ast.stmt], refusals: set[ast.ClassDef]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for node in body:
-        out.extend(_python_api_entries(node, source))
+        out.extend(_python_api_entries(node, refusals))
     return out
 
 
-def _python_api_entries(node: ast.stmt, source: source_segment.Source) -> list[dict[str, str]]:
+def _python_api_entries(node: ast.stmt, refusals: set[ast.ClassDef]) -> list[dict[str, str]]:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
         fingerprint = python_syntax.fingerprint(node)
         return [{"name": node.name, "bucket": "operations", "fingerprint": fingerprint}]
@@ -483,7 +489,7 @@ def _python_api_entries(node: ast.stmt, source: source_segment.Source) -> list[d
         return [
             {
                 "name": node.name,
-                "bucket": "refusals" if _is_error(node, source) else "types",
+                "bucket": "refusals" if node in refusals else "types",
                 "fingerprint": _python_class_api(node),
             }
         ]

@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from systemap.syntax_text import text as _dump_python_syntax
+from systemap import syntax_text
 
 root = Path.cwd()
 
@@ -19,14 +19,14 @@ result = {"canonical": {}, "baseline": {}, "formatting_mismatches": 0}
 for path in sorted((root / "src/systemap").glob("*.py")):
     raw = path.read_text()
     name = path.relative_to(root).as_posix()
-    canonical = _dump_python_syntax(ast.parse(raw))
+    canonical = syntax_text.text(ast.parse(raw))
     result["canonical"][name] = hashlib.sha256(canonical.encode()).hexdigest()
     result["baseline"][name] = hashlib.sha256(
         ast.dump(ast.parse(raw), include_attributes=False).encode()
     ).hexdigest()
-    formatted = _dump_python_syntax(ast.parse("# formatting control\n" + raw + "\n"))
+    formatted = syntax_text.text(ast.parse("# formatting control\n" + raw + "\n"))
     result["formatting_mismatches"] += canonical != formatted
-result["body_edit_detected"] = _dump_python_syntax(
+result["body_edit_detected"] = syntax_text.text(
     ast.parse("def f():\n return 1\n")
-) != _dump_python_syntax(ast.parse("def f():\n return 2\n"))
+) != syntax_text.text(ast.parse("def f():\n return 2\n"))
 print(json.dumps(result))

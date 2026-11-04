@@ -6,16 +6,20 @@ same between versions, but the source text of a node does not change with the
 interpreter. The column positions of a node count UTF-8 bytes, as in
 `ast.get_source_segment`.
 
-A value on more than one line becomes one line. The text removes each comment, and each
-backslash at the end of a line. Each line loses the spaces at its two ends. Two lines get
-one space between them, but no space after an opening bracket or before a closing
-bracket.
+A value on more than one line becomes one line. The text removes each comment (found with
+`tokenize`), and each backslash at the end of a line. Each line loses the spaces at its
+two ends. Two lines get one space between them, but no space after an opening bracket or
+before a closing bracket.
 """
 
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
+
+from systemap import python_syntax
 
 # The line ends that the Python parser uses. A form feed does not end a line.
 _LINE_END = re.compile(r"\r\n|\r|\n")
@@ -62,10 +66,12 @@ def flat(text: str, limit: int | None = None) -> str:
     """Give the text on one line, with not more than `limit` characters."""
     if "\n" not in text:
         return text[:limit]
+    comments, open_ends = _marks(text)
     out = ""
-    quote: str | None = None
-    for line in text.split("\n"):
-        code, quote = _code(line, quote)
+    for row, line in enumerate(text.split("\n"), 1):
+        code = line[: comments.get(row)]
+        if row not in open_ends and code.rstrip().endswith("\\"):
+            code = code.rstrip()[:-1]
         out = _join(out, code.strip())
         if limit is not None and len(out) >= limit:
             break
@@ -80,44 +86,24 @@ def _join(left: str, right: str) -> str:
     return f"{left} {right}"
 
 
-def _code(line: str, quote: str | None) -> tuple[str, str | None]:
-    """Remove the comment and the end backslash of one line.
+def _marks(text: str) -> tuple[dict[int, int], set[int]]:
+    """Find the comments and the strings that continue on the next line, with `tokenize`.
 
-    `quote` is the quote of a string that continues from the line before, or None. The
-    function gives the quote of a string that continues on the next line.
+    Give the column of the comment of each line, and the lines whose end is in a string.
+    The tokenizer of the running interpreter reads the nested strings of an f-string
+    (PEP 701) correctly. If the tokenizer stops on an error, only the comments before
+    the error are found.
     """
-    out: list[str] = []
-    index = 0
-    while index < len(line):
-        if quote is not None:
-            index, quote = _in_string(line, index, quote, out)
-            continue
-        char = line[index]
-        if char == "#":
-            break
-        if char in "'\"":
-            quote = char * 3 if line.startswith(char * 3, index) else char
-            out.append(quote)
-            index += len(quote)
-            continue
-        out.append(char)
-        index += 1
-    code = "".join(out)
-    if quote is None and code.rstrip().endswith("\\"):
-        code = code.rstrip()[:-1]
-    return code, quote
-
-
-def _in_string(line: str, index: int, quote: str, out: list[str]) -> tuple[int, str | None]:
-    """Copy one character or one escape of a string. Give the next index and the quote."""
-    if line[index] == "\\":
-        out.append(line[index : index + 2])
-        return index + 2, quote
-    if line.startswith(quote, index):
-        out.append(quote)
-        return index + len(quote), None
-    out.append(line[index])
-    return index + 1, quote
+    comments: dict[int, int] = {}
+    open_ends: set[int] = set()
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(text).readline):
+            if token.type == tokenize.COMMENT:
+                comments[token.start[0]] = token.start[1]
+            open_ends.update(range(token.start[0], token.end[0]))
+    except (tokenize.TokenError, SyntaxError):
+        pass
+    return comments, open_ends
 
 
 def signature(node: ast.FunctionDef | ast.AsyncFunctionDef, source: Source) -> str:
@@ -126,11 +112,8 @@ def signature(node: ast.FunctionDef | ast.AsyncFunctionDef, source: Source) -> s
     The text of each annotation and each default value comes from the source. A part
     without a source position gives `...`.
     """
-    returns = ""
-    if node.returns is not None:
-        returns = f" -> {source.text(node.returns) or '...'}"
-    prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
-    return f"{prefix}{node.name}({arguments(node.args, source)}){returns}"
+    returns = None if node.returns is None else source.text(node.returns) or "..."
+    return python_syntax.function_line(node, arguments(node.args, source), returns)
 
 
 def arguments(args: ast.arguments, source: Source) -> str:
