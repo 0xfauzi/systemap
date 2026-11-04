@@ -656,7 +656,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     if not facts:
         warn(_no_facts(p))
     judged = cli_scope.judged(judgement_json.evaluate(p.tree, facts, p.cfg), p.tree, p.cfg)
-    detail = judgement.crossing_detail_tree(p.tree, facts)
+    detail = judged.import_rows(p.tree, facts)
     reviews = judgement.review_states(p.tree, facts)
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)

@@ -19,6 +19,8 @@ Acceptance values:
 7. `kind = "boundary flow"` and `kind = "boundary import"` are accepted answers, and
    each kind has an explanation.
 8. A run with `--map` gives the boundary lines of the selected map.
+9. In `judgement --json`, the `detail` of a `boundary import` row lists its imports. If
+   the parent map has only a flow from X to the card, `parent_flow` gives that direction.
 """
 
 from __future__ import annotations
@@ -343,3 +345,23 @@ def test_a_scoped_run_gives_the_boundary_lines(
     run(root, "judgement", "--map", ".", "--json")
     lines = [row["line"] for row in json.loads(capsys.readouterr().out)["open"]]
     assert not [line for line in lines if judgement.kind_of(line) in nest_join.KINDS]
+
+
+def test_the_json_detail_and_the_parent_flow_of_an_import_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 9."""
+    nested = NESTED.replace(TO_AUTH, "").replace(TO_AUTH_SENTENCE, "")
+    top = TOP.replace(
+        'Flow("Gateway", "Auth", "token", "data")', 'Flow("Auth", "Gateway", "token", "data")'
+    )
+    top = top.replace(
+        '("Gateway", "Auth"): "The gateway sends', '("Auth", "Gateway"): "The auth sends'
+    )
+    root = build(tmp_path, top=top, nested=nested)
+    capsys.readouterr()
+    run(root, "judgement", "--json")
+    rows = {row["line"]: row for row in json.loads(capsys.readouterr().out)["open"]}
+    row = rows[NO_FLOW]
+    assert row["detail"] == ["pkg.gateway.routes imports pkg.auth"]
+    assert row["parent_flow"] == {"src": "Auth", "dst": "Gateway", "artifacts": ["token"]}

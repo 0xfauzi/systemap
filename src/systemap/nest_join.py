@@ -28,7 +28,7 @@ names. A change to one of these values makes an exact answer stale.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -185,6 +185,14 @@ def import_pairs(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> dict[Pa
     return out
 
 
+def _toward(tree: nest.Tree, m: nest.Map, other: str) -> Pair:
+    """Give the direction of the parent flow for a `boundary import` line: from the card
+    to X, or from X to the card if only that parent flow exists."""
+    parent, card = tree.get(m.parent or ""), m.card
+    only_in = not _directed(parent.model, card, other) and _directed(parent.model, other, card)
+    return (other, card) if only_in else (card, other)
+
+
 def _import_lines(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> Iterator[Finding]:
     """Give the `boundary import` findings of one nested map."""
     model, card = m.model, m.card
@@ -197,7 +205,7 @@ def _import_lines(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> Iterat
             line = f"{head}no flow connects {inner} and actor {other}"
         else:
             continue
-        yield Finding(line, m.id, card, other, inner, (card, other), tuple(rows))
+        yield Finding(line, m.id, card, other, inner, _toward(tree, m, other), tuple(rows))
 
 
 def map_findings(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> list[Finding]:
@@ -205,6 +213,12 @@ def map_findings(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> list[Fi
     if m.parent is None or not tree.has(m.parent):
         return []
     return [*_flow_lines(tree, m), *_import_lines(tree, m, facts)]
+
+
+def is_line(tree: nest.Tree, line: str) -> bool:
+    """Tell if `line` is a boundary line of a nested map of the tree."""
+    heads = tuple(f"{m.prefix}{kind}: " for m in tree.maps[1:] for kind in KINDS)
+    return line.startswith(heads)
 
 
 def lines(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> list[str]:
@@ -265,9 +279,18 @@ def state(tree: nest.Tree, found: Finding, facts: dict[str, Any]) -> Any:
     }
 
 
-def states(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, Any]:
-    """Give the evidence of each boundary line of the tree."""
-    return {line: state(tree, found, facts) for line, found in findings(tree, facts).items()}
+def states(tree: nest.Tree, facts: dict[str, Any], wanted: set[str]) -> dict[str, Any]:
+    """Give the evidence of each boundary line of the tree that is in `wanted`."""
+    found = _findings_of(tree, facts, wanted)
+    return {line: state(tree, one, facts) for line, one in found.items()}
+
+
+def _findings_of(tree: nest.Tree, facts: dict[str, Any], wanted: set[str]) -> dict[str, Finding]:
+    """Give the boundary findings whose lines are in `wanted`. If no line of `wanted` is a
+    boundary line, the function does not find the boundary lines."""
+    if not any(is_line(tree, line) for line in wanted):
+        return {}
+    return {line: one for line, one in findings(tree, facts).items() if line in wanted}
 
 
 def fields(tree: nest.Tree, found: Finding) -> dict[str, Any]:
@@ -293,15 +316,21 @@ def fields(tree: nest.Tree, found: Finding) -> dict[str, Any]:
     }
 
 
-def counts(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int]:
-    """Give the import count of each `boundary import` line (`Finding.count`)."""
-    return {line: one.count for line, one in findings(tree, facts).items() if one.imports}
+def all_fields(tree: nest.Tree, found: Mapping[str, Finding]) -> dict[str, dict[str, Any]]:
+    """Give the `judgement --json` fields of each line of `found` (`fields`)."""
+    return {line: fields(tree, one) for line, one in found.items()}
 
 
-def detail(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
-    """Give the import rows of each `boundary import` line, for `judgement --verbose`."""
+def counts(found: Mapping[str, Finding]) -> dict[str, int]:
+    """Give the import count of each `boundary import` line of `found` (`Finding.count`)."""
+    return {line: one.count for line, one in found.items() if one.imports}
+
+
+def detail(found: Mapping[str, Finding]) -> dict[str, list[str]]:
+    """Give the import rows of each `boundary import` line of `found`, for the rows below
+    the line."""
     return {
-        line: [f"{a} imports {b}" for a, b in found.imports]
-        for line, found in findings(tree, facts).items()
-        if found.imports
+        line: [f"{a} imports {b}" for a, b in one.imports]
+        for line, one in found.items()
+        if one.imports
     }

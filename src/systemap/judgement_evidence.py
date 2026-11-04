@@ -384,8 +384,8 @@ def tree_evidence(
     located = located_records(facts)
     records = repository_records(facts)
     model_hashes: dict[str, str] = {}
-    out: dict[str, str] = {}
-    for key in lines:
+    out = boundary_evidence(tree, facts, lines)
+    for key in _without(lines, out):
         m = map_of(tree, key)
         bare = key[len(m.prefix) :]
         state = located_state(root, located.get(bare, []))
@@ -401,15 +401,18 @@ def tree_evidence(
             components = facts.get("components", {})
             state = full_state(components, root, model_hashes[m.id], points, behavior, earlier)
         out[key] = digest(state)
-    out.update(boundary_evidence(tree, facts, lines))
     return out
+
+
+def _without(lines: list[str], done: Mapping[str, str]) -> list[str]:
+    """Give the lines that have no digest in `done`."""
+    return [key for key in lines if key not in done]
 
 
 def boundary_evidence(tree: nest.Tree, facts: dict[str, Any], lines: list[str]) -> dict[str, str]:
     """Give the evidence digest of each boundary line of `lines` (`nest_join.state`)."""
-    wanted = set(lines)
-    found = nest_join.states(tree, facts) if tree.nested else {}
-    return {line: digest(state) for line, state in found.items() if line in wanted}
+    found = nest_join.states(tree, facts, set(lines)) if tree.nested else {}
+    return {line: digest(state) for line, state in found.items()}
 
 
 def _named_state(

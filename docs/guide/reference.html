@@ -1700,7 +1700,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>open[].parent_flow</code></td>
 <td>object or null</td>
-<td>For a boundary finding: <code>src</code> and <code>dst</code> of the parent flow that the finding is about, and <code>artifacts</code>, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For other findings, the value is null.</td>
+<td>For a boundary finding: <code>src</code> and <code>dst</code> of the parent flow that the finding is about, and <code>artifacts</code>, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For a <code>boundary import</code> finding, the direction is from the card to X. If the parent map has only a flow from X to the card, the direction is from X to the card. For other findings, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].nested_flows</code></td>

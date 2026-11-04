@@ -3954,3 +3954,20 @@ A division with fewer top flows, for example one flow for each pair of part card
 
 The complexity check refused two functions of the script with a cognitive complexity of 17. The functions now call helper functions. The division and the acceptance did not change.
 The run gave the same values as above: 6 maps, 0 `boundary flow` lines, 0 `boundary import` lines, `check` exit code 0 before and 1 after with the same 4 layout problems, and the same `rules` text. M5 fails again for the same cause.
+
+### M5 again, after the review of step 4
+
+The review changed the code that finds the boundary lines one time for each judgement run, the evidence of the boundary lines, the `detail` field of a `boundary import` row, and the direction of `parent_flow` for a `boundary import` row. The rule that gives the lines did not change. The script, the division, and the acceptance did not change. The code is the working tree of the review on 9063986.
+
+Command: `uv run python bench/jev/join_round_trip.py` (40 s)
+
+| Measurement | Before the division | After the division |
+|---|---|---|
+| Maps | 1 | 6 |
+| `boundary flow` lines | 0 | 0 |
+| `boundary import` lines | 0 | 0 |
+| `check` exit code | 0 | 1 |
+| `rules` text | `import rules: The model has no import rules.` | the same text |
+| Coverage | 185 of 185 modules | 185 of 185 modules |
+
+M5 fails again for the same cause: the same 4 layout problems on the top map. Open lines by kind before the division: 1 `crossing import`, 19 `flow review`, and 1 `stale source review`. After the division: 63 `flow review`, 10 `entry point`, 4 `single module`, 4 `no endpoint source`, 3 `thin layer`, and 1 `crossing import`.

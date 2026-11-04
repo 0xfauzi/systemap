@@ -55,6 +55,11 @@ class Judged:
     counts: Mapping[str, tuple[int, str]] = field(default_factory=dict)
     claims: list[assurance.Claim] = field(default_factory=list)
     boundary: Mapping[str, dict[str, Any]] = field(default_factory=dict)
+    found: Mapping[str, nest_join.Finding] = field(default_factory=dict)
+
+    def import_rows(self, tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
+        """Give the import rows of each crossing-import line and `boundary import` line."""
+        return judgement.crossing_detail_tree(tree, facts) | nest_join.detail(self.found)
 
     def detail(
         self, tree: nest.Tree, facts: dict[str, Any], verbose: bool
@@ -62,11 +67,7 @@ class Judged:
         """Give the rows below each line: the count row, the source rows of an `unknown
         surface` line, and with `verbose`, the import rows of a crossing-import line and
         of a `boundary import` line."""
-        imports = (
-            judgement.crossing_detail_tree(tree, facts) | nest_join.detail(tree, facts)
-            if verbose
-            else {}
-        )
+        imports = self.import_rows(tree, facts) if verbose else {}
         out = {line: [count_row(*count)] for line, count in self.counts.items()}
         for line, rows in imports.items():
             out[line] = [*out.get(line, []), *rows]
@@ -81,7 +82,10 @@ def count_row(count: int, noun: str) -> str:
 
 
 def line_counts(
-    tree: nest.Tree, facts: dict[str, Any], lines: list[str]
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    lines: list[str],
+    found: Mapping[str, nest_join.Finding],
 ) -> dict[str, tuple[int, str]]:
     """Give the count and the counted noun of each line with a count. A count can change
     while the finding stays the same. Thus the count is not in the line.
@@ -89,12 +93,12 @@ def line_counts(
     A crossing-import line counts the modules of the source component that import the
     destination component. A `boundary import` line counts the modules of the internal
     component that import the modules of the other component. An `unknown surface` line
-    counts the targets of its record."""
-    modules = judgement.crossing_counts(tree, facts) | nest_join.counts(tree, facts)
-    found = {line: (n, "module") for line, n in modules.items()}
-    found |= {line: (n, "target") for line, n in source_facts.unknown_counts(facts).items()}
+    counts the targets of its record. `found` is the result of `boundary_findings`."""
+    modules = judgement.crossing_counts(tree, facts) | nest_join.counts(found)
+    out = {line: (n, "module") for line, n in modules.items()}
+    out |= {line: (n, "target") for line, n in source_facts.unknown_counts(facts).items()}
     present = set(lines)
-    return {line: count for line, count in found.items() if line in present}
+    return {line: count for line, count in out.items() if line in present}
 
 
 def current_lines(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> list[str]:
@@ -123,9 +127,10 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     causes = line_causes(lines, facts)
     sources = line_sources(lines, facts)
     earlier = earlier_reviews(tree, facts)
-    counts = line_counts(tree, facts, lines)
+    found = boundary_findings(tree, facts, lines)
+    counts = line_counts(tree, facts, lines, found)
     claims = assurance.of_tree(tree, facts)
-    boundary = boundary_fields(tree, facts, lines)
+    boundary = nest_join.all_fields(tree, found)
     return Judged(
         lines,
         evidence,
@@ -137,16 +142,18 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
         counts,
         claims,
         boundary,
+        found,
     )
 
 
-def boundary_fields(
+def boundary_findings(
     tree: nest.Tree, facts: dict[str, Any], lines: list[str]
-) -> dict[str, dict[str, Any]]:
-    """Give the `judgement --json` fields of each boundary line (`nest_join.fields`)."""
+) -> dict[str, nest_join.Finding]:
+    """Give the finding of each boundary line of `lines`. A tree with no nested map has
+    no boundary lines."""
     present = set(lines)
-    found = nest_join.findings(tree, facts)
-    return {line: nest_join.fields(tree, one) for line, one in found.items() if line in present}
+    found = nest_join.findings(tree, facts) if tree.nested else {}
+    return {line: one for line, one in found.items() if line in present}
 
 
 def earlier_reviews(tree: nest.Tree, facts: dict[str, Any]) -> list[dict[str, str]]:
