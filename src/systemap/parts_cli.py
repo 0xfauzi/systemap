@@ -61,7 +61,7 @@ def cmd_parts(args: argparse.Namespace) -> int:
     tree = nest.load(cfg, args.only)
     selected = tree.get(tree.selected or "")
     if args.stub:
-        return _stub(cfg, tree, selected, args.stub, facts)
+        return _stub(cfg, tree, selected, args.stub, facts, bool(args.json))
     try:
         if args.results:
             return _results(cfg, tree, selected, bool(args.json))
@@ -119,7 +119,7 @@ def stored(cfg: Config, tree: nest.Tree, m: nest.Map) -> dict[str, Any]:
         ) from exc
     if plan is None:
         raise PlanError(f"No plan is at {rel}. Do {command} first.")
-    if parts_plan.is_stale(cfg, plan, m):
+    if parts_plan.is_stale(cfg, tree, plan, m):
         raise PlanError(f"{parts_plan.STALE} The plan file is {rel}. Do {command}.")
     return plan
 
@@ -131,7 +131,7 @@ def _part(cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any], as_j
     found = next((r for r in plan["parts"] if r["map"] == m.id), None)
     if found is None:
         raise PlanError(
-            f"The plan of {parent.id or 'the top map'} has no part {m.id}. Do systemap parts again."
+            f"The plan of {parts.where(parent.id)} has no part {m.id}. Do systemap parts again."
         )
     nested = _written(cfg, tree, m, facts)
     if as_json:
@@ -142,7 +142,7 @@ def _part(cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any], as_j
             json.dumps({**obj, "part": found, "nested_plan": nested}, indent=2, ensure_ascii=False)
         )
         return OK
-    _say(f"parts: The part {m.id} of the plan of {parent.id or 'the top map'}:")
+    _say(f"parts: The part {m.id} of the plan of {parts.where(parent.id)}:")
     _say(*parts_plan.summary({"parts": [found], "order": [m.id]}))
     if nested is not None:
         rel = cfg.rel(parts.plan_path(cfg.model_path, m.id))
@@ -151,10 +151,17 @@ def _part(cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any], as_j
     return OK
 
 
-def _stub(cfg: Config, tree: nest.Tree, m: nest.Map, card: str, facts: dict[str, Any]) -> int:
+def _stub(
+    cfg: Config, tree: nest.Tree, m: nest.Map, card: str, facts: dict[str, Any], as_json: bool
+) -> int:
     with file_write.exclusive(cfg.root):
         path = parts_stub.write(cfg, tree, m, card, facts)
     where = cfg.rel(m.path)
+    if as_json:
+        obj = {"map": parts.map_id(m.id, card), "card": card, "parent_file": where}
+        obj.update({"stub_file": cfg.rel(path), "map_value": path.name})
+        _say(json.dumps(obj, indent=2, ensure_ascii=False))
+        return OK
     _say(
         f"parts: systemap wrote the stub {cfg.rel(path)}.",
         f'  Set map="{path.name}" on {card} in {where}.',

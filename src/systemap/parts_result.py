@@ -6,7 +6,11 @@ it submits the verdicts:
 
 - The map and the two digests must be the same as in the plan.
 - Each file in `files` must be in the write set of the part: its model file, its
-  contract file, the model files with its file prefix, and its result file.
+  contract file, the model files with its file prefix, and its result file. The write set
+  of a part with nested parts also has the plan and the result files of these nested
+  parts: the JSON files with the prefix `<stem>_` in the folder of the result file. A
+  name must be a relative path without `.` or `..` and without a different folder after
+  the prefix.
 - An answer under `answers` must have the form `item` or `items`. The other answer
   forms apply across maps. A part agent can propose one under `proposed_answers`. Only
   the agent of the parent map records it.
@@ -16,6 +20,7 @@ it submits the verdicts:
 from __future__ import annotations
 
 import json
+import posixpath
 from typing import Any
 
 from systemap import file_write, parts
@@ -36,9 +41,14 @@ TEXTS = ("map", "base_commit", "facts_digest", "contract_digest")
 
 
 def _in_write_set(name: str, part: dict[str, Any]) -> bool:
+    if posixpath.isabs(name) or posixpath.normpath(name) != name:
+        return False
     fixed = (part["model_file"], part["contract_file"], part["result_file"])
-    prefix = part["file_prefix"]
-    return name in fixed or (name.startswith(prefix) and name.endswith(parts.SUFFIX))
+    nested = posixpath.join(posixpath.dirname(part["result_file"]), part["stem"] + "_")
+    return name in fixed or any(
+        name.startswith(prefix) and "/" not in name[len(prefix) :] and name.endswith(suffix)
+        for prefix, suffix in ((part["file_prefix"], parts.SUFFIX), (nested, ".json"))
+    )
 
 
 def _shape(data: dict[str, Any]) -> list[str]:

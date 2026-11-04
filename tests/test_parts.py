@@ -18,13 +18,22 @@ Acceptance values:
 7. The plan refuses the stems `model`, `contract`, `plan`, `*_contract`, and `*_plan`, a
    stem that is the same as a different stem in a different case, and a file prefix
    that is the start of a different stem.
-8. A different facts file or a different contract makes the plan stale. Then
-   `parts --map ID` stops with "The plan is stale. Do systemap parts again."
+8. A different source fact or a different contract makes the plan stale. Then
+   `parts --map ID` stops with "The plan is stale. Do systemap parts again." A new
+   `built_at_commit` with the same source facts does not make the plan stale. A change
+   to a map above the parent map makes a level-2 plan stale.
 9. `check --map ID` warns about a stale plan, with the same exit code. If no plan
    exists, `check --map ID` says nothing about a plan.
 10. `suggest` and `parts --stub` give the same file name.
 11. The result file examination refuses an answer form other than `item` and `items`,
-    a digest that is not the digest of the plan, and a file outside the write set.
+    a digest that is not the digest of the plan, and a file outside the write set. A
+    name with `..` is outside the write set. The plan and the result files of the nested
+    parts of a part are in its write set.
+12. A stub has the state `stub` in the plan, also when a symbol claim of the card gives
+    the component `<Card>Other`.
+13. A component that imports a module of the part is an actor of the part.
+14. With the top model in the root folder, the file prefix has no `./`.
+15. `--stub --json` writes one JSON object.
 """
 
 from __future__ import annotations
@@ -50,6 +59,7 @@ from systemap import (
     suggest,
 )
 from systemap.cli import main
+from systemap.model import Component
 
 STALE = "The plan is stale. Do systemap parts again."
 
@@ -301,7 +311,12 @@ def test_a_stale_plan_stops_the_record(tree_root: Path, capsys: pytest.CaptureFi
     _plan(tree_root, capsys)
     facts = tree_root / "docs/map/map.json"
     original = facts.read_text(encoding="utf-8")
-    facts.write_text(original.replace('"loc"', '"loc" ', 1), encoding="utf-8")
+    data = json.loads(original)
+    facts.write_text(json.dumps({**data, "built_at_commit": "f" * 40}), encoding="utf-8")
+    assert run(tree_root, "parts", "--map", "P0") == 0
+    first = sorted(data["components"])[0]
+    data["components"][first]["sha"] = "0" * 64
+    facts.write_text(json.dumps(data), encoding="utf-8")
     capsys.readouterr()
     assert run(tree_root, "parts", "--map", "P0") == 1
     assert STALE in capsys.readouterr().err
@@ -318,12 +333,13 @@ def test_a_position_does_not_make_the_plan_stale(tree_root: Path) -> None:
     """Acceptance 8: the contract digest does not contain the positions."""
     cfg = config.load(tree_root)
     tree = nest.load(cfg)
-    before = parts_plan.contract_digest(tree.top)
+    before = parts_plan.contract_digest(tree, tree.top)
     model = tree_root / "map/model.py"
     text = model.read_text(encoding="utf-8")
     assert re.search(r"x=\d+", text)
     model.write_text(re.sub(r"x=(\d+)", lambda m: f"x={int(m[1]) + 4}", text, count=1))
-    after = parts_plan.contract_digest(nest.load(cfg).top)
+    after_tree = nest.load(cfg)
+    after = parts_plan.contract_digest(after_tree, after_tree.top)
     assert before == after
 
 
@@ -432,3 +448,89 @@ def test_the_stub_module_gives_the_stub_without_a_write(tree_root: Path) -> None
     assert actors == ["Q0", "Q1"]
     glue = parent.model.component("Glue")
     assert parts_stub.problems(parent, glue, model, meaning, facts, "x") == []
+
+
+def test_a_change_above_the_parent_makes_a_level_2_plan_stale(
+    tree_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 8: the plan of P0 uses the owners in the top map."""
+    _plan(tree_root, capsys)
+    _plan(tree_root, capsys, "--map", "P0")
+    assert run(tree_root, "parts", "--map", "P0/Q0") == 0
+    model = tree_root / "map/model.py"
+    model.write_text(model.read_text(encoding="utf-8").replace("value lookup", "value query"))
+    capsys.readouterr()
+    assert run(tree_root, "parts", "--map", "P0/Q0") == 1
+    assert STALE in capsys.readouterr().err
+
+
+def test_the_write_set_refuses_other_folders_and_has_the_nested_plan(
+    tree_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 11."""
+    plan = _plan(tree_root, capsys)
+    part = plan["parts"][0]
+    for name in ("map/p0_/../model.py", "map/p0_x/y.py", "/map/p0_x.py", "map/parts/p1_q0.json"):
+        found = parts_result.problems(_result(plan, part, files=[name]), plan, part)
+        assert found == [f"the file {name} is not in the write set of the part"]
+    names = ["map/parts/p0_plan.json", "map/parts/p0_q0.json", "map/p0_q0.py"]
+    assert parts_result.problems(_result(plan, part, files=names), plan, part) == []
+
+
+def test_a_new_stub_has_the_state_stub(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Acceptance 12 and 15."""
+    root = _gate(tmp_path)
+    capsys.readouterr()
+    assert run(root, "parts", "--stub", "Gate", "--json") == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "map": "Gate",
+        "card": "Gate",
+        "parent_file": "map/model.py",
+        "stub_file": "map/gate.py",
+        "map_value": "gate.py",
+    }
+    _set_map(root / "map/model.py", "Gate", "gate.py")
+    assert run(root, "refresh", "--quiet") == 0
+    assert _plan(root, capsys)["parts"][0]["state"] == "stub"
+
+
+def test_a_symbol_claim_without_a_group_gives_the_other_component() -> None:
+    """Acceptance 12: `<Card>Other` holds a symbol claim whose module is in no group."""
+    card = Component(id="Gate", does="d", implemented_by=("pkg.gate.store.*", "pkg.cli:run"))
+    group = suggest.Proposal(
+        id="GateStore", package="pkg.gate.store", modules=("pkg.gate.store.a",)
+    )
+    found = parts_plan.Groups((group,), ())
+    assert parts_plan.lost_symbols(card, found) == ["pkg.cli:run"]
+    assert parts_plan.stub_ids(card, found) == {"GateStore", "GateOther"}
+
+
+def test_an_importer_of_the_part_is_an_actor(tmp_path: Path) -> None:
+    """Acceptance 13: App imports Gate. Without the flow, App is an actor for the import."""
+    root = _gate(
+        tmp_path,
+        GATE_MODEL.replace('FLOWS = (Flow("App", "Gate", "request", "control"),)', "FLOWS = ()"),
+    )
+    cfg = config.load(root)
+    tree = nest.load(cfg)
+    facts = json.loads(cfg.facts_path.read_text(encoding="utf-8"))
+    child = nest.Map("Gate", tree.top.path, "", tree.top.model, tree.top.meaning, {}, "", "Gate")
+    found = parts_plan.boundary(nest.Tree((*tree.maps, child)), child, facts)
+    assert found["actors"] == [{"id": "App", "because": ["crossing import into the part"]}]
+    assert found["boundary_imports"] == []
+
+
+def test_the_file_prefix_has_no_dot_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 14."""
+    files = {
+        rel.removeprefix("map/") if rel.startswith("map/") else rel: text
+        for rel, text in three_levels.files().items()
+    }
+    files["systemap.toml"] = 'model = "model.py"\n' + files["systemap.toml"].lstrip("\n")
+    write_tree(tmp_path, files)
+    assert run(tmp_path, "place") == 0
+    assert run(tmp_path, "extract") == 0
+    part = _plan(tmp_path, capsys)["parts"][0]
+    assert part["model_file"] == "p0.py" and part["file_prefix"] == "p0_"

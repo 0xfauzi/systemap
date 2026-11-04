@@ -1202,6 +1202,7 @@ It reads the stored facts and sends no data out.
 - Without an option, the command writes `parts/plan.json` beside the top model, for example `map/parts/plan.json`.
   It prints one line for each nested part of the top map: its model file, its module count, its entry point count, and its actors.
   The plan gives these fields for each nested part: the model file, the contract file, the file prefix, the result file, the modules, the `suggest` groups, the modules alone in their package, the actors, the boundary flows, the boundary imports, the import rules, the entry points, the state (`stub` or `mapped`), and `level_2`.
+  An actor is a component of the parent map that has a flow with the card, that a module of the card imports, or that imports a module of the card.
   Each entry point goes to the deepest map that claims its module.
   A nested part with more than 400 modules has `level_2` true. The value 400 is forty components with ten modules each. It is not a measurement.
 - `--map ID` gives the record of the nested part `ID` from the plan of its parent map.
@@ -1214,10 +1215,11 @@ It reads the stored facts and sends no data out.
   The actors of a nested map must be components of its parent map. Thus a stub that needs an actor that the parent map does not have gives exit code `2`.
 - `--results` examines the result file `parts/<stem>.json` of each nested part against the plan.
   An answer in a result file must have the form `item` or `items`.
+  Each file in `files` must be in the write set of the nested part: its model file, its contract file, the model files with its file prefix, its result file, and the plan and the result files of its own nested parts (`parts/<stem>_*.json`).
 - `--json` writes one JSON object.
 
-The plan has two digests. `facts_digest` is the SHA-256 of the facts file.
-`contract_digest` is the SHA-256 of the contract of the parent map: the layer IDs, the region IDs, the flow artifacts, the identity and claims of each component, the flows, the invariants, and the import rules.
+The plan has two digests. `facts_digest` is the SHA-256 of the source facts. It does not contain `built_at_commit` or the provenance values of one computer. Thus a refresh at a new commit with the same source facts does not change it.
+`contract_digest` is the SHA-256 of the contract of the parent map and of each map above it: the layer IDs, the region IDs, the flow artifacts, the identity and claims of each component, the flows, the invariants, and the import rules.
 A change to a position or to a description does not change `contract_digest`.
 If a digest is different from the current tree, `parts --map ID` and `parts --results` stop with exit code `1` and the text `The plan is stale. Do systemap parts again.`
 `check --map ID` gives the same text as a warning and keeps its exit code. If no plan exists, `check --map ID` says nothing about a plan.

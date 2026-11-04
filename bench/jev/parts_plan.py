@@ -72,8 +72,15 @@ PEAK = (
     "    runpy.run_module('systemap', run_name='__main__')\n"
     "except SystemExit as exc:\n"
     "    code = exc.code\n"
+    "else:\n"
+    "    code = 0\n"
     "print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, file=sys.stderr)\n"
+    "raise SystemExit(code)\n"
 )
+
+
+class Failed(Exception):
+    """A command of the experiment did not do its work. The message gives the output."""
 
 
 def write(root: Path, parts: int, subs: int) -> None:
@@ -98,6 +105,8 @@ def peak_kb(*argv: str, script: str) -> tuple[int, str]:
     done = subprocess.run(
         [sys.executable, "-c", script, *argv], capture_output=True, text=True, check=False
     )
+    if done.returncode != 0:
+        raise Failed(f"exit code {done.returncode}: {done.stdout}{done.stderr}")
     lines = (done.stderr if script is PEAK else done.stdout).strip().splitlines()
     return int(lines[-1]), done.stdout
 
@@ -106,7 +115,9 @@ def m3(base: Path) -> bool:
     root = base / "m3"
     write(root, 7, 3)
     for argv in (["place"], ["extract"], ["refresh", "--quiet"]):
-        systemap(root, *argv)
+        code, _time, out = systemap(root, *argv)
+        if code != 0:
+            raise Failed(f"systemap {' '.join(argv)} gave exit code {code}: {out}")
     runs = [systemap(root, "parts", "--json") for _ in range(RUNS)]
     median = statistics.median(t for _c, t, _out in runs)
     out_bytes = len(runs[0][2].encode("utf-8"))
@@ -269,7 +280,11 @@ def m4(base: Path) -> bool:
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
-        results = [m3(base), m4(base)]
+        try:
+            results = [m3(base), m4(base)]
+        except Failed as exc:
+            print(f"The experiment stopped. A command failed: {exc}")
+            return 1
     return 0 if all(results) else 1
 
 

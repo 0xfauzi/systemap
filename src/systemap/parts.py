@@ -37,6 +37,11 @@ def map_id(parent: str, card: str) -> str:
     return f"{parent}/{card}" if parent else card
 
 
+def where(map_id: str) -> str:
+    """Give the name of a map in a sentence: "the map ID", or "the top map"."""
+    return f"the map {map_id}" if map_id else "the top map"
+
+
 def stem(map_id: str) -> str:
     """Give the stem of the model file of a nested map."""
     return map_id.lower().replace("/", "_")
@@ -81,8 +86,7 @@ def stem_problems(map_ids: Iterable[str]) -> list[str]:
 def _reserved(map_id: str, own: str) -> list[str]:
     """Give the lines for a stem that is reserved or that has a reserved ending."""
     out = [f"{map_id}: the stem {own} is reserved for a file of the top map."]
-    out = out if own in RESERVED else []
-    return out + [
+    return (out if own in RESERVED else []) + [
         f"{map_id}: the stem {own} ends in {end}, which is reserved."
         for end in RESERVED_ENDS
         if own.endswith(end)

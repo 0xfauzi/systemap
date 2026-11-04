@@ -72,8 +72,7 @@ def _internal(card: Component, plan: dict[str, Any], facts: dict[str, Any]) -> l
     other = f"{card.id}Other"
     symbols = [p for p in card.implemented_by if is_symbol(p)]
     homes = {m: cid for cid, modules in claims for m in modules}
-    lost = [p for p in symbols if p.partition(":")[0] not in homes]
-    if plan["alone"] or lost:
+    if other in plan["ids"]:
         claims.append((other, tuple(plan["alone"])))
     out = []
     for cid, modules in claims:
@@ -146,8 +145,8 @@ def _plan(
     card = parent.model.component(child.card)
     found = parts_plan.groups_of(parts_plan.modules_of(card, facts), facts)
     return {
-        "groups": [{"id": g.id, "modules": list(g.modules)} for g in found.groups],
-        "alone": list(found.alone),
+        **parts_plan.groups_record(found),
+        "ids": parts_plan.stub_ids(card, found),
         **parts_plan.boundary(grown, child, facts),
     }
 
@@ -163,7 +162,7 @@ def _refuse_ids(
         for c in internal
         if c.id in actors
     ]
-    where = f"the map {parent.id}" if parent.id else "the top map"
+    where = parts.where(parent.id)
     out += [
         f"{map_id}: the stub needs the actor {cid}, but {where} has no component {cid}. "
         f"Add the actor {cid} to {where} first."
@@ -200,7 +199,7 @@ def write(
     """Examine and write the stub for a card of the parent map. Give the path of the file."""
     card = _card(parent, card_id)
     map_id = parts.map_id(parent.id, card.id)
-    others = [c.id for c, _target in _openers(parent) if c.id != card.id]
+    others = [c.id for c in parent.model.components if c.map and c.id != card.id]
     stems = parts.stem_problems([map_id, *(parts.map_id(parent.id, cid) for cid in others)])
     if stems:
         raise StubError("\n".join(stems))
@@ -222,13 +221,9 @@ def write(
 
 def _card(parent: nest.Map, card_id: str) -> Component:
     found = parent.model.find(card_id)
-    where = f"the map {parent.id}" if parent.id else "the top map"
+    where = parts.where(parent.id)
     if found is None or found.kind == "actor":
         raise StubError(f"{card_id} is not an internal component of {where}.")
     if found.map is not None:
         raise StubError(f"{card_id} already opens the map {found.map}. A stub is for a new part.")
     return found
-
-
-def _openers(m: nest.Map) -> list[tuple[Component, str]]:
-    return [(c, c.map) for c in m.model.components if c.kind != "actor" and c.map]

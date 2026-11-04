@@ -3901,3 +3901,21 @@ The script made the model from the means of the self-map at the same commit. The
 | Values (the count of `model_load`) | 4,137 |
 
 M4 passes. The size is 82 percent of the acceptance value, and the size limit is nearer than the value limit. A map with longer `does` text than the self-map can be above 256 KB. The size of a real nested map of 40 components was not measured.
+
+### M3 and M4 again, after the review of step 3 (2026-11-04)
+
+The review of step 3 changed `parts_plan.py`: the plan calculates the crossing imports one time for each parent map, not one time for each nested part. `facts_digest` and `contract_digest` also changed.
+The script now stops with exit code 1 if `place`, `extract`, `refresh`, or a measured process fails. The acceptance values did not change.
+The code is the working tree of the review on 7a48d35. The command and the tree are the same as above.
+
+| Measurement | Result |
+|---|---|
+| Exit codes of 5 runs | 0 |
+| Times of 5 runs (s) | 0.32, 0.32, 0.37, 0.33, 0.34 |
+| Median time (s) | 0.33 |
+| Peak RSS of `parts --json` | 35.9 MB |
+| Peak RSS of the load and the facts read | 25.4 MB |
+| Peak RSS above the load and the facts read | 10.5 MB |
+| Output | 14,476 bytes |
+
+M3 passes on this tree. M4 gives the same values as above: 214,060 bytes and 4,137 values, and passes. The time and the memory on big5 are not known. A measurement on big5 is necessary.
