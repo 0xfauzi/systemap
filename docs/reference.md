@@ -633,16 +633,16 @@ A placement that keeps positions does not move a component.
 The Map tree panel is on each page of a tree with nested maps. The T key opens it.
 It has one link for each map of the tree, in the order of the tree.
 Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings of the map.
-The open findings are the open lines of `systemap judgement` for the map. If the render has no open lines, the item shows `not examined`.
+The open findings are the open lines of `systemap judgement` for the map. The `render`, `refresh`, `check`, and `live` commands run the judgement, so each item gives a count. If a render has no judgement result, the item shows `not examined`, not zero. If the base tree of a comparison does not load, the item does not show `changed`, and the Changes panel gives the reason.
 The Find dialog also gives the components of the other maps, in the group `Other maps`, after the results of the current map.
 Each result shows the map, for example `in Gateway/Routes`. In each map, the internal components come before the actors.
 Each page has its own copy of this index, so a static page needs no request.
 
 In the Changes view of a page with maps below it, the Details panel has two more sections:
 
-- `CHANGES IN NESTED MAPS`: one link for each changed map below the page, to the Changes view of that map, with the counts of the added, removed, and changed components, flows, and sequences.
+- `CHANGES IN NESTED MAPS`: one link for each changed map below the page, to the Changes view of that map, with the counts of the added, removed, and changed components, flows, sequences, and invariants.
   These counts use only the model of each map. A source change is not in a count.
-- `BOUNDARY CHANGES`: each change to the module claims of a card that opens a map, and each change to an import rule whose `src` is such a card.
+- `BOUNDARY CHANGES`: each change to the module claims of a card that opens a map, and each change to an import rule that examines such a card: its `src` names the card, or it is a `forbid_cycle` rule with an empty `src`.
   A claim that goes from one card to a different card of the same map is one move. The row gives the number of changes in the nested map of each card.
   A rule row gives the reason of the rule. Accept or reject each boundary change in the review.
 

@@ -104,7 +104,7 @@ The filled rectangle is the component that opens the current map, and the dashed
 Select the figure to go to the parent map.
 
 The Map tree panel gives each map of the tree. Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings.
-If the page has no finding count, the item shows `not examined`.
+If the render has no judgement result, the item shows `not examined`, not zero.
 Find also gives the components of the other maps, in the group `Other maps`.
 In the Changes view of a parent map, the Details panel gives the changes in the nested maps and the boundary changes.
 

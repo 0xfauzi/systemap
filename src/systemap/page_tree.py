@@ -7,8 +7,11 @@ number of internal components, the text "changed" when the map or a map below it
 changed, and the number of open findings of the map.
 
 The open findings are the open judgement lines of the render (`page_context.open_boundary`,
-the rules of `systemap judgement`). A line belongs to the map of its map prefix. If the
-render has no open lines, the item shows "not examined", not zero. Unknown is never zero.
+the rules of `systemap judgement`). A line belongs to the map of its map prefix. A render
+of `render`, `refresh`, `check`, or `live` runs the judgement, so its items give a count.
+If a render has no judgement result, the item shows "not examined", not zero. Unknown is
+never zero. If the base tree of a comparison does not load, the change flag of a map is
+not known, and the item does not show "changed".
 
 Each page also has one compact list of the maps and a search index of the components of
 the other maps: the map, the component ID, the kind, and the card text, cut to
@@ -29,6 +32,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from systemap import judgement, nest, page_rollup
+from systemap.boundary_changes import plural
+from systemap.config import Config
 from systemap.page_rollup import Changes, href
 
 # The card text of a search row is cut to this number of characters.
@@ -45,7 +50,7 @@ class Overview:
     """The data of the map tree for all pages of one render.
 
     `findings` gives the number of open lines of each map, or is None if the render has no
-    open lines. `changes` is the roll-up of the changes, or None without a comparison."""
+    judgement result. `changes` is the roll-up of the changes, or None without a comparison."""
 
     name: str
     maps: tuple[nest.Map, ...] = ()
@@ -62,7 +67,7 @@ def line_map(line: str) -> str:
 
 
 def finding_counts(tree: nest.Tree, still: Iterable[str] | None) -> dict[str, int] | None:
-    """Give the number of open lines of each map, or None without open lines."""
+    """Give the number of open lines of each map, or None without a judgement result."""
     if still is None:
         return None
     out = dict.fromkeys(tree.ids, 0)
@@ -102,21 +107,43 @@ def overview(
     return Overview(name, tree.maps, finding_counts(tree, still), changes, kinds, rows)
 
 
-def _changed(ov: Overview, map_id: str) -> bool:
-    return ov.changes is not None and ov.changes.rollups[map_id].changed
+def for_render(
+    cfg: Config,
+    tree: nest.Tree,
+    still: Iterable[str] | None,
+    pages: Mapping[str, Mapping[str, Any]],
+    base: str,
+) -> Overview:
+    """Give the map tree of a render, with the roll-up of the changes for a base.
+
+    `pages` gives the change data of the page of each map."""
+    changes = page_rollup.collect(cfg, tree, pages) if base and tree.nested else None
+    return overview(cfg.name, tree, still, changes)
+
+
+def _changed(ov: Overview, map_id: str) -> bool | None:
+    """Tell if the map or a map below it changed, or give None if it is not known."""
+    if ov.changes is None or not ov.changes.known:
+        return None
+    return ov.changes.rollups[map_id].changed
+
+
+def mark_changed(ov: Overview, tree: nest.Tree, m: nest.Map, opens: dict[str, Any]) -> None:
+    """Add the change flag of each child map to the child map records of the map `m`."""
+    for child in tree.children(m):
+        if _changed(ov, child.id):
+            opens[child.card]["changed"] = True
 
 
 def _found(ov: Overview, map_id: str) -> str:
     if ov.findings is None:
         return NOT_EXAMINED
-    n = ov.findings.get(map_id, 0)
-    return f"{n} finding" if n == 1 else f"{n} findings"
+    return plural(ov.findings.get(map_id, 0), "finding")
 
 
 def item_text(ov: Overview, m: nest.Map) -> str:
     """Give the text after the name of one item: the counts, and "changed"."""
-    n = m.inside
-    parts = [f"{n} component" if n == 1 else f"{n} components"]
+    parts = [plural(m.inside, "component")]
     if _changed(ov, m.id):
         parts.append("changed")
     parts.append(_found(ov, m.id))
@@ -168,7 +195,7 @@ def data(ov: Overview, at: str) -> dict[str, Any] | None:
             m.id,
             m.parent or "",
             m.inside,
-            _changed(ov, m.id) if ov.changes is not None else None,
+            _changed(ov, m.id),
             None if ov.findings is None else ov.findings.get(m.id, 0),
         ]
         for m in ov.maps
@@ -176,7 +203,7 @@ def data(ov: Overview, at: str) -> dict[str, Any] | None:
     here = ids.index(at)
     return {
         "at": here,
-        "up": "../" * len(at.split("/")) if at else "",
+        "up": page_rollup.up(at),
         "top": ov.name,
         "maps": maps,
         "kinds": list(ov.kinds),

@@ -146,9 +146,7 @@ def nesting_of(
             still = page_context.open_boundary(cfg, tree, facts)
         context = page_context.context(tree, m, facts, still)
     ov = overview or page_tree.overview(cfg.name, tree, still)
-    if ov.changes is not None:
-        for child in tree.children(m):
-            opens[child.card]["changed"] = ov.changes.rollups[child.id].changed
+    page_tree.mark_changed(ov, tree, m, opens)
     return Nesting(
         model_file=m.rel,
         path=m.id,
@@ -556,8 +554,7 @@ def build(
         ),
     }
     tree = page_tree.data(nesting.tree, nesting.path)
-    if tree is not None:
-        payload["tree"] = tree
+    payload |= {"tree": tree} if tree is not None else {}
     change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch, nesting.opens)
     change_svg = _no_tooltips(change_svg)
     # One copy of the map code serves the system map and the change map.

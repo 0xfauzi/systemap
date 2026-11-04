@@ -27,7 +27,6 @@ from systemap import (
     out_paths,
     page,
     page_context,
-    page_rollup,
     page_tree,
 )
 from systemap.config import Config, ConfigError
@@ -74,8 +73,7 @@ def render_tree(root: Path, base: str, cache: fact_cache.FactCache | None = None
     source = change.source_change(cfg, base, facts, change.WORKING_TREE, cache) if base else None
     compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
     still = page_context.open_boundary(cfg, tree, facts)
-    changes = page_rollup.collect(cfg, tree, compared) if base and tree.nested else None
-    ov = page_tree.overview(cfg.name, tree, still, changes)
+    ov = page_tree.for_render(cfg, tree, still, compared, base)
     files = {
         out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): page.build(
             cfg,

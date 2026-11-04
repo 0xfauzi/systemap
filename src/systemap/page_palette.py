@@ -281,11 +281,16 @@ _SCRIPT = r"""
       if(r){ (groups[it.g] = groups[it.g] || []).push(r); }
     });
     // A long group shows its best results. The text "rule" or "rules" shows all rules.
+    // The group name of the other maps does not show all its rows. In the shown rows,
+    // the actors come after the internal components.
     return ORDER.filter(function(g){ return groups[g]; }).map(function(g){
-      var rows = groups[g].sort(function(a, b){
+      var rows = groups[g].sort(function(a, b){ return (b.s - a.s) || (a.it.k - b.it.k); });
+      var all = !tokens.length || (tokens.length === 1 && g !== 'Other maps' &&
+        g.toLowerCase().indexOf(tokens[0]) === 0);
+      var shown = rows.slice(0, all || !LIMIT[g] ? rows.length : LIMIT[g]);
+      shown.sort(function(a, b){
         return (a.it.late - b.it.late) || (b.s - a.s) || (a.it.k - b.it.k); });
-      var all = !tokens.length || (tokens.length === 1 && g.toLowerCase().indexOf(tokens[0]) === 0);
-      return {g:g, best:rows[0].s, rows:all || !LIMIT[g] ? rows : rows.slice(0, LIMIT[g])};
+      return {g:g, best:rows[0].s, rows:shown};
     }).sort(function(a, b){
       // The results of the other maps come after the results of this map.
       var other = (a.g === 'Other maps') - (b.g === 'Other maps');

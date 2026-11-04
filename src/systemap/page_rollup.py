@@ -3,7 +3,10 @@
 Each page compares the model of its map at the comparison base with the model on disk
 (`delta_model.for_page`). After the render has these map changes for all maps, this
 module makes one roll-up record for each map: the counts of the added, removed, and
-changed components, flows, and sequences, and a flag for a changed map below it.
+changed components, flows, sequences, and invariants, and a flag for a changed map below
+it. An invariant is in the counts, so that a map with only a changed rule shows as
+changed. If the base tree does not load, the roll-up is not known, and the panel gives
+the reason. It does not give zero.
 
 The roll-up counts only the map changes of each map. A source change shows on each page
 that contains its module, but it is not in a count. Thus no change is counted two times.
@@ -25,11 +28,17 @@ from typing import Any
 from urllib.parse import quote
 
 from systemap import boundary_changes, delta_model, nest
+from systemap.boundary_changes import plural
 from systemap.config import Config
 from systemap.delta_model import MapChange
 
 # The groups of a roll-up count, with the noun of one item.
-GROUPS = (("components", "component"), ("flows", "flow"), ("sequences", "sequence"))
+GROUPS = (
+    ("components", "component"),
+    ("flows", "flow"),
+    ("sequences", "sequence"),
+    ("invariants", "invariant"),
+)
 HOWS = (delta_model.ADDED, delta_model.REMOVED, delta_model.CHANGED)
 
 
@@ -64,6 +73,11 @@ class Changes:
     rollups: dict[str, Rollup]
     boundary: boundary_changes.BoundaryChanges | None = None
     error: str = ""
+
+    @property
+    def known(self) -> bool:
+        """Tell if the base tree loaded. Without it, the roll-up records are not known."""
+        return self.boundary is not None
 
 
 def _counts(change: MapChange) -> tuple[tuple[str, str, int], ...]:
@@ -112,27 +126,33 @@ def collect(cfg: Config, tree: nest.Tree, pages: Mapping[str, Mapping[str, Any]]
     return Changes(rollups, boundary_changes.compute(old, tree))
 
 
-def _plural(n: int, noun: str) -> str:
-    return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
-
-
 def counted(r: Rollup) -> str:
     """Give the counts of a roll-up record, for example "1 added flow, 2 changed components"."""
-    return ", ".join(_plural(n, f"{how} {noun}") for how, noun, n in r.counts)
+    return ", ".join(plural(n, f"{how} {noun}") for how, noun, n in r.counts)
+
+
+def up(at: str) -> str:
+    """Give the relative path from the page of the map `at` to the top page folder."""
+    return "../" * len(at.split("/")) if at else ""
 
 
 def href(at: str, map_id: str) -> str:
     """Give the link from the page of the map `at` to the page of the map `map_id`."""
-    up = "../" * len(at.split("/")) if at else ""
     down = "".join(f"{quote(part, safe='')}/" for part in map_id.split("/")) if map_id else ""
-    return f"{up}{down}index.html"
+    return f"{up(at)}{down}index.html"
 
 
 def _code(text: str) -> str:
     return f"<code>{esc(text)}</code>"
 
 
+def _unknown(found: Changes) -> str:
+    return f'<p class="chg-text">Not known, because {esc(found.error)}.</p>'
+
+
 def _nested_rows(maps: tuple[nest.Map, ...], at: str, found: Changes) -> str:
+    if not found.known:
+        return _unknown(found)
     rows = "".join(
         f'<li><a href="{esc(href(at, other.id))}#changes">{esc(other.id)}</a>'
         f'<span class="chg-mc__what">{esc(counted(found.rollups[other.id]))}</span></li>'
@@ -146,7 +166,7 @@ def _nested_rows(maps: tuple[nest.Map, ...], at: str, found: Changes) -> str:
 
 def _boundary_rows(at: str, found: Changes) -> str:
     if found.boundary is None:
-        return f'<p class="chg-text">Not known, because {esc(found.error)}.</p>'
+        return _unknown(found)
     within = found.boundary.within(at)
     counts = {map_id: r.own for map_id, r in found.rollups.items()}
     rows = boundary_changes.rows(within, counts, _code, esc)

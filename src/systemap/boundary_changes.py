@@ -7,8 +7,10 @@ between a base tree and a head tree:
 - The claims of a card that opens a map changed. If a claim went from one card of a map
   to a different card of the same map, the change is a move. A move changes the two
   nested maps of the two cards.
-- An import rule changed, and its `src` names a card that opens a map. Such a rule
-  records the imports at the boundary of a nested part (the parent contract).
+- An import rule changed, and it selects a card that opens a map: its `src` names the
+  card, or it is a `forbid_cycle` rule with an empty `src`, which selects all
+  components. Such a rule records the imports at the boundary of a nested part (the
+  parent contract).
 
 The Changes panel of a page (`page_rollup`) and the pull request summary (`pr_summary`)
 give the same rows (`rows`). Each row gives the number of changes in each nested map
@@ -18,7 +20,7 @@ nested map changes. The rows use only the model files, not the source facts.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 
 from systemap import delta_model, nest
@@ -160,9 +162,22 @@ def _nested(map_id: str, card: str, nested: set[str]) -> str:
     return inside if inside in nested else ""
 
 
-def _value(rule: ImportRule, name: str) -> object:
+def _value(rule: object, name: str) -> object:
+    """Give a field value. The sequence of the components in a rule is not a change."""
     value = getattr(rule, name)
     return tuple(sorted(value)) if isinstance(value, tuple) else value
+
+
+def differ(old: object, new: object, fields: Mapping[str, str] = RULE_FIELDS) -> tuple[str, ...]:
+    """Give the reader words of the fields of a rule that are different in `new`."""
+    return tuple(word for name, word in fields.items() if _value(old, name) != _value(new, name))
+
+
+def _selects(rule: ImportRule, openers: set[str]) -> bool:
+    """Tell if the rule examines a card that opens a map (`import_rules`)."""
+    if not rule.src and rule.kind == "forbid_cycle":
+        return bool(openers)
+    return bool(set(rule.src) & openers)
 
 
 def _rule_change(
@@ -170,11 +185,11 @@ def _rule_change(
 ) -> RuleChange | None:
     """Give the change of one rule of the head model, or None for an unchanged rule or a
     rule that is not at a boundary."""
-    if not (set(rule.src) | set(old.src if old else ())) & openers:
+    if not (_selects(rule, openers) or (old is not None and _selects(old, openers))):
         return None
     if old is None:
         return RuleChange(ADDED, map_id, key, (), rule.reason)
-    words = _differ(old, rule)
+    words = differ(old, rule)
     return RuleChange(CHANGED, map_id, key, words, rule.reason) if words else None
 
 
@@ -188,37 +203,40 @@ def _rule_changes(map_id: str, base: Model, head: Model) -> list[RuleChange]:
     out += [
         RuleChange(REMOVED, map_id, key, (), rule.reason)
         for key, rule in before.items()
-        if key not in after and set(rule.src) & openers
+        if key not in after and _selects(rule, openers)
     ]
     return out
 
 
-def _differ(old: ImportRule, new: ImportRule) -> tuple[str, ...]:
-    return tuple(
-        word for name, word in RULE_FIELDS.items() if _value(old, name) != _value(new, name)
-    )
+def map_pairs(base: nest.Tree, head: nest.Tree) -> Iterator[tuple[str, Model, Model]]:
+    """Give the ID and the base and head models of each map in the sequence of the head
+    tree, then of each removed map. A map that is not in one tree is empty in that tree."""
+    before = {m.id: m.model for m in base.maps}
+    after = {m.id: m.model for m in head.maps}
+    for map_id in [*after, *(found for found in before if found not in after)]:
+        yield (
+            map_id,
+            before.get(map_id, delta_model.EMPTY),
+            after.get(map_id, delta_model.EMPTY),
+        )
 
 
 def compute(base: nest.Tree, head: nest.Tree) -> BoundaryChanges:
     """Compare the boundaries of the base tree with the boundaries of the head tree.
 
     A map that is not in one tree has no components and no rules in that tree."""
-    before = {m.id: m.model for m in base.maps}
-    after = {m.id: m.model for m in head.maps}
-    nested = set(after)
+    nested = set(head.ids)
     claims: list[ClaimChange] = []
     moves: list[Move] = []
     rules: list[RuleChange] = []
-    for map_id in [*after, *(found for found in before if found not in after)]:
-        old = before.get(map_id, delta_model.EMPTY)
-        new = after.get(map_id, delta_model.EMPTY)
+    for map_id, old, new in map_pairs(base, head):
         claims += _claim_changes(map_id, old, new, nested)
         moves += _moves(map_id, old, new, nested)
         rules += _rule_changes(map_id, old, new)
     return BoundaryChanges(tuple(claims), tuple(moves), tuple(rules))
 
 
-def _plural(n: int, noun: str) -> str:
+def plural(n: int, noun: str) -> str:
     return f"{n} {noun}" if n == 1 else f"{n} {noun}s"
 
 
@@ -226,7 +244,7 @@ def _inside(nested: str, counts: Mapping[str, int], code: Callable[[str], str]) 
     """Give the number of changes in one nested map, or nothing without a nested map."""
     if not nested:
         return ""
-    return f" Map {code(nested)}: {_plural(counts.get(nested, 0), 'change')}."
+    return f" Map {code(nested)}: {plural(counts.get(nested, 0), 'change')}."
 
 
 def _where(map_id: str, code: Callable[[str], str]) -> str:

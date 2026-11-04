@@ -4152,6 +4152,10 @@ In runs 1 and 2, the map check in `refresh` took about 700 s before it stopped. 
 The sample page of `tests/test_render.py`, which has no nested map, is 338,405 bytes (+174 bytes, the group `Other maps` in the script of the Find dialog). The limit of 331 KiB (338,944 bytes) stays.
 A page without nested maps has no Map tree panel, no search index, and no script for them.
 
+After the review of this step (2026-11-04), the Find dialog cuts the group `Other maps` to its best 8 rows before it puts the actors last, and the group name does not show all its rows.
+The sample page of `tests/test_render.py` is now 338,523 bytes (+118 bytes). The limit stays.
+M11 did not run again after the review. The review changed only the script of the Find dialog and the text of the panels, not the search index or the tree data. A new run of M11 is necessary to give the page sizes of the reviewed code.
+
 ### M17: the reviewer test, the written protocol
 
 M17 needs people. This step writes only its protocol. The test did not run, and no result is available.

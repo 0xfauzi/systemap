@@ -174,6 +174,26 @@ def test_the_change_panel_gives_the_nested_changes_and_the_boundary_rows() -> No
     # A base tree that does not load gives the reason, not an empty list.
     unknown = page_rollup.section(head.maps, "", page_rollup.Changes(rollups, None, "no base"))
     assert "Not known, because no base." in unknown
+    assert "No map below this map changed." not in unknown
+
+
+def test_a_map_with_only_a_changed_invariant_is_a_changed_map() -> None:
+    _base, head = moved()
+    only = MapChange(invariants=(Item(CHANGED, "2", ("text",)),), base="abc1234")
+    found = page_rollup.records(head, {"Store": only})
+    assert found["Store"].own == 1 and found[""].below
+    assert page_rollup.counted(found["Store"]) == "1 changed invariant"
+
+
+def test_a_cycle_rule_with_no_source_is_a_boundary_rule() -> None:
+    base = tree(model(GATE, STORE, PLAIN), ("Gateway", "", INSIDE))
+    cycles = ImportRule("no-cycles", "forbid_cycle", (), (), "No cycle.")
+    head = tree(model(GATE, STORE, PLAIN, rules=(cycles,)), ("Gateway", "", INSIDE))
+    found = boundary_changes.compute(base, head)
+    assert found.rules == (boundary_changes.RuleChange("added", "", "no-cycles", (), "No cycle."),)
+    # A rule that names no card that opens a map is not a boundary rule.
+    plain = tree(model(GATE, STORE, PLAIN, rules=(OTHER,)), ("Gateway", "", INSIDE))
+    assert boundary_changes.compute(base, plain).rules == ()
 
 
 def test_the_pull_request_summary_has_the_boundary_changes_row() -> None:

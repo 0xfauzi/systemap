@@ -58,7 +58,6 @@ from systemap import (
     out_paths,
     page,
     page_context,
-    page_rollup,
     page_tree,
     place,
     place_nested,
@@ -285,33 +284,6 @@ def _model_ok(p: Project, maps: list[nest.Map] | None = None) -> bool:
     return ok
 
 
-def _page_changes(
-    p: Project,
-    facts: dict[str, Any],
-    args: argparse.Namespace,
-    source: change.SourceChange | None = None,
-    pr: dict[str, Any] | None = None,
-) -> dict[str, dict[str, Any]]:
-    """Give the change data of the page of each map. The roll-up needs all of them."""
-    base = getattr(args, "base", "")
-    out: dict[str, dict[str, Any]] = {}
-    for m in p.tree.maps:
-        ch: dict[str, Any] = {"has_change": False}
-        if base:
-            ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"), source)
-            ch["pr"] = pr or {}
-        out[m.id] = ch
-    return out
-
-
-def _overview(
-    p: Project, still: frozenset[str], pages: dict[str, dict[str, Any]], base: str
-) -> page_tree.Overview:
-    """Give the map tree of a render, with the roll-up of the changes for a base."""
-    changes = page_rollup.collect(p.cfg, p.tree, pages) if base and p.tree.nested else None
-    return page_tree.overview(p.cfg.name, p.tree, still, changes)
-
-
 def _render_page(
     p: Project,
     m: nest.Map,
@@ -344,8 +316,13 @@ def cmd_render(args: argparse.Namespace) -> int:
     # One gh request for all maps. The data gives the title of each change map.
     pr = change.pr_meta(p.cfg.root, getattr(args, "pr", "")) if args.base else {}
     still = page_context.open_boundary(p.cfg, p.tree, facts)
-    pages = _page_changes(p, facts, args, source, pr)
-    ov = _overview(p, still, pages, args.base)
+    no_change: dict[str, dict[str, Any]] = {m.id: {"has_change": False} for m in p.tree.maps}
+    pages = (
+        change.for_tree(p.cfg, p.tree, args.base, facts, args.head, source, pr)
+        if args.base
+        else no_change
+    )
+    ov = page_tree.for_render(p.cfg, p.tree, still, pages, args.base)
     for m in p.tree.maps:
         html = _render_page(p, m, facts, pages[m.id], still, ov)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
@@ -589,7 +566,7 @@ def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
     """Write the page of each map and each configured figure. Give the written paths."""
     written: list[str] = []
     still = page_context.open_boundary(p.cfg, p.tree, fresh)
-    ov = _overview(p, still, {}, "")
+    ov = page_tree.overview(p.cfg.name, p.tree, still)
     for m in p.tree.maps:
         html = _render_page(p, m, fresh, {"has_change": False}, still, ov)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))

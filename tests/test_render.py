@@ -40,7 +40,9 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # 337,949 bytes. The limit is the next whole KiB above it. After the review of that
     # step, the ports of hidden flows are hidden, and the page is 338,231 bytes.
     # The group "Other maps" of the Find dialog adds 174 bytes (bench/jev/README.md, "M11
-    # and M17"). The page is 338,405 bytes. The limit stays the same.
+    # and M17"). The page is 338,405 bytes. The limit stays the same. After the review of
+    # that step, the Find dialog sorts the shown rows of a group again, and the page is
+    # 338,523 bytes.
     assert len(html.encode("utf-8")) < 331 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched

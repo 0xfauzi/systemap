@@ -41,13 +41,7 @@ ROWS = 5
 INVARIANT, IMPORT_RULE = "invariant", "import rule"
 # The reader words for the changed fields of each contract rule. The keys are schema keys.
 INVARIANT_FIELDS = {"text": "text", "governs": "components", "reason": "reason"}
-IMPORT_RULE_FIELDS = {
-    "kind": "kind",
-    "src": "source components",
-    "dst": "target components",
-    "reason": "reason",
-    "invariant": "invariant",
-}
+IMPORT_RULE_FIELDS = boundary_changes.RULE_FIELDS
 # The record whose freshness the level row gives, for each claim type.
 RECORD = {
     assurance.COMPONENT: "source review",
@@ -107,21 +101,11 @@ def _rule_changes(
     out: list[RuleChange] = []
     for key, rule in head.items():
         old = base.get(key)
-        words = () if old is None else _differ(old, rule, fields)
+        words = () if old is None else boundary_changes.differ(old, rule, fields)
         if old is None or words:
             out.append(RuleChange(ADDED if old is None else CHANGED, map_id, kind, key, words))
     out += [RuleChange(REMOVED, map_id, kind, key) for key in base if key not in head]
     return out
-
-
-def _value(rule: object, name: str) -> object:
-    """Give a field value. The sequence of the components in a rule is not a change."""
-    value = getattr(rule, name)
-    return tuple(sorted(value)) if isinstance(value, tuple) else value
-
-
-def _differ(old: object, new: object, fields: dict[str, str]) -> tuple[str, ...]:
-    return tuple(word for name, word in fields.items() if _value(old, name) != _value(new, name))
 
 
 def _invariants(model: Model) -> dict[str, Invariant]:
@@ -139,13 +123,8 @@ def contract_changes(base: nest.Tree, head: nest.Tree) -> tuple[RuleChange, ...]
 
     A map that is not in one tree has no rules in that tree.
     """
-    empty = delta_model.EMPTY
-    before = {m.id: m.model for m in base.maps}
-    after = {m.id: m.model for m in head.maps}
-    ids = [*after, *(map_id for map_id in before if map_id not in after)]
     out: list[RuleChange] = []
-    for map_id in ids:
-        old, new = before.get(map_id, empty), after.get(map_id, empty)
+    for map_id, old, new in boundary_changes.map_pairs(base, head):
         out += _rule_changes(
             map_id, INVARIANT, _invariants(old), _invariants(new), INVARIANT_FIELDS
         )
@@ -307,10 +286,11 @@ def _boundary(s: Summary) -> list[str]:
     """Give the boundary changes, or nothing for a tree without nested maps and changes."""
     if not s.boundary.count:
         return ["- **Boundary changes:** no change"] if s.nested else []
-    counts = {
-        m.id: len(change.components) + len(change.flows) + len(change.sequences)
-        for m, change in s.maps
-    }
+    # The same counts as the page roll-up: the map changes and the invariant changes.
+    counts = {m.id: change.count for m, change in s.maps}
+    for r in s.contract:
+        if r.kind == INVARIANT and r.map in counts:
+            counts[r.map] += 1
     rows = boundary_changes.rows(s.boundary, counts, _code, _plain)
     head = (
         f"- **Boundary changes:** {_plural(len(rows), 'row')}. "

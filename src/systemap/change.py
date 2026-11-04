@@ -722,3 +722,21 @@ def for_page(
     ch = compute(cfg, m.model, base, facts, head, source=source)
     ch["map"] = delta_model.for_page(cfg, m.id, m.model, m.meaning, ch["comparison_base"])
     return ch
+
+
+def for_tree(
+    cfg: Config,
+    tree: nest.Tree,
+    base: str,
+    facts: dict[str, Any],
+    head: str = "HEAD",
+    source: SourceChange | None = None,
+    pr: dict[str, Any] | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Give the change-view data of the page of each map, with the pull request data.
+
+    The roll-up of the changes (`page_rollup`) needs the data of all maps."""
+    out: dict[str, dict[str, Any]] = {}
+    for m in tree.maps:
+        out[m.id] = for_page(cfg, m, base, facts, head, source) | {"pr": pr or {}}
+    return out
