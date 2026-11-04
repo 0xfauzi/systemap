@@ -122,7 +122,7 @@ def earlier_reviews(tree: nest.Tree, facts: dict[str, Any]) -> list[dict[str, st
     """
     return [
         {"map": m.id, "flow": flow.key}
-        for m in tree.maps
+        for m in tree.reported
         for flow in m.model.flows
         if flow_review.state(flow, m.meaning, facts) == flow_review.EARLIER
     ]

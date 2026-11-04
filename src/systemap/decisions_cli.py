@@ -20,6 +20,7 @@ from collections.abc import Callable
 from typing import Any
 
 from systemap import (
+    cli_scope,
     config,
     decisions,
     decisions_store,
@@ -219,7 +220,7 @@ def cmd_decisions(args: argparse.Namespace) -> int:
     if args.action == "submit":
         say(*decisions_submit.submit(cfg, args.file))
         return 0
-    snap = decisions_submit.snapshot(cfg)
+    snap = decisions_submit.snapshot(cfg, getattr(args, "only", None))
     if args.action == "pending":
         say(
             json.dumps(pending_payload(snap), indent=2)
@@ -255,6 +256,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         a = actions.add_parser(name, help=text, description=text)
         add_root(a)
         a.add_argument("--json", action="store_true", help="Write one JSON object.")
+        cli_scope.add_option(a)
     a = actions.add_parser(
         "submit",
         help="Examine and record a JSON list of verdicts.",
@@ -265,4 +267,5 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     )
     add_root(a)
     a.add_argument("file", metavar="FILE", help="Give the file of verdicts, or - for stdin.")
+    cli_scope.refuse_option(a, "systemap decisions submit")
     s.set_defaults(func=cmd_decisions)

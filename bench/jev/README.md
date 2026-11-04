@@ -3787,3 +3787,48 @@ Command: `uv run python bench/jev/lock_race.py 100` (88 seconds on the same host
 | C | 100 | 44 runs with exit 0 in the two processes. 56 runs with a lock error. 0 lost digests. |
 
 Parts A and B pass. Part C has no acceptance value. It gave 0 lost digests.
+
+## M1, M2, M10, and M19: a tree on three levels and `--map` (2026-11-04)
+
+Scope: step 2 of [the nested parts design](../../docs/design/nested-parts.md).
+The script is [`nested_scope.py`](nested_scope.py). Its docstring has the acceptance values, which were written before the run.
+The fixture is [`tests/three_levels.py`](../../tests/three_levels.py). It has nested maps on levels 1, 2, and 3. Each map on level 2 imports a module of the top card Base.
+Each command is a new process. The times are wall times. The host has 4 cores. The code is the working tree of step 2 on 8fef34a.
+
+Command: `uv run python bench/jev/nested_scope.py` (23 seconds)
+
+### M10: the fixture on three levels
+
+Acceptance, written before the run: on the fixture with 11 maps, `place`, `extract`, `refresh`, `check`, `judgement`, and `delta --base HEAD` exit 0.
+
+| Command | Exit code |
+|---|---|
+| `place` | 0 |
+| `extract` | 0 |
+| `refresh --quiet` | 0 |
+| `check` | 0 |
+| `judgement` | 0 |
+| `delta --base HEAD` | 0 |
+
+M10 passes. `delta` compared the commit with the same working tree. A delta with a source change on three levels was not measured.
+
+### M2 on a generated tree, not on big5
+
+The design gives M2 on the 50-map tree of the fixture big5. big5 is not on this host. Thus M2 of the design was not run.
+The script ran the acceptance of M2 on a different tree: the fixture with 7 maps on level 1 and 3 maps on level 2 below each of them, 50 maps in all.
+This tree has 122 modules with the empty package markers, not about 4,250. Its result does not replace the M2 of the design.
+
+Acceptance, written before the run: the median time of `check --map P0/Q0` is at most 0.5 times the median time of the full-tree `check`. A syntax error in the model file of the sibling map P1 does not change the exit code of `check --map P0/Q0`.
+
+| Command | Exit codes | Times of 5 runs (s) | Median (s) |
+|---|---|---|---|
+| `check` | 0 | 2.28, 2.20, 2.29, 2.30, 2.25 | 2.28 |
+| `check --map P0/Q0` | 0 | 0.27, 0.27, 0.32, 0.26, 0.26 | 0.27 |
+
+The ratio of the medians is 0.12. After the syntax error in `map/p1.py`, `check --map P0/Q0` exits 0, and the full-tree `check` exits 2.
+The acceptance passes on this tree. The time on big5 is not known. A measurement on big5 is necessary.
+
+### M1 and M19: not run
+
+- M1 needs the fixture big5 (about 4,250 modules) divided into 10, 25, and 50 nested maps. big5 is not on this host. M1 was not run.
+- M19 needs a fixture with more than 10,000 source files (issue #92). No such fixture is on this host. M19 was not run.

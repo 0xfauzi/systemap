@@ -641,6 +641,18 @@ Commands use all maps in the map tree:
   For example, the map `Gateway/Routes` has the file `map/gateway_routes.py` and the value `map="gateway_routes.py"`.
   All model files are in the folder of the top model file.
 
+These commands accept `--map ID`: `check`, `judgement`, `rules`, `place`, `describe`, `journeys`, `review`, `decisions pending`, and `decisions status`.
+With `--map ID`, the command reads only the model files of that map, of its parent maps, and of its nested maps.
+Thus an error in the model file of a different map does not stop the command.
+The command reports only the map `ID`. Use `--map .` for the top map.
+A run with `--map` does not examine the pages or the global entry coverage.
+`judgement --map` gives no `entry point` line and prints `entry coverage: not examined in a run with --map`.
+An exact answer for a line of a different map is not stale in a run with `--map`.
+`decisions pending --map ID` gives the requests of that map, with the same request IDs as a run without `--map`.
+`place --map ID` writes only the model file of that map.
+Only a run without `--map` gives the result for completion.
+`refresh`, `extract`, and `decisions submit` write the shared files of all maps. Thus they refuse `--map` with exit code `2`.
+
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.

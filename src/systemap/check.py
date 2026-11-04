@@ -775,7 +775,7 @@ def run_tree(
     module-set checks run on nested maps.
     """
     out: dict[str, Result] = {}
-    for m in tree.maps:
+    for m in tree.reported:
         result = run(m.model, m.meaning, m.theme, facts, ignores, observed_by, coverage=m.top)
         card = tree.opening_card(m)
         if card is not None:
