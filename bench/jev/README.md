@@ -3772,3 +3772,18 @@ Results:
 - Part C: a trial run with 3 runs, before the run above, gave 2 lost digests. At that time, `review` held the model lock only during the write, not from the read to the write. The second writer then wrote a text that did not have the digest of the first writer. After that result, `review` holds the lock of each model file of the map from the read to the write, and the trial with 5 runs and the run above gave 0 lost digests.
 - A trial run with 5 runs of all three parts, before the run above, gave 5 lock errors in part A, 5 runs with exit 0 in part B, and 4 lock errors in part C, with 0 lost rows, records, and digests.
 - Not measured: the time of a submit with the lock. A lock that a stopped process left was tested in `tests/test_lock.py`, not in this script.
+
+### M6 again after the review corrections (2026-11-04)
+
+The review of step 1 changed the lock code. The lock of one process now has one guard for the make and the removal of the lock file, also for two threads. `decisions submit` takes the model file locks of all its reviews before its first write. A `review --dry-run` takes no lock. `refresh` and `extract` hold the model file locks when they move a contract or record earlier flow reviews.
+The acceptance values and the script did not change.
+
+Command: `uv run python bench/jev/lock_race.py 100` (88 seconds on the same host)
+
+| Part | Runs | Result |
+|---|---|---|
+| A | 100 | 91 processes stopped with the lock error. 0 stopped with a different error. 0 lost answer rows. 0 lost store records. |
+| B | 100 | 100 runs with exit 0 in the two processes. 0 lock errors. 0 lost digests. |
+| C | 100 | 44 runs with exit 0 in the two processes. 56 runs with a lock error. 0 lost digests. |
+
+Parts A and B pass. Part C has no acceptance value. It gave 0 lost digests.

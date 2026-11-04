@@ -5,8 +5,8 @@ Acceptance values:
 1. While a different process holds `.systemap/write.lock`, `decisions submit`, `extract`,
    and `refresh` exit 1 with the lock path and the holder, and they change no file.
    `extract --check` does not take the lock.
-2. In one process, an inner `file_write.exclusive` continues. After the outer `with`
-   statement, also after a failure, the lock file is removed.
+2. In one process, an inner `file_write.exclusive` continues, also in a different thread.
+   After the last `with` statement, also after a failure, the lock file is removed.
 3. A lock that a stopped command left stays, and the error tells the person to remove it.
 4. `decisions_store.save` keeps a record that a different writer stored after this
    command read the store. The records of two maps stay.
@@ -14,16 +14,20 @@ Acceptance values:
    previous bytes. If a different writer changed the file after the answer write, the
    command does not restore it, and the answers of that writer stay.
 6. Two processes that write different model files both succeed. A write to a model file
-   that a different process holds gives `HeldLock` and does not change the file.
+   that a different process holds gives `HeldLock` and does not change the file. A dry
+   run of `review` takes no lock. `decisions submit` takes the lock of each model file
+   that it can write before its first write, so a held model file stops it with no change.
 
 The tests send no request to a model.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -209,3 +213,68 @@ def test_a_review_holds_the_model_lock_from_the_read_to_the_write(
         assert gateway.read_bytes() == old
         assert main(["--root", str(nested), "review", "Cache", "--map", "Style"]) == 0
     assert "source_review=" in (nested / "map/style.py").read_text(encoding="utf-8")
+
+
+def test_two_threads_share_the_lock_and_the_last_one_removes_it(tmp_path: Path) -> None:
+    """Acceptance 2: the thread that stops last removes the lock file of the first thread."""
+    lock = tmp_path / file_write.WRITE_LOCK
+    entered, release = threading.Event(), threading.Event()
+
+    def inner() -> None:
+        with file_write.exclusive(tmp_path, "inner"):
+            entered.set()
+            release.wait(30)
+
+    with file_write.exclusive(tmp_path, "outer"):
+        second = threading.Thread(target=inner)
+        second.start()
+        assert entered.wait(30)
+    assert lock.exists()
+    release.set()
+    second.join(30)
+    assert not lock.exists()
+
+
+def test_a_dry_run_review_takes_no_lock(nested: Path) -> None:
+    """Acceptance 6: a dry run writes no file, so a held model file does not stop it."""
+    gateway = nested / "map/gateway.py"
+    argv = ["--root", str(nested), "review", "App", "--map", "Gateway", "--dry-run"]
+    with held(gateway, "file", gateway.with_name("gateway.py.lock")):
+        assert main(argv) == 0
+
+
+def source_verdicts(root: Path, capsys: pytest.CaptureFixture[str]) -> Path:
+    """Write one supported verdict for a source review of Gateway and one of Style."""
+    capsys.readouterr()
+    assert main(["--root", str(root), "decisions", "pending", "--json"]) == 0
+    requests = json.loads(capsys.readouterr().out)["requests"]
+    items = []
+    for map_id in ("Gateway", "Style"):
+        request = next(r for r in requests if r["type"] == "source_review" and r["map"] == map_id)
+        name = request["files"][0]["file"]
+        digest = hashlib.sha256((root / name).read_bytes()).hexdigest()
+        cited = {"file": name, "start_line": 1, "end_line": 1, "sha256": digest}
+        items.append(
+            {
+                "request_id": request["id"],
+                "verdict": "supported",
+                "citations": [cited],
+                "summary": "The source agrees with the claim.",
+            }
+        )
+    path = root.parent / "verdicts.json"
+    path.write_text(json.dumps(items), encoding="utf-8")
+    return path
+
+
+def test_a_held_model_file_stops_submit_before_the_first_write(
+    nested: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 6: submit takes the model locks of all its reviews before it writes."""
+    verdicts = source_verdicts(nested, capsys)
+    style = nested / "map/style.py"
+    with held(style, "file", style.with_name("style.py.lock")):
+        before = files(nested)
+        assert main(["--root", str(nested), "decisions", "submit", str(verdicts)]) == 1
+        assert "holds this lock" in capsys.readouterr().err
+        assert files(nested) == before

@@ -458,13 +458,23 @@ def _record(snap: Snapshot, results: list[Result]) -> list[str]:
 
 
 def apply(snap: Snapshot, results: list[Result]) -> list[str]:
-    """Write the valid results. Give the lines for the person."""
+    """Write the valid results. Give the lines for the person.
+
+    The command takes the lock of each model file that a review can write before the first
+    write. Thus a held model file stops the command before it writes a file."""
+    reviews = [
+        result
+        for kind in (FLOW_REVIEW, SOURCE_REVIEW)
+        for result in results
+        if result.request.type == kind and result.verdict == SUPPORTED
+    ]
+    maps = {result.request.map for result in reviews}
+    files = [path for map_id in maps for path in review.model_files(snap.tree.get(map_id))]
     out: list[str] = []
-    for kind in (FLOW_REVIEW, SOURCE_REVIEW):
-        for result in results:
-            if result.request.type == kind and result.verdict == SUPPORTED:
-                target = _target(result.request)
-                out += review.review(snap.cfg, result.request.map, target, False, snap.facts)
+    with file_write.exclusive_files(files):
+        for result in reviews:
+            target = _target(result.request)
+            out += review.review(snap.cfg, result.request.map, target, False, snap.facts)
     out += _answers(snap, results)
     return out + _record(snap, results)
 

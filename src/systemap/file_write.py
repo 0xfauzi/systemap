@@ -35,11 +35,12 @@ is a link, a FIFO, or a device gives `RefusedFile`.
 `exclusive` permits only one command at a time to write the shared files of the
 repository. It makes `.systemap/write.lock` with O_EXCL. The file holds the process ID,
 the command, and the time. A different process that tries to get the lock does not wait.
-It gets `HeldLock`, with the path and the holder. In one process, an inner `exclusive` for
-the same lock continues and does not stop the command. `exclusive_file` does the same for
-the lock `<path>.lock` of one file, for example a model file. The `with` statement removes
-the lock when it stops, also after a failure. A stopped process cannot remove its lock.
-Thus a later command gets `HeldLock`, and only a person removes that lock file.
+It gets `HeldLock`, with the path and the text of the lock file. In one process, an inner
+`exclusive` for the same lock continues and does not stop the command. `exclusive_file`
+does the same for the lock `<path>.lock` of one file, for example a model file. The last
+`with` statement removes the lock when it stops, also after a failure. A stopped process
+cannot remove its lock. Thus a later command gets `HeldLock`, and only a person removes
+that lock file.
 
 `ignore_caches` makes the file `.systemap/.gitignore` with the line `*` if the folder has
 no entry with that name. Then Git does not add the caches in that folder after
@@ -389,8 +390,9 @@ else:
         fcntl.flock(fd, fcntl.LOCK_UN)
 
 
-# The depth of each lock that this process holds, by the absolute path of the lock file.
-_DEPTH: dict[str, int] = {}
+# Each lock that this process holds, by the absolute path of the lock file: the depth of
+# the `with` statements and the text of the lock file.
+_HELD: dict[str, tuple[int, str]] = {}
 _GUARD = threading.Lock()
 
 
@@ -425,31 +427,26 @@ def exclusive_files(paths: Iterable[Path], holder: str = "") -> Iterator[None]:
 
 @contextmanager
 def _held(lock: Path, parent: int | None, holder: str) -> Iterator[None]:
-    """Make the lock file, or continue if this process holds it. Remove it at the end."""
+    """Make the lock file, or continue if this process holds it. Remove it at the end.
+
+    The guard covers the make and the removal. Thus a different thread of this process
+    continues only after the lock file exists, and the last `with` statement to stop
+    removes the file."""
     key = os.path.abspath(lock)
     with _GUARD:
-        depth = _DEPTH.get(key, 0)
-        _DEPTH[key] = depth + 1
-    try:
-        text = "" if depth else _take(lock, parent, holder)
-    except BaseException:
-        _leave(key)
-        raise
+        depth, text = _HELD.get(key) or (0, "")
+        if not depth:
+            text = _take(lock, parent, holder)
+        _HELD[key] = (depth + 1, text)
     try:
         yield
     finally:
-        if _leave(key):
-            _give_back(lock, parent, text)
-
-
-def _leave(key: str) -> bool:
-    """Give True if the process no longer holds the lock."""
-    with _GUARD:
-        _DEPTH[key] -= 1
-        if _DEPTH[key]:
-            return False
-        del _DEPTH[key]
-        return True
+        with _GUARD:
+            depth, text = _HELD.pop(key)
+            if depth > 1:
+                _HELD[key] = (depth - 1, text)
+            else:
+                _give_back(lock, parent, text)
 
 
 def _take(lock: Path, parent: int | None, holder: str) -> str:

@@ -21,7 +21,7 @@ import ast
 import dataclasses
 from pathlib import Path
 
-from systemap import config, flow_review, model_edit, model_write, nest, review
+from systemap import config, file_write, flow_review, model_edit, model_write, nest, review
 from systemap.model import Flow, Meaning, Model
 
 
@@ -46,6 +46,12 @@ def record(cfg: config.Config, tree: nest.Tree) -> list[str]:
 
 
 def _record_map(cfg: config.Config, m: nest.Map) -> list[str]:
+    """Hold the lock of each model file of the map from the read to the write."""
+    with file_write.exclusive_files(review.model_files(m)):
+        return _record_locked(cfg, m)
+
+
+def _record_locked(cfg: config.Config, m: nest.Map) -> list[str]:
     model, meaning = review._data(m)
     chosen = [f for f in model.flows if flow_review.needs_record(f, meaning)]
     if not chosen:

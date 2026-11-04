@@ -853,7 +853,7 @@ The command does not change an existing `.systemap/.gitignore` file, also if it 
 It does not change the `.gitignore` file in the repository root.
 
 Only one command at a time can write the shared files.
-`extract`, `refresh`, `render`, and `decisions submit` make the lock file `.systemap/write.lock`.
+`extract`, `refresh`, `render`, `figure --out`, and `decisions submit` make the lock file `.systemap/write.lock`.
 The lock file contains the process ID, the command, and the time.
 If a different command holds the lock, the command stops with exit code `1`.
 It does not wait, and it writes no file that the lock controls.
@@ -861,8 +861,9 @@ Each write of a model file also makes the lock file `<model file>.lock`, for exa
 Thus two commands can write two different model files at the same time.
 A command removes its lock file when it stops, also after an error.
 If a process stops before it can remove its lock file, the file stays.
-Then the error gives the path and the holder.
+Then the error gives the path and the command that holds the lock.
 If no systemap command operates, remove the lock file. Then use the command again.
+Do not commit a lock file. A committed lock file stops each write in each clone of the repository.
 
 ### `systemap init [--no-ci | --strict-ci]`
 

@@ -1390,16 +1390,17 @@ def main(argv: list[str] | None = None) -> int:
 def _locked(args: argparse.Namespace) -> int:
     """Run a command that writes shared files while it holds `.systemap/write.lock`.
 
-    A check run writes nothing, so it does not take the lock. The configuration must load
-    first, so that a failure makes no lock file."""
-    if getattr(args, "check", False):
+    A check run, and a figure without --out, write nothing, so they do not take the lock.
+    The configuration must load first, so that a failure makes no lock file."""
+    if getattr(args, "check", False) or (args.func is cmd_figure and not args.out):
         return int(args.func(args))
     with file_write.exclusive(config.load(_root(args)).root):
         return int(args.func(args))
 
 
-# These commands write the facts, the pages, the configuration, or the decision store.
-LOCKED = (cmd_extract, cmd_refresh, cmd_render)
+# These commands write the facts, the pages, the figures, the configuration, or the
+# decision store.
+LOCKED = (cmd_extract, cmd_refresh, cmd_render, cmd_figure)
 
 
 if __name__ == "__main__":

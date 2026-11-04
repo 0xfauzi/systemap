@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import dataclasses
 import shutil
 import tempfile
@@ -128,12 +129,14 @@ def review(
     """
     m = _map(cfg, map_id)
     # The lock of each model file of the map covers the read and the write. A different
-    # writer cannot change these files between them.
-    with file_write.exclusive_files(_files(m)):
+    # writer cannot change these files between them. A dry run writes no file and takes
+    # no lock.
+    lock = contextlib.nullcontext() if dry_run else file_write.exclusive_files(model_files(m))
+    with lock:
         return _write(cfg, m, target, dry_run, facts)
 
 
-def _files(m: nest.Map) -> tuple[Path, ...]:
+def model_files(m: nest.Map) -> tuple[Path, ...]:
     """Give the model files of the map that the reader that runs no code can read."""
     try:
         return model_load.files(m.path, m.rel, m.root)
