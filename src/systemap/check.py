@@ -22,8 +22,6 @@ from typing import Any
 
 from systemap import (
     extraction,
-    facts_file,
-    facts_shape,
     figure,
     file_write,
     identifier,
@@ -604,18 +602,9 @@ def stale(
     """This function compares saved facts, pages, and configured figures with fresh
     generated output.
     """
-    fresh = fresh if fresh is not None else extraction.build(cfg)
-    try:
-        stored = facts_file.read_facts(cfg.facts_path, cfg.root)
-    except facts_shape.FactsError as exc:
-        # A refresh writes a new facts file in place of the incorrect file.
-        return [f"facts: {exc}"]
+    out, stored = extraction.saved_drift(cfg, fresh)
     if not stored:
-        return ["No extracted facts are available."]
-    # Only the drift is stale here: a claim of a module the tree does not
-    # have is the entry rule's finding, and a placement problem is the
-    # placement rule's, so neither is reported twice.
-    out = [f"facts: {line}" for line in extraction.drift(fresh, stored)]
+        return out
     for m in tree.maps:
         if model_problems(m.model, m.meaning):
             continue
@@ -775,7 +764,7 @@ def run_tree(
     module-set checks run on nested maps.
     """
     out: dict[str, Result] = {}
-    for m in tree.maps:
+    for m in tree.reported:
         result = run(m.model, m.meaning, m.theme, facts, ignores, observed_by, coverage=m.top)
         card = tree.opening_card(m)
         if card is not None:

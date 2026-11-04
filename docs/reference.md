@@ -643,6 +643,23 @@ Commands use all maps in the map tree:
 
 - `suggest` shows maps above forty components.
   It lists the components with the most modules as possible nested maps.
+  For each component, it gives the `map=` value: the map id in lower case, with `_` in place of each `/`, and `.py`.
+  For example, the map `Gateway/Routes` has the file `map/gateway_routes.py` and the value `map="gateway_routes.py"`.
+  All model files are in the folder of the top model file.
+
+These commands accept `--map ID`: `check`, `judgement`, `rules`, `place`, `describe`, `journeys`, `review`, `decisions pending`, and `decisions status`.
+With `--map ID`, the command reads only the model files of that map, of its parent maps, and of its nested maps.
+Thus an error in the model file of a different map does not stop the command.
+The command reports only the map `ID`. Use `--map .` for the top map.
+`check --map` examines the facts, but a run with `--map` does not examine the pages or the global entry coverage.
+`judgement --map` gives no `entry point` line and prints `entry coverage: not examined in a run with --map`.
+An exact answer for a line of a different map, or for an `entry point` line, is not stale in a run with `--map`.
+`decisions pending --map ID` gives the requests of that map, with the same request IDs as a run without `--map`. It gives no request for an `entry point` line.
+`describe --map` and `journeys --map` examine only the sequences of the loaded maps. A sequence of a sibling map is not examined.
+With `--json`, `judgement`, `rules`, `decisions pending`, and `decisions status` add the field `scope` in a run with `--map`.
+`place --map ID` writes only the model file of that map.
+Only a run without `--map` gives the result for completion.
+`refresh`, `extract`, and `decisions submit` write the shared files of all maps. Thus they refuse `--map` with exit code `2`.
 
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
@@ -855,6 +872,19 @@ The file has the line `*`. Thus `git add -A` does not add these files to the rep
 The command does not change an existing `.systemap/.gitignore` file, also if it is a link or a folder.
 It does not change the `.gitignore` file in the repository root.
 
+Only one command at a time can write the shared files.
+`extract`, `refresh`, `render`, `figure --out`, and `decisions submit` make the lock file `.systemap/write.lock`.
+The lock file contains the process ID, the command, and the time.
+If a different command holds the lock, the command stops with exit code `1`.
+It does not wait, and it writes no file that the lock controls.
+Each write of a model file also makes the lock file `<model file>.lock`, for example `map/gateway.py.lock`.
+Thus two commands can write two different model files at the same time.
+A command removes its lock file when it stops, also after an error.
+If a process stops before it can remove its lock file, the file stays.
+Then the error gives the path and the command that holds the lock.
+If no systemap command operates, remove the lock file. Then use the command again.
+Do not commit a lock file. A committed lock file stops each write in each clone of the repository.
+
 ### `systemap init [--no-ci | --strict-ci]`
 
 Writes `systemap.toml`, an initial model, an empty contract file, the skill directory, and a GitHub
@@ -943,9 +973,15 @@ Each language adapter also writes these facts with the same meaning for Python a
 
 - `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
 
-The facts file has a format number in its `version` key. The current format is 13.
+The facts file has a format number in its `version` key. The current format is 14.
 A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
 After an upgrade of systemap, run `systemap refresh`.
+
+In format 14, the Python syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`).
+The signatures and the constant values come from the source text.
+Thus each supported Python version gives the same stored values.
+If the syntax tree has a node class that the syntax text does not know, the extraction stops.
+The error gives the class and the Python version.
 
 A test file that systemap cannot read or parse gives a `test_file_issues` record, for Python and for TypeScript.
 The record is not known. It does not reject the map. `check` and `refresh` print it with its cause and its `fix:` line.

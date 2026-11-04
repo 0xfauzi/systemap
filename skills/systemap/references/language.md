@@ -204,6 +204,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | journey | The existing schema and command term for a sequence. |
 | JSON, JSONC | Data formats for structured records and configuration. |
 | layer | A map view that shows a specified set of components and flows. |
+| lock file | A file that permits only one command at a time to write specified files. |
 | map | The authored model and its visual representation of a system. |
 | metadata | Data about a source record, output, or interface item. |
 | model | The structured map description, or a named machine-learning system. |

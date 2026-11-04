@@ -15,10 +15,15 @@ digests, the exact answers, and the store. A flow digest is one of the claims of
 endpoint components, so the flow digests come first. A review can close a judgement line.
 Thus the command calculates the open lines and their evidence digests after the review
 writes.
+
+The command holds `.systemap/write.lock` from the read of the store to the last write
+(`file_write.exclusive`). A second `decisions submit` at the same time stops with
+`file_write.HeldLock` and writes nothing.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from dataclasses import dataclass
@@ -27,12 +32,14 @@ from typing import Any
 
 from systemap import (
     answer_write,
+    cli_scope,
     config,
     config_decisions,
     decisions,
     decisions_store,
     extraction,
     facts_file,
+    file_write,
     judgement_json,
     nest,
     review,
@@ -75,9 +82,12 @@ class Snapshot:
         return decisions_store.status(self.records, list(self.requests.values()))
 
 
-def snapshot(cfg: config.Config) -> Snapshot:
-    """Read the map, the facts, and the store. The stored facts must agree with the source."""
-    tree = nest.load(cfg)
+def snapshot(cfg: config.Config, only: str | None = None) -> Snapshot:
+    """Read the map, the facts, and the store. The stored facts must agree with the source.
+
+    With a map ID in `only`, the snapshot has only the requests and the store records of
+    that map (`cli_scope`). The requests have the same IDs as in the full tree."""
+    tree = nest.load(cfg, only)
     saved = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not saved:
         raise DecisionError(
@@ -92,9 +102,8 @@ def snapshot(cfg: config.Config) -> Snapshot:
         )
     judged = judgement_json.evaluate(tree, saved, cfg)
     found = decisions.requests(tree, saved, cfg.root, judged)
-    return Snapshot(
-        cfg, tree, saved, judged, {r.id: r for r in found}, decisions_store.load(cfg.root)
-    )
+    records = cli_scope.records(decisions_store.load(cfg.root), tree)
+    return Snapshot(cfg, tree, saved, judged, {r.id: r for r in found}, records)
 
 
 @dataclass(frozen=True)
@@ -360,16 +369,39 @@ def _cited(cited: Citation) -> dict[str, Any]:
 
 
 def _write_answers(cfg: config.Config, entries: list[dict[str, Any]]) -> None:
-    """Write the answers. If the configuration does not load after the write, restore it."""
+    """Write the answers. If the configuration does not load after the write, restore it.
+
+    The command restores the previous bytes only if the file still has the bytes that this
+    command wrote. If a different writer changed the file, the command does not restore
+    it, and it gives the digests of the two states."""
     target = answer_write.path(cfg.root, cfg.source)
-    before = target.read_bytes() if target.is_file() else None
-    answer_write.add(cfg.root, cfg.source, entries)
-    try:
-        config.load(cfg.root)
-    except config.ConfigError as exc:
-        if before is not None:
-            target.write_bytes(before)
-        raise DecisionError(f"{exc}\nThe command restored {target.name}.") from exc
+    with file_write.exclusive(cfg.root):
+        before = target.read_bytes() if target.is_file() else None
+        answer_write.add(cfg.root, cfg.source, entries)
+        written = target.read_bytes()
+        try:
+            config.load(cfg.root)
+        except config.ConfigError as exc:
+            raise DecisionError(f"{exc}\n{_restored(target, before, written)}") from exc
+
+
+def _restored(target: Path, before: bytes | None, written: bytes) -> str:
+    """Restore the bytes before the write, if the file has the written bytes. Give the line."""
+    now = target.read_bytes() if target.is_file() else None
+    if now != written:
+        return (
+            f"The command did not restore {target.name}, because a different writer changed "
+            f"it after this command wrote it. The file before this command had sha256 "
+            f"{_digest(before)}. This command wrote sha256 {_digest(written)}. The file now "
+            f"has sha256 {_digest(now)}. Examine {target.name}."
+        )
+    if before is not None:
+        target.write_bytes(before)
+    return f"The command restored {target.name}."
+
+
+def _digest(data: bytes | None) -> str:
+    return hashlib.sha256(data).hexdigest() if data is not None else "(no file)"
 
 
 def _record_line(snap: Snapshot, request: Request, new: str) -> str:
@@ -423,18 +455,29 @@ def _record(snap: Snapshot, results: list[Result]) -> list[str]:
         )
         if new != SUPPORTED:
             out.append(_record_line(snap, request, new))
-    decisions_store.save(snap.cfg.root, snap.records)
+    keys = [result.request.key for result in results]
+    decisions_store.save(snap.cfg.root, snap.records, keys)
     return out
 
 
 def apply(snap: Snapshot, results: list[Result]) -> list[str]:
-    """Write the valid results. Give the lines for the person."""
+    """Write the valid results. Give the lines for the person.
+
+    The command takes the lock of each model file that a review can write before the first
+    write. Thus a held model file stops the command before it writes a file."""
+    reviews = [
+        result
+        for kind in (FLOW_REVIEW, SOURCE_REVIEW)
+        for result in results
+        if result.request.type == kind and result.verdict == SUPPORTED
+    ]
+    maps = {result.request.map for result in reviews}
+    files = [path for map_id in maps for path in review.model_files(snap.tree.get(map_id))]
     out: list[str] = []
-    for kind in (FLOW_REVIEW, SOURCE_REVIEW):
-        for result in results:
-            if result.request.type == kind and result.verdict == SUPPORTED:
-                target = _target(result.request)
-                out += review.review(snap.cfg, result.request.map, target, False, snap.facts)
+    with file_write.exclusive_files(files):
+        for result in reviews:
+            target = _target(result.request)
+            out += review.review(snap.cfg, result.request.map, target, False, snap.facts)
     out += _answers(snap, results)
     return out + _record(snap, results)
 
@@ -442,6 +485,8 @@ def apply(snap: Snapshot, results: list[Result]) -> list[str]:
 def submit(cfg: config.Config, name: str) -> list[str]:
     """Read, examine, and record the results in a file. Give the lines for the person."""
     items = read_results(name)
-    snap = snapshot(cfg)
-    results = validate(snap, items)
-    return [*apply(snap, results), f"decisions: the command recorded {len(results)} results."]
+    with file_write.exclusive(cfg.root, "systemap decisions submit"):
+        snap = snapshot(cfg)
+        results = validate(snap, items)
+        out = apply(snap, results)
+    return [*out, f"decisions: the command recorded {len(results)} results."]

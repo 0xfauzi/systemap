@@ -900,9 +900,25 @@ A moved module shows its component and model file.</p>
 </li>
 <li>
 <p><code>suggest</code> shows maps above forty components.
-It lists the components with the most modules as possible nested maps.</p>
+It lists the components with the most modules as possible nested maps.
+For each component, it gives the <code>map=</code> value: the map id in lower case, with <code>_</code> in place of each <code>/</code>, and <code>.py</code>.
+For example, the map <code>Gateway/Routes</code> has the file <code>map/gateway_routes.py</code> and the value <code>map=&quot;gateway_routes.py&quot;</code>.
+All model files are in the folder of the top model file.</p>
 </li>
 </ul>
+<p>These commands accept <code>--map ID</code>: <code>check</code>, <code>judgement</code>, <code>rules</code>, <code>place</code>, <code>describe</code>, <code>journeys</code>, <code>review</code>, <code>decisions pending</code>, and <code>decisions status</code>.
+With <code>--map ID</code>, the command reads only the model files of that map, of its parent maps, and of its nested maps.
+Thus an error in the model file of a different map does not stop the command.
+The command reports only the map <code>ID</code>. Use <code>--map .</code> for the top map.
+<code>check --map</code> examines the facts, but a run with <code>--map</code> does not examine the pages or the global entry coverage.
+<code>judgement --map</code> gives no <code>entry point</code> line and prints <code>entry coverage: not examined in a run with --map</code>.
+An exact answer for a line of a different map, or for an <code>entry point</code> line, is not stale in a run with <code>--map</code>.
+<code>decisions pending --map ID</code> gives the requests of that map, with the same request IDs as a run without <code>--map</code>. It gives no request for an <code>entry point</code> line.
+<code>describe --map</code> and <code>journeys --map</code> examine only the sequences of the loaded maps. A sequence of a sibling map is not examined.
+With <code>--json</code>, <code>judgement</code>, <code>rules</code>, <code>decisions pending</code>, and <code>decisions status</code> add the field <code>scope</code> in a run with <code>--map</code>.
+<code>place --map ID</code> writes only the model file of that map.
+Only a run without <code>--map</code> gives the result for completion.
+<code>refresh</code>, <code>extract</code>, and <code>decisions submit</code> write the shared files of all maps. Thus they refuse <code>--map</code> with exit code <code>2</code>.</p>
 <p>A second nested level uses an id such as <code>Gateway/Routes</code>.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
@@ -1103,6 +1119,18 @@ These files are the Jev, OpenAI, and agent caches, the facts cache in <code>.sys
 The file has the line <code>*</code>. Thus <code>git add -A</code> does not add these files to the repository.
 The command does not change an existing <code>.systemap/.gitignore</code> file, also if it is a link or a folder.
 It does not change the <code>.gitignore</code> file in the repository root.</p>
+<p>Only one command at a time can write the shared files.
+<code>extract</code>, <code>refresh</code>, <code>render</code>, <code>figure --out</code>, and <code>decisions submit</code> make the lock file <code>.systemap/write.lock</code>.
+The lock file contains the process ID, the command, and the time.
+If a different command holds the lock, the command stops with exit code <code>1</code>.
+It does not wait, and it writes no file that the lock controls.
+Each write of a model file also makes the lock file <code>&lt;model file&gt;.lock</code>, for example <code>map/gateway.py.lock</code>.
+Thus two commands can write two different model files at the same time.
+A command removes its lock file when it stops, also after an error.
+If a process stops before it can remove its lock file, the file stays.
+Then the error gives the path and the command that holds the lock.
+If no systemap command operates, remove the lock file. Then use the command again.
+Do not commit a lock file. A committed lock file stops each write in each clone of the repository.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, an empty contract file, the skill directory, and a GitHub
 workflow. The workflow pins this version.
@@ -1197,9 +1225,14 @@ A missing value is not known. Then the entry point must have its own sequence.</
 <p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
 </li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 13.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 14.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
+<p>In format 14, the Python syntax digest and the <code>api</code> fingerprints come from the syntax text of systemap (<code>systemap.syntax_text</code>).
+The signatures and the constant values come from the source text.
+Thus each supported Python version gives the same stored values.
+If the syntax tree has a node class that the syntax text does not know, the extraction stops.
+The error gives the class and the Python version.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
 The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.
 <code>judgement</code> gives no line about a test file.</p>

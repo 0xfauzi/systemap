@@ -448,8 +448,8 @@ def requests(
     if not facts.get("components"):
         return []
     reviews: list[Request] = []
-    for m in tree.maps:
+    for m in tree.reported:
         reviews += _card_requests(m, facts, root)
-    for m in tree.maps:
+    for m in tree.reported:
         reviews += _flow_requests(m, facts, root)
     return _line_requests(tree, facts, root, judged, reviews) + reviews

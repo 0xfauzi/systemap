@@ -756,6 +756,61 @@ An extraction of this repository on 3.11.18, 3.12.3 and 3.13.18 gave these diffe
 
 `systemap extract --check` compares these stored facts. Thus a person who extracts on a different interpreter from CI can get a stale result. This needs its own issue.
 
+### Stored syntax values on five interpreters (issue #136, 2026-11-04)
+
+Issue 136 replaces `ast.dump` and `ast.unparse` for each stored value.
+The syntax digest and the `api` fingerprints come from the syntax text of systemap (`src/systemap/syntax_text.py`).
+The signatures, the `constants` previews and the class bases come from the source text (`src/systemap/source_segment.py`).
+An earlier attempt (branch `claude/issue-136`) changed the output of `ast.unparse` for each version. On Python 3.14.6 it stopped with `UnparseError`. This change does not use that method.
+
+Acceptance, written before the first run in the docstring of `stored_syntax.py`:
+
+- (a) With the change, CPython 3.11.18, 3.12.3, 3.12.13, 3.13.18 and 3.14.6 give the same stored values. The repository comparison uses the full `components` section. 0 values differ.
+- (b) The extraction time of this repository with the change is at most 1.10 times the time of main. The value is the median of 5 alternating runs on 3.11.18, each in a new process.
+- (c) No acceptance value. The script counts the stored values that change one time for a user on each interpreter.
+
+Method: `stored_syntax.py drive` starts each run with `uv run --isolated --python VERSION --project CHECKOUT`.
+The repository is a copy of main at 231993f: 178 modules.
+The standard library is the 613 files of 3.12.13 without `test/`, `lib2to3/` and `site-packages/`. 3.11 does not parse 3 of them, so the comparison uses 610 files.
+The stored values of the 178 modules are 178 syntax digests, 3,821 fingerprints, 664 previews and 1,211 signatures.
+The stored values of the 610 files are 610 syntax digests, 7,516 fingerprints, 734 previews and 8,345 signatures.
+
+Main was measured first. The table gives the values of main that are different from the values of main on 3.11.18:
+
+| Interpreter | Modules with a different record | Repository values | Standard library values |
+|---|---|---|---|
+| 3.12.3 | 2 (`constants`) | 2 previews | 1 preview |
+| 3.12.13 | 0 | 0 | 0 |
+| 3.13.18 | 81 (`api`) | 193 fingerprints | 672 fingerprints |
+| 3.14.6 | 81 (`api`) | 193 fingerprints | 672 fingerprints |
+
+Results with the change:
+
+- Acceptance (a) passes. Each of the five interpreters gives the same `components` section and the same values for the 610 files. 0 values differ.
+- Acceptance (b) passes. The median times were 3.083 s for main and 3.126 s for the change: 1.014 times.
+  Runs of main: 3.1918, 2.8778, 3.1557, 3.0443, 3.0825 s. Runs of the change: 3.0470, 3.0020, 3.1513, 3.1262, 3.1340 s.
+  A control run of main against main before the change gave 0.976 times.
+  A first run of the change gave 0.997 times (main 3.174 s, change 3.166 s). After that run, two functions were divided to keep the cognitive complexity at 15 or less. The run above is of the final code, and its other results are the same as in the first run.
+- (c) The values that change one time for a user (main on an interpreter against the change on the same interpreter):
+
+| Interpreter | Repository: digests, fingerprints, previews, signatures | Standard library: digests, fingerprints, previews, signatures |
+|---|---|---|
+| 3.11.18 | 178, 1,179, 476, 44 | 610, 4,014, 196, 79 |
+| 3.12.3 | 178, 1,179, 476, 44 | 610, 4,014, 196, 79 |
+| 3.12.13 | 178, 1,179, 476, 44 | 610, 4,014, 196, 79 |
+| 3.13.18 | 178, 1,026, 476, 44 | 610, 3,361, 196, 79 |
+| 3.14.6 | 178, 1,026, 476, 44 | 610, 3,361, 196, 79 |
+
+Each syntax digest changes, because the syntax text does not write empty lists. Thus each recorded source review of a Python module is stale one time after the upgrade.
+A preview or a signature changes when the source text is different from the `ast.unparse` text, for example a string in double quotes.
+The format of the facts file is now 14, so `extract --check` marks a format 13 file stale.
+
+Run from the repository root:
+
+```sh
+uv run python bench/jev/stored_syntax.py drive MAIN CHANGE TARGET LISTING OUT
+```
+
 
 ## Flow selection measurements
 
@@ -3741,6 +3796,111 @@ uv run python bench/typescript_descriptions.py /path/to/ky /path/to/vite
 For declaration imports, TypeScript 5.9.3 `resolveModuleName` with `moduleResolution: bundler` confirmed all nine parameterized import cases in `tests/test_typescript_declarations.py`.
 The cases include `./types.d`, JavaScript extension substitution, directory indexes, and a path alias.
 Regression tests also cover source priority, declaration priority before a directory index, and alias fallback order.
+
+## M6: two writers at the same time (2026-11-04)
+
+Scope: step 1 of [the nested parts design](../../docs/design/nested-parts.md).
+The script is [`lock_race.py`](lock_race.py). Its docstring has the acceptance values, which were written before the run.
+Each run uses a new copy of the nested fixture of `tests/test_nested.py`, after `place` and `extract`.
+The two processes of a run start at the same time. The host has 4 cores.
+
+Acceptance, written before the run:
+
+- Part A: 100 runs of two `decisions submit` processes, with one `supported` verdict for a judgement line of the map Gateway and one for a line of the map Style. 0 lost answer rows and 0 lost store records. Each process that does not exit 0 gives the lock error.
+- Part B: 100 runs of two writers of different nested model files. 100 percent of the runs exit 0 in the two processes, and each file has its new digest.
+- Part C: two writers of the same model file. This part is for information only. It has no acceptance value.
+
+Difference from the design: `place --map` is not available before step 2 of the design. Thus parts B and C use `review CARD --map MAP`, which writes only the model file of that map.
+
+Command: `uv run python bench/jev/lock_race.py 100`
+
+| Part | Runs | Result |
+|---|---|---|
+| A | 100 | 82 processes stopped with the lock error. 0 stopped with a different error. 0 lost answer rows. 0 lost store records. |
+| B | 100 | 100 runs with exit 0 in the two processes. 0 lock errors. 0 lost digests. |
+| C | 100 | 33 runs with exit 0 in the two processes. 67 runs with a lock error. 0 lost digests. |
+
+Results:
+
+- Part A passes. In 82 runs the two processes operated at the same time, and the second process stopped. In the other 18 runs, the two processes did not operate at the same time, and the two submits recorded their verdicts.
+- Part B passes.
+- Part C: a trial run with 3 runs, before the run above, gave 2 lost digests. At that time, `review` held the model lock only during the write, not from the read to the write. The second writer then wrote a text that did not have the digest of the first writer. After that result, `review` holds the lock of each model file of the map from the read to the write, and the trial with 5 runs and the run above gave 0 lost digests.
+- A trial run with 5 runs of all three parts, before the run above, gave 5 lock errors in part A, 5 runs with exit 0 in part B, and 4 lock errors in part C, with 0 lost rows, records, and digests.
+- Not measured: the time of a submit with the lock. A lock that a stopped process left was tested in `tests/test_lock.py`, not in this script.
+
+### M6 again after the review corrections (2026-11-04)
+
+The review of step 1 changed the lock code. The lock of one process now has one guard for the make and the removal of the lock file, also for two threads. `decisions submit` takes the model file locks of all its reviews before its first write. A `review --dry-run` takes no lock. `refresh` and `extract` hold the model file locks when they move a contract or record earlier flow reviews.
+The acceptance values and the script did not change.
+
+Command: `uv run python bench/jev/lock_race.py 100` (88 seconds on the same host)
+
+| Part | Runs | Result |
+|---|---|---|
+| A | 100 | 91 processes stopped with the lock error. 0 stopped with a different error. 0 lost answer rows. 0 lost store records. |
+| B | 100 | 100 runs with exit 0 in the two processes. 0 lock errors. 0 lost digests. |
+| C | 100 | 44 runs with exit 0 in the two processes. 56 runs with a lock error. 0 lost digests. |
+
+Parts A and B pass. Part C has no acceptance value. It gave 0 lost digests.
+
+## M1, M2, M10, and M19: a tree on three levels and `--map` (2026-11-04)
+
+Scope: step 2 of [the nested parts design](../../docs/design/nested-parts.md).
+The script is [`nested_scope.py`](nested_scope.py). Its docstring has the acceptance values, which were written before the run.
+The fixture is [`tests/three_levels.py`](../../tests/three_levels.py). It has nested maps on levels 1, 2, and 3. Each map on level 2 imports a module of the top card Base.
+Each command is a new process. The times are wall times. The host has 4 cores. The code is the working tree of step 2 on 8fef34a.
+
+Command: `uv run python bench/jev/nested_scope.py` (23 seconds)
+
+### M10: the fixture on three levels
+
+Acceptance, written before the run: on the fixture with 11 maps, `place`, `extract`, `refresh`, `check`, `judgement`, and `delta --base HEAD` exit 0.
+
+| Command | Exit code |
+|---|---|
+| `place` | 0 |
+| `extract` | 0 |
+| `refresh --quiet` | 0 |
+| `check` | 0 |
+| `judgement` | 0 |
+| `delta --base HEAD` | 0 |
+
+M10 passes. `delta` compared the commit with the same working tree. A delta with a source change on three levels was not measured.
+
+### M2 on a generated tree, not on big5
+
+The design gives M2 on the 50-map tree of the fixture big5. big5 is not on this host. Thus M2 of the design was not run.
+The script ran the acceptance of M2 on a different tree: the fixture with 7 maps on level 1 and 3 maps on level 2 below each of them, 50 maps in all.
+This tree has 122 modules with the empty package markers, not about 4,250. Its result does not replace the M2 of the design.
+
+Acceptance, written before the run: the median time of `check --map P0/Q0` is at most 0.5 times the median time of the full-tree `check`. A syntax error in the model file of the sibling map P1 does not change the exit code of `check --map P0/Q0`.
+
+| Command | Exit codes | Times of 5 runs (s) | Median (s) |
+|---|---|---|---|
+| `check` | 0 | 2.28, 2.20, 2.29, 2.30, 2.25 | 2.28 |
+| `check --map P0/Q0` | 0 | 0.27, 0.27, 0.32, 0.26, 0.26 | 0.27 |
+
+The ratio of the medians is 0.12. After the syntax error in `map/p1.py`, `check --map P0/Q0` exits 0, and the full-tree `check` exits 2.
+The acceptance passes on this tree. The time on big5 is not known. A measurement on big5 is necessary.
+
+### M2 again, after the review of step 2
+
+The review found that `check --map` did not examine the facts. Thus it gave exit 0 with stale facts or with no facts file.
+After the correction, `check --map` compares the saved facts with fresh facts, as the full `check` does. It does not examine the pages.
+The acceptance is the same as above. Command: `uv run python bench/jev/nested_scope.py` (23 seconds). The full test suite operated on the same host at the same time.
+
+| Command | Exit codes | Times of 5 runs (s) | Median (s) |
+|---|---|---|---|
+| `check` | 0 | 2.06, 2.09, 2.14, 2.06, 2.05 | 2.06 |
+| `check --map P0/Q0` | 0 | 0.37, 0.33, 0.39, 0.38, 0.34 | 0.37 |
+
+The ratio of the medians is 0.18. After the syntax error in `map/p1.py`, `check --map P0/Q0` exits 0, and the full-tree `check` exits 2.
+The acceptance passes on this tree. M10 also passes again: the six commands exit 0. The time on big5 is not known. A measurement on big5 is necessary.
+
+### M1 and M19: not run
+
+- M1 needs the fixture big5 (about 4,250 modules) divided into 10, 25, and 50 nested maps. big5 is not on this host. M1 was not run.
+- M19 needs a fixture with more than 10,000 source files (issue #92). No such fixture is on this host. M19 was not run.
 
 ## The pages of a map tree: M12, M13 (axe-core part) and M15 (2026-11-04)
 

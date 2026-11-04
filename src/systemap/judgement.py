@@ -263,7 +263,7 @@ def crossing_counts(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int]:
     the destination component, for each crossing-import line of all maps."""
     return {
         m.prefix + crossing_line(p, q): len({module for module, _target in imports})
-        for m in tree.maps
+        for m in tree.reported
         for (p, q), imports in crossing_imports(m.model, facts).items()
     }
 
@@ -273,7 +273,7 @@ def crossing_detail_tree(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, li
     prefixes.
     """
     out: dict[str, list[str]] = {}
-    for m in tree.maps:
+    for m in tree.reported:
         out.update(crossing_detail(m.model, facts, m.prefix))
     return out
 
@@ -477,7 +477,7 @@ def review_states(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int] | No
         return None
     found = [
         card_review.state(card, m.model, m.meaning, facts)
-        for m in tree.maps
+        for m in tree.reported
         for card in m.model.components
         if card.kind != "actor"
     ]
@@ -505,11 +505,12 @@ def run_tree(
     """This function gives judgement diagnostics for all maps with map prefixes.
 
     Module-specific questions belong to the deepest applicable map. Sequences from all
-    maps supply entry point coverage.
+    maps supply entry point coverage. A scoped tree does not have all sequences. Thus it
+    gives no entry point lines (`nest.Tree.partial`).
     """
     covered = reviewed_entries(m.meaning for m in tree.maps)
     out: list[str] = []
-    for m in tree.maps:
+    for m in tree.reported:
         skip = outside_map(m.model, m.top, facts)
         lines = run(
             m.model,
@@ -522,7 +523,8 @@ def run_tree(
             repository=m.top,
             separators=separators,
         )
-        out += [m.prefix + line for line in lines]
+        entry = KIND_PREFIX["entry point"]
+        out += [m.prefix + x for x in lines if not (tree.partial and x.startswith(entry))]
     return out
 
 
