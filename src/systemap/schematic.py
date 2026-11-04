@@ -120,7 +120,9 @@ from systemap.schematic_nested import (
     edge_fields,
     frame_part,
     notch,
+    port_collisions,
 )
+from systemap.schematic_nested import obstacles as nested_obstacles
 from systemap.schematic_script import interactive_script as interactive_script
 from systemap.schematic_script import line_safe as line_safe
 from systemap.schematic_script import page_maps_script as page_maps_script
@@ -275,7 +277,7 @@ def render(
     w: float
     h: float
     floor: list[str] = []
-    obstacles = geo.obstacles
+    obstacles = geo.obstacles + nested_obstacles(model, context)
     blocks = geo.blocks
     headers = geo.headers
     collisions = list(geo.collisions)
@@ -601,6 +603,11 @@ def render(
             }
         )
     frame_svg, frame_meta = frame_part(model, context, paths, L, P)
+    collisions += port_collisions(
+        frame_meta,
+        {i: seats[i].box for i in seats if shown is None or i in shown},
+        {i: f"'{f.artifact}' ({f.name})" for i, f in enumerate(model.flows)},
+    )
     edge_index = {f.key: i for i, f in enumerate(model.flows)}
     journeys_meta = [
         {

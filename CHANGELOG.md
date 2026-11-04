@@ -34,7 +34,9 @@ A layer is a filtered view of the map.
 - The label of a card that opens a map gives the name of the map and its component count. Screen readers do not read the second card.
 - A nested map uses the color of its parent map for each layer ID that the parent map has. Thus the colors of a current nested page can change.
 - The page of a nested map shows its boundary. A line with the label `Inside <card>` goes around the internal components.
-  Each point where a flow crosses this line is a port. A port with an open `boundary flow` or `boundary import` finding is dotted and has a short text.
+  Each point where a flow between an internal component and an actor crosses this line is a port. A port with an open `boundary flow` or `boundary import` finding is dotted and has a short text.
+  The page and `systemap judgement` use the same answers, so a port is open only if `systemap judgement` gives its finding. When the page does not show a flow, it does not show the port of that flow.
+  A flow label does not go on the label `Inside <card>` or on the text of a port. If a flow label is on the text of a port, the map check gives a label collision.
   An actor that is a component of the parent map has the state `in the parent map` and a notch. A small figure of the parent map is a link to the card that opens the map.
 - A card that opens a map has the text `N inside`. Its Details panel shows a small figure of the nested map in place of the full figure, and the panel of its flows lists the nested flows.
 - After `systemap place` sets all positions of a nested map, each actor is on the side of the direction from the card that opens the map to that component in the parent map.

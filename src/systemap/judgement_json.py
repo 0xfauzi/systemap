@@ -115,15 +115,24 @@ def current_lines(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> list[s
     return lines
 
 
-def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
-    """This function gives the judgement lines and applies the answers that are not
-    audit answers. With `[judgement] require_reviews`, a missing source review is a line.
-    """
+def answered(
+    tree: nest.Tree, facts: dict[str, Any], cfg: Config
+) -> tuple[list[str], dict[str, str], judgement.Answered]:
+    """Give the judgement lines, their evidence digests, and the result of the answers
+    that are not audit answers. `evaluate` and the page (`page_context`) use the same
+    result, so the page shows the same open lines as `systemap judgement`."""
     lines = current_lines(tree, facts, cfg)
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
     given = answer_migrations.current_lines(given, lines)
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
-    result = judgement.apply_answers(lines, given, evidence)
+    return lines, evidence, judgement.apply_answers(lines, given, evidence)
+
+
+def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
+    """This function gives the judgement lines and applies the answers that are not
+    audit answers. With `[judgement] require_reviews`, a missing source review is a line.
+    """
+    lines, evidence, result = answered(tree, facts, cfg)
     causes = line_causes(lines, facts)
     sources = line_sources(lines, facts)
     earlier = earlier_reviews(tree, facts)

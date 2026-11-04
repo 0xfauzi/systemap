@@ -4093,3 +4093,14 @@ The inspector rows of a nested map are in the map script of each page, also on a
 The CSS of the two small figures is only on a page with a parent map or with child maps.
 The sample page of `tests/test_render.py` was 336,427 bytes on 97f2ecc. With this step it is 337,949 bytes (+1,522 bytes). The test limit was 330 KiB (337,920 bytes). It is now 331 KiB, the next whole KiB above the page.
 Earlier versions of this step gave larger pages: 339,235 bytes with the CSS on each page, 338,342 bytes with the CSS only on pages with nested maps, and 337,968 bytes with a shorter inspector script. The last change of the script gave 337,949 bytes.
+
+### Run 2 after the review of the step
+
+The review changed the ports, the label obstacles, the badge box, and the open boundary lines on the page.
+The page now uses the same open lines as `systemap judgement` (`judgement_json.answered`), one time for each render.
+Command: `uv run python bench/jev/nested_boundaries.py` (the working tree after the review, on 21115a5)
+
+- M14: pass. The table is the same as in run 1, because the review did not change a token or a ground.
+- M16: pass. The three fixtures have the same counts as in run 1: 4 of 4, 14 of 14, and 30 of 30 actors in the agreeing band.
+
+The sample page of `tests/test_render.py` is 338,231 bytes (+282 bytes), because the map script now hides the port of a hidden flow. The limit of 331 KiB (338,944 bytes) stays.

@@ -23,7 +23,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from systemap.model import Component, Model
-from systemap.schematic_cards import BADGE_H, LABEL_CHAR_W, TEXT_PX, Box
+from systemap.schematic_cards import LABEL_CHAR_W, TEXT_PX, Box, badge_box
 
 # The space between the internal bounds and the frame line.
 FRAME_PAD = 12
@@ -137,14 +137,12 @@ def badge(L: Text, P: Any, text: str, box: Box) -> str:
     """Give the SVG of the "N inside" badge, or nothing without text."""
     if not text:
         return ""
-    x, y, w, h = box
-    width = len(text) * LABEL_CHAR_W + 12
-    left = x + w - 6 - width
+    left, top, width, tall = badge_box(box, text)
     return (
-        f'<g class="node__inside"><rect x="{left:.1f}" y="{y + h - 4:.1f}" width="{width:.1f}" '
-        f'height="{BADGE_H:.0f}" rx="8" fill="{P["raised"]}" stroke="{P["ink_3"]}" '
+        f'<g class="node__inside"><rect x="{left:.1f}" y="{top:.1f}" width="{width:.1f}" '
+        f'height="{tall:.0f}" rx="8" fill="{P["raised"]}" stroke="{P["ink_3"]}" '
         f'stroke-width="1"/>'
-        + L(left + width / 2, y + h + 8, text, TEXT_PX, P["ink_2"], "500", False, "middle")
+        + L(left + width / 2, top + 12, text, TEXT_PX, P["ink_2"], "500", False, "middle")
         + "</g>"
     )
 
@@ -212,7 +210,7 @@ def _crossing(points: Sequence[Sequence[float]], frame: Box) -> tuple[float, flo
 def _facing(frame: Box, box: Box) -> tuple[float, float]:
     """Give the point of the frame line nearest to the centre of a card outside it."""
     x0, y0, w, h = frame
-    cx, cy = box[0] + box[2] / 2, box[1] + box[3] / 2
+    cx, cy = centre(box)
     px, py = min(max(cx, x0), x0 + w), min(max(cy, y0), y0 + h)
     if x0 < px < x0 + w and y0 < py < y0 + h:
         return x0, py
@@ -227,6 +225,9 @@ def ports(
     (-1 without a flow), the short text, and the open lines."""
     out: list[dict[str, Any]] = []
     for i, f in enumerate(model.flows):
+        # Only a flow between an internal component and an actor goes across the boundary.
+        if _is_actor(model, f.src) == _is_actor(model, f.dst):
+            continue
         at = _crossing(paths.get(i) or [], frame)
         if at is None:
             continue
@@ -235,6 +236,20 @@ def ports(
         out.append(
             {"at": [round(at[0], 1), round(at[1], 1)], "edge": i, "text": text, "lines": lines}
         )
+    return out + _fixed_ports(model, context, frame)
+
+
+def _is_actor(model: Model, cid: str) -> bool:
+    found = model.find(cid)
+    return found is not None and found.kind == "actor"
+
+
+def _fixed_ports(
+    model: Model, context: Mapping[str, Any] | None, frame: Box
+) -> list[dict[str, Any]]:
+    """Give one port for each open boundary line that has no nested flow. The port is at
+    the point of the frame nearest to the actor, so the model alone gives its place."""
+    out: list[dict[str, Any]] = []
     for found in _boundary(context):
         text = port_text(found, model)
         other = model.find(found["other"])
@@ -252,6 +267,45 @@ def ports(
     return out
 
 
+def _text_box(x: float, y: float, text: str) -> Box:
+    """Give the room of a start-anchored text of the figure with its baseline at y."""
+    return (x - 3, y - TEXT_PX - 3, len(text) * LABEL_CHAR_W + 6, TEXT_PX + 6)
+
+
+def obstacles(model: Model, context: Mapping[str, Any] | None) -> list[tuple[str, Box]]:
+    """Give the room of the frame label and of the texts of the fixed ports, as obstacles
+    for the flow labels. The place of a port on a flow comes from the routed path, so
+    `port_collisions` examines its text after the label placement."""
+    label = (context or {}).get("label") or ""
+    frame = frame_box(model) if label else None
+    if frame is None:
+        return []
+    out = [("frame label", _text_box(frame[0] + 12, frame[1] - 6, label))]
+    for port in _fixed_ports(model, context, frame):
+        px, py = port["at"]
+        out.append((f"port text '{port['text']}'", _text_box(px + 8, py - 8, port["text"])))
+    return out
+
+
+def port_collisions(
+    record: Mapping[str, Any], seats: Mapping[int, Box], names: Mapping[int, str]
+) -> list[str]:
+    """Give a label collision line for each flow label that overlaps the text of a port on
+    a flow. `record` is the frame record of `frame_part`."""
+    out = []
+    for port in (record.get("frame") or {}).get("ports") or []:
+        if port["edge"] < 0 or not port["text"]:
+            continue
+        px, py = port["at"]
+        room = _text_box(px + 8, py - 8, port["text"])
+        out += [
+            f"label collision: {names[i]} overlaps port text '{port['text']}'"
+            for i, box in seats.items()
+            if _overlap(box, room)
+        ]
+    return out
+
+
 def frame_svg(L: Text, P: Any, label: str, frame: Box, found: Sequence[Mapping[str, Any]]) -> str:
     """Give the SVG of the frame and its ports. An open port is dotted and has its text."""
     x, y, w, h = frame
@@ -265,9 +319,11 @@ def frame_svg(L: Text, P: Any, label: str, frame: Box, found: Sequence[Mapping[s
         px, py = port["at"]
         open_ = bool(port["text"])
         dots = ' stroke-dasharray="1.5 2"' if open_ else ""
+        # The page script hides the port of a flow that the current view hides.
         out.append(
+            f'<g class="frame__pt" data-edge="{port["edge"]}">'
             f'<circle class="frame__port{" frame__port--open" if open_ else ""}" '
-            f'data-edge="{port["edge"]}" cx="{px}" cy="{py}" r="{5 if open_ else 3.5}" '
+            f'cx="{px}" cy="{py}" r="{5 if open_ else 3.5}" '
             f'fill="{P["map"]}" stroke="{P["ink_2"]}" stroke-width="1.4"{dots}/>'
         )
         if open_:
@@ -285,6 +341,7 @@ def frame_svg(L: Text, P: Any, label: str, frame: Box, found: Sequence[Mapping[s
                     True,
                 )
             )
+        out.append("</g>")
     out.append("</g>")
     return "".join(out)
 
@@ -341,15 +398,17 @@ function nestFlow(f){
   return PAGE && f.href ? '<a class="systemap-f__inside" href="' + esc(f.href) + '">' + t
     + '</a>' : '<p class="systemap-f__route">' + t + '</p>';
 }
-function nestLink(href, text){
-  return PAGE && href ? '<a class="systemap-f__open" href="' + esc(href) + '">' + text
-    + '</a>' : '';
+// A link with `child` opens a different map. In the Changes view, the page_nav script
+// adds #changes to it (`data-child-map`).
+function nestLink(href, text, child){
+  return PAGE && href ? '<a class="systemap-f__open" href="' + esc(href) + '"'
+    + (child ? ' data-child-map="' + esc(href) + '"' : '') + '>' + text + '</a>' : '';
 }
 function neighbourOf(d){
   var n = d.neighbour, flows = n ? n.flows || [] : [];
   return (n && n.where === 'parent' ? nestRows('In the parent map', flows.map(nestFlow).concat(
     [nestLink(n.parent_href, 'Show in the parent map'),
-      nestLink(n.map_href, 'Open the map inside ' + esc(d.id))]), flows.length) : '')
+      nestLink(n.map_href, 'Open the map inside ' + esc(d.id), true)]), flows.length) : '')
     + nestLines(d.boundary);
 }
 function insideOf(e){

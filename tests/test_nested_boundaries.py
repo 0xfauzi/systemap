@@ -20,7 +20,15 @@ from test_nested import (
     nested,  # noqa: F401 - a fixture
 )
 
-from systemap import config, nest, page_context, place_nested
+from systemap import (
+    config,
+    extraction,
+    judgement_json,
+    nest,
+    page_context,
+    place_nested,
+    schematic_nested,
+)
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.model import Layer
@@ -233,3 +241,50 @@ def test_an_actor_of_the_parent_map_stays_outside(tmp_path: Path) -> None:
     assert found["Glue"]["map_href"] == "" and found["Base"]["flows"] == [
         {"from": "Q0", "to": "Base", "art": "value lookup"}
     ]
+
+
+def test_two_parent_flows_in_one_direction_list_each_nested_flow_one_time(
+    nested: Path,  # noqa: F811
+) -> None:
+    from test_nested import TOP
+
+    first = '    Flow("Gateway", "Style", "guide lookup", "data"),\n'
+    second = first.replace("guide lookup", "second lookup")
+    write_tree(nested, {"map/model.py": TOP.replace(first, first + second)})
+    tree = _tree(nested)
+    found = page_context.inside_flows(tree, tree.top)
+    assert [row["art"] for row in found["Gateway->Style"]] == ["guide lookup", "lookup"]
+
+
+def test_the_page_and_judgement_agree_on_the_open_boundary_lines(
+    nested: Path,  # noqa: F811
+) -> None:
+    without = GATEWAY.replace('    Flow("Routes", "Style", "guide lookup", "data"),\n', "")
+    write_tree(nested, {"map/gateway.py": without})
+    cfg = config.load(nested)
+    tree = nest.load(cfg)
+    facts = extraction.build(cfg, None)
+    still = page_context.open_boundary(cfg, tree, facts)
+    judged = judgement_json.evaluate(tree, facts, cfg)
+    assert still == frozenset(judged.result.open)
+    boundary = page_context.open_lines(tree, tree.get("Gateway"), facts, still)
+    assert boundary
+    assert {row["line"] for row in boundary} == {
+        line for line in judged.result.open if line.startswith("Gateway: boundary")
+    }
+
+
+def test_only_a_flow_between_an_internal_component_and_an_actor_has_a_port(
+    nested: Path,  # noqa: F811
+) -> None:
+    assert run("--root", str(nested), "place") == 0
+    model = _tree(nested).get("Gateway").model
+    frame = schematic_nested.frame_box(model)
+    assert frame is not None
+    x, y, w, h = frame
+    # Each path goes from the middle of the frame to a point far outside it.
+    out = [[x + w / 2, y + h / 2], [x + w / 2, y - 500]]
+    paths = dict.fromkeys(range(len(model.flows)), out)
+    found = schematic_nested.ports(model, {"label": "Inside Gateway"}, paths, frame)
+    ends = {(model.flows[p["edge"]].src, model.flows[p["edge"]].dst) for p in found}
+    assert ends == {("Reader", "App"), ("Routes", "Style")}

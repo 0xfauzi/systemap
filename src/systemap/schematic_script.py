@@ -251,6 +251,10 @@ var nodeOf = table(), labelOf = table(), flowOf = table();
 nodes.forEach(function(n){ nodeOf[n.dataset.id] = n; });
 labels.forEach(function(l){ labelOf[l.dataset.edge] = l; });
 flows.forEach(function(p){ flowOf[p.dataset.edge] = p; });
+// The port of a flow on the frame of a nested map (`schematic_nested.frame_svg`).
+var portOf = table();
+Array.prototype.slice.call(svg.querySelectorAll('.frame__pt')).forEach(function(g){
+  portOf[g.dataset.edge] = g; });
 var state = {focus:'', layer:'all', journey:null, edge:-1, peek:-1, motion:true};
 
 // ---- what a focus lights ----------------------------------------------------

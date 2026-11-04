@@ -612,7 +612,7 @@ The page of a nested map also shows its boundary:
   An actor that is also an actor of the parent map keeps the state `outside`.
   The Details panel of such an actor gives the parent flows, the link `Show in the parent map`, and, if the component opens a map, the link `Open the map inside <ID>`.
   On a phone, the actor column has the parts `PARENT MAP` and `OUTSIDE`.
-- Each point where a flow crosses the boundary line is a port.
+- Each point where a flow between an internal component and an actor crosses the boundary line is a port.
   A port with an open `boundary flow` or `boundary import` finding is dotted and has a short text: `No flow in the parent map`, `No flow inside`, or `Import with no flow`.
   The Details panel gives the full finding. A port without an open finding shows no state, because no check confirms the boundary.
 - A small figure of the parent map is at the left of the map. The filled rectangle is the card that opens the map, and the dashed rectangles are its actors. It is one link to that card in the parent page. A phone does not show it.

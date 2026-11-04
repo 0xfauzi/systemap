@@ -18,16 +18,13 @@ keys: they do not operate in a text field, with a modifier key, or while a dialo
 
 from __future__ import annotations
 
-import html
 from urllib.parse import quote
+
+from systemap.schematic_cards import esc
 
 # The keys of this module, for the keyboard sheet. The page script uses the same keys.
 UP_KEY = ("U", "Go to the parent map")
 TREE_KEY = ("T", "Open the list of child maps")
-
-
-def _esc(text: object) -> str:
-    return html.escape(str(text), quote=True)
 
 
 def segments(map_id: str) -> list[str]:
@@ -74,14 +71,14 @@ def path(name: str, map_id: str) -> str:
     labels = [name, *parts[:-1]]
     items = "".join(
         f'<li class="crumbs__up"><a class="crumb" href="{"../" * (depth - k)}index.html">'
-        f'<span class="crumb__back" aria-hidden="true">&lt; </span>{_esc(label)}</a>'
+        f'<span class="crumb__back" aria-hidden="true">&lt; </span>{esc(label)}</a>'
         '<span class="crumb__sep" aria-hidden="true">/</span></li>'
         for k, label in enumerate(labels)
     )
     return (
         f'<nav class="crumbs" id="mappath" aria-label="Map path" '
-        f'data-up="{_esc(up_href(map_id))}"><ol>{items}'
-        f'<li class="sr-only"><span aria-current="page">{_esc(parts[-1])}</span></li>'
+        f'data-up="{esc(up_href(map_id))}"><ol>{items}'
+        f'<li class="sr-only"><span aria-current="page">{esc(parts[-1])}</span></li>'
         "</ol></nav>"
     )
 
@@ -116,8 +113,8 @@ def child_list(opens: dict[str, dict[str, object]]) -> str:
     if not opens:
         return ""
     links = ", ".join(
-        f'<a href="{_esc(child["href"])}" data-child-map="{_esc(child["href"])}">'
-        f"{_esc(child['name'])}</a>"
+        f'<a href="{esc(child["href"])}" data-child-map="{esc(child["href"])}">'
+        f"{esc(child['name'])}</a>"
         for child in opens.values()
     )
     return f'<details class="map-links" id="maptree"><summary>Child maps</summary>{links}</details>'

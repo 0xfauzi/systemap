@@ -143,13 +143,23 @@ def _flow_lines(tree: nest.Tree, m: nest.Map) -> Iterator[Finding]:
     yield from _parent_flow_lines(m, parent)
 
 
+def nested_flows(model: Model, other: str, out: bool) -> list[Flow]:
+    """Give the nested flows that connect an internal component and the actor `other`,
+    with the actor as destination (`out`) or as source. The page uses the same rule for
+    the nested flows of a parent flow (`page_context.inside_flows`)."""
+    if not _is_actor(model, other):
+        return []
+    return [
+        g
+        for g in model.flows
+        if (g.dst if out else g.src) == other and not _is_actor(model, g.src if out else g.dst)
+    ]
+
+
 def _shown_inside(model: Model, other: str, out: bool) -> bool:
     """Tell if a nested flow connects an internal component and the actor `other`, with
     the actor as destination (`out`) or as source."""
-    if not _is_actor(model, other):
-        return False
-    ends = [(g.src, g.dst) if out else (g.dst, g.src) for g in model.flows]
-    return any(o == other and not _is_actor(model, i) for i, o in ends)
+    return bool(nested_flows(model, other, out))
 
 
 def _parent_flow_lines(m: nest.Map, parent: nest.Map) -> Iterator[Finding]:

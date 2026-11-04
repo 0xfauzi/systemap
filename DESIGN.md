@@ -660,7 +660,7 @@ The Back control of the browser goes back to the parent page.
 The header of a nested page shows the map path, with one link for each ancestor map.
 The U key goes to the parent map. The T key opens the list of child maps.
 On a nested page, a line with the label `Inside <card>` goes around the internal components, and the actors are outside it.
-Each point where a flow crosses this line is a port. Only an open `boundary flow` or `boundary import` finding gives a port a state.
+Each point where a flow between an internal component and an actor crosses this line is a port. Only an open `boundary flow` or `boundary import` finding gives a port a state.
 The page never shows a boundary as verified.
 An actor that is a component of the parent map has a notch and the state `in the parent map`.
 A small figure of the parent map is one link to the card that opens the map.

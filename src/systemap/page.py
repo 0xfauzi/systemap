@@ -116,20 +116,28 @@ class Nesting:
 
 
 def nesting_of(
-    cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any] | None = None
+    cfg: Config,
+    tree: nest.Tree,
+    m: nest.Map,
+    facts: dict[str, Any] | None = None,
+    still: frozenset[str] | None = None,
 ) -> Nesting:
     """Give the map ID and the child map records.
 
     The header makes the map path from the map ID (page_nav.path). With `facts`, each
     child record contains a compact preview, and the page gets the parent context and
     the open boundary lines (`page_context`). The inspector uses the stored preview
-    without an external request."""
+    without an external request. `still` contains the open judgement lines of the tree
+    (`page_context.open_boundary`). A caller that makes all pages of a tree gives it, so
+    that the judgement runs one time. Without it, this function finds the open lines."""
     opens = nest.opens(tree, m)
     context: dict[str, Any] = {}
     if facts is not None:
         for child in tree.children(m):
             opens[child.card]["preview"] = preview(child)
-        context = page_context.context(cfg, tree, m, facts)
+        if still is None:
+            still = page_context.open_boundary(cfg, tree, facts)
+        context = page_context.context(tree, m, facts, still)
     return Nesting(
         model_file=m.rel,
         path=m.id,

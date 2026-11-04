@@ -30,8 +30,9 @@ RADIUS = 8.0
 MAP_OFFSET = 3.0
 # The "N inside" badge of a card that opens a map hangs below its lower-right corner
 # (`schematic_nested.badge`). Flow labels stay out of this room.
-BADGE_W = 77.0
 BADGE_H = 16.0
+# The widest badge text that the label obstacle of a card that opens a map holds.
+BADGE_ROOM = "999 inside"
 # The smallest type on the figure. Edge labels, plain words and every note
 # sit at this size; names sit half a point above it.
 TEXT_PX = 11.0
@@ -519,11 +520,16 @@ def region_header(region: Region) -> tuple[Box, list[str]]:
 def _badges(model: Model, boxes: dict[str, Box]) -> list[tuple[str, Box]]:
     """Give the room of the "N inside" badge of each card that opens a map, as an obstacle
     for the flow labels."""
-    out: list[tuple[str, Box]] = []
-    for c in model.opening:
-        x, y, w, h = boxes[c.id]
-        out.append((f"{c.id} badge", (x + w - BADGE_W, y + h - 4, BADGE_W, BADGE_H)))
-    return out
+    return [(f"{c.id} badge", badge_box(boxes[c.id], BADGE_ROOM)) for c in model.opening]
+
+
+def badge_box(box: Box, text: str) -> Box:
+    """Give the box of the "N inside" badge with `text` on a card: it hangs below the
+    lower-right corner of the card. The drawing (`schematic_nested.badge`) and the label
+    obstacle use this box."""
+    x, y, w, h = box
+    width = len(text) * LABEL_CHAR_W + 12
+    return (x + w - 6 - width, y + h - 4, width, BADGE_H)
 
 
 def geometry(model: Model) -> Geometry:

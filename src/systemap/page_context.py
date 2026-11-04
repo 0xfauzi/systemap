@@ -20,15 +20,14 @@ The two small figures use CSS classes only. Thus the page policy needs no digest
 
 from __future__ import annotations
 
-import html
 from collections.abc import Iterable
 from typing import Any
 from urllib.parse import quote
 
-from systemap import judgement, nest, nest_join
+from systemap import judgement_json, nest, nest_join
 from systemap.config import Config
 from systemap.model import Component, Model
-from systemap.schematic_cards import Box
+from systemap.schematic_cards import Box, esc
 from systemap.schematic_nested import centre, frame_box, side
 
 # The width of the parent context mark and of the compact preview, in CSS pixels.
@@ -38,20 +37,19 @@ PREVIEW_W = 280
 STUB = 14
 
 
-def _esc(text: object) -> str:
-    return html.escape(str(text), quote=True)
-
-
 def _q(cid: str) -> str:
     return quote(cid, safe="")
 
 
-def context(cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> dict[str, Any]:
+def context(
+    tree: nest.Tree, m: nest.Map, facts: dict[str, Any], still: frozenset[str]
+) -> dict[str, Any]:
     """Give the context record of the page of map `m` for the figure.
 
     Each map gets the nested flows of the parent flows of its cards that open a map. A
     nested map also gets the opening card, the frame label, the neighbour records, and
-    the open boundary lines."""
+    the open boundary lines. `still` contains the open lines of the tree
+    (`open_boundary`)."""
     out: dict[str, Any] = {}
     inside = inside_flows(tree, m)
     if inside:
@@ -62,7 +60,7 @@ def context(cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) ->
     out["card"] = m.card
     out["label"] = f"Inside {m.card}"
     out["neighbours"] = neighbours(tree, m, parent)
-    out["boundary"] = open_lines(cfg, tree, m, facts)
+    out["boundary"] = open_lines(tree, m, facts, still)
     return out
 
 
@@ -99,16 +97,20 @@ def neighbours(tree: nest.Tree, m: nest.Map, parent: nest.Map) -> dict[str, dict
     return out
 
 
+def open_boundary(cfg: Config, tree: nest.Tree, facts: dict[str, Any]) -> frozenset[str]:
+    """Give the open judgement lines of the tree, with the rules of `systemap judgement`
+    (`judgement_json.answered`). A tree with no nested map has no boundary line, so it
+    gets no set. A render calls this one time for all pages of the tree."""
+    if not tree.nested:
+        return frozenset()
+    return frozenset(judgement_json.answered(tree, facts, cfg)[2].open)
+
+
 def open_lines(
-    cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any]
+    tree: nest.Tree, m: nest.Map, facts: dict[str, Any], still: frozenset[str]
 ) -> list[dict[str, Any]]:
-    """Give the boundary lines of a nested map that no recorded answer accepts."""
+    """Give the boundary lines of a nested map that are in the open lines `still`."""
     found = nest_join.map_findings(tree, m, facts)
-    if not found:
-        return []
-    lines = [f.line for f in found]
-    evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
-    still = set(judgement.apply_answers(lines, cfg.judgement_answered, evidence).open)
     return [
         {
             "line": f.line,
@@ -130,30 +132,26 @@ def inside_flows(tree: nest.Tree, m: nest.Map) -> dict[str, list[dict[str, str]]
     if it connects an internal component and the actor at the other end, in the same
     direction. Each record has a link to the internal component in the nested page."""
     out: dict[str, list[dict[str, str]]] = {}
+    # Two parent flows in the same direction between the same cards share one key.
+    edges = list(dict.fromkeys(f.edge for f in m.model.flows if f.src != f.dst))
     for child in tree.children(m):
         card = child.card
-        for f in m.model.flows:
-            if card not in (f.src, f.dst) or f.src == f.dst:
+        for src, dst in edges:
+            if card not in (src, dst):
                 continue
-            found = _agreeing(child.model, card, f.src, f.dst)
-            if found:
-                # A flow between two cards that open a map has nested flows in both maps.
-                out.setdefault(f"{f.src}->{f.dst}", []).extend(
-                    {**row, "href": f"{_q(card)}/index.html#{_q(row['inner'])}"} for row in found
-                )
-    return out
+            out_going = src == card
+            found = nest_join.nested_flows(child.model, dst if out_going else src, out_going)
+            # A flow between two cards that open a map has nested flows in both maps.
+            out.setdefault(f"{src}->{dst}", []).extend(
+                _inside_row(card, g.src if out_going else g.dst, g.src, g.dst, g.artifact)
+                for g in found
+            )
+    return {key: rows for key, rows in out.items() if rows}
 
 
-def _agreeing(model: Model, card: str, src: str, dst: str) -> list[dict[str, str]]:
-    out_going = src == card
-    other = dst if out_going else src
-    rows = []
-    for g in model.flows:
-        inner, end = (g.src, g.dst) if out_going else (g.dst, g.src)
-        found = model.find(inner)
-        if end == other and found is not None and found.kind != "actor":
-            rows.append({"from": g.src, "to": g.dst, "art": g.artifact, "inner": inner})
-    return rows
+def _inside_row(card: str, inner: str, src: str, dst: str, art: str) -> dict[str, str]:
+    href = f"{_q(card)}/index.html#{_q(inner)}"
+    return {"from": src, "to": dst, "art": art, "inner": inner, "href": href}
 
 
 # ---- the two small figures -------------------------------------------------------------
@@ -194,7 +192,7 @@ def mark(tree: nest.Tree, m: nest.Map) -> str:
     name = f"The parent map {parent.id}" if parent.id else "The top map"
     label = f"{name}: {m.card} is the filled card. Go to {m.card} in the parent map."
     return (
-        f'<a class="ctx" href="../index.html#{_q(m.card)}" aria-label="{_esc(label)}">'
+        f'<a class="ctx" href="../index.html#{_q(m.card)}" aria-label="{esc(label)}">'
         f'<svg class="ctx__svg" viewBox="0 0 {w * k:.1f} {h * k:.1f}" width="{w * k:.0f}" '
         f'height="{h * k:.0f}" aria-hidden="true" focusable="false">{"".join(rects)}</svg>'
         f'<span class="ctx__k">Parent map</span></a>'
@@ -217,8 +215,8 @@ def preview(child: nest.Map, svg_id: str) -> str:
     count = child.inside
     label = f"The nested map has {count} component{'' if count == 1 else 's'}."
     return (
-        f'<svg id="{_esc(svg_id)}" class="mini" viewBox="0 0 {w * k:.1f} {h * k:.1f}" role="img" '
-        f'aria-label="{_esc(label)}">{"".join(parts)}</svg>'
+        f'<svg id="{esc(svg_id)}" class="mini" viewBox="0 0 {w * k:.1f} {h * k:.1f}" role="img" '
+        f'aria-label="{esc(label)}">{"".join(parts)}</svg>'
     )
 
 

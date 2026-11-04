@@ -265,6 +265,7 @@ function paint(){
     var vis = chosen >= 0 ? hot : (j ? false : (lit ? lit.edges.indexOf(i) >= 0 : on));
     vis = vis || preview;
     setCls(p, {off:!vis, hot:hot, dim:false, peek:preview});
+    if(portOf[i]){ setCls(portOf[i], {off:!vis}); }
     p.setAttribute('tabindex', vis ? '0' : '-1');
     p.setAttribute('aria-pressed', hot ? 'true' : 'false');
     if(labelOf[i]){

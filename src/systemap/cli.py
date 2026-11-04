@@ -57,6 +57,7 @@ from systemap import (
     nest,
     out_paths,
     page,
+    page_context,
     place,
     place_nested,
     place_source,
@@ -289,6 +290,7 @@ def _render_page(
     args: argparse.Namespace,
     source: change.SourceChange | None = None,
     pr: dict[str, Any] | None = None,
+    still: frozenset[str] | None = None,
 ) -> str:
     ch: dict[str, Any] = {"has_change": False}
     base = getattr(args, "base", "")
@@ -302,7 +304,7 @@ def _render_page(
         m.theme,
         facts,
         ch,
-        nesting=page.nesting_of(p.cfg, p.tree, m, facts),
+        nesting=page.nesting_of(p.cfg, p.tree, m, facts, still),
     )
 
 
@@ -318,8 +320,9 @@ def cmd_render(args: argparse.Namespace) -> int:
     source = change.source_change(p.cfg, args.base, facts, args.head) if args.base else None
     # One gh request for all maps. The data gives the title of each change map.
     pr = change.pr_meta(p.cfg.root, getattr(args, "pr", "")) if args.base else {}
+    still = page_context.open_boundary(p.cfg, p.tree, facts)
     for m in p.tree.maps:
-        html = _render_page(p, m, facts, args, source, pr)
+        html = _render_page(p, m, facts, args, source, pr, still)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             code = max(code, _checked_page(p, out, html))
@@ -560,8 +563,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
     """Write the page of each map and each configured figure. Give the written paths."""
     written: list[str] = []
+    still = page_context.open_boundary(p.cfg, p.tree, fresh)
     for m in p.tree.maps:
-        html = _render_page(p, m, fresh, argparse.Namespace())
+        html = _render_page(p, m, fresh, argparse.Namespace(), still=still)
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         file_write.write_atomic(p.cfg.root, out, html)
         written.append(p.cfg.rel(out))
@@ -836,7 +840,7 @@ def cmd_place(args: argparse.Namespace) -> int:
         # The writer loads the file again and compares all positions, boxes, and the
         # canvas. If it cannot load the file or a value is different, it restores the file.
         reload = functools.partial(_reload, root=m.root)
-        place_source.write(m.path, m.rel, placement, place.apply(m.model, placement), reload)
+        place_source.write(m.path, m.rel, placement, placed[m.id], reload)
         laid = ". The command set all boxes and the canvas" if placement.fresh else ""
         say(f"{m.prefix}place: The command wrote {m.rel}: {place.head(placement)}{laid}")
         if placement.fresh:

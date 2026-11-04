@@ -84,7 +84,8 @@ def _flow_style(s: str, t: Palette, base: bool) -> str:
     return (
         rest + f"{s} .flow{{cursor:pointer;pointer-events:stroke;outline:none;"
         "transition:opacity .12s ease-out,stroke-width .12s ease-out,visibility 0s}"
-        f"{s} .flow.off:not(.peek),{s} .flowlbl.off:not(.peek){{opacity:0;visibility:hidden;"
+        f"{s} .flow.off:not(.peek),{s} .flowlbl.off:not(.peek),{s} .frame__pt.off"
+        "{opacity:0;visibility:hidden;"
         "pointer-events:none;transition:opacity .16s ease-out,visibility 0s linear .16s}"
         f"{s} .flow.peek{{stroke-opacity:1;stroke-width:2.6}}"
         f"{s} .flow.hot{{stroke-opacity:1;stroke-width:2.6}}"
