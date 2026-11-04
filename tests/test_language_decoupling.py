@@ -308,6 +308,8 @@ ADAPTERS = {
     "python_tree.py": "The Python syntax tree cache.",
     "python_tests.py": "The Python test reader.",
     "python_exports.py": "The Python rules for a star re-export.",
+    "syntax_text.py": "The Python syntax text for the digests and the fingerprints.",
+    "source_segment.py": "The Python source text of a syntax node.",
     "typescript.py": "The TypeScript adapter.",
     "typescript_repo.py": "The TypeScript repository adapter.",
     "typescript_config.py": "The tsconfig reader of the TypeScript adapter.",
