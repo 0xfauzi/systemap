@@ -2,8 +2,8 @@
 
 Acceptance: zero lost journey steps or exact flow identifiers across part
 inspection, Fit, return and End. Restored viewport coordinates must equal the
-saved coordinates. Nested maps restore the actual opener and every prior inert
-attribute. The Find dialog matches the name, the function and the module, and
+saved coordinates. The Open map link of a nested map keeps the focus, the view
+and every prior inert attribute. The Find dialog matches the name, the function and the module, and
 ignores typing targets.
 The recorded sample and generated JavaScript run locally without services.
 """
@@ -77,14 +77,15 @@ function viewstate(page) {
   const opener = doc.querySelector('[data-open-map]');
   const preserved = doc.createElement('div'); preserved.setAttribute('inert','');
   doc.body.appendChild(preserved);
-  opener.focus(); opener.click();
-  const overlay = doc.getElementById('submap');
-  report.backgroundInert = doc.body.children.filter(n=>n!==overlay && n.tag!=='script')
-    .every(n=>n.hasAttribute('inert'));
-  key('Escape',doc.getElementById('submapclose'));
-  report.openerRestored = doc.activeElement===opener;
-  report.inertRestored = preserved.hasAttribute('inert');
-  report.backgroundRestored = !doc.querySelector('main').hasAttribute('inert');
+  opener.focus();
+  const click = new EventImpl('click', {bubbles: true});
+  dispatch(opener, click);
+  report.openerTag = opener.tag; report.openerHref = opener.getAttribute('href');
+  report.clickPrevented = click.defaultPrevented;
+  report.backgroundInert = doc.body.children.filter(n=>n.tag!=='script' && n!==preserved)
+    .some(n=>n.hasAttribute('inert'));
+  report.openerKept = doc.activeElement===opener;
+  report.inertKept = preserved.hasAttribute('inert');
   report.nestedBefore = nestedBefore; report.nestedAfter = snapshot();
   return report;
 }
@@ -156,8 +157,11 @@ def test_finder_explains_matches_and_respects_typing(navigation_report: dict[str
 
 def test_nested_focus_inert_state_and_motion_control(navigation_report: dict[str, Any]) -> None:
     report = navigation_report
-    assert report["backgroundInert"] and report["backgroundRestored"]
-    assert report["inertRestored"] and report["openerRestored"]
+    # The Open map control is a link: the browser goes to the nested page, and the
+    # page makes nothing inert and keeps the focus and the view.
+    assert (report["openerTag"], report["openerHref"]) == ("a", "Reader/index.html")
+    assert report["clickPrevented"] is False
+    assert not report["backgroundInert"] and report["inertKept"] and report["openerKept"]
     assert report["nestedAfter"] == report["nestedBefore"]
     assert report["reduced"] == "true" and report["motion"] is False
     assert (report["pressedBefore"], report["pressedAfter"]) == ("false", "true")

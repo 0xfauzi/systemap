@@ -21,6 +21,7 @@ from systemap import (
     page_icons,
     page_mapview,
     page_motion,
+    page_nav,
     page_palette,
     page_phone,
     page_present,
@@ -98,7 +99,6 @@ class Nesting:
 
     `path` identifies this map and is empty for the top map.
     `card` identifies the component that contains this page.
-    `parent_label` names the parent map.
     `opens` gives the child map records for the inspector.
     `covered` gives the entry point identities that the sequences of all maps include.
     It is None for a page without a map tree. Then the sequences of the page supply it."""
@@ -106,8 +106,6 @@ class Nesting:
     model_file: str
     path: str = ""
     card: str = ""
-    parent_href: str = ""
-    parent_label: str = ""
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
     covered: frozenset[str] | None = None
 
@@ -115,12 +113,11 @@ class Nesting:
 def nesting_of(
     cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any] | None = None
 ) -> Nesting:
-    """Give the parent link and child map records.
+    """Give the map ID and the child map records.
 
-    The parent link uses `../index.html`. With `facts`, each child record
-    contains a Structure diagram. The inspector uses this stored diagram
+    The header makes the map path from the map ID (page_nav.path). With `facts`, each
+    child record contains a Structure diagram. The inspector uses this stored diagram
     without an external request."""
-    parent = tree.parent_of(m)
     opens = nest.opens(tree, m)
     if facts is not None:
         for child in tree.children(m):
@@ -129,8 +126,6 @@ def nesting_of(
         model_file=m.rel,
         path=m.id,
         card=m.card,
-        parent_href="../index.html" if parent is not None else "",
-        parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
         opens=opens,
         covered=frozenset(reviewed_entries(x.meaning for x in tree.maps)),
     )
@@ -248,18 +243,14 @@ def _header(
     ch: dict[str, Any],
     records: str,
 ) -> str:
-    parent = (
-        f'<a class="crumb" href="{esc(nesting.parent_href)}">{esc(nesting.parent_label)}</a>'
-        '<span class="crumb__sep" aria-hidden="true">/</span>'
-        if nesting.parent_href
-        else ""
-    )
+    parent = page_nav.path(cfg.name, nesting.path)
+    name = page_nav.heading(cfg.name, nesting.path)
     snap = _snap((facts.get("built_at_commit") or "")[:7], records)
     return (
         '<a class="skip" href="#map">Skip to the map</a><header class="bar">'
         f'<a class="brand" href="#map" aria-label="systemap: system map">{MARK}</a>'
         f'<div class="project">{parent}<h1 class="project-name">'
-        f"{esc(nesting.path or cfg.name)}</h1>{snap}{_summary(model, meaning)}</div>"
+        f"{esc(name)}</h1>{snap}{_summary(model, meaning)}</div>"
         + _views(meaning, ch)
         + '<div class="bar__space"></div>'
         + '<button type="button" class="find" id="find-open" aria-haspopup="dialog" '
@@ -359,21 +350,6 @@ def _readpanel(
         + page_sequences.panel(meaning)
         + page_changes.panel(ch)
         + "</aside>"
-    )
-
-
-def _submap(cfg: Config, nesting: Nesting) -> str:
-    if not nesting.opens:
-        return ""
-    here = f"{cfg.name} / {nesting.path}" if nesting.path else cfg.name
-    return (
-        '<div class="submap" id="submap" role="dialog" aria-modal="true" '
-        f'aria-label="The map inside a card" data-here="{esc(here)}" hidden>'
-        '<div class="submap__bar"><span class="submap__crumb" id="submapcrumb"></span>'
-        '<button type="button" class="submap__x" id="submapclose" '
-        'aria-label="Go to parent map">Go to parent</button></div>'
-        '<iframe class="submap__frame" id="submapframe" title="The map inside the card" '
-        'src="about:blank"></iframe></div>'
     )
 
 
@@ -487,7 +463,7 @@ def _change_svg(
 
 def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> str:
     schemes = list(t.get("schemes") or {t["scheme"]: t})
-    title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
+    title = page_nav.title(cfg.name, nesting.path)
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -576,6 +552,7 @@ def build(
         + page_motion.CSS
         + page_motion.SURFACE_CSS
         + page_palette.CSS
+        + page_nav.CSS
     )
     o = [
         _head(cfg, t, nesting, extra_css),
@@ -592,25 +569,14 @@ def build(
         '<main class="main">',
         _map_section(model, meaning, system_svg, ch),
         page_changes.stage(ch, change_svg),
-        '<p class="hint sr-only">Double-click a card that opens a map, or press Enter on it '
-        "a second time in the diagram, to read the map inside.</p>"
-        if nesting.opens
-        else "",
+        page_nav.hint(nesting.path, bool(nesting.opens)),
         "</section>",
         _readpanel(meaning, model, t, ch, assurance.of_model(model, meaning, facts)),
         "</main>",
-        '<details class="map-links"><summary>Child maps</summary>'
-        + ", ".join(
-            f'<a href="{esc(child["href"])}">{esc(child["name"])}</a>'
-            for child in nesting.opens.values()
-        )
-        + "</details>"
-        if nesting.opens
-        else "",
-        _submap(cfg, nesting),
+        page_nav.child_list(nesting.opens),
         page_present.html(),
         page_phone.html(model, meaning),
-        page_motion.keys_sheet(),
+        page_motion.keys_sheet(page_nav.keys(nesting.path, bool(nesting.opens))),
         page_palette.html(),
         "<script>window.systemapWorkspace="
         + line_safe(
@@ -631,6 +597,7 @@ def build(
         page_present.SCRIPT,
         page_motion.SCRIPT,
         page_palette.SCRIPT,
+        page_nav.SCRIPT,
     )
     o += [f"<script>{_compact(js)}</script>" for js in scripts]
     o.append("</body></html>")

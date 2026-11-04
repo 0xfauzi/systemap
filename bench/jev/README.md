@@ -3971,3 +3971,70 @@ Command: `uv run python bench/jev/join_round_trip.py` (40 s)
 | Coverage | 185 of 185 modules | 185 of 185 modules |
 
 M5 fails again for the same cause: the same 4 layout problems on the top map. Open lines by kind before the division: 1 `crossing import`, 19 `flow review`, and 1 `stale source review`. After the division: 63 `flow review`, 10 `entry point`, 4 `single module`, 4 `no endpoint source`, 3 `thin layer`, and 1 `crossing import`.
+
+## The pages of a map tree: M12, M13 (axe-core part) and M15 (2026-11-04)
+
+The nested-parts design, visual step 1, replaces the frame above the parent map with one page for each map.
+The header of a nested page gives the map path, and the page heading gives the last segment of the map ID.
+`bench/jev/nested_navigation.py` gives the acceptance values in its docstring. They were written before the run:
+
+- M12: the load of a nested page with 40 cards to an interactive map takes at most 1.5 s in Chromium and in Firefox.
+- M13, axe-core part only: axe-core finds 0 serious or critical issues on a level-3 page in Ink and in Paper.
+- M15: on a phone of 360 x 740 px, a level-3 page has no horizontal scroll, each visible tap target is 44 px or more, and the heading shows the last segment of the path with no cut.
+
+Method: the script writes a map tree with 3 levels: the top map, `Gateway`, `Gateway/Routes`, and `Gateway/Routes/Handlers`.
+The level-3 map has 40 internal cards and one actor in 4 regions, with a chain of 40 flows.
+The script runs `systemap place`, `extract` and `refresh`, and then `bench/jev/nested_navigation.js` with the Playwright 1.63.0 of this machine.
+The browser is headless Chromium 153.0.8010.12 at 1440 by 900 px, or at 360 by 740 px with touch for M15.
+"Interactive" is `performance.now()` at the first animation frame in which the map script and the page script are ready.
+Each M12 value is one load in a new browser context. The axe-core file (4.10.2) came from the npm registry into a scratch folder. It is not in the repository.
+The pages from `origin/main` (231993f) were made with the same script and its `src` folder, for a comparison.
+This is a run on one machine, not on CI.
+
+### Results
+
+| ID | Pages | Value | Acceptance | Result |
+|---|---|---|---|---|
+| M12 Chromium | change, run 1 | 238, 112, 118, 121, 103 ms. Median 118 ms, maximum 238 ms | at most 1.5 s | pass |
+| M12 Chromium | change, run 2 | 133, 105, 116, 119, 118 ms. Median 118 ms, maximum 133 ms | at most 1.5 s | pass |
+| M12 Chromium | 231993f | 139, 108, 116, 122, 135 ms. Median 122 ms, maximum 139 ms | at most 1.5 s | pass |
+| M12 Firefox | all | not run: `Executable doesn't exist at /opt/pw-browsers/firefox-1543/firefox/firefox` | at most 1.5 s | not run |
+| M13 Ink | change and 231993f | 1 serious or critical rule: `aria-allowed-attr` (critical, 5 elements). Also `landmark-unique` (moderate, 1 element) | 0 | fail |
+| M13 Paper | change and 231993f | the same 2 rules, with the same element counts | 0 | fail |
+| M13 Firefox | all | not run, for the same reason as M12 Firefox | 0 | not run |
+| M15 scroll | change and 231993f | `scrollWidth` 360, `clientWidth` 360 | no horizontal scroll | pass |
+| M15 heading | change | "Handlers", with no cut | not cut | pass |
+| M15 heading | 231993f | "Gateway/Routes/Handlers", cut by the ellipsis | not cut | fail |
+| M15 tap targets | change | 8 of 17 visible targets are less than 44 px | 0 | fail |
+| M15 tap targets | 231993f | 9 of 17 visible targets are less than 44 px | 0 | fail |
+
+The `aria-allowed-attr` rule finds `aria-pressed` on the layer buttons, which have `role="tab"` (`page_mapview.py`).
+The `landmark-unique` rule finds the element `#guide`. This step did not change these elements, and the pages of 231993f have the same result.
+The map path (`nav` with `aria-label="Map path"`) gives no axe-core issue.
+
+On the phone, the parent link of the map path ("< Routes") is 55 by 44 px.
+On 231993f, the parent link ("Routes") was 42 by 16 px.
+The 8 targets of less than 44 px are all in the header, and this step did not change them:
+the mark link (20 by 52 px), the commit button (149 by 20 px), the three view buttons (109 by 40 px), and Find, the theme and Reduce motion (40 by 40 px).
+The map cards were not in the list, because the phone state at load is the regions grid.
+
+Thus M12 passes in Chromium, and M15 passes for the scroll and the heading. M13 and the tap targets of M15 fail because of controls that this step did not change.
+A correction of the layer buttons and of the header controls is necessary before M13 and M15 can pass.
+A Firefox run of M12 and M13 is necessary. The NVDA and VoiceOver tests of M13 need people and a written protocol. They did not run.
+
+### Run 3, after the review corrections (2026-11-04)
+
+The review moved the U and T keys into the key handler of the page script, removed the unused parent fields of `Nesting`, and gave a maximum width to the ancestor links of the map path on a wide window.
+The keyboard sheet now shows U only on a nested page and T only on a page with child maps.
+The same script ran again with the same acceptance values, on the same machine and in the same browsers.
+
+| ID | Value | Acceptance | Result |
+|---|---|---|---|
+| M12 Chromium | 140, 142, 113, 104, 130 ms. Median 130 ms, maximum 142 ms | at most 1.5 s | pass |
+| M12 Firefox | not run: `Executable doesn't exist at /opt/pw-browsers/firefox-1543/firefox/firefox` | at most 1.5 s | not run |
+| M13 Ink and Paper | 1 serious or critical rule: `aria-allowed-attr` (critical, 5 elements). Also `landmark-unique` (moderate, 1 element) | 0 | fail |
+| M15 scroll | `scrollWidth` 360, `clientWidth` 360 | no horizontal scroll | pass |
+| M15 heading | "Handlers", with no cut | not cut | pass |
+| M15 tap targets | 8 of 17 visible targets are less than 44 px, all in the header. The parent link "< Routes" is 55 by 44 px | 0 | fail |
+
+The results agree with runs 1 and 2. The causes of the failures did not change.

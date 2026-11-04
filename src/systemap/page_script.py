@@ -229,52 +229,6 @@ JS = r"""
     if(b.dataset.journeyStep !== undefined){ P.journey.step(+b.dataset.journeyStep); }
   }); }
 
-  // ---- the map inside a card, in place -----------------------------------
-  var submap = byId('submap'), submapFrame = byId('submapframe');
-  var submapCrumb = byId('submapcrumb'), submapClose = byId('submapclose');
-  var submapOpener = null, inertBefore = [];
-  function holdBackground(){
-    var child = submap, parent = child.parentNode;
-    while(parent && child !== body){
-      Array.prototype.slice.call(parent.children).forEach(function(n){
-        if(n === child || n.tagName === 'SCRIPT' || n.tagName === 'STYLE'){ return; }
-        inertBefore.push({node:n, inert:n.hasAttribute('inert')});
-        n.setAttribute('inert', '');
-      });
-      child = parent; parent = parent.parentNode;
-    }
-  }
-  function openSubmap(e){
-    var d = e.detail || {};
-    if(!submap || !d.href || !submap.hidden){ return; }
-    submapOpener = d.opener || document.activeElement || nodeOf(d.id);
-    submapCrumb.textContent = (submap.dataset.here || '') + ' > ' + d.id
-      + (d.name !== d.id ? ' > ' + d.name : '');
-    submapFrame.title = d.name + ' inside ' + d.id;
-    if(submapFrame.getAttribute('src') !== d.href){ submapFrame.setAttribute('src', d.href); }
-    submap.hidden = false;
-    holdBackground();
-    body.classList.add('submap-open');
-    submapClose.focus();
-  }
-  function closeSubmap(){
-    if(!submap || submap.hidden){ return false; }
-    submap.hidden = true;
-    submapFrame.setAttribute('src', 'about:blank');
-    body.classList.remove('submap-open');
-    inertBefore.forEach(function(saved){
-      if(!saved.inert){ saved.node.removeAttribute('inert'); }
-    });
-    inertBefore = [];
-    if(submapOpener && submapOpener.isConnected !== false){
-      submapOpener.focus({preventScroll:true});
-    }
-    submapOpener = null;
-    return true;
-  }
-  svg.addEventListener('systemap:open', openSubmap);
-  if(submapClose){ submapClose.addEventListener('click', closeSubmap); }
-
   // ---- the stored commit opens the source records of the page ---------------
   var snap = byId('snap'), snapPop = byId('snap-pop');
   function showSnap(on){
@@ -297,18 +251,9 @@ JS = r"""
 
   // ---- the scheme -------------------------------------------------------
   // The head script stamped the root before the first paint; the buttons
-  // show that, and a change restamps the root, keeps the pick in this
-  // browser when it can, and follows into the map inside a card.
+  // show that, and a change restamps the root and keeps the pick in this
+  // browser when it can. Each map page reads the stored pick when it loads.
   function scheme(){ return document.documentElement.getAttribute('data-theme') || ''; }
-  function stampFrame(){
-    try {
-      var d = submapFrame && submapFrame.contentDocument;
-      if(d && d.documentElement){
-        d.documentElement.setAttribute('data-theme', scheme());
-        d.documentElement.dataset.reduceMotion = String(reduced());
-      }
-    } catch(e){}
-  }
   function showScheme(){
     all('[data-scheme]').forEach(function(b){
       b.setAttribute('aria-pressed', b.dataset.scheme === scheme() ? 'true' : 'false');
@@ -317,7 +262,7 @@ JS = r"""
   function setScheme(name){
     document.documentElement.setAttribute('data-theme', name);
     try { localStorage.setItem('systemap-theme', name); } catch(e){}
-    showScheme(); stampFrame();
+    showScheme();
     emit('systemap:scheme', {scheme:name});
   }
   // The header shows the button of the other scheme only. After a click, the
@@ -331,7 +276,6 @@ JS = r"""
     });
   });
   showScheme();
-  if(submapFrame){ submapFrame.addEventListener('load', stampFrame); }
 
   // Reduce motion is a page setting. It is off until the reader sets it, and
   // the system setting for reduced motion does not change it (DESIGN.md, Motion).
@@ -340,7 +284,7 @@ JS = r"""
   function setMotion(off){
     document.documentElement.dataset.reduceMotion = String(off);
     if(motionPick){ motionPick.setAttribute('aria-pressed', String(off)); }
-    A.setMotion(!off); stampFrame();
+    A.setMotion(!off);
   }
   if(motionPick){ motionPick.addEventListener('click', function(){
     var off = !reduced();
@@ -381,6 +325,8 @@ JS = r"""
   function letter(e){
     var k = e.key.toLowerCase();
     if(k === 'd' && readBtn){ readBtn.click(); return true; }
+    // U and T go between the maps of a tree (page_nav.py).
+    if((k === 'u' || k === 't') && P.nav){ return k === 'u' ? P.nav.up() : P.nav.tree(); }
     if(/^[1-9]$/.test(e.key) && mode !== 'trace'){
       var b = tabs[+e.key - 1];
       if(b){ b.click(); }
@@ -389,8 +335,6 @@ JS = r"""
     return false;
   }
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape' && closeSubmap()){ e.preventDefault(); return; }
-    if(submap && !submap.hidden){ return; }
     if(overlayOpen() || typing(e.target)){ return; }
     if(e.altKey || e.ctrlKey || e.metaKey){ return; }
     if(e.key === 'Escape'){ escape(e); return; }

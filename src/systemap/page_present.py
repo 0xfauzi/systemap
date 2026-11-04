@@ -165,7 +165,7 @@ SCRIPT = r"""
   document.addEventListener('keydown', function(e){
     if(e.altKey || e.ctrlKey || e.metaKey || e.key.toLowerCase() !== 'f' || P.mode() === 'trace'
       || typing(e.target)){ return; }
-    if(['keys', 'palette', 'present', 'submap'].some(function(id){
+    if(['keys', 'palette', 'present'].some(function(id){
       var n = document.getElementById(id); return n && !n.hidden; })){ return; }
     toggle();
     e.preventDefault();

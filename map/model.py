@@ -334,7 +334,7 @@ COMPONENTS = (
     Component(
         id="Page",
         source_review="e6b3fe2e994c65d3c273aa5cc89a3a57370bf670f1a8b94292dfb56a103aa21b",
-        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files.",
+        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Each nested map has its own page, with a link to each parent map. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
             "systemap.page",
@@ -359,6 +359,7 @@ COMPONENTS = (
             "systemap.page_font",
             "systemap.page_live",
             "systemap.page_csp",
+            "systemap.page_nav",
         ),
         entry="build",
         region="draw",

@@ -221,7 +221,7 @@ SCRIPT = r"""
   if(layerKey && count > 1){ layerKey.textContent = '1 to ' + Math.min(count, 9); }
   function modal(){
     // Another open dialog makes the page and the sheet inert. That dialog has its own keys.
-    return ['present', 'palette', 'submap'].some(function(id){
+    return ['present', 'palette'].some(function(id){
       var n = document.getElementById(id); return n && !n.hidden; });
   }
   function open(from){
@@ -290,13 +290,15 @@ def _key(key: str) -> str:
     return f"<kbd>{key}</kbd>"
 
 
-def keys_sheet() -> str:
+def keys_sheet(extra: tuple[tuple[str, str], ...] = ()) -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
     The sheet is a modal dialog. The ? key and the Keyboard keys button in the
     header open it, but not while another dialog is open. Escape and its Close button
-    close it and return the focus."""
-    rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
+    close it and return the focus. The rows of `extra` come before the ? row."""
+    at = [key for key, _text in _KEYS].index("?")
+    keys = _KEYS[:at] + extra + _KEYS[at:]
+    rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in keys)
     return (
         '<div class="keys" id="keys" hidden>'
         '<div class="keys__box" role="dialog" aria-modal="true" aria-labelledby="keys-title">'

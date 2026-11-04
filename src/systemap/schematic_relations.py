@@ -459,8 +459,8 @@ function mapInside(d){
     + (d.map.cards ? ' (' + d.map.cards + ' cards)' : '') + '</b></p>';
   if(d.map.href){
     if(d.map.preview){ h += '<div class="systemap-f__preview" inert>' + d.map.preview + '</div>'; }
-    h += '<button type="button" class="systemap-f__open" data-open-map="' + esc(d.id)
-      + '">Open map</button>';
+    h += '<a class="systemap-f__open" data-open-map="' + esc(d.id) + '" data-child-map="'
+      + esc(d.map.href) + '" href="' + esc(d.map.href) + '">Open map</a>';
   }
   return h;
 }
@@ -579,12 +579,12 @@ if(panel){
   function panelAction(ev){
     var target = ev.target.closest(
       '[data-endpoint], [data-inspect-edge], [data-open-map], [data-clear]');
-    if(!target){ return; }
+    // The Open map link goes to the page of the map inside, as a link does.
+    if(!target || target.hasAttribute('data-open-map')){ return; }
     ev.preventDefault();
     if(target.dataset.endpoint){
       select(target.dataset.endpoint, state.edge >= 0 ? state.edge : state.peek);
     }
-    else if(target.dataset.openMap){ openMap(target.dataset.openMap, target); }
     else if(target.hasAttribute('data-clear')){ clearAll(); }
     else { inspectFlow(+(target.dataset.inspectEdge || target.dataset.edge)); }
   }

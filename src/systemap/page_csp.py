@@ -10,8 +10,8 @@ it. Thus the page must escape the model text. The policy does not replace that e
 
 The page has no network request. Thus the policy permits no network source. It permits
 `data:` images and fonts, because the page contains its icon and its font as `data:`
-URLs. It permits frames from the same origin, because a card can open a child map in a
-frame. Style attributes stay permitted, because the map and its scripts use them. A
+URLs. It permits no frame, because each map has its own page and a link opens the page
+of a child map. Style attributes stay permitted, because the map and its scripts use them. A
 style attribute cannot run a script.
 
 `systemap live` adds a script to each page, and this script reads events from the live
@@ -88,7 +88,7 @@ def policy(page: str, inserted: Iterable[str] = ()) -> str:
         "style-src-attr 'unsafe-inline'",
         "img-src data:",
         "font-src data:",
-        "frame-src 'self'",
+        "frame-src 'none'",
         "object-src 'none'",
         "base-uri 'none'",
         "form-action 'none'",

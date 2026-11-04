@@ -13,7 +13,7 @@
 //     node tests/page_driver.js PAGE.html [--reduced] [--system-reduced] [--light]
 //                                         [--viewport WxH]
 //                                         [--stored NAME] [--no-storage] [--phone]
-//                                         [--scenario keyboard|framing|submap|theme|workspace|live]
+//                                         [--scenario keyboard|framing|submap|theme|workspace|live|pathkeys]
 //
 // prints one JSON object; tests/test_keyboard.py, tests/test_framing.py,
 // tests/test_nested.py and tests/test_theme.py read it. --reduced stores
@@ -200,7 +200,7 @@ class Element {
   dispatchEvent(ev) { return dispatch(this, ev); }
   click() { return this.dispatchEvent(new EventImpl('click', {bubbles: true})); }
   focus() {
-    const focusable = this.hasAttribute('tabindex') || ['button', 'select', 'a', 'input'].includes(this.tag);
+    const focusable = this.hasAttribute('tabindex') || ['button', 'select', 'a', 'input', 'summary'].includes(this.tag);
     if (!focusable || this.disabled) return;
     if (focused === this) return;
     if (focused) focused.blur();
@@ -582,6 +582,7 @@ function main() {
     systemReduced: args.includes('--system-reduced'), phone: args.includes('--phone')};
   const scenarios = {keyboard, framing, submap, theme, workspace};
   scenarios.live = live;
+  scenarios.pathkeys = pathKeys;
   // An unknown name is an error: a test whose scenario is absent gets no keyboard report.
   if (!Object.prototype.hasOwnProperty.call(scenarios, scenario)) {
     process.stderr.write(`page_driver: unknown scenario: ${scenario}\n`);
@@ -810,74 +811,109 @@ function framing(page) {
 }
 
 function submap(page) {
-  // A card that opens a map: the panel's preview and button; the button,
-  // a double-click and a second Enter open the map inside in place; Escape
-  // and the close control close it and hand the focus back to its opener,
-  // the selection kept. A card without a map is left alone by the same keys.
+  // A card that opens a map: the panel's preview and Open map link; a
+  // double-click and a second Enter go to the page of the map inside, as the
+  // link does. The page has no frame. In the Changes view, the links and the
+  // keys add #changes. The T key opens the list of child maps, and the U key
+  // goes to the parent map. A card without a map is left alone by the same keys.
   const {doc, win, svg, A, key} = page;
-  const overlay = doc.getElementById('submap');
-  const frame = doc.getElementById('submapframe');
   const panel = doc.getElementById('panel');
   const nodes = svg.querySelectorAll('.node');
   const opener = nodes.find((n) => A.detail[n.dataset.id].map && A.detail[n.dataset.id].map.href);
   const plain = nodes.find((n) => !A.detail[n.dataset.id].map);
+  const start = win.location.href;
+  const went = () => { const href = win.location.href; win.location.href = start; return href === start ? '' : href; };
   const activeId = () => {
     const a = doc.activeElement;
-    return a.dataset && a.dataset.id ? a.dataset.id : (a.id || a.tag);
+    return a ? (a.dataset && a.dataset.id ? a.dataset.id : (a.id || a.tag)) : '';
   };
-  const state = (label) => ({
-    label, overlayHidden: overlay.hidden, src: frame.getAttribute('src'),
-    crumb: doc.getElementById('submapcrumb').textContent, focus: A.state.focus,
-    active: activeId(), bodyClass: doc.body.className,
-    activeIsOpenButton: !!(doc.activeElement && doc.activeElement.hasAttribute('data-open-map')),
-  });
+  const state = (label) => ({label, went: went(), focus: A.state.focus, active: activeId()});
   const steps = [state('start')];
   opener.focus();
   key('Enter', opener);
   const preview = panel.querySelector('.systemap-f__preview');
+  const link = panel.querySelector('[data-open-map]');
   const panelHas = {
     opens: (panel.querySelector('.systemap-f__opens') || {textContent: ''}).textContent,
     preview: !!(preview && preview.querySelector('svg')),
     previewId: preview && preview.querySelector('svg') ? preview.querySelector('svg').id : '',
     previewCards: preview ? preview.querySelectorAll('.node').length : 0,
     previewInert: !!(preview && preview.hasAttribute('inert')),
-    buttons: panel.querySelectorAll('[data-open-map]').length,
-    buttonText: (panel.querySelector('[data-open-map]') || {textContent: ''}).textContent,
-    links: panel.querySelectorAll('a').length,
+    links: panel.querySelectorAll('a[data-open-map]').length,
+    buttons: panel.querySelectorAll('button[data-open-map]').length,
+    linkText: link ? link.textContent : '',
+    linkHref: link ? link.getAttribute('href') : '',
   };
   steps.push(state('selected'));
-  panel.querySelector('[data-open-map]').click();
-  runFrames(win);
-  steps.push(state('button'));
-  const escapePrevented = key('Escape', doc.activeElement);
-  steps.push(state('escape'));
+  // The browser follows the link: the panel script does not stop it.
+  const click = new EventImpl('click', {bubbles: true});
+  dispatch(link, click);
+  const linkPrevented = click.defaultPrevented;
+  const enter = key('Enter', link);
+  steps.push(state('link'));
   dispatch(opener, new EventImpl('dblclick', {bubbles: true}));
   runFrames(win);
   steps.push(state('dblclick'));
-  doc.getElementById('submapclose').click();
-  runFrames(win);
-  steps.push(state('close-control'));
-  // From nothing selected: the first Enter selects, the second opens.
+  // From nothing selected: the first Enter selects, the second goes to the map.
+  key('Escape');
   key('Escape');
   opener.focus();
   key('Enter', opener);
   steps.push(state('enter-once'));
   key('Enter', opener);
   steps.push(state('enter-twice'));
-  key('Escape', doc.activeElement);
-  steps.push(state('escape-again'));
-  key('Escape');
-  steps.push(state('escape-clears'));
   plain.focus();
   key('Enter', plain);
   key('Enter', plain);
   steps.push(state('plain-enter-twice'));
   key('Escape');
+  // The Changes view: the links and the open event add #changes. The change map has no
+  // child map records, so the event comes from the map script, not from a change map card.
+  const list = doc.getElementById('maptree');
+  const listHrefs = () => (list ? list.querySelectorAll('a').map((a) => a.getAttribute('href')) : []);
+  svg.page.setMode('change');
+  runFrames(win);
+  const changeHrefs = listHrefs();
+  const href = A.detail[opener.dataset.id].map.href;
+  dispatch(svg, new win.CustomEvent('systemap:open', {detail: {id: opener.dataset.id, href}, bubbles: true}));
+  steps.push(state('change-open'));
+  svg.page.setMode('understand');
+  runFrames(win);
+  const mapHrefs = listHrefs();
+  // The keys: T opens the list and puts the focus on its summary. U goes up, if a parent exists.
+  const keys = pathKeys(page);
   return {
     id: opener.dataset.id, plainId: plain.dataset.id, href: A.detail[opener.dataset.id].map.href,
-    here: overlay.dataset.here, overlays: doc.querySelectorAll('#submap').length,
-    panelHas, steps, escapePrevented,
+    frames: doc.querySelectorAll('iframe').length, overlays: doc.querySelectorAll('#submap').length,
+    panelHas, steps, linkPrevented, enterPrevented: enter, changeHrefs, mapHrefs, keys,
   };
+}
+
+function pathKeys(page) {
+  // The U and T keys: what they do, and that a text field or a modifier key stops them.
+  const {doc, win, key} = page;
+  const start = win.location.href;
+  const went = () => { const href = win.location.href; win.location.href = start; return href === start ? '' : href; };
+  const list = doc.getElementById('maptree');
+  const path = doc.getElementById('mappath');
+  const search = doc.querySelector('input');
+  const out = {path: path ? path.getAttribute('data-up') : '', hasList: !!list};
+  if (search) {
+    search.focus();
+    key('u', search); key('t', search);
+    out.typing = {went: went(), open: !!(list && list.hasAttribute('open'))};
+    search.blur();
+  }
+  const mod = new KeyboardEventImpl('keydown', {key: 'u', bubbles: true, ctrlKey: true});
+  dispatch(doc.body, mod);
+  out.ctrl = went();
+  out.tPrevented = key('t');
+  out.listOpen = !!(list && list.hasAttribute('open'));
+  out.active = doc.activeElement ? doc.activeElement.tag : '';
+  out.uPrevented = key('u');
+  out.up = went();
+  out.capital = (key('U'), went());
+  return out;
 }
 
 function theme(page) {

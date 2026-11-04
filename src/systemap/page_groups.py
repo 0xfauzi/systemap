@@ -413,7 +413,7 @@ __LINES__
   function busy(t){
     // Typing in a field or an open sheet keeps its own Escape.
     return /^(INPUT|SELECT|TEXTAREA)$/.test((t && t.tagName) || '') || !!(t && t.isContentEditable)
-      || ['keys', 'present', 'submap', 'palette'].some(function(id){
+      || ['keys', 'present', 'palette'].some(function(id){
         var n = document.getElementById(id); return n && !n.hidden; });
   }
   // Escape closes the open group before it closes the panel.

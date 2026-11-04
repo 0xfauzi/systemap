@@ -13,14 +13,11 @@ and delta names the card and the map a moved module belongs to.
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
 from conftest import page_detail_text, write_tree
-from test_keyboard import DRIVER, needs_node
 
 from systemap import facts_file, judgement, nest, place, source_facts
 from systemap.cli import main
@@ -461,7 +458,7 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     gateway = (nested / "docs/map/Gateway/index.html").read_text(encoding="utf-8")
     style = (nested / "docs/map/Style/index.html").read_text(encoding="utf-8")
     assert "<title>demo system map</title>" in top
-    assert "<title>demo system map: Gateway</title>" in gateway
+    assert "<title>demo system map: Gateway (level 1)</title>" in gateway
     # The header counts the cards that are code, then the actors apart.
     assert "System map: 4 components and 1 actor, 4 flows, four layers." in top
     assert "System map: 3 components and 2 actors, 4 flows, four layers." in gateway
@@ -472,8 +469,9 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert top.count('class="node__map"') == 2
     assert "stacked card opens a child map" in top
     assert (
-        '<summary>Child maps</summary><a href="Gateway/index.html">Gateway</a>, <a href="Style/index.html">Style</a>'
-        in top
+        '<details class="map-links" id="maptree"><summary>Child maps</summary>'
+        '<a href="Gateway/index.html" data-child-map="Gateway/index.html">Gateway</a>, '
+        '<a href="Style/index.html" data-child-map="Style/index.html">Style</a></details>' in top
     )
     detail = json.loads(_detail_json(top))
     for name, cards in (("Gateway", 3), ("Style", 2)):
@@ -491,19 +489,28 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert preview.count('class="node ') == 5 and 'class="flow ' not in preview
     assert 'data-id="App"' in preview and 'data-id="Routes"' in preview
     assert "#preview-Gateway .node" in preview and "#schematic" not in preview
-    # The button and the overlay: the button's text once in the panel script,
-    # the overlay once on a page with a map inside, and not on a page without.
-    assert top.count(">Open map</button>") == 1
-    assert top.count('id="submap"') == 1 and 'data-here="demo"' in top
-    assert 'id="submapframe"' in top and 'src="about:blank"' in top
+    # The link: its text once in the panel script, on each page. No page has a frame.
+    assert top.count('">Open map</a>') == 1 and '">Open map</a>' in gateway
+    for page in (top, gateway, style):
+        assert "<iframe" not in page and 'id="submap"' not in page
+        assert "frame-src 'none'" in page and "frame-src 'self'" not in page
     assert "Double-click a card that opens a map" in top
-    assert 'id="submap"' not in gateway and ">Open map</button>" in gateway
+    assert "Press U to go to the parent map." not in top
     assert "Double-click a card that opens a map" not in gateway
-    # A sub-page: the component that contains the map., the link up, no mark, the model file it came from.
+    assert "Press U to go to the parent map." in gateway
+    assert 'id="mappath"' not in top
+    # The card label tells that the card opens a map; the second card is hidden.
+    assert 'opens the map Gateway with 3 components">' in top
+    assert 'opens the map Style with 2 components">' in top
+    assert top.count('<g class="node__map" aria-hidden="true">') == 2
+    # A sub-page: the map path with the link up, the heading, no mark, the model file.
     assert (
-        '<a class="crumb" href="../index.html">demo</a>'
-        '<span class="crumb__sep" aria-hidden="true">/</span><h1 class="project-name">Gateway</h1>'
-        in gateway
+        '<nav class="crumbs" id="mappath" aria-label="Map path" data-up="../index.html#Gateway">'
+        '<ol><li class="crumbs__up"><a class="crumb" href="../index.html">'
+        '<span class="crumb__back" aria-hidden="true">&lt; </span>demo</a>'
+        '<span class="crumb__sep" aria-hidden="true">/</span></li>'
+        '<li class="sr-only"><span aria-current="page">Gateway</span></li></ol></nav>'
+        '<h1 class="project-name">Gateway</h1>' in gateway
     )
     assert 'class="node__map"' not in gateway and "Maps inside" not in gateway
     assert "<code>map/gateway.py</code>" in gateway
@@ -533,59 +540,6 @@ def _detail_json(html: str) -> str:
     end = html.index(");\nvar PAL = ", start)
     text: str = json.loads(html[start:end])
     return text
-
-
-@needs_node
-def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
-    """The Node driver: the panel's preview and button; the button, a
-    double-click and a second Enter open the overlay; Escape and the close
-    control close it and hand the focus back to the opener, the selection
-    kept; a card without a map is left alone by the same keys."""
-    assert run("--root", str(nested), "refresh") == 0
-    args = [
-        shutil.which("node") or "node",
-        str(DRIVER),
-        str(nested / "docs/map/index.html"),
-        "--scenario",
-        "submap",
-    ]
-    proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", timeout=120)
-    assert proc.returncode == 0, proc.stderr
-    report: dict[str, Any] = json.loads(proc.stdout)
-    # The first opening card in reading order, whichever place put on top.
-    card = report["id"]
-    inside = {"Gateway": (3, 5), "Style": (2, 4)}[card]  # cards of its own, cards drawn
-    assert report["href"] == f"{card}/index.html"
-    assert report["here"] == "demo" and report["overlays"] == 1
-    has = report["panelHas"]
-    assert has["opens"] == f"Map inside: {card} ({inside[0]} cards)"
-    assert has["preview"] is True and has["previewId"] == f"preview-{card}"
-    assert has["previewCards"] == inside[1] and has["previewInert"] is True
-    assert has["buttons"] == 1 and has["buttonText"] == "Open map"
-    assert has["links"] == 0, "the panel opens the map in place; no link out"
-    steps = {s["label"]: s for s in report["steps"]}
-    closed = {"overlayHidden": True, "src": "about:blank", "bodyClass": ""}
-    for label in ("start", "selected", "escape", "close-control", "enter-once", "escape-again"):
-        assert {k: steps[label][k] for k in closed} == closed, label
-    opened = {
-        "overlayHidden": False,
-        "src": f"{card}/index.html",
-        "crumb": f"demo > {card}",
-        "focus": card,
-        "active": "submapclose",
-        "bodyClass": "submap-open",
-    }
-    for label in ("button", "dblclick", "enter-twice"):
-        assert {k: steps[label][k] for k in opened} == opened, label
-    assert report["escapePrevented"] is True
-    for label in ("escape", "close-control", "escape-again"):
-        assert steps[label]["focus"] == card, f"{label}: the selection is kept"
-    assert steps["escape"]["activeIsOpenButton"], "focus returns to the Open map button"
-    for label in ("close-control", "escape-again"):
-        assert steps[label]["active"] == card, f"{label}: focus returns to the opening card"
-    assert steps["escape-clears"]["focus"] == "", "a second Escape clears the selection"
-    plain = steps["plain-enter-twice"]
-    assert plain["focus"] == report["plainId"] and plain["overlayHidden"] is True
 
 
 def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[str]) -> None:

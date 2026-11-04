@@ -69,6 +69,7 @@ from systemap.schematic_cards import (
     card_sizes,
     container_header,
     esc,
+    opens_label,
 )
 from systemap.schematic_cards import (
     SUB_CHAR as SUB_CHAR,
@@ -445,14 +446,15 @@ def render(
             f'data-id="{esc(cid)}" data-kind="{esc(kind)}" data-state="{state}" '
             f'data-region="{esc(c.home)}"{marked.attrs} '
             f'role="button" '
-            f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(marked.label)}">'
+            f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(marked.label)}'
+            f'{esc(opens_label(c, opens))}">'
         ]
         # A card that opens a map stands on a second card, offset down and
         # right: the mark that says there is a map inside, on the page and
         # in every figure. The panel names the map and links to it.
         if c.opens:
             g.append(
-                f'<g class="node__map" aria-label="Opens a map"><title>opens a map</title>'
+                f'<g class="node__map" aria-hidden="true"><title>opens a map</title>'
                 f'<rect x="{x + MAP_OFFSET}" y="{y + MAP_OFFSET}" width="{w}" height="{h}" '
                 f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" stroke-width="1.1"{dashes}/></g>'
             )
