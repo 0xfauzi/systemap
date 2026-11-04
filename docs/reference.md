@@ -662,6 +662,40 @@ The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
 The fixture in [`tests/test_nested.py`](../tests/test_nested.py) has five top-level
 components. Two open nested maps.
+The fixture in [`tests/three_levels.py`](../tests/three_levels.py) has 11 maps with its default sizes, on three levels below the top map.
+
+### Map a large system in nested parts
+
+If a map needs two or more nested maps, more than one agent can do the work.
+The skill gives the procedure in [`references/parts.md`](../src/systemap/skill/references/parts.md).
+The procedure is the same with sub-agents and without sub-agents.
+Without sub-agents, one agent does the nested parts in sequence and commits after each nested part.
+
+1. The main agent writes the top map with forty components or fewer, and gives each module a component assignment.
+   It writes the layer IDs, the regions, and the artifacts of the flows between top components in the top `MEANING`.
+2. For each nested part, the main agent writes one `allow_imports` rule in the top contract.
+   The rule records the imports of the component at that commit. The reason must say that the rule does not show that the boundary is correct.
+3. For each nested part, the main agent runs `systemap parts --stub CARD`, sets `map=`, and runs `systemap refresh` and `systemap check`.
+   Then it runs `systemap parts` and commits. This commit is the contract commit.
+4. Each part agent gets one nested part, the message in `references/parts.md`, and its own Git worktree from the contract commit.
+   It writes only its write set: its model file, its contract file, the model files with its file prefix, and its result file.
+   It uses `--map ID` with `check`, `judgement`, `place`, `review`, `describe`, `journeys`, and `decisions pending`.
+   It does not run `extract`, `refresh`, `render`, `init`, `triage`, or `decisions submit`.
+   It records answers only in the forms `item` and `items`. It writes a boundary request for a change to a module claim or a boundary flow.
+5. After each part agent has stopped, the main agent merges each branch in the plan `order`.
+   It compares the changed files with the write set. Then it runs `systemap parts --results` and `systemap check --map ID`, and submits the verdicts of each result file.
+   Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without `--map`.
+
+Only the main agent writes `systemap.toml`, `.systemap/decisions.json`, the top model, the top contract, the plan, and `docs/map/`.
+The lock files stop a second writer with an error. They do not merge two writes.
+A part agent that finds `.systemap/write.lock` held by a different command stops and tells the main agent. It does not remove the lock.
+
+The `boundary flow` and `boundary import` lines show where a nested map and its parent map do not agree about a flow or an import across the boundary.
+The [second pass](#what-does-the-second-pass-find) gives the lines.
+Only a run without `--map` gives the result for completion.
+
+Two values in the procedure are not measurements. One is the limit of five part agents at one time.
+The other is 400 modules, the size above which a nested part gets its own nested parts. A measurement is necessary before a change to these values.
 
 ## What does a model contain?
 

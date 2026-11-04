@@ -33,6 +33,7 @@ REFERENCES = (
     "pitfalls.md",
     "maintenance.md",
     "decisions.md",
+    "parts.md",
 )
 
 

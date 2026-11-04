@@ -39,6 +39,11 @@ The language policy in `references/language.md` applies to every changed name an
 5. If delta identifies more than one-third of the components, do the full loop in SKILL.md.
 6. Do the language acceptance procedure in `references/language.md`.
 
+For a map with nested maps, group the delta lines by map prefix, for example `Gateway: `.
+Do the lines without a map prefix first.
+If a boundary rule fails, examine the import. Then change the rule with a reason.
+For two or more nested maps, do the steps in `references/parts.md`.
+
 An added or removed module assignment also opens source review again.
 This includes modules matched by an `implemented_by` wildcard.
 
