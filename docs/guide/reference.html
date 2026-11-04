@@ -905,10 +905,12 @@ All model files are in the folder of the top model file.</p>
 With <code>--map ID</code>, the command reads only the model files of that map, of its parent maps, and of its nested maps.
 Thus an error in the model file of a different map does not stop the command.
 The command reports only the map <code>ID</code>. Use <code>--map .</code> for the top map.
-A run with <code>--map</code> does not examine the pages or the global entry coverage.
+<code>check --map</code> examines the facts, but a run with <code>--map</code> does not examine the pages or the global entry coverage.
 <code>judgement --map</code> gives no <code>entry point</code> line and prints <code>entry coverage: not examined in a run with --map</code>.
-An exact answer for a line of a different map is not stale in a run with <code>--map</code>.
-<code>decisions pending --map ID</code> gives the requests of that map, with the same request IDs as a run without <code>--map</code>.
+An exact answer for a line of a different map, or for an <code>entry point</code> line, is not stale in a run with <code>--map</code>.
+<code>decisions pending --map ID</code> gives the requests of that map, with the same request IDs as a run without <code>--map</code>. It gives no request for an <code>entry point</code> line.
+<code>describe --map</code> and <code>journeys --map</code> examine only the sequences of the loaded maps. A sequence of a sibling map is not examined.
+With <code>--json</code>, <code>judgement</code>, <code>rules</code>, <code>decisions pending</code>, and <code>decisions status</code> add the field <code>scope</code> in a run with <code>--map</code>.
 <code>place --map ID</code> writes only the model file of that map.
 Only a run without <code>--map</code> gives the result for completion.
 <code>refresh</code>, <code>extract</code>, and <code>decisions submit</code> write the shared files of all maps. Thus they refuse <code>--map</code> with exit code <code>2</code>.</p>

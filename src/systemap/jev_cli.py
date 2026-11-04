@@ -24,6 +24,7 @@ from systemap import (
     agent,
     answer_migrations,
     audit,
+    cli_scope,
     config,
     decision,
     decision_kinds,
@@ -282,8 +283,7 @@ def triage_question(cfg: config.Config, top: nest.Map, text: str) -> ChoiceQuest
 
 # ---- journeys: a walk written for a way in nothing walks from yet ------------------
 
-# How many walks one run writes without being asked for more: a maintainer
-# reads what comes back, and a dozen drafts at once is not reading.
+# The maximum number of sequences that one run writes, so that a maintainer can read them.
 JOURNEY_CAP = 3
 
 
@@ -293,7 +293,8 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     facts = _facts(cfg)
     if facts is None:
         return STALE
-    tree = nest.load(cfg, getattr(args, "only", None))
+    tree = cli_scope.load(cfg, args)
+    cli_scope.show_notes(tree, cli_scope.SEQUENCES_NOTE)
     from systemap.journey_coverage import outside_map, reviewed_entries
 
     covered = reviewed_entries(m.meaning for m in tree.maps)

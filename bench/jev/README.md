@@ -3828,6 +3828,20 @@ Acceptance, written before the run: the median time of `check --map P0/Q0` is at
 The ratio of the medians is 0.12. After the syntax error in `map/p1.py`, `check --map P0/Q0` exits 0, and the full-tree `check` exits 2.
 The acceptance passes on this tree. The time on big5 is not known. A measurement on big5 is necessary.
 
+### M2 again, after the review of step 2
+
+The review found that `check --map` did not examine the facts. Thus it gave exit 0 with stale facts or with no facts file.
+After the correction, `check --map` compares the saved facts with fresh facts, as the full `check` does. It does not examine the pages.
+The acceptance is the same as above. Command: `uv run python bench/jev/nested_scope.py` (23 seconds). The full test suite operated on the same host at the same time.
+
+| Command | Exit codes | Times of 5 runs (s) | Median (s) |
+|---|---|---|---|
+| `check` | 0 | 2.06, 2.09, 2.14, 2.06, 2.05 | 2.06 |
+| `check --map P0/Q0` | 0 | 0.37, 0.33, 0.39, 0.38, 0.34 | 0.37 |
+
+The ratio of the medians is 0.18. After the syntax error in `map/p1.py`, `check --map P0/Q0` exits 0, and the full-tree `check` exits 2.
+The acceptance passes on this tree. M10 also passes again: the six commands exit 0. The time on big5 is not known. A measurement on big5 is necessary.
+
 ### M1 and M19: not run
 
 - M1 needs the fixture big5 (about 4,250 modules) divided into 10, 25, and 50 nested maps. big5 is not on this host. M1 was not run.

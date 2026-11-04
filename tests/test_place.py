@@ -12,7 +12,7 @@ import fixture_workspace
 import pytest
 from conftest import STARTER_MODULES, sample_model, write_tree
 
-from systemap import check, config, place
+from systemap import check, config, facts_file, place
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.model import Component, Container, Flow, Meaning, Model, Region, all_layers, problems
@@ -382,7 +382,7 @@ def test_place_inserts_in_the_call_style_the_file_uses(tmp_path: Path) -> None:
 
 def test_self_map_stripped_is_clean_after_place() -> None:
     model, meaning = config.load_model(ROOT / "map" / "model.py")
-    facts = check.facts_file.read_facts(ROOT / "docs" / "map" / "map.json", ROOT)
+    facts = facts_file.read_facts(ROOT / "docs" / "map" / "map.json", ROOT)
     placement = place.compute(stripped(model))
     placed = place.apply(stripped(model), placement)
     assert len(placement.positions) == len(model.components)

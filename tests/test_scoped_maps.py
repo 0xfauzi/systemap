@@ -141,12 +141,13 @@ def test_a_scoped_judgement_reports_only_its_map(
     full = [row["line"] for row in json.loads(capsys.readouterr().out)["open"]]
     other = next(line for line in full if line.startswith("P1: "))
     assert any(line.startswith(f"{CHOSEN}: entry point ") for line in full)
+    entry = next(line for line in full if line.startswith(f"{CHOSEN}: entry point "))
     toml = tree_root / "systemap.toml"
-    toml.write_text(
-        toml.read_text(encoding="utf-8")
-        + f'\n[[judgement.answered]]\nitem = {json.dumps(other)}\nreason = "A test."\n',
-        encoding="utf-8",
+    answers = "".join(
+        f'\n[[judgement.answered]]\nitem = {json.dumps(x)}\nreason = "A test."\n'
+        for x in (other, entry)
     )
+    toml.write_text(toml.read_text(encoding="utf-8") + answers, encoding="utf-8")
     assert run(tree_root, "judgement", "--json", "--map", CHOSEN) == 0
     captured = capsys.readouterr()
     scoped = json.loads(captured.out)
@@ -161,6 +162,28 @@ def test_a_scoped_judgement_reports_only_its_map(
     # Without the scope, the answer of the line of P1 is stale in the scoped run.
     tree = nest.load(config.load(tree_root), CHOSEN)
     assert not cli_scope.in_scope(tree, other) and cli_scope.in_scope(tree, lines[0])
+    assert not cli_scope.in_scope(tree, f"{CHOSEN}/Deep: " + lines[0][len(CHOSEN) + 2 :])
+    top = nest.load(config.load(tree_root), nest.TOP_ID)
+    assert not cli_scope.in_scope(top, other) and not cli_scope.in_scope(top, lines[0])
+    capsys.readouterr()
+    assert run(tree_root, "decisions", "pending", "--json", "--map", CHOSEN) == 0
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["scope"] == {"map": CHOSEN, "entry_coverage": "not examined"}
+    assert "entry coverage: not examined in a run with --map" in captured.err
+
+
+def test_a_scoped_check_examines_the_facts(
+    tree_root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A run of `check --map` finds stale facts and missing facts, as the full run does."""
+    module = tree_root / "pkg/p0/q0/r0.py"
+    module.write_text(module.read_text(encoding="utf-8") + "\n\ndef more() -> None:\n    pass\n")
+    capsys.readouterr()
+    assert run(tree_root, "check", "--map", CHOSEN) == 1
+    assert "run: systemap refresh" in capsys.readouterr().out
+    (tree_root / "docs/map/map.json").unlink()
+    assert run(tree_root, "check", "--map", CHOSEN) == 1
+    assert "No extracted facts are available." in capsys.readouterr().out
 
 
 def test_scoped_requests_have_the_ids_of_the_full_tree(

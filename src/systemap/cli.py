@@ -435,7 +435,7 @@ def cmd_rules(args: argparse.Namespace) -> int:
         warn(*missing, "run: systemap extract")
     result = import_rules.payload(ruled, p.cfg.rules_unknown, problems + missing)
     if args.json:
-        say(json.dumps(result, indent=2))
+        say(json.dumps(cli_scope.payload(result, p.tree), indent=2))
     else:
         lines = import_rules.report(ruled, p.cfg.rules_unknown, not args.brief)
         say(*problems, *(lines or ["import rules: The model has no import rules."]))
@@ -660,7 +660,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     reviews = judgement.review_states(p.tree, facts)
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
-    say(json.dumps(cli_scope.payload(obj, p.tree), indent=2))
+    say(json.dumps(cli_scope.payload(obj, p.tree, entry_coverage="not examined"), indent=2))
     warn(*notes, *cli_scope.notes(p.tree, cli_scope.ENTRY_NOTE))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     if args.strict and judged.result.open:
@@ -775,7 +775,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     covered = reviewed_entries(m.meaning for m in p.tree.maps)
     code = OK
-    say(*cli_scope.notes(p.tree, cli_scope.ENTRY_NOTE))
+    say(*cli_scope.notes(p.tree, cli_scope.SEQUENCES_NOTE))
     for m in p.tree.reported:
         # A card without a position is placed for this look, as `systemap
         # place` would place it, and the positions line says which; a

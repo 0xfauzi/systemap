@@ -523,7 +523,8 @@ def run_tree(
             repository=m.top,
             separators=separators,
         )
-        out += [m.prefix + x for x in lines if not (tree.partial and x.startswith("entry point "))]
+        entry = KIND_PREFIX["entry point"]
+        out += [m.prefix + x for x in lines if not (tree.partial and x.startswith(entry))]
     return out
 
 
