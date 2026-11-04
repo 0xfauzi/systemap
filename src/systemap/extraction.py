@@ -53,8 +53,11 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # `extraction_inputs` of the adapter gives, and `provenance.installed` has the digests of
 # such files in an installed package folder. Format 13: a `package_export` record has no
 # count in `target` and `reason`, because a finding line must not contain a count. The
-# record has the count in `count`.
-FORMAT = 13
+# record has the count in `count`. Format 14: the Python syntax digest and the `api`
+# fingerprints come from the syntax text of systemap (`syntax_text`), and the signatures,
+# the constant values and the class bases come from the source text (`source_segment`).
+# Thus they are the same on each supported Python version (issue 136).
+FORMAT = 14
 TESTS_KEPT = 25
 
 

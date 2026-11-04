@@ -18,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Software Development :: Documentation",
 ]
@@ -98,7 +99,7 @@ paths = ['src']
 # raed, recrod and nam are DELIBERATE misspellings in tests that assert the
 # closest-match suggestion ("closest: read", "unknown key: nam"). Correcting
 # them would break the tests. nd is a Dijkstra variable in route.py.
-ignore-words-list = "nam,nd,raed,recrod"
+ignore-words-list = "nam,nd,raed,recrod,notin"
 # bench/jev/results holds captured commit subjects and model answers: another
 # project's typo in a commit message is evidence, not something to correct.
 # src/systemap/page_font.py holds a font as base64 text, which can contain word-like parts.

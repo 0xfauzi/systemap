@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import ast
 
-from systemap import python_tree
+from systemap import python_tree, syntax_text
 
 LITERAL_ERRORS = (ValueError, TypeError, SyntaxError, MemoryError, RecursionError)
 
@@ -95,10 +95,15 @@ def _dunder(target: ast.expr) -> bool:
     )
 
 
-def decorated(node: ast.FunctionDef | ast.AsyncFunctionDef, signature: str) -> str:
-    """Give the signature with one line before it for each decorator.
+def fingerprint(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+    """Give the fingerprint of a function: one line for each decorator, then the signature.
 
-    The decorator lines use the same syntax dump as the class fingerprints. A function
-    without a decorator gives the signature without a change.
+    Each line uses the syntax text (`syntax_text`), as the class fingerprints do. Thus a
+    change of the formatting or of the comments does not change the fingerprint. A
+    function without a decorator gives the signature line only.
     """
-    return "\n".join([*(f"@{ast.dump(item)}" for item in node.decorator_list), signature])
+    prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
+    line = f"{prefix}{node.name}({syntax_text.text(node.args)})"
+    if node.returns is not None:
+        line += f" -> {syntax_text.text(node.returns)}"
+    return "\n".join([*(f"@{syntax_text.text(item)}" for item in node.decorator_list), line])

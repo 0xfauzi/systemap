@@ -69,7 +69,7 @@ def test_the_workflow_runs_the_suite_and_the_wheel_on_three_operating_systems() 
     for job in ("\n  test:\n", "\n  install:\n", "\n  plugin:\n", "\n  systemap:\n"):
         assert job in text, job
     assert text.count("os: [ubuntu-latest, macos-latest, windows-latest]") == 2
-    assert text.count('python: ["3.11", "3.13"]') == 2
+    assert text.count('python: ["3.11", "3.13", "3.14"]') == 2
     assert "UV_PYTHON: ${{ matrix.python }}" in text
     install = text.split("\n  install:\n", 1)[1].split("\n  plugin:\n", 1)[0]
     # The release workflow makes the wheel from the source archive. This job does the same,

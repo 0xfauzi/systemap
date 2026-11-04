@@ -7,6 +7,27 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+### Changes that can break a script or a CI job
+
+- The facts format is 14 (3.0.0 wrote 13). The stored Python values are now the same on each supported Python version: CPython 3.11, 3.12, 3.13 and 3.14 (issue #136).
+  The syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`), not from `ast.dump`.
+  The signatures, the `constants` previews and the class bases come from the source text, not from `ast.unparse`. The previews keep the limit of 80 characters.
+  Before the change, 3.13 and 3.14 gave different fingerprints for 81 modules of this repository, and 3.12.3 gave different previews for 2 modules.
+  After the change, the five measured interpreters (3.11.18, 3.12.3, 3.12.13, 3.13.18 and 3.14.6) give the same values for this repository and for 610 standard library files.
+
+  Step: after the upgrade, run `systemap refresh` one time and commit the output.
+  The stored values change one time. For the 178 modules of this repository on 3.11, 178 syntax digests, 1,179 of 3,821 fingerprints, 476 of 664 previews and 44 of 1,211 signatures changed. On 3.13 and 3.14, 1,026 fingerprints changed.
+  Each syntax digest changes. Thus each recorded source review of a Python component is stale one time. Examine the claims again, then record the reviews with `systemap review`.
+  `bench/jev/README.md` gives the measurement and the counts for the standard library.
+- A Python syntax node class or field that systemap does not know stops the extraction with exit code 1. The error gives the class and the Python version.
+  Before the change, `ast.dump` wrote such a node, and its text could change with the interpreter.
+
+### Corrections
+
+- CI does the tests and the installation also on Python 3.14. The package classifiers include 3.14.
+
 ## 3.0.0 - 2026-11-03
 
 ### Changes that can break a script or a CI job
