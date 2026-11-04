@@ -30,6 +30,7 @@ from systemap import (
     explain,
     judgement_evidence,
     nest,
+    nest_join,
     step_refs,
     unknown_causes,
 )
@@ -506,7 +507,8 @@ def run_tree(
 
     Module-specific questions belong to the deepest applicable map. Sequences from all
     maps supply entry point coverage. A scoped tree does not have all sequences. Thus it
-    gives no entry point lines (`nest.Tree.partial`).
+    gives no entry point lines (`nest.Tree.partial`). Each nested map also gives its
+    boundary lines (`nest_join`).
     """
     covered = reviewed_entries(m.meaning for m in tree.maps)
     out: list[str] = []
@@ -525,6 +527,7 @@ def run_tree(
         )
         entry = KIND_PREFIX["entry point"]
         out += [m.prefix + x for x in lines if not (tree.partial and x.startswith(entry))]
+        out += nest_join.lines(tree, m, facts)
     return out
 
 

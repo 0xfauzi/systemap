@@ -33,14 +33,12 @@ Jev is the TypeSafe model for questions that imports and names cannot answer.
 With `TYPESAFE_API_KEY`, use `suggest --decide` and `audit`. `--jev` is the previous name of `--decide`.
 The `delta` and `triage` commands can also use Jev.
 
-Without a key, use source examination in `references/second-pass.md`.
-If Jev fails, show the failure. Then use the same source examination procedure.
+Without a key, use source examination in `references/second-pass.md`. If Jev fails, show the failure. Then use the same source examination procedure.
 Tell the maintainer which procedure you used. Examine modules without findings also.
 
 ## The loop
 
-A first draft can omit flows or give a module an incorrect component assignment.
-Structural checks cannot find every omission. Source examination is necessary.
+A first draft can omit flows or give a module an incorrect component assignment. Structural checks cannot find every omission. Source examination is necessary.
 Copy these lines into your answer. Mark each step when it is complete.
 
 ```text
@@ -106,6 +104,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `model sdk` | A module imports a model SDK without a model-calling component. | Use `kind="agent"` or `calls_model=True` as applicable. Add context and tool flows with source evidence. |
    | `unknown surface` | The extractor could not read source syntax, configuration, or an export with sufficient confidence. | Correct the extractor, source, or configuration. Otherwise, record the specific limit. |
    | `contract reason` | An invariant or an import rule has no `reason`. | Write the reason in the contract file from the code, the documentation, or the commit history. Do not record an answer. |
+   | `boundary flow` | A nested flow with an actor has no parent flow in the same direction, or a parent flow has no nested flow with the actor. | Add the missing flow in the applicable map, or record why the parent flow has no single nested end. |
+   | `boundary import` | A nested component imports a module of an adjacent component, and the nested map has no actor or no flow for it. | Add the actor and a flow with source evidence, change assignments, or record why no flow is necessary. |
 
    If the maintainer asks for a Jev audit, run `systemap audit --provider jev`. Act on or answer its `decision ...` lines.
 5. **render**: Run `systemap refresh`. Then run `systemap describe`.

@@ -36,10 +36,10 @@ from systemap import (
     suggest,
 )
 from systemap.config import Config
-from systemap.evidence import owners
 from systemap.journey_coverage import outside_map
 from systemap.judgement import crossing_pairs
 from systemap.model import Component, all_layers, claimed, is_symbol
+from systemap.nest_join import outside_owners
 
 # A part with more modules than this is a level-2 part: forty components with ten modules
 # each. It is a value from two constants, not a measurement of readability.
@@ -129,30 +129,6 @@ def contract_digest(tree: nest.Tree, m: nest.Map) -> str:
         path.insert(0, _contract(found))
         found = tree.parent_of(found)
     return _digest(path)
-
-
-def outside_owners(tree: nest.Tree, child: nest.Map, facts: dict[str, Any]) -> dict[str, str]:
-    """Give the owner of each module outside the part that opens `child`.
-
-    The owner is the component of the nearest ancestor map that claims the module. A
-    module of the card that opens a map on the path from the top map to `child` is
-    inside the part, and has no owner here. At level 2, the owner can be a component of
-    a map above the direct parent map. The direct parent map must then have an actor
-    with the ID of the owner."""
-    out: dict[str, str] = {}
-    inside: set[str] = set()
-    m: nest.Map | None = child
-    while m is not None and m.parent is not None:
-        parent = tree.get(m.parent)
-        for module, owner in owners(parent.model, facts).items():
-            if module in out or module in inside:
-                continue
-            if owner == m.card:
-                inside.add(module)
-            else:
-                out[module] = owner
-        m = parent
-    return out
 
 
 IMPORT, IMPORTED = "crossing import", "crossing import into the part"

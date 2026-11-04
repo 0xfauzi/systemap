@@ -7,6 +7,22 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+### Changes that can break a script or a CI job
+
+- `systemap judgement` has two new finding kinds for each nested map: `boundary flow` and `boundary import`.
+  A current tree with nested maps can get new lines of these kinds. A tree without nested maps gets no new line.
+  The lines of the current kinds do not change, and no recorded answer needs a migration.
+  A CI job that runs `systemap judgement --strict` can then exit 1 until each new line has an action or an answer.
+  - `boundary flow`: a nested flow between an internal component and an actor has no parent flow in the same direction between the component that opens the map and that actor.
+    Or, a parent flow of the component that opens the map has no nested flow with that actor in the same direction.
+  - `boundary import`: a module of an internal component imports a module of a component outside the nested map, and the nested map has no actor or no flow for that component.
+    The owner of the imported module is the component that claims it in the nearest map above the nested map.
+
+  Step: run `systemap judgement`. For each new line, add the flow or the actor, or record an answer with `kind = "boundary flow"`, `kind = "boundary import"`, or an exact `item`.
+- The `judgement --json` schema is version 8. Each row of `open` has the new fields `map_id`, `parent_flow`, `nested_flows`, and `import_pairs`. Their values are null for a line that is not a boundary line.
+
 ## 3.0.0 - 2026-11-03
 
 ### Changes that can break a script or a CI job

@@ -26,6 +26,10 @@ record without the syntax fingerprints, and the digest of the source file of eac
 for each line. A crossing-import line also had the source of the two modules of each
 import. `answer_upgrade` uses this form one time to replace a current 2.0.0 digest.
 
+A `boundary flow` or `boundary import` line has the evidence of `nest_join.state`: the
+claims of the opening card and of the component that the actor stands for, the parent
+flows between them, the nested flows with the actor, and the import pairs.
+
 A `step source` line also has the claim of its sequence step: the step record and the
 map claims of its acting and measured components. Thus a change to the step changes the
 evidence, also when the line names no component.
@@ -54,7 +58,16 @@ from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, contract_file, flow_ids, model_load, nest, repo_files, step_refs
+from systemap import (
+    card_review,
+    contract_file,
+    flow_ids,
+    model_load,
+    nest,
+    nest_join,
+    repo_files,
+    step_refs,
+)
 from systemap.model import Component, claimed, is_symbol, source_parsed
 from systemap.source_facts import Located, entry_identity, located_records, repository_records
 from systemap.source_text import text_digest
@@ -388,7 +401,15 @@ def tree_evidence(
             components = facts.get("components", {})
             state = full_state(components, root, model_hashes[m.id], points, behavior, earlier)
         out[key] = digest(state)
+    out.update(boundary_evidence(tree, facts, lines))
     return out
+
+
+def boundary_evidence(tree: nest.Tree, facts: dict[str, Any], lines: list[str]) -> dict[str, str]:
+    """Give the evidence digest of each boundary line of `lines` (`nest_join.state`)."""
+    wanted = set(lines)
+    found = nest_join.states(tree, facts) if tree.nested else {}
+    return {line: digest(state) for line, state in found.items() if line in wanted}
 
 
 def _named_state(
