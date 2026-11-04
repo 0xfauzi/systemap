@@ -7,7 +7,7 @@
 #   bench/run.sh <repo-url-or-path> first-map-jev [--ref REF] [options]
 #
 # first-map-jev is the first map with one change to the sentence: the agent
-# starts the grouping from `systemap suggest --jev` (Jev's answers about
+# starts the grouping from `systemap suggest --decide` (Jev's answers about
 # module pairs) instead of `systemap suggest`. It needs TYPESAFE_API_KEY in
 # the environment, and exists to measure whether that grouping saves a first
 # map turns or dollars against a first-map run of the same repository.
@@ -128,7 +128,7 @@ systemap init | sed 's/^/bench: init: /'
 if [ "$mode" = first-map ]; then
   sentence="Map this repository with systemap. Follow the systemap skill."
 elif [ "$mode" = first-map-jev ]; then
-  sentence="Map this repository with systemap. Follow the systemap skill, and for the first grouping run systemap suggest --jev instead of systemap suggest."
+  sentence="Map this repository with systemap. Follow the systemap skill, and for the first grouping run systemap suggest --decide instead of systemap suggest."
 else
   sentence="The code changed. Update the map with systemap: follow the systemap skill's maintenance path, with base $base."
 fi

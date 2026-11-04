@@ -102,7 +102,7 @@ def test_an_earlier_name_does_not_close_the_new_line_and_the_report_gives_the_ne
     out, err = capsys.readouterr()
     assert (
         f"  stale answer: '{OLD}' has the previous kind name \"jev sentence\", which systemap "
-        'does not read. Change "jev sentence" to "decision sentence" in [judgement] answered.'
+        f"does not read. Change it to '{NEW}' in [judgement] answered."
     ) in out.splitlines()
     assert "warning:" not in err
 
@@ -133,8 +133,13 @@ def test_the_digest_is_the_same_for_the_two_names(roots: dict[str, Path]) -> Non
     now = audit.evidence(tree, facts, cfg.root, [NEW, owner_new])
     assert now[NEW] == _previous_digest(root, OLD)
     assert now[owner_new] == _previous_digest(root, owner_old)
-    # An answer with the previous names is not an answer for an audit line.
-    assert not audit.is_audit_answer(Answer(items=(OLD, owner_old), reason="r"))
+    # An answer with the previous names is an audit answer that matches no audit line.
+    previous = Answer(items=(OLD, owner_old), reason="r")
+    assert audit.is_audit_answer(previous)
+    assert audit.apply([audit.Line(NEW), audit.Line(owner_new)], [previous], audit.KINDS)[2] == [
+        OLD,
+        owner_old,
+    ]
 
 
 def test_an_earlier_family_kind_is_a_configuration_error(

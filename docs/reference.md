@@ -475,8 +475,10 @@ The previous names started with `jev`. The new names start with `decision`, beca
 2.0.0 and 3.0.0 also read the previous names. From 3.1.0, systemap does not read them:
 
 - An exact answer (`item` or `items`) with a previous name is not an answer for the line with the new name.
-  `judgement` gives the item as a stale answer. The row gives the new name, for example
-  `stale answer: 'jev flow: A -> B ...' has the previous kind name "jev flow", which systemap does not read. Change "jev flow" to "decision flow" in [judgement] answered.`
+  `judgement` and `audit` give the item as a stale answer. The row gives the current line, for example
+  `stale answer: 'jev flow: A -> B ...' has the previous kind name "jev flow", which systemap does not read. Change it to 'decision flow: A -> B ...' in [judgement] answered.`
+  A `reviewed` line with a previous name also gives this row.
+  An item with the new name in the same answer stays an `audit` item.
 - A family answer with a previous name, for example `kind = "jev flow"`, gives a configuration error.
 - `audit --kind "jev flow"` gives a usage error.
 - `systemap explain "jev flow"` gives no explanation.

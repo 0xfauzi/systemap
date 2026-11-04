@@ -10,7 +10,8 @@ answered` that has the earlier form. From 3.1.0, systemap does not read that for
 Acceptance: the Python fixture and the TypeScript fixture each give an unknown-surface
 line that does not contain "Python" or "under". An earlier-form item selects no line: it
 is stale, the current line is open, and the item gets no warning. An item in the current
-form with the prefix of the top map still selects the one current line in the nested map.
+form, or in an earlier form that stays, with the prefix of the top map still selects the
+one current line in the nested map.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
 from conftest import TINY_PACKAGE, write_tree
 
 from systemap import answer_migrations, config, extract, judgement, source_facts
@@ -73,12 +75,28 @@ def test_an_answer_in_the_earlier_form_selects_no_line(tmp_path: Path) -> None:
     assert answer_migrations.warnings([Answer(items=(line,), reason="known")]) == []
 
 
-def test_an_answer_follows_a_line_that_moved_to_a_nested_map() -> None:
+_TARGETS = "package.json export targets have no resolved TypeScript modules."
+
+
+@pytest.mark.parametrize(
+    ("earlier", "current"),
+    [
+        (
+            "unknown surface: module app.broken (app/broken.py): SyntaxError",
+            "sub: unknown surface: module app.broken (app/broken.py): SyntaxError",
+        ),
+        (
+            f"unknown surface: package_export web -> dist/a.js (+2 more): 3 {_TARGETS}",
+            f"sub: unknown surface: package_export web -> dist/a.js: The {_TARGETS}",
+        ),
+    ],
+)
+def test_an_answer_follows_a_line_that_moved_to_a_nested_map(earlier: str, current: str) -> None:
     """Acceptance: an item with the prefix of the top map selects the one current line in
-    the nested map. The form migration does not change the moved item again.
+    the nested map. An item can also be in an earlier text form that stays, such as the
+    `package_export` line with a count. Each migration acts on the item one time: the
+    moved item is in the current form, and the form migration does not change it again.
     """
-    current = "sub: unknown surface: module app.broken (app/broken.py): SyntaxError"
-    earlier = "unknown surface: module app.broken (app/broken.py): SyntaxError"
     answer = Answer(items=(earlier,), reason="known", evidence="digest-of-the-evidence")
     (moved,) = answer_migrations.current_lines([answer], [current])
     assert moved.items == (current,)

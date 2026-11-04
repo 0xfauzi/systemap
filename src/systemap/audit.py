@@ -419,10 +419,17 @@ def _bare(line: str) -> str:
 
 
 def is_audit_answer(answer: Answer) -> bool:
-    """Determine whether an answer names audit findings."""
+    """Determine whether an answer names audit findings.
+
+    An item with a previous kind name, such as "jev flow", is also an audit item. It
+    matches no line, and `judgement` gives it as a stale answer."""
     if answer.kind:
         return answer.kind in KINDS
-    return bool(answer.items) and all(decision_kinds.kind_of(i) in KINDS for i in answer.items)
+    return bool(answer.items) and all(_audit_item(i) for i in answer.items)
+
+
+def _audit_item(item: str) -> bool:
+    return decision_kinds.kind_of(item) in KINDS or decision_kinds.renamed(item) is not None
 
 
 def _covers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
@@ -468,8 +475,14 @@ def _with_earlier_lines(evidence: Mapping[str, str], mine: list[Answer]) -> dict
 
 def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
     """Determine whether the answer names types selected in this run."""
-    names = [answer.kind] if answer.kind else [decision_kinds.kind_of(i) for i in answer.items]
+    names = [answer.kind] if answer.kind else [_item_kind(i) for i in answer.items]
     return all(n is not None and n in kinds for n in names)
+
+
+def _item_kind(item: str) -> str | None:
+    """Give the kind of an audit item. An item with a previous name has the new kind."""
+    names = decision_kinds.renamed(item)
+    return names[1] if names else decision_kinds.kind_of(item)
 
 
 def apply(
@@ -562,6 +575,11 @@ def reviewed_answer_issue(
     return f"'{answer.label}' must have policy = true for a family of lines."
 
 
+def _stale_row(item: str) -> str:
+    """Give the new name for an item with a previous kind name (`answer_migrations.stale`)."""
+    return answer_migrations.stale(item) if decision_kinds.renamed(item) else item
+
+
 def report(
     open_lines: list[Line],
     answered: int,
@@ -590,7 +608,7 @@ def report(
         noun = "item" if len(open_lines) == 1 else "items"
         head = f"audit: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
     out = [head, *_taught(open_lines, teach)]
-    out += [f"  stale answer: {s}" for s in stale]
+    out += [f"  stale answer: {_stale_row(s)}" for s in stale]
     out += [f"  pending answer: {s}" for s in pending]
     out += [f"  policy answer: {s}" for s in policies]
     out += unasked_lines(list(unasked))

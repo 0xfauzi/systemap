@@ -17,16 +17,18 @@ A layer is a filtered view of the map.
   - `audit --kind "jev flow"` and the other previous `jev` names give a usage error and exit 2.
   - A family answer with a previous name, for example `kind = "jev flow"`, gives a configuration error.
   - `systemap explain "jev flow"` gives no explanation.
-  - An exact answer with a previous `jev` name matches no line. `judgement` gives it as a stale answer, and the row gives the new name, for example
-    `stale answer: 'jev sentence: ...' has the previous kind name "jev sentence", which systemap does not read. Change "jev sentence" to "decision sentence" in [judgement] answered.`
-    The evidence digest of a decision line does not change. Thus an exact answer with one item stays current after you change the name.
+  - An exact answer with a previous `jev` name matches no line. `judgement` and `audit` give it as a stale answer, and the row gives the current line, for example
+    `stale answer: 'jev sentence: ...' has the previous kind name "jev sentence", which systemap does not read. Change it to 'decision sentence: ...' in [judgement] answered.`
+    For a `jev mis-fold` or `jev owner` item that ends with the pick of the provider, the current line does not have the pick.
+    An item in the same answer with a new name stays correct. A `reviewed` line with a previous name also gives this row.
+    The evidence digest of a decision line does not change. Thus an exact answer with one item stays current after you change the item.
   - An exact answer in a line form from 2.0.0 or before 2.0.0 matches no line. These forms are:
     the `unknown surface` line with `under Python <version>`, `the npm tsconfig package`, or `the TypeScript syntax`,
     the `unknown surface` line with a line number in the location, a source excerpt, or a parser version,
     and the `entry point` line with a kind identifier such as `public_functions`.
     `judgement` gives the current line as an open line and the earlier item as a stale answer.
     Examine the source again. Then record the answer with the current line.
-  - `judgement` and `audit` give no warning for these names and forms.
+  - `judgement` and `audit` give no `warning:` line for these names and forms.
 
   These earlier line forms stay:
   - a line with a control character,

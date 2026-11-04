@@ -300,10 +300,11 @@ def test_answers_recorded_with_the_old_line_still_match() -> None:
         "decision owner: pkg.x is claimed by no card; it reads like none of the cards"
     ) == ("decision owner: pkg.x is claimed by no card")
     assert audit.migrated(NEW) == NEW
-    # From 3.1.0, a line with a previous kind name does not migrate.
+    # From 3.1.0, a line with a previous kind name does not migrate. It stays an audit
+    # item, so that a valid decision item in the same answer stays an audit item.
     jev = "jev mis-fold: Parser claims pkg.parser, which reads like Reader"
     assert audit.migrated(jev) == jev
-    assert not audit.is_audit_answer(Answer(items=(jev,), reason="r", evidence="d1"))
+    assert audit.is_audit_answer(Answer(items=(jev,), reason="r", evidence="d1"))
     found = [audit.Line(NEW), audit.Line(NEW_OWNER)]
     evidence = {NEW: "d1", NEW_OWNER: "d2"}
     one = Answer(items=(OLD,), reason="r", evidence="d1")

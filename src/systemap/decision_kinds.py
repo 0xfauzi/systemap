@@ -11,8 +11,9 @@ the previous name of each kind for two uses only:
 
 - The evidence digest of a line is the digest of the same line with its previous kind
   name (`previous_line`). Thus a digest recorded before the rename stays correct.
-- `renamed` finds an answer item with a previous name. The judgement report then gives
-  the new name to the maintainer.
+- `renamed` finds an answer item with a previous name of an audit kind. `audit` then
+  takes the answer as an audit answer, and the judgement report gives the item as a
+  stale answer with the current line.
 
 The word "decision" in the line also does not select a module or a component with that
 name.
@@ -75,7 +76,17 @@ def previous_line(line: str) -> str:
     return f"{prefix}{_LATER.get(name, name)}: {rest}"
 
 
+# The previous names of the kinds that `[judgement] answered` can contain. A `decision
+# move` line is a `delta` line, and no answer applies to it.
+_ANSWERED_PREVIOUS = tuple(old for old, new in PREVIOUS.items() if new in KINDS)
+
+
 def renamed(line: str) -> tuple[str, str] | None:
-    """Give the previous kind name and the new name if a line starts with a previous name."""
-    found = _parts(line, tuple(PREVIOUS))
-    return (found[1], PREVIOUS[found[1]]) if found else None
+    """Give the previous kind name and the new name if an answer item has a previous name.
+
+    Only a nested-map ID without a space can come before the name. Thus a judgement line
+    with the text "jev flow: " in a name or a reason does not have a previous name."""
+    found = _parts(line, _ANSWERED_PREVIOUS)
+    if found is None or " " in found[0].removesuffix(": "):
+        return None
+    return found[1], PREVIOUS[found[1]]

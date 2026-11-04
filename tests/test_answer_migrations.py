@@ -161,7 +161,9 @@ def test_a_removed_form_selects_no_line_and_the_report_gives_the_action(item: st
     if names:
         assert (
             f"stale answer: '{item}' has the previous kind name \"{names[0]}\", which "
-            f'systemap does not read. Change "{names[0]}" to "{names[1]}" in [judgement] answered.'
+            "systemap does not read. Change it to "
+            f"'{answer_migrations.current_line(item.replace(names[0], names[1], 1))}' "
+            "in [judgement] answered."
         ) in report
     else:
         assert f"stale answer: '{item}' is now missing. Remove it from [judgement] answered." in (

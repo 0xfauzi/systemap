@@ -4,8 +4,8 @@ A finding line is also an identifier, so a change of its text needs a migration.
 module is the one migration path for `judgement` and `audit` (`AGENTS.md`). Each earlier
 form has one pattern in `EARLIER_FORMS`. These lines changed:
 
-- The `decision mis-fold` and `decision owner` lines of `audit` ended with the pick of the
-  provider, for example ", which reads like Reader". The detail row now gives the pick.
+- The `jev mis-fold` and `jev owner` lines of `audit` ended with the pick of the provider,
+  for example ", which reads like Reader". The detail row now gives the pick.
 - Facts format 13: the `crossing import` line gave the count of the importing modules,
   as in "imports Config in 3 modules and". The `package_export` line gave "(+2 more)"
   after the target and the count of the targets in the reason. A count can change while
@@ -24,9 +24,13 @@ kind names of the `audit` lines, the `entry point` line with a kind identifier s
 "public_functions", and the `unknown surface` lines with "under Python <version>", "the
 npm tsconfig package", "the TypeScript syntax", a line number in the location, a source
 excerpt, or a parser version. From 3.1.0, systemap does not read these forms. An item in
-such a form matches no line, and the judgement report gives it as a stale answer. For an
-item with a previous kind name, the report gives the new name
-(`decision_kinds.renamed`).
+such a form matches no line, and the judgement report gives it as a stale answer. An item
+with a previous kind name is an `audit` item. The judgement report also gives it as a
+stale answer, with the current line (`renamed_items`, `decision_kinds.renamed`).
+
+Before 2.0.0, the `jev mis-fold` and `jev owner` lines ended with the pick of the
+provider. No release gave a `decision` line with the pick. The "provider pick" form gives
+the current line of such an item after the change of its kind name.
 
 A name or a reason in a current line can contain the text of an earlier form. Thus each
 pattern has its fixed text at its fixed position. An item that is a current line stays
@@ -169,11 +173,21 @@ def stale(item: str) -> str:
     if cause := retired(item):
         return f"{shown} is no longer a finding: {cause}. Remove it from [judgement] answered."
     if names := decision_kinds.renamed(item):
+        now = current_line(item.replace(names[0], names[1], 1))
         return (
             f'{shown} has the previous kind name "{names[0]}", which systemap does not read. '
-            f'Change "{names[0]}" to "{names[1]}" in [judgement] answered.'
+            f"Change it to '{printable(now)}' in [judgement] answered."
         )
     return f"{shown} is now missing. Remove it from [judgement] answered."
+
+
+def renamed_items(answers: Iterable[Answer]) -> list[str]:
+    """Give each item and each reviewed line with a previous kind name, one time.
+
+    `audit` reads such an answer, but its items match no line. `judgement` gives these
+    items as stale answers, because CI uses `judgement` and not `audit`."""
+    found = (item for answer in answers for item in (*answer.items, *answer.reviewed))
+    return list(dict.fromkeys(item for item in found if decision_kinds.renamed(item)))
 
 
 def warnings(answers: Iterable[Answer], present: Container[str] = ()) -> list[str]:
@@ -193,8 +207,11 @@ def warnings(answers: Iterable[Answer], present: Container[str] = ()) -> list[st
         for item, line in now.items()
         if line != item
         and not retired(item)
-        # `judgement` does not have the lines of a decision kind. `audit` gives them.
+        # A decision line is an `audit` line, and `judgement` does not give it. `audit`
+        # changes an item in an earlier form of a decision line without a warning. An
+        # item with a previous kind name is a stale answer (`renamed_items`).
         and decision_kinds.kind_of(item) is None
+        and decision_kinds.renamed(item) is None
     ]
     return [
         f'warning: [judgement] answered uses the earlier line "{item}". Change it to "{now[item]}".'
