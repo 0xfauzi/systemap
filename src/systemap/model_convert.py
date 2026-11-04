@@ -88,12 +88,12 @@ def literal(value: Any, indent: int, names: set[str]) -> str:
     )
 
 
-def source_text(doc: str, model: Any, meaning: Any) -> str:
-    """Give the text of a model file with literal values only."""
+def source_text(doc: str, model: Any, meaning: Any, note: str = NOTE) -> str:
+    """Give the text of a model file with literal values only. `note` follows the doc."""
     names = {"Meaning", "Model"}
     model_text = literal(model, 0, names)
     meaning_text = literal(meaning, 0, names)
-    text = f"{doc.strip()}\n\n{NOTE}" if doc.strip() else NOTE
+    text = "\n\n".join(part for part in (doc.strip(), note) if part)
     head = HEAD.format(
         doc=text.replace('"""', '\\"\\"\\"'),
         names="\n".join(f"    {name}," for name in sorted(names)),
@@ -101,7 +101,7 @@ def source_text(doc: str, model: Any, meaning: Any) -> str:
     return f"{head}MODEL = {model_text}\n\nMEANING = {meaning_text}\n"
 
 
-def _same(path: Path, label: str, text: str, model: Any, meaning: Any) -> None:
+def same_model(path: Path, label: str, text: str, model: Any, meaning: Any) -> None:
     """Read the new text with the reader that runs no code and compare the two models."""
     descriptor, name = tempfile.mkstemp(prefix=".convert-", suffix=".py", dir=path.parent)
     temporary = Path(name)
@@ -156,7 +156,7 @@ def convert(cfg: config.Config) -> list[str]:
         doc = ast.get_docstring(ast.parse(m.path.read_text(encoding="utf-8-sig"))) or ""
         model = contract_file.own(m.path, m.rel, m.model, m.root)
         text = source_text(doc, model, m.meaning)
-        _same(m.path, m.rel, text, model, m.meaning)
+        same_model(m.path, m.rel, text, model, m.meaning)
         staged[m.path] = text
         lines.append(f"{m.rel}: wrote the same model with literal values only")
         lines += [

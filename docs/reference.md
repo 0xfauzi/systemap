@@ -1191,6 +1191,42 @@ components that can become nested maps.
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
 
+### `systemap parts [--map ID] [--json] [--stub CARD] [--results]`
+
+Gives the part plan of the nested maps of one map.
+A nested part is one nested map, its contract file, and the model files with its file prefix.
+The command does not select the boundaries of the nested parts.
+It gives the facts for the boundaries that `map=` sets.
+It reads the stored facts and sends no data out.
+
+- Without an option, the command writes `parts/plan.json` beside the top model, for example `map/parts/plan.json`.
+  It prints one line for each nested part of the top map: its model file, its module count, its entry point count, and its actors.
+  The plan gives these fields for each nested part: the model file, the contract file, the file prefix, the result file, the modules, the `suggest` groups, the modules alone in their package, the actors, the boundary flows, the boundary imports, the import rules, the entry points, the state (`stub` or `mapped`), and `level_2`.
+  Each entry point goes to the deepest map that claims its module.
+  A nested part with more than 400 modules has `level_2` true. The value 400 is forty components with ten modules each. It is not a measurement.
+- `--map ID` gives the record of the nested part `ID` from the plan of its parent map.
+  If the map `ID` has nested maps, the command also writes their plan, for example `map/parts/gateway_plan.json`.
+- `--stub CARD` writes the stub of a new nested map for the component `CARD`.
+  The file name is the same file name that `systemap suggest` gives, for example `map/gateway.py`.
+  The stub has one component for each `suggest` group, the component `<CARD>Other` for the modules alone in their package, the symbol claims of the card, the actors, and positions.
+  The command does not write over a file.
+  If the stub fails the model checks or the nesting check, the command writes no file and gives the problems.
+  The actors of a nested map must be components of its parent map. Thus a stub that needs an actor that the parent map does not have gives exit code `2`.
+- `--results` examines the result file `parts/<stem>.json` of each nested part against the plan.
+  An answer in a result file must have the form `item` or `items`.
+- `--json` writes one JSON object.
+
+The plan has two digests. `facts_digest` is the SHA-256 of the facts file.
+`contract_digest` is the SHA-256 of the contract of the parent map: the layer IDs, the region IDs, the flow artifacts, the identity and claims of each component, the flows, the invariants, and the import rules.
+A change to a position or to a description does not change `contract_digest`.
+If a digest is different from the current tree, `parts --map ID` and `parts --results` stop with exit code `1` and the text `The plan is stale. Do systemap parts again.`
+`check --map ID` gives the same text as a warning and keeps its exit code. If no plan exists, `check --map ID` says nothing about a plan.
+
+The plan refuses a nested map whose stem is `model`, `contract`, or `plan`, or ends in `_contract` or `_plan`.
+It also refuses two stems that are the same in lower case, and a file prefix `<stem>_` that is the start of a different stem.
+A stem that the plan refuses gives exit code `2`.
+The commands that write a plan or a stub hold the write lock `.systemap/write.lock`.
+
 ### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]`
 
 Prints the second-pass findings.

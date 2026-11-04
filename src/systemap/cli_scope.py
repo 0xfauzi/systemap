@@ -14,9 +14,19 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+from collections.abc import Callable
 from typing import Any
 
-from systemap import check, extraction, judgement, judgement_evidence, judgement_json, nest
+from systemap import (
+    check,
+    extraction,
+    judgement,
+    judgement_evidence,
+    judgement_json,
+    nest,
+    parts_cli,
+    parts_plan,
+)
 from systemap.config import Config
 from systemap.terminal_text import show
 
@@ -37,6 +47,18 @@ SEQUENCES_NOTE = (
     "sequence coverage: a run with --map examines only the sequences of this map, of its "
     "parent maps, and of its nested maps"
 )
+
+
+PARTS_HELP = (
+    "Select the map with this ID, for example Gateway or Gateway/Routes. Without --stub "
+    "and --results, give the record of this nested part from the plan of its parent map."
+)
+
+
+def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
+    """Add the command `systemap parts`. Then add `--map` to the commands (`add_options`)."""
+    parts_cli.add_parser(sub, add_root, PARTS_HELP)
+    add_options(sub)
 
 
 def add_options(sub: Any) -> None:
@@ -92,6 +114,13 @@ def show_notes(tree: nest.Tree, *examined: str) -> None:
     """Write the lines of `notes`, if the run has `--map`."""
     for line in notes(tree, *examined):
         show(line)
+
+
+def check_notes(cfg: Config, tree: nest.Tree) -> list[str]:
+    """Give the scope lines of `check --map`, and a warning for each stale part plan of the
+    selected map. A plan that does not exist gives no line, and a warning does not change
+    the exit code."""
+    return [*notes(tree, PAGES_NOTE), *parts_plan.stale_warnings(cfg, tree)]
 
 
 def stale(cfg: Config, tree: nest.Tree) -> list[str]:
