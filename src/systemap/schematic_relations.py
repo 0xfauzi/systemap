@@ -379,7 +379,7 @@ function relationshipHtml(i){
     + esc(e.say || 'The model has no explanation for this flow.') + '</p>'
     + '<p class="systemap-f__evidence" data-evidence>' + esc(e.evidence_says || '') + '</p>'
     + '<p class="systemap-f__reason">' + esc(evidenceReason(e)) + '</p>'
-    + assuranceRow(e.assurance) + evidenceReview(e);
+    + assuranceRow(e.assurance) + evidenceReview(e) + insideOf(e);
 }
 function flowChoice(i, out){
   var e = EDGES[i];
@@ -484,7 +484,8 @@ function describe(d){
   if(d.does){ h += '<p class="systemap-f__does">' + esc(d.does) + '</p>'; }
   h += assuranceRow(d.assurance);
   if(d.note){ h += '<p class="systemap-f__note"><b>Note</b> ' + esc(d.note) + '</p>'; }
-  h += mapInside(d) + '<div class="systemap-f__connections"><div class="systemap-f__flow-list">'
+  h += mapInside(d) + neighbourOf(d)
+    + '<div class="systemap-f__connections"><div class="systemap-f__flow-list">'
     + flowChoices(d) + '</div></div>';
   return h + sequenceRows(d) + madeOf(d) + rulesOf(d) + partDetails(d) + '</div>';
 }

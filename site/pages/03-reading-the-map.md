@@ -94,6 +94,14 @@ Color shows only the flow kind, the selection, and the change.
 | Dashed card border | An actor outside the source code. |
 | Dot on a card | The component has a note. The Details panel gives it. |
 | Stacked card | The component opens a nested map. |
+| N inside | The number of components in the nested map of the card. |
+| Line around the internal components | On the page of a nested map: the boundary of the component that opens the map. The actors are outside this line. |
+| Notch in the upper-right corner of an actor | On the page of a nested map: the actor is a component of the parent map. |
+| Dotted port on the boundary | A flow or an import at the boundary has an open `boundary flow` or `boundary import` finding. The Details panel gives the finding. |
+
+On the page of a nested map, a small figure at the left shows the parent map.
+The filled rectangle is the component that opens the current map, and the dashed rectangles are its actors.
+Select the figure to go to the parent map.
 
 [Concepts](concepts.html#evidence-states) gives the evidence states, and [Concepts](concepts.html#component) gives the card marks of each component kind.
 

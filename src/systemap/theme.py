@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import copy
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 from systemap.model import Layer
@@ -459,35 +459,44 @@ def _check_keys(table: dict[str, Any], where: str) -> None:
             _check_keys(value, path)
 
 
-def _layers(t: dict[str, Any], layers: Iterable[Layer]) -> dict[str, str]:
+def _layers(
+    t: dict[str, Any], layers: Iterable[Layer], inherited: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """Assign one color to each layer in layer order.
 
-    Named layers keep their table color. Other layers use palette colors
-    in sequence."""
+    Named layers keep their table color. A layer ID in `inherited` gets the color of
+    the parent map. Other layers use the palette colors that the parent map does not
+    use, in sequence, and then all palette colors again."""
     named: dict[str, str] = dict(t.get("layers") or {})
+    above = dict(inherited or {})
     palette: list[str] = list(t.get("layer_palette") or LAYER_PALETTE_DARK)
+    free = [c for c in palette if c not in above.values()] + palette
     resolved: dict[str, str] = {}
     unnamed = 0
     for layer in layers:
-        colour = named.get(layer.id)
+        colour = named.get(layer.id) or above.get(layer.id)
         if not colour:
-            colour = palette[unnamed % len(palette)]
+            colour = free[unnamed % len(free)]
             unnamed += 1
         resolved[layer.id] = colour
     return resolved
 
 
-def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
+def resolve(
+    tokens: dict[str, Any], layers: Iterable[Layer], parent: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
     """Give the default palette table and all palette tables under `schemes`.
 
     `tokens` contains `[theme]` configuration. `scheme` selects the default
     palette. A named table changes that palette. Other keys change the
     default palette. The page uses all tables. Separate figures use only
-    the default table."""
+    the default table. `parent` is the resolved theme of the parent map. A
+    nested map gets the parent color of each layer ID that the parent has."""
     layers = list(layers)
     name = scheme_name(tokens)
     _check_tables(tokens)
     own = {k: v for k, v in tokens.items() if k != "scheme" and k not in SCHEMES}
+    above: Mapping[str, Any] = (parent or {}).get("schemes") or {}
     tables: dict[str, dict[str, Any]] = {}
     for scheme, base in SCHEMES.items():
         override = tokens.get(scheme) or {}
@@ -498,7 +507,7 @@ def resolve(tokens: dict[str, Any], layers: Iterable[Layer]) -> dict[str, Any]:
         t = merge(base, override)
         _check_values(t)
         t["scheme"] = scheme
-        t["layers"] = _layers(t, layers)
+        t["layers"] = _layers(t, layers, (above.get(scheme) or {}).get("layers"))
         tables[scheme] = t
     out = copy.deepcopy(tables[name])
     out["schemes"] = tables

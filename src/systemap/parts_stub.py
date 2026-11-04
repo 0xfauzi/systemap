@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from systemap import check, file_write, model_convert, nest, parts, parts_plan, place
+from systemap import check, file_write, model_convert, nest, parts, parts_plan, place, place_nested
 from systemap.config import ArgumentError, Config
 from systemap.entry_names import started_module
 from systemap.model import (
@@ -133,7 +133,7 @@ def build(
     )
     plain = {cid: parent.meaning.plain.get(cid, cid) for cid in actors}
     plain.update({c.id: f"the {c.id} modules" for c in internal})
-    placement = place.compute(model)
+    placement = place_nested.compute(model, parent.model, card.id).placement
     return place.apply(model, placement), Meaning(plain=plain)
 
 

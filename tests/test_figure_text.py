@@ -96,11 +96,11 @@ def test_a_preview_of_a_card_with_an_unsafe_id_gets_a_safe_svg_id(sample: Sample
         parent="",
         card=f"Card{MARKUP}",
     )
-    svg = page.preview(sample.cfg, child, sample.facts)
+    svg = page.preview(child)
     assert svg.startswith('<svg id="preview-')
     assert "<img" not in svg and "onerror" not in svg.split(">", 1)[0]
     plain = dataclasses.replace(child, id="Gateway", card="Gateway")
-    assert page.preview(sample.cfg, plain, sample.facts).startswith('<svg id="preview-Gateway"')
+    assert page.preview(plain).startswith('<svg id="preview-Gateway"')
 
 
 def test_a_theme_value_with_html_marks_is_refused(sample: Sample) -> None:

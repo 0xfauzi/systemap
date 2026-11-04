@@ -58,6 +58,7 @@ from systemap import (
     out_paths,
     page,
     place,
+    place_nested,
     place_source,
     pr_summary,
     providers,
@@ -822,10 +823,13 @@ def cmd_place(args: argparse.Namespace) -> int:
         return STALE
     wrote = False
     say(*cli_scope.notes(p.tree))
+    # A nested placement reads the new positions of its parent map (`place_nested`).
+    placed: dict[str, Model] = {}
     for m in p.tree.reported:
-        placement = place.compute(
-            m.model, all_cards=bool(args.all), keep_order=bool(args.keep_order)
-        )
+        placement = place_nested.compute(
+            m.model, _parent_model(p.tree, m, placed), m.card, bool(args.all), bool(args.keep_order)
+        ).placement
+        placed[m.id] = place.apply(m.model, placement)
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))
             continue
@@ -841,6 +845,13 @@ def cmd_place(args: argparse.Namespace) -> int:
     if wrote:
         say("run: systemap check")
     return OK
+
+
+def _parent_model(tree: nest.Tree, m: nest.Map, placed: dict[str, Model]) -> Model | None:
+    """Give the model of the parent map with its new positions, for the bands of a nested
+    placement."""
+    parent = tree.parent_of(m)
+    return None if parent is None else placed.get(parent.id, parent.model)
 
 
 def _reload(path: Path, label: str, root: Path | None) -> Model:

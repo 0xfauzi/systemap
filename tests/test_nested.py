@@ -485,10 +485,14 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert any(record.get("map", "") is None for record in detail.values())
     assert "Map inside: <b>" in top and "systemap-f__opens" in top
     preview = detail["Gateway"]["map"]["preview"]
+    # The compact preview: one rectangle for each internal card, the frame, and one stub
+    # for each actor with a nested flow. It has no text, no style element and no flow line.
     assert preview.startswith('<svg id="preview-Gateway"') and preview.endswith("</svg>")
-    assert preview.count('class="node ') == 5 and 'class="flow ' not in preview
-    assert 'data-id="App"' in preview and 'data-id="Routes"' in preview
-    assert "#preview-Gateway .node" in preview and "#schematic" not in preview
+    assert preview.count('class="mini__card"') == 3 and 'class="flow ' not in preview
+    assert preview.count('class="mini__frame"') == 1
+    assert preview.count('class="mini__stub"') == 2
+    assert "<text" not in preview and "<style" not in preview and "#schematic" not in preview
+    assert 'aria-label="The nested map has 3 components."' in preview
     # The link: its text once in the panel script, on each page. No page has a frame.
     assert top.count('">Open map</a>') == 1 and '">Open map</a>' in gateway
     for page in (top, gateway, style):

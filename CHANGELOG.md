@@ -32,6 +32,13 @@ A layer is a filtered view of the map.
 - In the Changes view, a link to a nested map adds `#changes`.
 - The U key goes to the parent map and selects the card that opens the current map. The T key opens the list of child maps.
 - The label of a card that opens a map gives the name of the map and its component count. Screen readers do not read the second card.
+- A nested map uses the color of its parent map for each layer ID that the parent map has. Thus the colors of a current nested page can change.
+- The page of a nested map shows its boundary. A line with the label `Inside <card>` goes around the internal components.
+  Each point where a flow crosses this line is a port. A port with an open `boundary flow` or `boundary import` finding is dotted and has a short text.
+  An actor that is a component of the parent map has the state `in the parent map` and a notch. A small figure of the parent map is a link to the card that opens the map.
+- A card that opens a map has the text `N inside`. Its Details panel shows a small figure of the nested map in place of the full figure, and the panel of its flows lists the nested flows.
+- After `systemap place` sets all positions of a nested map, each actor is on the side of the direction from the card that opens the map to that component in the parent map.
+  A placement that keeps positions does not move a component. Use `systemap place --map ID --all` to arrange a current nested map again.
 
 ## 3.0.0 - 2026-11-03
 

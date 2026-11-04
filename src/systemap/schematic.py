@@ -112,6 +112,15 @@ from systemap.schematic_change import (
     change_style,
     change_tag,
 )
+from systemap.schematic_nested import (
+    actor_label,
+    badge,
+    badge_text,
+    card_fields,
+    edge_fields,
+    frame_part,
+    notch,
+)
 from systemap.schematic_script import interactive_script as interactive_script
 from systemap.schematic_script import line_safe as line_safe
 from systemap.schematic_script import page_maps_script as page_maps_script
@@ -138,6 +147,7 @@ def render(
     opens: Mapping[str, Mapping[str, Any]] | None = None,
     variables: bool = False,
     tests_only: set[str] | None = None,
+    context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     """Give the SVG figure and detail JSON.
 
@@ -165,6 +175,9 @@ def render(
 
     With `variables`, colors use CSS tokens. The page supplies the palette
     tables. Separate figures use literal color values.
+
+    `context` is the record of a nested page (`page_context.context`): the neighbour
+    cards, the frame label, and the open boundary lines (`schematic_nested`).
 
     Detail JSON contains one record for each component. `_meta` contains
     layers, flows, verbs, explanations, rules, regions and label errors."""
@@ -421,7 +434,7 @@ def render(
         fill, stroke, state_label = P.state(state)
         if kind == "actor":
             fill, stroke = P.actor()
-            state_label = "outside"
+            state_label = actor_label(context, cid)
         moved = cid in changed
         subject = marks_reading and cid in subjects
         quiet = marks_reading and not subject and cid not in reached
@@ -479,6 +492,7 @@ def render(
                 f'<path class="node__mark" d="M{x + 3},{y + 3} h9 l-9,9 z" fill="{stroke}" '
                 f'fill-opacity=".85"/>'
             )
+        g.append(notch(state_label, (x, y, w, h), P["ink_2"]))
         # The name and the plain word, within the card's budget; what does
         # not fit is reported for the check, never cut short.
         collisions += card_text(kind, cid, plain)[2]
@@ -514,6 +528,7 @@ def render(
             + "</g>"
         )
 
+        g.append(badge(L, P, badge_text(c, opens), (x, y, w, h)))
         g.append(change_tag(P, L, change, (x, y, w, h)))
         g.append("</g>")
         cards.append("".join(g))
@@ -525,7 +540,7 @@ def render(
             "plain": plain,
             "does": c.does,
             "state": state if kind != "actor" else "actor",
-            "state_label": state_label if kind != "actor" else "outside",
+            "state_label": state_label,
             "lives": lives_in(list(c.implemented_by), facts.get("components", {})),
             "modules": list(c.implemented_by),
             # The three fields the panel prints beside the plain word: the
@@ -550,6 +565,7 @@ def render(
                 for i, (a, b, _art, _k) in enumerate(FLOWS)
                 if cid in (a, b) and (shown is None or i in shown)
             ],
+            **card_fields(context, cid),
         }
 
     edges_meta = []
@@ -581,8 +597,10 @@ def render(
                 "review_digest": flow.review_digest,
                 "evidence_says": ev.says,
                 **assurance.panel_field(claims, assurance.FLOW, flow.key),
+                **edge_fields(context, src, dst),
             }
         )
+    frame_svg, frame_meta = frame_part(model, context, paths, L, P)
     edge_index = {f.key: i for i, f in enumerate(model.flows)}
     journeys_meta = [
         {
@@ -658,6 +676,7 @@ def render(
             "headers": headers,
             "cards": {cid: list(box) for cid, box in boxes.items()},
             "paths": paths,
+            **frame_meta,
         }
     }
 
@@ -695,6 +714,7 @@ def render(
     p.extend(floor)
     p.append(f'<g data-part="zones">{"".join(zones)}</g>')
     p.append(f'<g data-part="flow">{"".join(flow_parts)}</g>')
+    p.append(frame_svg)
     p.extend(cards)
     p.append('<g data-part="flow">' + "".join(label_parts[i] for i in sorted(label_parts)) + "</g>")
     p.append('<g data-part="tags"></g>')

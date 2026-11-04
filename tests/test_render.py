@@ -35,7 +35,10 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # changes is 337,662 bytes. The limit is the next whole KiB above it.
     # The removal of the number limit removes 535 bytes (bench/jev/README.md, "All step
     # numbers of a long sequence"). The page is 337,127 bytes. The limit stays the same.
-    assert len(html.encode("utf-8")) < 330 * 1024
+    # The inspector rows of a nested map add 1,522 bytes to a page without nested maps
+    # (bench/jev/README.md, "The boundary of a nested map: M14 and M16"). The page is
+    # 337,949 bytes. The limit is the next whole KiB above it.
+    assert len(html.encode("utf-8")) < 331 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched
     assert '<link rel="icon" href="data:image/svg+xml,' in html

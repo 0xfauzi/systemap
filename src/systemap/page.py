@@ -13,6 +13,7 @@ from systemap import (
     assurance,
     nest,
     page_changes,
+    page_context,
     page_csp,
     page_data,
     page_font,
@@ -101,13 +102,17 @@ class Nesting:
     `card` identifies the component that contains this page.
     `opens` gives the child map records for the inspector.
     `covered` gives the entry point identities that the sequences of all maps include.
-    It is None for a page without a map tree. Then the sequences of the page supply it."""
+    It is None for a page without a map tree. Then the sequences of the page supply it.
+    `context` is the record of the figure for the parent context (`page_context.context`).
+    `mark` is the parent context mark of a nested page (`page_context.mark`)."""
 
     model_file: str
     path: str = ""
     card: str = ""
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
     covered: frozenset[str] | None = None
+    context: dict[str, Any] = field(default_factory=dict)
+    mark: str = ""
 
 
 def nesting_of(
@@ -116,38 +121,30 @@ def nesting_of(
     """Give the map ID and the child map records.
 
     The header makes the map path from the map ID (page_nav.path). With `facts`, each
-    child record contains a Structure diagram. The inspector uses this stored diagram
+    child record contains a compact preview, and the page gets the parent context and
+    the open boundary lines (`page_context`). The inspector uses the stored preview
     without an external request."""
     opens = nest.opens(tree, m)
+    context: dict[str, Any] = {}
     if facts is not None:
         for child in tree.children(m):
-            opens[child.card]["preview"] = preview(cfg, child, facts)
+            opens[child.card]["preview"] = preview(child)
+        context = page_context.context(cfg, tree, m, facts)
     return Nesting(
         model_file=m.rel,
         path=m.id,
         card=m.card,
         opens=opens,
         covered=frozenset(reviewed_entries(x.meaning for x in tree.maps)),
+        context=context,
+        mark=page_context.mark(tree, m),
     )
 
 
-def preview(cfg: Config, m: nest.Map, facts: dict[str, Any]) -> str:
-    """Render the child map with all cards and no flow lines.
-
-    A different SVG identifier prevents style conflicts. The diagram uses
-    the page CSS tokens and the selected palette."""
-    svg, _detail = render_schematic(
-        m.model,
-        m.meaning,
-        m.theme,
-        facts,
-        svg_id=preview_id(m.card),
-        layer="structure",
-        observed_by=cfg.observed_by,
-        variables=True,
-    )
-    svg = _no_tooltips(svg)
-    return svg
+def preview(m: nest.Map) -> str:
+    """Give the compact preview of a child map: one rectangle for each internal card and
+    one stub at the frame for each actor with a nested flow (`page_context.preview`)."""
+    return page_context.preview(m, preview_id(m.card))
 
 
 def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
@@ -516,6 +513,7 @@ def build(
         observed_by=cfg.observed_by,
         opens=nesting.opens,
         variables=True,
+        context=nesting.context,
     )
     system_svg = _no_tooltips(system_svg)
     payload: dict[str, Any] = {
@@ -553,6 +551,7 @@ def build(
         + page_motion.SURFACE_CSS
         + page_palette.CSS
         + page_nav.CSS
+        + (page_context.CSS if nesting.mark or nesting.opens else "")
     )
     o = [
         _head(cfg, t, nesting, extra_css),
@@ -568,6 +567,7 @@ def build(
         ),
         '<main class="main">',
         _map_section(model, meaning, system_svg, ch),
+        nesting.mark,
         page_changes.stage(ch, change_svg),
         page_nav.hint(nesting.path, bool(nesting.opens)),
         "</section>",

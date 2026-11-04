@@ -201,9 +201,13 @@ def _not_opened(m: Map, map_id: str, card: str) -> ArgumentError:
     )
 
 
-def _theme(cfg: Config, model: Model, meaning: Meaning) -> dict[str, Any]:
+def _theme(
+    cfg: Config, model: Model, meaning: Meaning, parent: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Resolve the theme of one map. A nested map gets the layer colors of its parent map
+    for each layer ID that the parent map has (`theme.resolve`)."""
     try:
-        return theme_mod.resolve(cfg.theme, all_layers(model, meaning))
+        return theme_mod.resolve(cfg.theme, all_layers(model, meaning), parent)
     except ValueError as exc:
         raise ConfigError(f"{cfg.source or 'theme'}: {exc}") from exc
 
@@ -250,7 +254,7 @@ def _child(
     model, meaning = load_model(path, rel, cfg.root)
     child_id = _child_id(parent, c.id)
     loaded[path] = child_id
-    theme = _theme(cfg, model, meaning)
+    theme = _theme(cfg, model, meaning, parent.theme)
     return Map(child_id, path, rel, model, meaning, theme, parent.id, c.id, cfg.root)
 
 

@@ -367,6 +367,19 @@ SCRIPT = r"""
     return byPlace(Object.keys(A.detail).filter(function(id){
       return id !== '_meta' && A.detail[id].kind === 'actor'; }));
   }
+  // In a nested map, the actors that are components of the parent map come first.
+  function outsideGroups(actors, on, L){
+    var near = actors.filter(function(id){
+      var n = A.detail[id].neighbour; return !!(n && n.where === 'parent'); });
+    function group(k, ids){
+      return ids.length ? '<span class="phone-out__k">' + k + '</span><span class="phone-actors">'
+        + ids.map(function(id){
+          return '<span class="phone-actor' + (on[id] || L === 'structure' ? '' : ' dim') + '">'
+            + esc(id) + '</span>'; }).join('') + '</span>' : '';
+    }
+    return group('PARENT MAP', near)
+      + group('OUTSIDE', actors.filter(function(id){ return near.indexOf(id) < 0; }));
+  }
   function noteText(L){
     if(L === 'structure'){ return 'Each name identifies one component in the region.'; }
     if(L === 'system'){ return 'The number is the quantity of flows to or from an actor.'; }
@@ -391,12 +404,8 @@ SCRIPT = r"""
     if(actors.length){
       h += '<button type="button" class="phone-out" data-phone-region="outside" '
         + 'style="grid-row:1 / span ' + Math.max(rows, 1) + ';grid-column:1">'
-        + '<span class="phone-out__k">OUTSIDE</span><span class="phone-actors">'
-        + actors.map(function(id){
-          return '<span class="phone-actor' + (on[id] || L === 'structure' ? '' : ' dim') + '">'
-            + esc(id) + '</span>';
-        }).join('') + '</span><span class="phone-out__n">' + plural(actors.length, 'actor')
-        + '</span></button>';
+        + outsideGroups(actors, on, L) + '<span class="phone-out__n">'
+        + plural(actors.length, 'actor') + '</span></button>';
     }
     h += cells.map(function(p){ return regionCell(p, L, on, top, col0); }).join('');
     var note = '<div class="phone-note' + (free ? '' : ' phone-note--row') + '"'

@@ -112,7 +112,7 @@ def test_a_preview_has_no_attribute_from_a_card_or_component_id(sample: Sample) 
     child = nest.Map(
         UNSAFE, Path("map/c.py"), "map/c.py", model, sample.meaning, t, parent="", card=UNSAFE
     )
-    svg = page.preview(sample.cfg, child, sample.facts)
+    svg = page.preview(child)
     parser = _Attributes()
     parser.feed(svg)
     assert "onload" not in parser.names

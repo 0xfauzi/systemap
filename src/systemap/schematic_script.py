@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from systemap.schematic_labels import LABEL_JS
+from systemap.schematic_nested import NESTED_JS
 from systemap.schematic_relations import RELATION_JS
 from systemap.theme import Palette
 
@@ -690,4 +691,4 @@ if(PAGE && window.ResizeObserver){
 
 """
 
-_INTERACTIVE_JS = _VIEW_JS + RELATION_JS + LABEL_JS
+_INTERACTIVE_JS = _VIEW_JS + RELATION_JS + NESTED_JS + LABEL_JS

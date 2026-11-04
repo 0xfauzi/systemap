@@ -837,7 +837,7 @@ function submap(page) {
     opens: (panel.querySelector('.systemap-f__opens') || {textContent: ''}).textContent,
     preview: !!(preview && preview.querySelector('svg')),
     previewId: preview && preview.querySelector('svg') ? preview.querySelector('svg').id : '',
-    previewCards: preview ? preview.querySelectorAll('.node').length : 0,
+    previewCards: preview ? preview.querySelectorAll('.mini__card').length : 0,
     previewInert: !!(preview && preview.hasAttribute('inert')),
     links: panel.querySelectorAll('a[data-open-map]').length,
     buttons: panel.querySelectorAll('button[data-open-map]').length,

@@ -34,7 +34,7 @@ import pytest
 from conftest import Sample
 from test_keyboard import DRIVER, SELF_MAP, needs_node, sample_page
 
-from systemap import figure, page, page_changes
+from systemap import figure, page, page_changes, schematic_nested
 from systemap import theme as theme_mod
 from systemap.model import DERIVED_LAYERS, all_layers
 from systemap.schematic import interactive_script, panel_css
@@ -321,6 +321,25 @@ def test_every_line_clears_three_to_one_on_the_map(scheme: str) -> None:
     lines = {key: str(t[key]) for key in ("card_line", "region", "flow")}
     ratios = {key: round(contrast(colour, str(t["map"])), 2) for key, colour in lines.items()}
     assert all(ratio >= 3 for ratio in ratios.values()), ratios
+
+
+def nested_mark_ratios(scheme: str) -> dict[str, tuple[float, float]]:
+    """The contrast and the minimum ratio of each new mark of a nested map (M14)."""
+    t = theme_mod.SCHEMES[scheme]
+    grounds = {**{k: str(t[k]) for k in TEXT_GROUNDS}, "actor": theme_mod.Palette(t).actor()[0]}
+    return {
+        what: (round(contrast(str(t[token]), grounds[ground]), 2), floor)
+        for what, token, ground, floor in schematic_nested.MARK_COLOURS
+    }
+
+
+@pytest.mark.parametrize("scheme", SCHEMES)
+def test_the_marks_of_a_nested_map_clear_their_contrast_floor(scheme: str) -> None:
+    """M14: at least 4.5:1 for text and 3:1 for lines, in Ink and in Paper."""
+    ratios = nested_mark_ratios(scheme)
+    assert all(ratio >= floor for ratio, floor in ratios.values()), {
+        what: ratio for what, (ratio, floor) in ratios.items() if ratio < floor
+    }
 
 
 @pytest.mark.parametrize("scheme", SCHEMES)

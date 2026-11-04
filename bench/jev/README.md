@@ -4038,3 +4038,58 @@ The same script ran again with the same acceptance values, on the same machine a
 | M15 tap targets | 8 of 17 visible targets are less than 44 px, all in the header. The parent link "< Routes" is 55 by 44 px | 0 | fail |
 
 The results agree with runs 1 and 2. The causes of the failures did not change.
+
+## The boundary of a nested map: M14 and M16 (2026-11-04)
+
+Scope: visual step 2 of the nested parts design (the rollout step 7).
+The page of a nested map has a line around the internal components with a port at each flow, a notch on each actor that is a component of the parent map, and a small figure of the parent map.
+A card that opens a map has the text "N inside", and its Details panel has a small figure of the nested map.
+`systemap place` puts the actors of a nested map on the sides of their parent directions (`place_nested.py`).
+The script is [`nested_boundaries.py`](nested_boundaries.py). Its docstring has the acceptance values, which were written before the run:
+
+- M14: each new text mark has at least 4.5:1 on its ground, and each new line has at least 3:1, in Ink and in Paper.
+- M16: after `systemap place`, 100 percent of the actors of the nested maps are on the side that agrees with the parent direction.
+
+Command: `uv run python bench/jev/nested_boundaries.py` (the working tree of this step, on the merge commit 97f2ecc of steps 4 and 6)
+
+### M14: the contrast of the new marks
+
+The table of marks is `schematic_nested.MARK_COLOURS`. The ground "actor" is the fill of an actor card.
+The test `tests/test_theme.py::test_the_marks_of_a_nested_map_clear_their_contrast_floor` examines the same table.
+
+| Mark | Token | Ground | Floor | Ink | Paper |
+|---|---|---|---|---|---|
+| frame label | ink_2 | map | 4.5 | 9.56 | 7.30 |
+| port text | ink_2 | map | 4.5 | 9.56 | 7.30 |
+| badge text | ink_2 | raised | 4.5 | 8.41 | 6.80 |
+| parent context mark label | ink_2 | surface | 4.5 | 9.32 | 7.82 |
+| frame line | ink_3 | map | 3.0 | 6.04 | 4.88 |
+| port line | ink_2 | map | 3.0 | 9.56 | 7.30 |
+| badge line | ink_3 | map | 3.0 | 6.04 | 4.88 |
+| neighbour notch | ink_2 | actor | 3.0 | 9.56 | 7.30 |
+| parent context card | ink_3 | surface | 3.0 | 5.88 | 5.23 |
+| parent context neighbour | ink_2 | surface | 3.0 | 9.32 | 7.82 |
+| parent context opening card | ink_2 | surface | 3.0 | 9.32 | 7.82 |
+| preview frame and card | ink_3 | bg | 3.0 | 6.17 | 4.75 |
+| preview stub | ink_2 | bg | 3.0 | 9.78 | 7.10 |
+
+M14 passes. The lowest text ratio is 6.80 (the badge text in Paper). The lowest line ratio is 4.75 (the frame and the cards of the small nested figure in Paper).
+A first version of the badge used the token `line_2` for its outline. The run did not measure it, because the outline changed to `ink_3` before the run. The notch uses `ink_2`, not the card border color, because the card border color has no 3:1 floor on the actor fill.
+
+### M16: the same-side rule
+
+| Fixture | Nested maps | Actors | In the agreeing band |
+|---|---|---|---|
+| tests/test_nested.py | 2 | 4 | 4 (100 percent) |
+| tests/three_levels.py, 2 parts of 2 | 10 | 14 | 14 (100 percent) |
+| tests/three_levels.py, 3 parts of 3 | 21 | 30 | 30 (100 percent) |
+
+M16 passes on the three fixtures. Each fixture keeps its actors in one container without a region, so `place_nested` arranged each nested map.
+Not measured: a map whose actors are in a region with internal components. For such a map, `place_nested` keeps the layout of `place`, and the same-side rule does not apply.
+
+### The size of a page without nested maps
+
+The inspector rows of a nested map are in the map script of each page, also on a page without nested maps.
+The CSS of the two small figures is only on a page with a parent map or with child maps.
+The sample page of `tests/test_render.py` was 336,427 bytes on 97f2ecc. With this step it is 337,949 bytes (+1,522 bytes). The test limit was 330 KiB (337,920 bytes). It is now 331 KiB, the next whole KiB above the page.
+Earlier versions of this step gave larger pages: 339,235 bytes with the CSS on each page, 338,342 bytes with the CSS only on pages with nested maps, and 337,968 bytes with a shorter inspector script. The last change of the script gave 337,949 bytes.

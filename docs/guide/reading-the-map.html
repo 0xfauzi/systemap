@@ -207,9 +207,28 @@ A dot on Changes shows that the page has a revision comparison. The live example
 <td>Stacked card</td>
 <td>The component opens a nested map.</td>
 </tr>
+<tr>
+<td>N inside</td>
+<td>The number of components in the nested map of the card.</td>
+</tr>
+<tr>
+<td>Line around the internal components</td>
+<td>On the page of a nested map: the boundary of the component that opens the map. The actors are outside this line.</td>
+</tr>
+<tr>
+<td>Notch in the upper-right corner of an actor</td>
+<td>On the page of a nested map: the actor is a component of the parent map.</td>
+</tr>
+<tr>
+<td>Dotted port on the boundary</td>
+<td>A flow or an import at the boundary has an open <code>boundary flow</code> or <code>boundary import</code> finding. The Details panel gives the finding.</td>
+</tr>
 </tbody>
 </table>
 </div>
+<p>On the page of a nested map, a small figure at the left shows the parent map.
+The filled rectangle is the component that opens the current map, and the dashed rectangles are its actors.
+Select the figure to go to the parent map.</p>
 <p><a href="concepts.html#evidence-states">Concepts</a> gives the evidence states, and <a href="concepts.html#component">Concepts</a> gives the card marks of each component kind.</p>
 <h2 id="themes-and-motion">Themes and motion</h2>
 <p>Ink has dark surfaces. Paper has light surfaces. The first visit uses the device theme.

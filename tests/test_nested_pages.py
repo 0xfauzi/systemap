@@ -40,7 +40,8 @@ def test_the_map_inside_a_card_is_a_linked_page(nested: Path) -> None:  # noqa: 
     report = _drive(nested / "docs/map/index.html", "submap")
     # The first opening card in reading order, whichever place put on top.
     card = report["id"]
-    inside = {"Gateway": (3, 5), "Style": (2, 4)}[card]  # cards of its own, cards drawn
+    # The cards of its own, and the rectangles of the compact preview: one for each own card.
+    inside = {"Gateway": (3, 3), "Style": (2, 2)}[card]
     href = f"{card}/index.html"
     assert report["href"] == href
     assert report["frames"] == 0 and report["overlays"] == 0

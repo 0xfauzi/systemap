@@ -28,6 +28,10 @@ CARD_W = 150.0
 RADIUS = 8.0
 # How far the second card behind a card that opens a map is offset.
 MAP_OFFSET = 3.0
+# The "N inside" badge of a card that opens a map hangs below its lower-right corner
+# (`schematic_nested.badge`). Flow labels stay out of this room.
+BADGE_W = 77.0
+BADGE_H = 16.0
 # The smallest type on the figure. Edge labels, plain words and every note
 # sit at this size; names sit half a point above it.
 TEXT_PX = 11.0
@@ -512,6 +516,16 @@ def region_header(region: Region) -> tuple[Box, list[str]]:
     return (x + 6, y + 5, max(150.0, label_w), 24), collisions
 
 
+def _badges(model: Model, boxes: dict[str, Box]) -> list[tuple[str, Box]]:
+    """Give the room of the "N inside" badge of each card that opens a map, as an obstacle
+    for the flow labels."""
+    out: list[tuple[str, Box]] = []
+    for c in model.opening:
+        x, y, w, h = boxes[c.id]
+        out.append((f"{c.id} badge", (x + w - BADGE_W, y + h - 4, BADGE_W, BADGE_H)))
+    return out
+
+
 def geometry(model: Model) -> Geometry:
     """Give model geometry for flow routing and label placement."""
     boxes: dict[str, Box] = {}
@@ -543,6 +557,7 @@ def geometry(model: Model) -> Geometry:
         headers.append({"id": region.id, "kind": "region", "box": [round(v, 1) for v in header]})
     for cid, (x, y, w, h) in boxes.items():
         obstacles.append((cid, (x - 3, y - 3, w + 6, h + 6)))
+    obstacles += _badges(model, boxes)
     return Geometry(
         boxes=boxes,
         actors={c.id for c in model.components if c.kind == "actor"},

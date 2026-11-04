@@ -605,6 +605,31 @@ The header of a nested page shows the map path, with one link for each ancestor 
 The page title gives the map ID and its level, for example `demo system map: Gateway/Routes (level 2)`.
 The page policy permits no frame (`frame-src 'none'`).
 
+The page of a nested map also shows its boundary:
+
+- A line with the label `Inside <card>` goes around the internal components. The actors are outside this line.
+- An actor that is an internal component of the parent map has the state `in the parent map` and a notch in its upper-right corner.
+  An actor that is also an actor of the parent map keeps the state `outside`.
+  The Details panel of such an actor gives the parent flows, the link `Show in the parent map`, and, if the component opens a map, the link `Open the map inside <ID>`.
+  On a phone, the actor column has the parts `PARENT MAP` and `OUTSIDE`.
+- Each point where a flow crosses the boundary line is a port.
+  A port with an open `boundary flow` or `boundary import` finding is dotted and has a short text: `No flow in the parent map`, `No flow inside`, or `Import with no flow`.
+  The Details panel gives the full finding. A port without an open finding shows no state, because no check confirms the boundary.
+- A small figure of the parent map is at the left of the map. The filled rectangle is the card that opens the map, and the dashed rectangles are its actors. It is one link to that card in the parent page. A phone does not show it.
+
+On the page of a parent map, a card that opens a map has the text `N inside`, with the component count of its nested map.
+Its Details panel shows a small figure of the nested map: one rectangle for each internal component and one short line at the boundary for each actor with a nested flow.
+The Details panel of a flow of that card lists the nested flows in the same direction, each with a link to the component in the nested page.
+
+A nested map uses the color of its parent map for each layer ID that the parent map has. A new layer ID gets a color that the parent map does not use.
+
+`systemap place` on a nested map puts each actor above, below, at the left, or at the right of the internal components.
+The side agrees with the direction from the card that opens the map to that component in the parent map.
+On each side, the actors keep the order of the parent map.
+The parent map must have positions first. A run without `--map` places the parent map first.
+This arrangement occurs only when `place` sets all positions, and only if all actors are in one container that has no region and no internal component.
+A placement that keeps positions does not move a component.
+
 Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
 Only one component can open a nested model file.
