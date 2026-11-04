@@ -11,7 +11,8 @@ systemap 2.0.0 recorded a review digest of the claim only (`claim_digest`). Two 
 give the state `earlier`, with the label "review earlier than source tracking":
 
 - the claim digest. This digest records no source. Each release accepts it, so that
-  each release can do the one-time upgrade below.
+  `check` and `judgement` do not make the review stale before the one-time upgrade
+  below. The upgrade (`needs_record`) does not use this state.
 - the earlier-review digest (`earlier_digest`). `systemap refresh` and `systemap extract`
   write it one time in place of the claim digest. It records the source records at that
   time.
@@ -118,9 +119,7 @@ def form(flow: Flow, meaning: Meaning) -> str:
         return MISSING
     if flow.review_digest == _hash(flow, meaning, False):
         return CURRENT
-    if flow.review_digest == earlier_digest(flow, meaning):
-        return EARLIER
-    if flow.review_digest == claim_digest(flow, meaning):
+    if flow.review_digest in (earlier_digest(flow, meaning), claim_digest(flow, meaning)):
         return EARLIER
     return STALE
 

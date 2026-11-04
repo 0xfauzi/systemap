@@ -45,15 +45,7 @@ def record(cfg: Config, tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
     exact = [a for a in cfg.judgement_answered if a.items and _DIGEST.fullmatch(a.evidence)]
     if not exact:
         return []
-    keys = {item: _evidence_line(a, item) for a in exact for item in a.items}
-    lines = list(dict.fromkeys(keys.values()))
-    now = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
-    before = judgement.evidence_for_tree(tree, facts, cfg.root, lines, earlier=True)
-    found: dict[str, str] = {}
-    for answer in exact:
-        new = _digest(answer, keys, now)
-        if answer.evidence == _digest(answer, keys, before) != new and new != "unavailable":
-            found[answer.evidence] = new
+    found = _renewed(cfg, tree, facts, exact)
     if not found:
         return []
     try:
@@ -64,6 +56,24 @@ def record(cfg: Config, tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
         f"answers: the command wrote the current evidence digest of {len(found)} answers "
         f"from systemap 2.0.0 in {cfg.rel(written)}. Each answer agreed with the source."
     ]
+
+
+def _renewed(
+    cfg: Config, tree: nest.Tree, facts: dict[str, Any], exact: list[Answer]
+) -> dict[str, str]:
+    """Give the current digest for each 2.0.0 digest that agrees with the source."""
+    keys = {item: _evidence_line(a, item) for a in exact for item in a.items}
+    now = judgement.evidence_for_tree(tree, facts, cfg.root, list(dict.fromkeys(keys.values())))
+    # Only an answer that is not current can have a 2.0.0 digest. The 2.0.0 form hashes
+    # source files, so the command calculates it only for the lines of such answers.
+    changed = [
+        (a, d) for a in exact if (d := _digest(a, keys, now)) not in (a.evidence, "unavailable")
+    ]
+    if not changed:
+        return {}
+    lines = list(dict.fromkeys(keys[item] for a, _d in changed for item in a.items))
+    before = judgement.evidence_for_tree(tree, facts, cfg.root, lines, earlier=True)
+    return {a.evidence: d for a, d in changed if a.evidence == _digest(a, keys, before)}
 
 
 def _evidence_line(answer: Answer, item: str) -> str:

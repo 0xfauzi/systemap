@@ -525,8 +525,8 @@ def set_version(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
     """Make the package version `version` for one test.
 
     In 3.0.x, `flow_review.VERSION` stopped the one-time upgrade of the 2.0.0 forms from
-    3.1.0 (issue 143). The function also sets that name, so that a test of a later version
-    fails if a version stops the upgrade again."""
+    3.1.0 (issue 143). The function also sets that name. Thus a test of a later version
+    fails if `systemap.__version__` or `flow_review.VERSION` stops the upgrade again."""
     import systemap
     from systemap import flow_review
 

@@ -361,17 +361,22 @@ def test_the_record_changes_only_the_digests_of_two_flows_in_one_file(
     assert path.read_text(encoding="utf-8") == expected
 
 
+def _claim_digest_project(tmp_path: Path, case: str) -> None:
+    """Write a project with a 2.0.0 claim digest and the current facts."""
+    package = _project(tmp_path, case)
+    flow, m = _flow(tmp_path)
+    _write_model(tmp_path, package, flow.source_refs, flow_review.claim_digest(flow, m.meaning))
+    cfg = config.load(tmp_path)
+    facts_file.write_facts(cfg.facts_path, _facts(tmp_path), tmp_path)
+
+
 @pytest.mark.parametrize("version", ["2.0.9", "3.0.0", "3.0.9", "3.1.0", "3.1rc1", "4.0.0"])
 def test_a_claim_digest_from_2_0_0_is_an_earlier_review_on_each_version(
     tmp_path: Path, case: str, version: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Acceptance 7: no version stops the one-time upgrade of a 2.0.0 claim digest."""
     set_version(monkeypatch, version)
-    package = _project(tmp_path, case)
-    flow, m = _flow(tmp_path)
-    _write_model(tmp_path, package, flow.source_refs, flow_review.claim_digest(flow, m.meaning))
-    cfg = config.load(tmp_path)
-    facts_file.write_facts(cfg.facts_path, _facts(tmp_path), tmp_path)
+    _claim_digest_project(tmp_path, case)
     assert _state(tmp_path) == flow_review.EARLIER
     flow, m = _flow(tmp_path)
     assert flow_review.needs_record(flow, m.meaning)
@@ -382,11 +387,7 @@ def test_extract_on_4_0_0_records_a_claim_digest_from_2_0_0_one_time(
 ) -> None:
     """Acceptance 7: on 4.0.0, extract writes the earlier-review digest one time."""
     set_version(monkeypatch, "4.0.0")
-    package = _project(tmp_path, case)
-    flow, m = _flow(tmp_path)
-    _write_model(tmp_path, package, flow.source_refs, flow_review.claim_digest(flow, m.meaning))
-    cfg = config.load(tmp_path)
-    facts_file.write_facts(cfg.facts_path, _facts(tmp_path), tmp_path)
+    _claim_digest_project(tmp_path, case)
     _code, out = _cli(tmp_path, capsys, "extract")
     assert "recorded the source records of 1 flow reviews" in out
     flow, m = _flow(tmp_path)
