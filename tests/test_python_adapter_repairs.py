@@ -246,7 +246,11 @@ def test_a_decorator_change_is_a_public_surface_change() -> None:
     assert _changed(py_before, py_method, extract.PYTHON, "a.py") == {"types": ["Store"]}
     plain = extract.parse_surface("def save(x: int) -> None:\n    pass\n")
     assert plain is not None
-    assert plain["api"][0]["fingerprint"] == "def save(x: int) -> None"
+    # Format 14: the fingerprint is the syntax text of systemap (issue 136).
+    assert plain["api"][0]["fingerprint"] == (
+        "def save(arguments(args=[arg(arg='x', annotation=Name(id='int', ctx=Load()))])) "
+        "-> Constant()"
+    )
 
     ts_before = (
         "function cached(target: unknown, key: string) {}\n"

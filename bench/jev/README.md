@@ -756,6 +756,61 @@ An extraction of this repository on 3.11.18, 3.12.3 and 3.13.18 gave these diffe
 
 `systemap extract --check` compares these stored facts. Thus a person who extracts on a different interpreter from CI can get a stale result. This needs its own issue.
 
+### Stored syntax values on five interpreters (issue #136, 2026-11-04)
+
+Issue 136 replaces `ast.dump` and `ast.unparse` for each stored value.
+The syntax digest and the `api` fingerprints come from the syntax text of systemap (`src/systemap/syntax_text.py`).
+The signatures, the `constants` previews and the class bases come from the source text (`src/systemap/source_segment.py`).
+An earlier attempt (branch `claude/issue-136`) changed the output of `ast.unparse` for each version. On Python 3.14.6 it stopped with `UnparseError`. This change does not use that method.
+
+Acceptance, written before the first run in the docstring of `stored_syntax.py`:
+
+- (a) With the change, CPython 3.11.18, 3.12.3, 3.12.13, 3.13.18 and 3.14.6 give the same stored values. The repository comparison uses the full `components` section. 0 values differ.
+- (b) The extraction time of this repository with the change is at most 1.10 times the time of main. The value is the median of 5 alternating runs on 3.11.18, each in a new process.
+- (c) No acceptance value. The script counts the stored values that change one time for a user on each interpreter.
+
+Method: `stored_syntax.py drive` starts each run with `uv run --isolated --python VERSION --project CHECKOUT`.
+The repository is a copy of main at 231993f: 178 modules.
+The standard library is the 613 files of 3.12.13 without `test/`, `lib2to3/` and `site-packages/`. 3.11 does not parse 3 of them, so the comparison uses 610 files.
+The stored values of the 178 modules are 178 syntax digests, 3,821 fingerprints, 664 previews and 1,211 signatures.
+The stored values of the 610 files are 610 syntax digests, 7,516 fingerprints, 734 previews and 8,345 signatures.
+
+Main was measured first. The table gives the values of main that are different from the values of main on 3.11.18:
+
+| Interpreter | Modules with a different record | Repository values | Standard library values |
+|---|---|---|---|
+| 3.12.3 | 2 (`constants`) | 2 previews | 1 preview |
+| 3.12.13 | 0 | 0 | 0 |
+| 3.13.18 | 81 (`api`) | 193 fingerprints | 672 fingerprints |
+| 3.14.6 | 81 (`api`) | 193 fingerprints | 672 fingerprints |
+
+Results with the change:
+
+- Acceptance (a) passes. Each of the five interpreters gives the same `components` section and the same values for the 610 files. 0 values differ.
+- Acceptance (b) passes. The median times were 3.083 s for main and 3.126 s for the change: 1.014 times.
+  Runs of main: 3.1918, 2.8778, 3.1557, 3.0443, 3.0825 s. Runs of the change: 3.0470, 3.0020, 3.1513, 3.1262, 3.1340 s.
+  A control run of main against main before the change gave 0.976 times.
+  A first run of the change gave 0.997 times (main 3.174 s, change 3.166 s). After that run, two functions were divided to keep the cognitive complexity at 15 or less. The run above is of the final code, and its other results are the same as in the first run.
+- (c) The values that change one time for a user (main on an interpreter against the change on the same interpreter):
+
+| Interpreter | Repository: digests, fingerprints, previews, signatures | Standard library: digests, fingerprints, previews, signatures |
+|---|---|---|
+| 3.11.18 | 178, 1,179, 476, 44 | 610, 4,014, 196, 79 |
+| 3.12.3 | 178, 1,179, 476, 44 | 610, 4,014, 196, 79 |
+| 3.12.13 | 178, 1,179, 476, 44 | 610, 4,014, 196, 79 |
+| 3.13.18 | 178, 1,026, 476, 44 | 610, 3,361, 196, 79 |
+| 3.14.6 | 178, 1,026, 476, 44 | 610, 3,361, 196, 79 |
+
+Each syntax digest changes, because the syntax text does not write empty lists. Thus each recorded source review of a Python module is stale one time after the upgrade.
+A preview or a signature changes when the source text is different from the `ast.unparse` text, for example a string in double quotes.
+The format of the facts file is now 14, so `extract --check` marks a format 13 file stale.
+
+Run from the repository root:
+
+```sh
+uv run python bench/jev/stored_syntax.py drive MAIN CHANGE TARGET LISTING OUT
+```
+
 
 ## Flow selection measurements
 

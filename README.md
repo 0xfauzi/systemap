@@ -577,7 +577,7 @@ systemap does not change an existing `.systemap/.gitignore` file. It does not ch
     uv run systemap check && uv run systemap judgement --strict
 
 CI executes tests, type checks, and lint checks on Linux, macOS, and Windows.
-The Python versions are 3.11 and 3.13. Each platform also installs the built
+The Python versions are 3.11, 3.13, and 3.14. Each platform also installs the built
 package into an empty environment. The installation job executes the commands
 against a copy of this repository's map.
 
