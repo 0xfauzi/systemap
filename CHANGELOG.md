@@ -7,6 +7,30 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+### Changes that can break a script or a CI job
+
+- The stored facts in `map.json` are now the same on each supported Python interpreter (issue 136).
+  On Python 3.11, no stored value changes, and the facts format stays 13.
+  If a map was extracted on Python 3.13, `systemap extract --check` gives a stale result one time.
+  In this repository, 193 of 3,821 `api` fingerprints in 81 modules change on 3.13.
+  On a 3.12 version that writes f-string quotes as CPython 3.12.3 does, a `constants` preview of an f-string can change.
+  The preview changes if a replacement field of the f-string contains a quote. In this repository, 2 previews change on 3.12.3.
+
+  Step: if you extract on Python 3.12 or 3.13, run `systemap refresh` one time after the upgrade and commit the output.
+
+### Corrections
+
+- An `api` fingerprint used `ast.dump` without `show_empty`. Python 3.13 does not write empty lists by default, so the fingerprint was different from 3.11.
+  Each stored syntax dump now uses one function, `python_syntax.dump`. The source-review digest also uses this function.
+  The function gives the 3.11 text on each interpreter.
+- A `constants` preview used `ast.unparse`. CPython 3.12.3 selects the quote of an f-string without a check of the replacement fields, so the preview was different from 3.11.
+  Each stored text from the syntax tree now uses `python_syntax.unparse`.
+  If `ast.unparse` writes the quotes as 3.12.3 does, this function uses the f-string step of CPython 3.12.13.
+- The facts cache in `.systemap/facts` has a new scope (`TREE_READER` 3).
+  Thus `delta` does not compare new facts with facts that systemap 3.0.0 kept on Python 3.12 or 3.13.
+
 ## 3.0.0 - 2026-11-03
 
 ### Changes that can break a script or a CI job

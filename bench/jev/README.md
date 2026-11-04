@@ -756,6 +756,77 @@ An extraction of this repository on 3.11.18, 3.12.3 and 3.13.18 gave these diffe
 
 `systemap extract --check` compares these stored facts. Thus a person who extracts on a different interpreter from CI can get a stale result. This needs its own issue.
 
+### Stored facts and the interpreter (issue 136, 2026-11-03)
+
+Acceptance, written before the run in the docstring of `interpreter_facts.py`:
+
+1. With the change, the extraction of a copy of this repository at main (231993f, the 3.0.0 release) gives the same `components` section on 3.11, 3.12.3, 3.12.13 and 3.13: 0 modules differ.
+2. On 3.11, the change gives the `components` section of main for that copy: 0 stored values change for a user on 3.11.
+3. For the files of the 3.12.13 standard library that each of the four interpreters parses, the change gives the same facts on the four interpreters: 0 files differ. On 3.11, 0 files differ from main.
+
+Method: `interpreter_facts.py repo` extracts the copy and prints its `components` section. `interpreter_facts.py files` gives the `api`, `constants`, `functions`, `classes`, `errors` and `types` facts of each file of a list.
+`interpreter_facts.py compare` counts the modules or files that differ, and the stored values that differ.
+The interpreters are CPython 3.11.15, 3.12.3, 3.12.13 and 3.13.14. Each run uses `uv run --isolated --python VERSION`.
+The standard library files are the 3.12.13 files without `test/`, `lib2to3/` and `site-packages/`. 613 files parse on 3.12 and 3.13, and 610 files parse on 3.11.
+The copy has 178 modules with 3,821 `api` fingerprints and 664 `constants` previews.
+
+Main, against 3.11.15:
+
+| Interpreter | Modules of the copy that differ | Standard library files that differ | Fact |
+|---|---|---|---|
+| 3.12.3 | 2 (2 values) | 1 (1 value) | `constants` |
+| 3.12.13 | 0 | 0 | |
+| 3.13.14 | 81 (193 values) | 227 (672 values) | `api` |
+
+The signatures, the class bases and the error bases also come from `ast.unparse`. They differ for 0 modules and 0 files.
+The standard library file that differs on 3.12.3 is `idlelib/autocomplete.py`. Its `SEPS` preview is `f"{os.sep}{(os.altsep if os.altsep else '')}"` on 3.11 and `f'{os.sep}{(os.altsep if os.altsep else '')}'` on 3.12.3.
+
+The cause of the 3.12.3 previews: the `ast.py` files of 3.12.3 and 3.12.13 are different only in `visit_JoinedStr`.
+The 3.12.13 step does not select a quote that is in a replacement field, if a different quote is possible. The 3.12.3 step does not have this rule.
+Thus the previews differ only for an f-string with a quote in a replacement field. Shapes that were parsed on 3.11.15 and 3.12.3:
+
+| F-string | 3.11.15, 3.12.13 and 3.13.14 | 3.12.3 |
+|---|---|---|
+| `f"{x['a']}"` | `f"{x['a']}"` | `f'{x['a']}'` |
+| `f'a"{g(".07")}"b'` | `f'''a"{g('.07')}"b'''` | `f'a"{g('.07')}"b'` |
+| `f"it's {y['k']}"` | `f"it's {y['k']}"` | `f"it's {y['k']}"` |
+
+The choice of the preview change. A preview from the source text (`ast.get_source_segment`) does not depend on the interpreter.
+`interpreter_facts.py segments` counted the previews that it changes on 3.11.15: 522 of 735 previews in `src/` of the copy, and 292 of 1,193 in the standard library.
+Acceptance 2 requires 0 changes on 3.11, so the change keeps `ast.unparse`.
+`python_syntax.unparse` makes one test with a probe f-string, `f"{x['a']}"`. If `ast.unparse` gives a different text, the function uses the `visit_JoinedStr` step of 3.12.13.
+The `api` fingerprints and the source-review digest use one function, `python_syntax.dump`, with the rules of issue 126.
+
+With the change, against 3.11.15 of main:
+
+| Interpreter | Modules of the copy that differ | Standard library files that differ |
+|---|---|---|
+| 3.11.15 | 0 | 0 |
+| 3.12.3 | 0 | 0 |
+| 3.12.13 | 0 | 0 |
+| 3.13.14 | 0 | 0 |
+
+Results:
+
+- Acceptance 1 passes. The four interpreters give the same `components` section for the 178 modules.
+- Acceptance 2 passes. On 3.11.15, 0 stored values change. Thus `extract.FORMAT` stays 13.
+- Acceptance 3 passes for the 610 files that the four interpreters parse.
+- The values that change for a user on each interpreter, main against the change on the same interpreter:
+
+| Interpreter | Values of the copy that change | Values of the standard library that change |
+|---|---|---|
+| 3.11.15 | 0 | 0 |
+| 3.12.3 | 2 `constants` previews in 2 modules | 1 in 1 file |
+| 3.12.13 | 0 | 0 |
+| 3.13.14 | 193 `api` fingerprints in 81 modules | 705 in 228 of 613 files |
+
+The facts cache in `.systemap/facts` uses `TREE_READER` in its scope, but not the systemap version. A cache that 3.0.0 wrote on 3.13 has the earlier fingerprints. Thus `TREE_READER` is now 3.
+
+`tests/test_interpreter_facts.py` puts a model of 3.13 `ast.dump` and a model of 3.12.3 `ast.unparse` in place of the real functions. Thus the tests give the same result on each interpreter in CI.
+The models use the texts that were recorded on 3.11.15, 3.12.3 and 3.13.14. The tests passed with `uv run --isolated` on the four interpreters.
+With the `src/` of main, 14 tests of the file fail on 3.11.15 and 15 tests fail on 3.13.14. The test of each cause fails on the two versions.
+The time of the extraction is not measured. 3.14 is not measured.
+
 
 ## Flow selection measurements
 

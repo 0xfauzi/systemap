@@ -16,7 +16,7 @@ import json
 import re
 import sys
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -288,13 +288,13 @@ def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str:
 
 def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     try:
-        args = ast.unparse(node.args)
+        args = python_syntax.unparse(node.args)
     except (AttributeError, ValueError):
         args = "..."
     ret = ""
     if node.returns is not None:
         try:
-            ret = f" -> {ast.unparse(node.returns)}"
+            ret = f" -> {python_syntax.unparse(node.returns)}"
         except (AttributeError, ValueError):
             ret = ""
     prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
@@ -398,7 +398,7 @@ def _surface_class(
     bases = []
     for base in node.bases:
         with contextlib.suppress(AttributeError, ValueError):
-            bases.append(ast.unparse(base))
+            bases.append(python_syntax.unparse(base))
     is_error = node.name.endswith(("Error", "Exception")) or any(
         "Error" in base or "Exception" in base for base in bases
     )
@@ -439,7 +439,7 @@ def _surface_assignment(
             names.append({"name": target.id, "kind": "object"})
             continue
         try:
-            value = ast.unparse(node.value)
+            value = python_syntax.unparse(node.value)
         except (AttributeError, ValueError):
             value = "?"
         constants.append({"name": target.id, "value": value[:80]})
@@ -466,11 +466,11 @@ def _python_class_api(node: ast.ClassDef) -> str:
                 members.append(python_syntax.decorated(child, signature(child)))
         elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
             if not child.target.id.startswith("_"):
-                members.append(f"{child.target.id}:{ast.dump(child.annotation)}")
+                members.append(f"{child.target.id}:{python_syntax.dump(child.annotation)}")
     return json.dumps(
         {
-            "bases": [ast.dump(base) for base in node.bases],
-            "decorators": [ast.dump(decorator) for decorator in node.decorator_list],
+            "bases": [python_syntax.dump(base) for base in node.bases],
+            "decorators": [python_syntax.dump(decorator) for decorator in node.decorator_list],
             "members": members,
         },
         sort_keys=True,
@@ -489,7 +489,7 @@ def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
         fingerprint = python_syntax.decorated(node, signature(node))
         return [{"name": node.name, "bucket": "operations", "fingerprint": fingerprint}]
     if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-        bases = [ast.unparse(base) for base in node.bases]
+        bases = [python_syntax.unparse(base) for base in node.bases]
         error = node.name.endswith(("Error", "Exception")) or any(
             "Error" in base or "Exception" in base for base in bases
         )
@@ -507,7 +507,11 @@ def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
     if isinstance(node, TYPE_ALIAS):
         name = getattr(getattr(node, "name", None), "id", "")
         public = name and not name.startswith("_")
-        return [{"name": name, "bucket": "types", "fingerprint": ast.dump(node)}] if public else []
+        return (
+            [{"name": name, "bucket": "types", "fingerprint": python_syntax.dump(node)}]
+            if public
+            else []
+        )
     return []
 
 
@@ -535,7 +539,7 @@ def _python_api_assignments(node: ast.Assign | ast.AnnAssign) -> list[dict[str, 
         {
             "name": target.id,
             "bucket": "constants",
-            "fingerprint": ast.dump(node, include_attributes=False),
+            "fingerprint": python_syntax.dump(node),
         }
         for target in targets
         if isinstance(target, ast.Name) and not target.id.startswith("_")
@@ -568,46 +572,10 @@ def _in_package(name: str, prefixes: Iterable[str]) -> bool:
 def _dump_python_syntax(tree: ast.AST) -> str:
     """Serialize shared Python syntax the same way across supported interpreters.
 
-    The function does not change the tree. Other steps read the same tree from
-    `python_tree`.
+    `python_syntax.dump` gives the text. The source-review digest and each `api`
+    fingerprint use the same function.
     """
-    # Python 3.12 added empty type_params; 3.13 stopped dumping empty
-    # lists by default. Retain the 3.11 representation for shared syntax,
-    # while retaining nonempty type parameters as meaningful source.
-    empty_fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
-    with _hidden_for_dump(tree):
-        return ast.dump(tree, include_attributes=False, **empty_fields)
-
-
-def _is_empty_string(node: ast.AST) -> bool:
-    return isinstance(node, ast.Constant) and node.value == ""
-
-
-@contextlib.contextmanager
-def _hidden_for_dump(tree: ast.AST) -> Iterator[None]:
-    """Change the tree for the dump in one walk. Restore each changed node at the end.
-
-    - An empty `type_params` field leaves the fields that `ast.dump` writes.
-    - Each f-string loses each empty string constant from its parts. CPython 3.12.3 adds
-      `Constant('')` at the end of a format spec that ends with a replacement field, for
-      example `f"{x:<{width}}"`. CPython 3.11, 3.12.13 and 3.13 do not add it (issue 126).
-    """
-    hidden: list[ast.AST] = []
-    emptied: list[tuple[ast.JoinedStr, list[ast.expr]]] = []
-    try:
-        for node in python_tree.walk(tree):
-            if getattr(node, "type_params", None) == []:
-                hidden.append(node)
-                vars(node)["_fields"] = tuple(f for f in node._fields if f != "type_params")
-            elif isinstance(node, ast.JoinedStr) and any(map(_is_empty_string, node.values)):
-                emptied.append((node, node.values))
-                node.values = [v for v in node.values if not _is_empty_string(v)]
-        yield
-    finally:
-        for node in hidden:
-            del vars(node)["_fields"]
-        for joined, values in emptied:
-            joined.values = values
+    return python_syntax.dump(tree)
 
 
 def _surface_and_syntax(
