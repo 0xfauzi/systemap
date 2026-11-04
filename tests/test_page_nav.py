@@ -63,12 +63,18 @@ def test_the_child_list_has_the_link_targets_for_the_changes_view() -> None:
 
 
 def test_the_keys_sheet_lists_u_and_t_before_the_question_mark() -> None:
-    sheet = page_motion.keys_sheet(page_nav.KEYS)
+    sheet = page_motion.keys_sheet(page_nav.keys("Gateway", True))
     keys = re.findall(r"<dt>(.*?)</dt>", sheet)
     assert keys[-4:] == ["<kbd>U</kbd>", "<kbd>T</kbd>", "<kbd>?</kbd>", "<kbd>Esc</kbd>"]
     assert "<dd>Go to the parent map</dd>" in sheet
     assert "<dd>Open the list of child maps</dd>" in sheet
     assert "<kbd>U</kbd>" not in page_motion.keys_sheet()
+
+
+def test_the_keys_sheet_lists_only_the_keys_that_operate_on_the_page() -> None:
+    assert page_nav.keys("", False) == ()
+    assert page_nav.keys("", True) == (page_nav.TREE_KEY,)
+    assert page_nav.keys("Gateway", False) == (page_nav.UP_KEY,)
 
 
 def test_the_policy_permits_no_frame() -> None:

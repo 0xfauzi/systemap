@@ -89,7 +89,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="f58e54e7ae6e5cd55413ba59d95c7476e93a8526e7f18e2b57d7780d9579db3e",
+        source_review="740c8b7c67e9dfcc326fe69146b5bcb5619e2e34ed13068281ae48fee214ebf2",
         does="Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change. It writes the pages only in its directory and removes the pages of removed maps. The page servers do not supply a file that a symbolic link puts in a location that is not in the served directory. They refuse a POST request and a GET request for /events from a page of a different web site.",
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=(
@@ -120,7 +120,7 @@ COMPONENTS = (
     ),
     Component(
         id="Config",
-        source_review="6c1b3c7448c65a317d591694c532c1d3d2db3d1420f756a725ce5eed1ed926d4",
+        source_review="9de96a5570177eed8e399f63e663de9bc22f501c0c850c20812535a6f89ffd64",
         does="Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. For TypeScript, selects the one source folder of the tsconfig include entries, then src, then the repository root. Finds the type-test files for test_patterns. Finds the configuration files that the language reads, with the tsconfig files that extends and references name. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile, the [rules] table and the decision provider. Reads model files as data and does not run their code. Reads the invariants and import rules of each map from its contract file. From 2.0, also reads them from the model file, and rejects a map whose two files both give them. systemap refresh and systemap extract move them from the model file to the contract file one time. Reads a repository file only if the file is a regular file in the repository. Reads and writes a cache file or an output file only in the repository. A write replaces a link and does not write to the target of the link. Rejects a configured cache, output or model path that is not in the repository. Writes a cache file or an output file through a temporary file of each writer. On Windows, if os.replace gives PermissionError, waits and tries os.replace again a small number of times. A new file gets the mode of a usual write. A file that is present keeps its mode. Holds a lock on a cache file while one process reads or changes it. If .systemap/.gitignore does not exist, systemap init and a write of the answer cache, the facts cache or the decision store in .systemap write that file with the line *. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file. In the 2.0 and 3.0 releases, systemap refresh and systemap extract record the source records of each flow review before source tracking one time. From 3.1.0, such a review is stale. In the 2.0 and 3.0 releases, they also write the current evidence digest of each answer from 2.0.0 that agrees with the source one time. Adds exact answers with citations to systemap.toml and keeps the other text of the file. Accepts the previous names of the decision finding kinds until 3.1.0 and gives a warning for each previous name. Rejects a package root that is not in the repository. Rejects a model value that does not agree with the type of its field. Rejects a configured output file that is not in the output directory. Rejects a layer ID that is not a safe name and a component ID that is a key of the page data.",
         interface="load(root) -> Config; load_model(path) -> (MODEL, MEANING); discover_typescript_roots(root)",
         implemented_by=(
@@ -217,7 +217,7 @@ COMPONENTS = (
     ),
     Component(
         id="ChangeDetector",
-        source_review="987e5728aa9fc303e5af70cfce9263ec468c1f1316728f7526c930d14f47a7c1",
+        source_review="1a673dea20d19547e702cfd2043f987669bac514f71152ec03c4650aa738cdf4",
         does="Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With --comment, it writes the architecture summary of a pull request: the contract changes, the map changes and the rule results, with the assurance level of each item. With a page URL in the configuration of the base commit, the comment also has a link to the Changes view. systemap history shows changes to the software structure through time. Resolves each revision from a person to a commit SHA before the other Git commands use it. A working-tree path can have a Git filter that only the repository configuration gives. Such a path is not a changed path, and its change is not known.",
         interface="compute(cfg, model, base, facts, head) -> change; delta.compute(cfg, model, meaning, base facts, head facts) -> Delta",
         implemented_by=(
@@ -265,7 +265,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="011c327b97da445b3af53b87f1c06ae056026611464734eb62eea8cb8906eb15",
+        source_review="2bda61a419d3f1bbb8aacd0e65a1d311b1680b4a69ddf924c2aee1bbde23db94",
         does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. A card that opens a map must have an ID that is one path segment. Replaces a model file through a temporary file. If a replacement fails, restores the previous files.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants, import_rules) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING; Contract(invariants, import_rules), exported by map/contract.py as CONTRACT",
         implemented_by=(
@@ -309,7 +309,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="5f8ea1f58655748d953db0447c4f4184841b259f450e7a571f7fe5d1f660d5f5",
+        source_review="8af950b9fd40f829faf145a9e3814383b8d90204055ba10186f0c56adc249eca",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -329,7 +329,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="95c5001158a16377389cf1078abd67c539505392d1b2a1f500f55bbb6dc9889f",
+        source_review="27522fa24636a47be5c41378973bb5a3faf030367676380899358d7b159419fd",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Each nested map has its own page, with a link to each parent map. Uses no external files.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -376,7 +376,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="3926d7a8aef3685230f64608f07b827b068bcc9678de5b7127e33fc4e689032d",
+        source_review="ecc9908fc096089d9259aedda3c295283036b4bf7657714663f7feb43e011d25",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Compares the import rules with the resolved imports. Gives each contract rule without a reason, and does not reject the map for it. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=(
@@ -393,7 +393,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="7a43b86794e4f1fb00128e3dd3a2d6c6d27667eac40b423b035e3b82e9a10878",
+        source_review="ce94893cad7f075aca680bb8f1770ad05aa4b7437caa4f5c9799917e71e1019b",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. Gives each flow review earlier than source tracking as a row with a label, not as a finding. A change to a cited module opens the flow review again. With --strict, returns exit code 1 for findings without answers or for a model without components. Gives the cause, the fix line and the source location rows of each unknown surface finding. Gives a contract reason finding for each invariant or import rule without a reason. A finding line contains no line number, source excerpt, parser version or count. The evidence digest of an answer contains the names, imports and entry points that the finding cites. A comment, a function body or a test does not open an answer again. Gives no finding about a test file. With --json, writes the findings, answers and counts as one JSON object. Gives the assurance level and the freshness of each component, flow, invariant and import rule to the JSON object and to the page. Only an import rule with the result pass is established. A current source review or flow review gives examined. All other claims are unknown. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap suggest gives initial module groups.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(

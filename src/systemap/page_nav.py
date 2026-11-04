@@ -11,8 +11,9 @@ the level of the map. In the Changes view, a link to a nested map adds `#changes
 the nested page also opens the Changes view.
 
 The U key goes to the parent page and selects the card that opens the current map. The
-T key opens the list of child maps. The keys do not operate while the keyboard focus is
-in a text field, while a modifier key is pressed, or while a dialog is open.
+T key opens the list of child maps. The key handler of the page script (`letter` in
+page_script.py) calls `P.nav`, so these keys have the same conditions as the other letter
+keys: they do not operate in a text field, with a modifier key, or while a dialog is open.
 """
 
 from __future__ import annotations
@@ -21,10 +22,8 @@ import html
 from urllib.parse import quote
 
 # The keys of this module, for the keyboard sheet. The page script uses the same keys.
-KEYS: tuple[tuple[str, str], ...] = (
-    ("U", "Go to the parent map"),
-    ("T", "Open the list of child maps"),
-)
+UP_KEY = ("U", "Go to the parent map")
+TREE_KEY = ("T", "Open the list of child maps")
 
 
 def _esc(text: object) -> str:
@@ -87,6 +86,13 @@ def path(name: str, map_id: str) -> str:
     )
 
 
+def keys(map_id: str, opens: bool) -> tuple[tuple[str, str], ...]:
+    """Give the rows of the keyboard sheet for the keys that operate on this page.
+
+    U operates on a nested page, and T operates on a page with child maps."""
+    return ((UP_KEY,) if map_id else ()) + ((TREE_KEY,) if opens else ())
+
+
 def hint(map_id: str, opens: bool) -> str:
     """Give the screen reader hint about the keys and the links between the maps."""
     sentences = []
@@ -121,6 +127,8 @@ CSS = r"""
 .crumbs{min-width:0}
 .crumbs ol{display:flex;align-items:baseline;gap:18px;margin:0;padding:0;list-style:none}
 .crumbs__up{display:flex;align-items:baseline;gap:18px;white-space:nowrap}
+.crumbs .crumb{display:inline-block;max-width:16em;overflow:hidden;text-overflow:ellipsis;
+  vertical-align:bottom}
 .crumb__back{display:none}
 @media (max-width:640px){
 .crumbs{flex:none}
@@ -154,19 +162,7 @@ SCRIPT = r"""
   });
   ['systemap:mode', 'systemap:select'].forEach(function(n){
     svg.addEventListener(n, retarget); });
-  function typing(t){
-    var tag = t && t.tagName;
-    return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' ||
-      (t && t.isContentEditable) || !!(t && t.closest && t.closest('[role="textbox"]'));
-  }
-  function dialogOpen(){
-    return ['keys', 'present', 'palette'].some(function(id){
-      var n = document.getElementById(id); return n && !n.hidden; });
-  }
-  function blocked(e){
-    return e.altKey || e.ctrlKey || e.metaKey || typing(e.target) || dialogOpen();
-  }
-  function openList(){
+  function tree(){
     var list = document.getElementById('maptree');
     if(!list){ return false; }
     list.setAttribute('open', '');
@@ -180,11 +176,8 @@ SCRIPT = r"""
     location.href = href;
     return true;
   }
-  document.addEventListener('keydown', function(e){
-    var k = String(e.key || '').toLowerCase();
-    if((k !== 'u' && k !== 't') || blocked(e)){ return; }
-    if(k === 'u' ? up() : openList()){ e.preventDefault(); }
-  });
+  // The key handler of the page script calls these for U and T.
+  P.nav = {up:up, tree:tree};
   retarget();
 })();
 """

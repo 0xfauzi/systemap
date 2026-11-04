@@ -867,14 +867,16 @@ function submap(page) {
   key('Enter', plain);
   steps.push(state('plain-enter-twice'));
   key('Escape');
-  // The Changes view: the links and the double-click add #changes.
+  // The Changes view: the links and the open event add #changes. The change map has no
+  // child map records, so the event comes from the map script, not from a change map card.
   const list = doc.getElementById('maptree');
   const listHrefs = () => (list ? list.querySelectorAll('a').map((a) => a.getAttribute('href')) : []);
   svg.page.setMode('change');
   runFrames(win);
   const changeHrefs = listHrefs();
-  dispatch(opener, new EventImpl('dblclick', {bubbles: true}));
-  steps.push(state('change-dblclick'));
+  const href = A.detail[opener.dataset.id].map.href;
+  dispatch(svg, new win.CustomEvent('systemap:open', {detail: {id: opener.dataset.id, href}, bubbles: true}));
+  steps.push(state('change-open'));
   svg.page.setMode('understand');
   runFrames(win);
   const mapHrefs = listHrefs();

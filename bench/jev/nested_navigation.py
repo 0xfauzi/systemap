@@ -176,6 +176,14 @@ def write(root: Path) -> None:
 def make(root: Path) -> None:
     """Write the fixture and its pages. A command that fails stops the script."""
     if root.exists():
+        # Remove only an earlier fixture of this script, never another folder.
+        mark = root / "systemap.toml"
+        if not mark.is_file() or mark.read_text(encoding="utf-8") != textwrap.dedent(CONFIG).lstrip(
+            "\n"
+        ):
+            raise SystemExit(
+                f"{root} exists and is not a fixture of this script. Give a new folder."
+            )
         shutil.rmtree(root)
     write(root)
     for command in ("place", "extract", "refresh"):

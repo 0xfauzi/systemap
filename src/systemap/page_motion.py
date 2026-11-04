@@ -296,7 +296,8 @@ def keys_sheet(extra: tuple[tuple[str, str], ...] = ()) -> str:
     The sheet is a modal dialog. The ? key and the Keyboard keys button in the
     header open it, but not while another dialog is open. Escape and its Close button
     close it and return the focus. The rows of `extra` come before the ? row."""
-    keys = _KEYS[:-2] + extra + _KEYS[-2:]
+    at = [key for key, _text in _KEYS].index("?")
+    keys = _KEYS[:at] + extra + _KEYS[at:]
     rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in keys)
     return (
         '<div class="keys" id="keys" hidden>'

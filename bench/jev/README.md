@@ -3791,3 +3791,20 @@ The map cards were not in the list, because the phone state at load is the regio
 Thus M12 passes in Chromium, and M15 passes for the scroll and the heading. M13 and the tap targets of M15 fail because of controls that this step did not change.
 A correction of the layer buttons and of the header controls is necessary before M13 and M15 can pass.
 A Firefox run of M12 and M13 is necessary. The NVDA and VoiceOver tests of M13 need people and a written protocol. They did not run.
+
+### Run 3, after the review corrections (2026-11-04)
+
+The review moved the U and T keys into the key handler of the page script, removed the unused parent fields of `Nesting`, and gave a maximum width to the ancestor links of the map path on a wide window.
+The keyboard sheet now shows U only on a nested page and T only on a page with child maps.
+The same script ran again with the same acceptance values, on the same machine and in the same browsers.
+
+| ID | Value | Acceptance | Result |
+|---|---|---|---|
+| M12 Chromium | 140, 142, 113, 104, 130 ms. Median 130 ms, maximum 142 ms | at most 1.5 s | pass |
+| M12 Firefox | not run: `Executable doesn't exist at /opt/pw-browsers/firefox-1543/firefox/firefox` | at most 1.5 s | not run |
+| M13 Ink and Paper | 1 serious or critical rule: `aria-allowed-attr` (critical, 5 elements). Also `landmark-unique` (moderate, 1 element) | 0 | fail |
+| M15 scroll | `scrollWidth` 360, `clientWidth` 360 | no horizontal scroll | pass |
+| M15 heading | "Handlers", with no cut | not cut | pass |
+| M15 tap targets | 8 of 17 visible targets are less than 44 px, all in the header. The parent link "< Routes" is 55 by 44 px | 0 | fail |
+
+The results agree with runs 1 and 2. The causes of the failures did not change.

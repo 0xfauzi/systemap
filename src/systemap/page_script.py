@@ -325,6 +325,8 @@ JS = r"""
   function letter(e){
     var k = e.key.toLowerCase();
     if(k === 'd' && readBtn){ readBtn.click(); return true; }
+    // U and T go between the maps of a tree (page_nav.py).
+    if((k === 'u' || k === 't') && P.nav){ return k === 'u' ? P.nav.up() : P.nav.tree(); }
     if(/^[1-9]$/.test(e.key) && mode !== 'trace'){
       var b = tabs[+e.key - 1];
       if(b){ b.click(); }

@@ -31,7 +31,7 @@ Press ? to see this list on the page:
 | B | Hold to show the base, in the Changes view. |
 | D | Open or close the Details panel. |
 | U | Go to the parent map, on the page of a nested map. |
-| T | Open the list of child maps. |
+| T | Open the list of child maps, on a page that has child maps. |
 | ? | Keyboard keys. |
 | Esc | Close, or go back one view. |
 

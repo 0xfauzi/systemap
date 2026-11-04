@@ -99,7 +99,6 @@ class Nesting:
 
     `path` identifies this map and is empty for the top map.
     `card` identifies the component that contains this page.
-    `parent_label` names the parent map.
     `opens` gives the child map records for the inspector.
     `covered` gives the entry point identities that the sequences of all maps include.
     It is None for a page without a map tree. Then the sequences of the page supply it."""
@@ -107,8 +106,6 @@ class Nesting:
     model_file: str
     path: str = ""
     card: str = ""
-    parent_href: str = ""
-    parent_label: str = ""
     opens: dict[str, dict[str, Any]] = field(default_factory=dict)
     covered: frozenset[str] | None = None
 
@@ -116,12 +113,11 @@ class Nesting:
 def nesting_of(
     cfg: Config, tree: nest.Tree, m: nest.Map, facts: dict[str, Any] | None = None
 ) -> Nesting:
-    """Give the parent link and child map records.
+    """Give the map ID and the child map records.
 
-    The parent link uses `../index.html`. With `facts`, each child record
-    contains a Structure diagram. The inspector uses this stored diagram
+    The header makes the map path from the map ID (page_nav.path). With `facts`, each
+    child record contains a Structure diagram. The inspector uses this stored diagram
     without an external request."""
-    parent = tree.parent_of(m)
     opens = nest.opens(tree, m)
     if facts is not None:
         for child in tree.children(m):
@@ -130,8 +126,6 @@ def nesting_of(
         model_file=m.rel,
         path=m.id,
         card=m.card,
-        parent_href="../index.html" if parent is not None else "",
-        parent_label=(cfg.name if parent.top else parent.card) if parent is not None else "",
         opens=opens,
         covered=frozenset(reviewed_entries(x.meaning for x in tree.maps)),
     )
@@ -582,7 +576,7 @@ def build(
         page_nav.child_list(nesting.opens),
         page_present.html(),
         page_phone.html(model, meaning),
-        page_motion.keys_sheet(page_nav.KEYS),
+        page_motion.keys_sheet(page_nav.keys(nesting.path, bool(nesting.opens))),
         page_palette.html(),
         "<script>window.systemapWorkspace="
         + line_safe(

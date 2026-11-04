@@ -59,7 +59,7 @@ def test_the_map_inside_a_card_is_a_linked_page(nested: Path) -> None:  # noqa: 
         assert steps[label]["went"] == href, label
     assert steps["enter-once"]["focus"] == card
     assert steps["plain-enter-twice"]["focus"] == report["plainId"]
-    assert steps["change-dblclick"]["went"] == f"{href}#changes"
+    assert steps["change-open"]["went"] == f"{href}#changes"
     assert report["changeHrefs"] == ["Gateway/index.html#changes", "Style/index.html#changes"]
     assert report["mapHrefs"] == ["Gateway/index.html", "Style/index.html"]
     keys = report["keys"]
