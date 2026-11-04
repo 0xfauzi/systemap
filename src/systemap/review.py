@@ -173,14 +173,14 @@ def _write(
 
 def _map(cfg: config.Config, map_id: str) -> nest.Map:
     try:
-        tree = nest.load(cfg)
+        # The scoped load reads only the files of this map, its parent maps, and its
+        # nested maps. It refuses an unknown map ID with ArgumentError.
+        tree = nest.load(cfg, map_id or None)
     except ConfigError as exc:
         if isinstance(exc.__cause__, model_load.ModelFileError):
             raise ReviewError(f"{exc}\n{NOT_DATA}") from exc
         raise
-    if not tree.has(map_id):
-        raise nest.unknown_map(tree, map_id, ArgumentError)
-    return tree.get(map_id)
+    return tree.get(tree.selected or "")
 
 
 def _data(m: nest.Map) -> tuple[Model, Meaning]:

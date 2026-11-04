@@ -30,6 +30,7 @@ from systemap import (
     check,
     check_actions,
     check_report,
+    cli_scope,
     config,
     contract_move,
     decisions_cli,
@@ -121,7 +122,7 @@ def _root(args: argparse.Namespace) -> Path:
 
 def _project(args: argparse.Namespace) -> Project:
     cfg = config.load(_root(args))
-    return Project(cfg, nest.load(cfg))
+    return Project(cfg, cli_scope.load(cfg, args))
 
 
 def _upgraded(p: Project, args: Any, note: Callable[..., None], fresh: dict[str, Any]) -> Project:
@@ -375,7 +376,9 @@ def _check_tree(p: Project, facts: dict[str, Any]) -> dict[str, check.Result]:
 
 def _unknown_report(p: Project, results: dict[str, check.Result]) -> list[str]:
     """Give the not-known records of a check that passed. They do not reject the map."""
-    return [m.prefix + line for m in p.tree.maps for line in check_report.not_known(results[m.id])]
+    return [
+        m.prefix + line for m in p.tree.reported for line in check_report.not_known(results[m.id])
+    ]
 
 
 def _report_tree(
@@ -387,7 +390,7 @@ def _report_tree(
 ) -> list[str]:
     """Give each map report in tree order, then the stale output report."""
     out: list[str] = []
-    for m in p.tree.maps:
+    for m in p.tree.reported:
         out += check.report(m.model, results[m.id], m.rel, m.prefix, teach)
     return out + check.report_stale(stale, teach, after_refresh)
 
@@ -399,8 +402,9 @@ def cmd_check(args: argparse.Namespace) -> int:
         return STALE
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     results = _check_tree(p, facts)
-    stale = check.stale(p.cfg, p.tree)
+    stale = cli_scope.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
+    say(*cli_scope.notes(p.tree, cli_scope.PAGES_NOTE))
     code = _rules_check(p, facts, not args.brief)
     if not check.tree_ok(results) or stale:
         say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
@@ -423,14 +427,15 @@ def cmd_rules(args: argparse.Namespace) -> int:
     """
     p = _project(args)
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
-    problems = [m.prefix + line for m in p.tree.maps for line in import_rule_problems(m.model)]
+    problems = [m.prefix + line for m in p.tree.reported for line in import_rule_problems(m.model)]
     ruled = import_rules.run_tree(p.tree, facts)
+    warn(*cli_scope.notes(p.tree))
     missing = [] if facts else [f"No facts are available at {p.cfg.rel(p.cfg.facts_path)}"]
     if missing:
         warn(*missing, "run: systemap extract")
     result = import_rules.payload(ruled, p.cfg.rules_unknown, problems + missing)
     if args.json:
-        say(json.dumps(result, indent=2))
+        say(json.dumps(cli_scope.payload(result, p.tree), indent=2))
     else:
         lines = import_rules.report(ruled, p.cfg.rules_unknown, not args.brief)
         say(*problems, *(lines or ["import rules: The model has no import rules."]))
@@ -624,12 +629,12 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if not facts:
         say(_no_facts(p))
-    judged = judgement_json.evaluate(p.tree, facts, p.cfg)
+    judged = cli_scope.judged(judgement_json.evaluate(p.tree, facts, p.cfg), p.tree, p.cfg)
     result = judged.result
     detail = judged.detail(p.tree, facts, args.verbose)
     result, detail, notes = drift_order.text(p.cfg, p.tree, facts, result, detail, args)
     say(*judgement.report(result, detail, args.kind or "", not args.brief, judged.causes))
-    say(*notes)
+    say(*notes, *cli_scope.notes(p.tree, cli_scope.ENTRY_NOTE))
     say(*judgement.review_counts(p.tree, facts))
     say(*judgement_json.earlier_rows(judged, p.tree, not args.brief))
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
@@ -650,13 +655,14 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     if not facts:
         warn(_no_facts(p))
-    judged = judgement_json.evaluate(p.tree, facts, p.cfg)
+    judged = cli_scope.judged(judgement_json.evaluate(p.tree, facts, p.cfg), p.tree, p.cfg)
     detail = judgement.crossing_detail_tree(p.tree, facts)
     reviews = judgement.review_states(p.tree, facts)
     obj, notes = drift_order.payload(p.cfg, p.tree, facts, judged, detail, reviews, args)
     obj["unknown_requests"] = decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)
-    say(json.dumps(obj, indent=2))
-    warn(*notes, *answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
+    say(json.dumps(cli_scope.payload(obj, p.tree, entry_coverage="not examined"), indent=2))
+    warn(*notes, *cli_scope.notes(p.tree, cli_scope.ENTRY_NOTE))
+    warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     if args.strict and judged.result.open:
         warn(STRICT_ACTION)
         return STALE
@@ -769,7 +775,8 @@ def cmd_describe(args: argparse.Namespace) -> int:
     facts = facts_file.read_facts(p.cfg.facts_path, p.cfg.root)
     covered = reviewed_entries(m.meaning for m in p.tree.maps)
     code = OK
-    for m in p.tree.maps:
+    say(*cli_scope.notes(p.tree, cli_scope.SEQUENCES_NOTE))
+    for m in p.tree.reported:
         # A card without a position is placed for this look, as `systemap
         # place` would place it, and the positions line says which; a
         # whole layout searched the region order, and the order line says
@@ -814,7 +821,8 @@ def cmd_place(args: argparse.Namespace) -> int:
     if _empty(p):
         return STALE
     wrote = False
-    for m in p.tree.maps:
+    say(*cli_scope.notes(p.tree))
+    for m in p.tree.reported:
         placement = place.compute(
             m.model, all_cards=bool(args.all), keep_order=bool(args.keep_order)
         )
@@ -1375,6 +1383,7 @@ def build_parser() -> argparse.ArgumentParser:
     model_convert.add_parsers(sub, add_root)
     review.add_parsers(sub, add_root)
     decisions_cli.add_parsers(sub, add_root)
+    cli_scope.add_options(sub)
     return parser
 
 

@@ -19,6 +19,8 @@ from typing import Any
 from systemap import (
     control_names,
     fact_cache,
+    facts_file,
+    facts_shape,
     file_names,
     git_command,
     repo_files,
@@ -553,6 +555,27 @@ def _build(
     for point in points:
         point["label"] = language.entry_label(point)
     return _facts_file(cfg, language, prefixes, components, cfg.test_dirs, points, issues, context)
+
+
+def saved_drift(
+    cfg: Config, fresh: dict[str, Any] | None = None
+) -> tuple[list[str], dict[str, Any]]:
+    """Compare the saved facts with fresh facts. Give the problems and the saved facts.
+
+    Saved facts that are not available or not correct give no saved facts. `check` uses
+    this function, also in a run with `--map`."""
+    fresh = fresh if fresh is not None else build(cfg)
+    try:
+        stored = facts_file.read_facts(cfg.facts_path, cfg.root)
+    except facts_shape.FactsError as exc:
+        # A refresh writes a new facts file in place of the incorrect file.
+        return [f"facts: {exc}"], {}
+    if not stored:
+        return ["No extracted facts are available."], {}
+    # Only the drift is stale here: a claim of a module the tree does not
+    # have is the entry rule's finding, and a placement problem is the
+    # placement rule's, so neither is reported twice.
+    return [f"facts: {line}" for line in drift(fresh, stored)], stored
 
 
 def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:

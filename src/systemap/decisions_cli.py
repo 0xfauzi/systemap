@@ -20,6 +20,7 @@ from collections.abc import Callable
 from typing import Any
 
 from systemap import (
+    cli_scope,
     config,
     decisions,
     decisions_store,
@@ -213,21 +214,28 @@ def judgement_unknown(
 
 
 def cmd_decisions(args: argparse.Namespace) -> int:
-    from systemap.cli import _root, say
+    from systemap.cli import _root, say, warn
 
     cfg = config.load(_root(args))
     if args.action == "submit":
         say(*decisions_submit.submit(cfg, args.file))
         return 0
-    snap = decisions_submit.snapshot(cfg)
+    snap = decisions_submit.snapshot(cfg, getattr(args, "only", None))
+    # A run with --map gives no entry point requests (`judgement.run_tree`).
+    warn(*cli_scope.notes(snap.tree, cli_scope.ENTRY_NOTE))
+    scope = {"entry_coverage": "not examined"}
     if args.action == "pending":
         say(
-            json.dumps(pending_payload(snap), indent=2)
+            json.dumps(cli_scope.payload(pending_payload(snap), snap.tree, **scope), indent=2)
             if args.json
             else "\n".join(pending_text(snap))
         )
         return 0
-    say(json.dumps(status_payload(snap), indent=2) if args.json else "\n".join(status_text(snap)))
+    say(
+        json.dumps(cli_scope.payload(status_payload(snap), snap.tree, **scope), indent=2)
+        if args.json
+        else "\n".join(status_text(snap))
+    )
     status = snap.status()
     return 1 if status.pending or status.unknown else 0
 
@@ -255,6 +263,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         a = actions.add_parser(name, help=text, description=text)
         add_root(a)
         a.add_argument("--json", action="store_true", help="Write one JSON object.")
+        cli_scope.add_option(a)
     a = actions.add_parser(
         "submit",
         help="Examine and record a JSON list of verdicts.",
@@ -265,4 +274,5 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     )
     add_root(a)
     a.add_argument("file", metavar="FILE", help="Give the file of verdicts, or - for stdin.")
+    cli_scope.refuse_option(a, "systemap decisions submit")
     s.set_defaults(func=cmd_decisions)
