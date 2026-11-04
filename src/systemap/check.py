@@ -29,6 +29,7 @@ from systemap import (
     out_paths,
     page,
     page_context,
+    page_tree,
     reexports,
     source_facts,
     unknown_causes,
@@ -607,6 +608,7 @@ def stale(
     if not stored:
         return out
     still = page_context.open_boundary(cfg, tree, stored)
+    ov = page_tree.overview(cfg.name, tree, still)
     for m in tree.maps:
         if model_problems(m.model, m.meaning):
             continue
@@ -617,7 +619,7 @@ def stale(
             m.theme,
             stored,
             {"has_change": False},
-            nesting=page.nesting_of(cfg, tree, m, stored, still),
+            nesting=page.nesting_of(cfg, tree, m, stored, still, ov),
         )
         out += _stale_file(cfg, m.page_path(cfg), html)
     return out + figure_problems(cfg, tree, stored, cfg.figures)

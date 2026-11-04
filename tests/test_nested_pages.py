@@ -2,7 +2,7 @@
 
 The Node driver runs the page scripts of the `nested` fixture. Each map has its own
 page, and the page has no frame. The U key goes to the parent map, and the T key opens
-the list of child maps."""
+the Map tree panel."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def test_the_map_inside_a_card_is_a_linked_page(nested: Path) -> None:  # noqa: 
     """The Node driver: the panel's preview and Open map link; the link, a
     double-click and a second Enter go to the page of the map inside, and the
     page has no frame; in the Changes view the links add #changes; T opens the
-    list of child maps; a card without a map is left alone by the same keys."""
+    Map tree panel; a card without a map is left alone by the same keys."""
     assert run("--root", str(nested), "refresh") == 0
     report = _drive(nested / "docs/map/index.html", "submap")
     # The first opening card in reading order, whichever place put on top.
@@ -75,12 +75,12 @@ def test_the_map_inside_a_card_is_a_linked_page(nested: Path) -> None:  # noqa: 
 @needs_node
 def test_the_u_key_goes_to_the_parent_map(nested: Path) -> None:  # noqa: F811
     """On a nested page, U goes to the parent page and selects the opening card.
-    A page without child maps has no list, so T does nothing."""
+    A page without child maps also has the Map tree panel, so T opens it."""
     assert run("--root", str(nested), "refresh") == 0
     keys = _drive(nested / "docs/map/Gateway/index.html", "pathkeys")
-    assert keys["path"] == "../index.html#Gateway" and keys["hasList"] is False
+    assert keys["path"] == "../index.html#Gateway" and keys["hasList"] is True
     assert keys["typing"] == {"went": "", "open": False}
     assert keys["ctrl"] == "", "a modifier key stops the keys"
-    assert keys["tPrevented"] is False and keys["listOpen"] is False
+    assert keys["tPrevented"] is True and keys["listOpen"] is True
     assert keys["uPrevented"] is True and keys["up"] == "../index.html#Gateway"
     assert keys["capital"] == "../index.html#Gateway"

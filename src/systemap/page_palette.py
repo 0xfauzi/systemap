@@ -6,6 +6,9 @@ name that starts with the text, comes first. The arrow keys move the
 selection, Enter does the action of the result and Escape closes the dialog.
 Each result shows its key when it has one. The dialog calls the page
 functions of the views, the layers, the sequences and the map selection.
+On a page of a map tree, the group "Other maps" comes last. It gives the
+components of the other maps (`page_tree`), with the actors after the
+internal components.
 """
 
 from __future__ import annotations
@@ -108,8 +111,9 @@ _SCRIPT = r"""
   var status = byId('pal-status'), button = byId('find-open');
   if(!box || !input || !list){ return; }
   var items = [], shown = [], at = 0, opener = null;
-  var ORDER = ['Views', 'Layers', 'Components', 'Flows', 'Sequences', 'Steps', 'Rules', 'Actions'];
-  var LIMIT = {Components:8, Flows:8, Steps:6, Rules:6};
+  var ORDER = ['Views', 'Layers', 'Components', 'Flows', 'Sequences', 'Steps', 'Rules', 'Actions',
+    'Other maps'];
+  var LIMIT = {Components:8, Flows:8, Steps:6, Rules:6, 'Other maps':8};
   function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
   function press(id){ var b = byId(id); if(b){ b.click(); } }
 
@@ -120,7 +124,7 @@ _SCRIPT = r"""
     o = o || {};
     items.push({g:g, t:t, s:s || '', run:run, keys:o.keys || [], words:o.words || '',
       more:o.more || [], glyph:o.glyph || '<i></i>', quiet:!!o.quiet,
-      hint:o.now ? 'Current' : o.hint || '',
+      hint:o.now ? 'Current' : o.hint || '', late:!!o.late,
       k:items.length});
   }
   function line(colour, dash){
@@ -216,6 +220,8 @@ _SCRIPT = r"""
     A.layers.forEach(function(l){ LAY[l.id] = l; });
     items = [];
     views(LAY); parts(); flows(LAY); sequences(); rules(); actions();
+    // The map tree adds the components of the other maps (page_tree).
+    if(P.findMore){ P.findMore(add); }
   }
 
   // ---- matching: the start of the name, the start of a word, then a part ------
@@ -276,11 +282,14 @@ _SCRIPT = r"""
     });
     // A long group shows its best results. The text "rule" or "rules" shows all rules.
     return ORDER.filter(function(g){ return groups[g]; }).map(function(g){
-      var rows = groups[g].sort(function(a, b){ return (b.s - a.s) || (a.it.k - b.it.k); });
+      var rows = groups[g].sort(function(a, b){
+        return (a.it.late - b.it.late) || (b.s - a.s) || (a.it.k - b.it.k); });
       var all = !tokens.length || (tokens.length === 1 && g.toLowerCase().indexOf(tokens[0]) === 0);
       return {g:g, best:rows[0].s, rows:all || !LIMIT[g] ? rows : rows.slice(0, LIMIT[g])};
     }).sort(function(a, b){
-      return (b.best - a.best) || (ORDER.indexOf(a.g) - ORDER.indexOf(b.g));
+      // The results of the other maps come after the results of this map.
+      var other = (a.g === 'Other maps') - (b.g === 'Other maps');
+      return other || (b.best - a.best) || (ORDER.indexOf(a.g) - ORDER.indexOf(b.g));
     });
   }
 

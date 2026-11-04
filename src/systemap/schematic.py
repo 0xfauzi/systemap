@@ -114,11 +114,14 @@ from systemap.schematic_change import (
 )
 from systemap.schematic_nested import (
     actor_label,
+    back_outline,
     badge,
     badge_text,
     card_fields,
+    changed_inside,
     edge_fields,
     frame_part,
+    inside_label,
     notch,
     port_collisions,
 )
@@ -455,6 +458,7 @@ def render(
             dashes = ' stroke-dasharray="1.5 2.5"'
         change = marks.cards.get(cid, "")
         marked = change_card(P, change, stroke, dashes, state_label)
+        inside = changed_inside(c, opens, mode)
         g: list[str] = [
             f'<g class="node {state_class}'
             f'{" subject" if subject else ""}{" quiet" if quiet else ""}" '
@@ -462,7 +466,7 @@ def render(
             f'data-region="{esc(c.home)}"{marked.attrs} '
             f'role="button" '
             f'tabindex="0" aria-label="{esc(cid)}, {esc(plain)}, {esc(marked.label)}'
-            f'{esc(opens_label(c, opens))}">'
+            f'{esc(opens_label(c, opens) + inside_label(inside))}">'
         ]
         # A card that opens a map stands on a second card, offset down and
         # right: the mark that says there is a map inside, on the page and
@@ -471,7 +475,9 @@ def render(
             g.append(
                 f'<g class="node__map" aria-hidden="true"><title>opens a map</title>'
                 f'<rect x="{x + MAP_OFFSET}" y="{y + MAP_OFFSET}" width="{w}" height="{h}" '
-                f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" stroke-width="1.1"{dashes}/></g>'
+                f'rx="{RADIUS}" fill="{fill}" stroke="{stroke}" stroke-width="1.1"{dashes}/>'
+                + back_outline((x, y, w, h), MAP_OFFSET, RADIUS, P["ink_2"], inside)
+                + "</g>"
             )
         g.append(
             f'<rect class="node__box" x="{x}" y="{y}" width="{w}" height="{h}" '
@@ -530,7 +536,7 @@ def render(
             + "</g>"
         )
 
-        g.append(badge(L, P, badge_text(c, opens), (x, y, w, h)))
+        g.append(badge(L, P, badge_text(c, opens, inside), (x, y, w, h)))
         g.append(change_tag(P, L, change, (x, y, w, h)))
         g.append("</g>")
         cards.append("".join(g))

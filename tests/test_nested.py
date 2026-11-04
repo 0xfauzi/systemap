@@ -468,11 +468,19 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     # under an id of its own, every card and no edge).
     assert top.count('class="node__map"') == 2
     assert "stacked card opens a child map" in top
+    # The Map tree panel: one item for each map, with the counts of the same judgement.
     assert (
-        '<details class="map-links" id="maptree"><summary>Child maps</summary>'
-        '<a href="Gateway/index.html" data-child-map="Gateway/index.html">Gateway</a>, '
-        '<a href="Style/index.html" data-child-map="Style/index.html">Style</a></details>' in top
+        '<details class="map-links map-tree" id="maptree"><summary>Map tree</summary><ul><li>'
+        '<span class="tree__at" aria-current="page">demo</span> '
+        '<span class="tree__n">4 components, 5 findings</span><ul>'
+        '<li><a href="Gateway/index.html" data-child-map="Gateway/index.html">Gateway</a> '
+        '<span class="tree__n">3 components, 5 findings</span></li>'
+        '<li><a href="Style/index.html" data-child-map="Style/index.html">Style</a> '
+        '<span class="tree__n">2 components, 3 findings</span></li></ul></li></ul></details>' in top
     )
+    assert '<a href="../index.html" data-child-map="../index.html">demo</a>' in gateway
+    assert '<span class="tree__at" aria-current="page">Gateway</span>' in gateway
+    assert '<a href="../Style/index.html" data-child-map="../Style/index.html">Style</a>' in gateway
     detail = json.loads(_detail_json(top))
     for name, cards in (("Gateway", 3), ("Style", 2)):
         inside = detail[name]["map"]

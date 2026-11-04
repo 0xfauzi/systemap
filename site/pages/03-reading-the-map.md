@@ -31,7 +31,7 @@ Press ? to see this list on the page:
 | B | Hold to show the base, in the Changes view. |
 | D | Open or close the Details panel. |
 | U | Go to the parent map, on the page of a nested map. |
-| T | Open the list of child maps, on a page that has child maps. |
+| T | Open the Map tree panel, on a page of a tree with nested maps. |
 | ? | Keyboard keys. |
 | Esc | Close, or go back one view. |
 
@@ -102,6 +102,11 @@ Color shows only the flow kind, the selection, and the change.
 On the page of a nested map, a small figure at the left shows the parent map.
 The filled rectangle is the component that opens the current map, and the dashed rectangles are its actors.
 Select the figure to go to the parent map.
+
+The Map tree panel gives each map of the tree. Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings.
+If the page has no finding count, the item shows `not examined`.
+Find also gives the components of the other maps, in the group `Other maps`.
+In the Changes view of a parent map, the Details panel gives the changes in the nested maps and the boundary changes.
 
 [Concepts](concepts.html#evidence-states) gives the evidence states, and [Concepts](concepts.html#component) gives the card marks of each component kind.
 

@@ -26,8 +26,10 @@ from systemap import (
     page_palette,
     page_phone,
     page_present,
+    page_rollup,
     page_sequence_script,
     page_sequences,
+    page_tree,
 )
 from systemap import theme as theme_mod
 from systemap.config import Config
@@ -104,7 +106,8 @@ class Nesting:
     `covered` gives the entry point identities that the sequences of all maps include.
     It is None for a page without a map tree. Then the sequences of the page supply it.
     `context` is the record of the figure for the parent context (`page_context.context`).
-    `mark` is the parent context mark of a nested page (`page_context.mark`)."""
+    `mark` is the parent context mark of a nested page (`page_context.mark`).
+    `tree` is the map tree of the render (`page_tree.overview`)."""
 
     model_file: str
     path: str = ""
@@ -113,6 +116,7 @@ class Nesting:
     covered: frozenset[str] | None = None
     context: dict[str, Any] = field(default_factory=dict)
     mark: str = ""
+    tree: page_tree.Overview = field(default_factory=lambda: page_tree.Overview(""))
 
 
 def nesting_of(
@@ -121,6 +125,7 @@ def nesting_of(
     m: nest.Map,
     facts: dict[str, Any] | None = None,
     still: frozenset[str] | None = None,
+    overview: page_tree.Overview | None = None,
 ) -> Nesting:
     """Give the map ID and the child map records.
 
@@ -129,7 +134,9 @@ def nesting_of(
     the open boundary lines (`page_context`). The inspector uses the stored preview
     without an external request. `still` contains the open judgement lines of the tree
     (`page_context.open_boundary`). A caller that makes all pages of a tree gives it, so
-    that the judgement runs one time. Without it, this function finds the open lines."""
+    that the judgement runs one time. Without it, this function finds the open lines.
+    `overview` is the map tree of the render (`page_tree.overview`). Without it, the page
+    gets a map tree without changes, and without finding counts if `facts` is None."""
     opens = nest.opens(tree, m)
     context: dict[str, Any] = {}
     if facts is not None:
@@ -138,6 +145,10 @@ def nesting_of(
         if still is None:
             still = page_context.open_boundary(cfg, tree, facts)
         context = page_context.context(tree, m, facts, still)
+    ov = overview or page_tree.overview(cfg.name, tree, still)
+    if ov.changes is not None:
+        for child in tree.children(m):
+            opens[child.card]["changed"] = ov.changes.rollups[child.id].changed
     return Nesting(
         model_file=m.rel,
         path=m.id,
@@ -146,6 +157,7 @@ def nesting_of(
         covered=frozenset(reviewed_entries(x.meaning for x in tree.maps)),
         context=context,
         mark=page_context.mark(tree, m),
+        tree=ov,
     )
 
 
@@ -339,6 +351,7 @@ def _readpanel(
     t: dict[str, Any],
     ch: dict[str, Any],
     claims: list[assurance.Claim],
+    nested: str = "",
 ) -> str:
     return (
         '<aside class="readpanel" id="readpanel" aria-label="Details">'
@@ -353,7 +366,7 @@ def _readpanel(
         '<div class="systemap-panel" id="panel" aria-live="polite"></div>'
         '<div id="source-detail"></div></div></div>'
         + page_sequences.panel(meaning)
-        + page_changes.panel(ch)
+        + page_changes.panel(ch, nested)
         + "</aside>"
     )
 
@@ -445,6 +458,7 @@ def _change_svg(
     t: dict[str, Any],
     facts: dict[str, Any],
     ch: dict[str, Any],
+    opens: dict[str, dict[str, Any]],
 ) -> tuple[str, str]:
     if not (ch.get("has_change") or ch.get("comparison_requested")):
         return "", ""
@@ -463,6 +477,7 @@ def _change_svg(
         observed_by=cfg.observed_by,
         variables=True,
         tests_only=page_changes.tests_only(ch),
+        opens=opens,
     )
 
 
@@ -540,7 +555,10 @@ def build(
             model, meaning, facts, covered=nesting.covered, top=not nesting.path
         ),
     }
-    change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch)
+    tree = page_tree.data(nesting.tree, nesting.path)
+    if tree is not None:
+        payload["tree"] = tree
+    change_svg, change_detail = _change_svg(cfg, model, meaning, t, facts, ch, nesting.opens)
     change_svg = _no_tooltips(change_svg)
     # One copy of the map code serves the system map and the change map.
     maps = [("schematic", "panel", detail)]
@@ -560,6 +578,7 @@ def build(
         + page_palette.CSS
         + page_nav.CSS
         + (page_context.CSS if nesting.mark or nesting.opens else "")
+        + (page_tree.CSS if tree is not None else "")
     )
     o = [
         _head(cfg, t, nesting, extra_css),
@@ -579,12 +598,19 @@ def build(
         page_changes.stage(ch, change_svg),
         page_nav.hint(nesting.path, bool(nesting.opens)),
         "</section>",
-        _readpanel(meaning, model, t, ch, assurance.of_model(model, meaning, facts)),
+        _readpanel(
+            meaning,
+            model,
+            t,
+            ch,
+            assurance.of_model(model, meaning, facts),
+            page_rollup.section(nesting.tree.maps, nesting.path, nesting.tree.changes),
+        ),
         "</main>",
-        page_nav.child_list(nesting.opens),
+        page_tree.panel(nesting.tree, nesting.path),
         page_present.html(),
         page_phone.html(model, meaning),
-        page_motion.keys_sheet(page_nav.keys(nesting.path, bool(nesting.opens))),
+        page_motion.keys_sheet(page_nav.keys(nesting.path, tree is not None)),
         page_palette.html(),
         "<script>window.systemapWorkspace="
         + line_safe(
@@ -606,6 +632,7 @@ def build(
         page_motion.SCRIPT,
         page_palette.SCRIPT,
         page_nav.SCRIPT,
+        *((page_tree.SCRIPT,) if tree is not None else ()),
     )
     o += [f"<script>{_compact(js)}</script>" for js in scripts]
     o.append("</body></html>")

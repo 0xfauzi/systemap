@@ -203,8 +203,10 @@ def _unknown(cid: str, module: str, revision: str, issue: dict[str, Any]) -> str
     )
 
 
-def panel(ch: dict[str, Any]) -> str:
-    """Give the Changes panel. The script adds the flows and the sequences."""
+def panel(ch: dict[str, Any], nested: str = "") -> str:
+    """Give the Changes panel. The script adds the flows and the sequences.
+
+    `nested` gives the sections of the changes in the nested maps (`page_rollup`)."""
     start = '<aside class="change-panel" id="change-panel" aria-label="Changes" hidden>'
     if not has_comparison(ch):
         return (
@@ -227,6 +229,7 @@ def panel(ch: dict[str, Any]) -> str:
         + _rows(ch)
         + "</section>"
         + page_changes_map.section(ch.get("map"))
+        + nested
         + '<section class="chg-sec" id="chg-flows" aria-label="Flows to examine" hidden></section>'
         '<section class="chg-sec" id="chg-seqs" aria-label="Sequences" hidden></section>'
         '<section class="chg-limits" aria-label="Limits of the comparison">'

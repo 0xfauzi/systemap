@@ -11,7 +11,7 @@ the level of the map. In the Changes view, a link to a nested map adds `#changes
 the nested page also opens the Changes view.
 
 The U key goes to the parent page and selects the card that opens the current map. The
-T key opens the list of child maps. The key handler of the page script (`letter` in
+T key opens the Map tree panel (`page_tree`). The key handler of the page script (`letter` in
 page_script.py) calls `P.nav`, so these keys have the same conditions as the other letter
 keys: they do not operate in a text field, with a modifier key, or while a dialog is open.
 """
@@ -24,7 +24,7 @@ from systemap.schematic_cards import esc
 
 # The keys of this module, for the keyboard sheet. The page script uses the same keys.
 UP_KEY = ("U", "Go to the parent map")
-TREE_KEY = ("T", "Open the list of child maps")
+TREE_KEY = ("T", "Open the map tree")
 
 
 def segments(map_id: str) -> list[str]:
@@ -83,11 +83,11 @@ def path(name: str, map_id: str) -> str:
     )
 
 
-def keys(map_id: str, opens: bool) -> tuple[tuple[str, str], ...]:
+def keys(map_id: str, tree: bool) -> tuple[tuple[str, str], ...]:
     """Give the rows of the keyboard sheet for the keys that operate on this page.
 
-    U operates on a nested page, and T operates on a page with child maps."""
-    return ((UP_KEY,) if map_id else ()) + ((TREE_KEY,) if opens else ())
+    U operates on a nested page, and T operates on a page with a Map tree panel."""
+    return ((UP_KEY,) if map_id else ()) + ((TREE_KEY,) if tree else ())
 
 
 def hint(map_id: str, opens: bool) -> str:
@@ -103,21 +103,6 @@ def hint(map_id: str, opens: bool) -> str:
     if not sentences:
         return ""
     return f'<p class="hint sr-only">{" ".join(sentences)}</p>'
-
-
-def child_list(opens: dict[str, dict[str, object]]) -> str:
-    """Give the list of the child maps, with one link for each child map.
-
-    The T key opens this list. In the Changes view, the page script adds `#changes` to
-    each link."""
-    if not opens:
-        return ""
-    links = ", ".join(
-        f'<a href="{esc(child["href"])}" data-child-map="{esc(child["href"])}">'
-        f"{esc(child['name'])}</a>"
-        for child in opens.values()
-    )
-    return f'<details class="map-links" id="maptree"><summary>Child maps</summary>{links}</details>'
 
 
 CSS = r"""

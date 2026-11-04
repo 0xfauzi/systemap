@@ -209,7 +209,10 @@ def compare(base: tuple[Model, Meaning], head: tuple[Model, Meaning], at: str = 
 _TREES: dict[tuple[str, str, str], nest.Tree | str] = {}
 
 
-def _tree_at(cfg: Config, revision: str) -> nest.Tree | str:
+def tree_at(cfg: Config, revision: str) -> nest.Tree | str:
+    """Give the committed map tree at `revision`, or the reason that it does not load.
+
+    One render loads each revision one time."""
     key = (str(cfg.root), cfg.model, revision)
     if key not in _TREES:
         _TREES[key] = delta_git.model_at(cfg, revision)
@@ -224,7 +227,7 @@ def for_page(cfg: Config, map_id: str, model: Model, meaning: Meaning, revision:
     """
     if not revision:
         return MapChange(error="the page has no base revision")
-    tree = _tree_at(cfg, revision)
+    tree = tree_at(cfg, revision)
     if isinstance(tree, str):
         return MapChange(base=revision, error=tree)
     found: Iterable[nest.Map] = (m for m in tree.maps if m.id == map_id)

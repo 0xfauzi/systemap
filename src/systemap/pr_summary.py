@@ -7,6 +7,11 @@ The summary has three parts. Each part uses data that other modules calculate:
   disk. A reviewer accepts or rejects each contract change in the usual review.
 - Map: the components, the flows, and the sequences that the change added, removed, or
   changed (`delta_model.compare`).
+- Boundary changes: the changes at the frame of each nested map (`boundary_changes`). A
+  row connects a change to the claims of a card that opens a map with the changes of the
+  nested maps, and gives each change to a boundary rule with its reason. The Changes
+  panel of the page gives the same rows. A tree without nested maps and without boundary
+  changes has no such part.
 - Rules: the result of each import rule at the head commit (`import_rules`).
 
 Each item row gives the assurance level and the freshness of its claim at the head
@@ -24,7 +29,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import assurance, delta_git, delta_model, import_rules, nest
+from systemap import assurance, boundary_changes, delta_git, delta_model, import_rules, nest
 from systemap.assurance import Claim
 from systemap.config import Config
 from systemap.delta_model import ADDED, CHANGED, REMOVED, Item, MapChange
@@ -87,6 +92,8 @@ class Summary:
     unknown_policy: str
     open_lines: int
     error: str = ""
+    boundary: boundary_changes.BoundaryChanges = boundary_changes.BoundaryChanges()
+    nested: bool = False
 
 
 # ---- the changes -----------------------------------------------------------------------
@@ -176,6 +183,8 @@ def collect(
         rules,
         cfg.rules_unknown,
         open_lines,
+        boundary=boundary_changes.compute(base, tree),
+        nested=tree.nested,
     )
 
 
@@ -294,6 +303,22 @@ def _map(s: Summary) -> list[str]:
     return [head, *_limited([f"  - {how} {noun} {text}" for how, noun, text in rows])]
 
 
+def _boundary(s: Summary) -> list[str]:
+    """Give the boundary changes, or nothing for a tree without nested maps and changes."""
+    if not s.boundary.count:
+        return ["- **Boundary changes:** no change"] if s.nested else []
+    counts = {
+        m.id: len(change.components) + len(change.flows) + len(change.sequences)
+        for m, change in s.maps
+    }
+    rows = boundary_changes.rows(s.boundary, counts, _code, _plain)
+    head = (
+        f"- **Boundary changes:** {_plural(len(rows), 'row')}. "
+        "Accept or reject each boundary change in this review."
+    )
+    return [head, *_limited([f"  - {row}" for row in rows])]
+
+
 def _rule_counts(s: Summary) -> dict[str, int]:
     found = [o.result for m in s.rules for o in m.outcomes]
     return {
@@ -350,7 +375,13 @@ def _update(s: Summary) -> list[str]:
 def no_change(s: Summary) -> bool:
     """Tell if the change has no architectural effect. A failed rule is an effect."""
     return (
-        not (s.error or s.contract or any(c.count for _m, c in s.maps) or s.open_lines)
+        not (
+            s.error
+            or s.contract
+            or any(c.count for _m, c in s.maps)
+            or s.open_lines
+            or s.boundary.count
+        )
         and not _rule_counts(s)["fail"]
     )
 
@@ -365,6 +396,6 @@ def markdown(s: Summary) -> str:
     if s.error:
         parts = [f"- **Contract and map:** unknown. {s.error}"]
     else:
-        parts = [*_contract(s), *_map(s)]
+        parts = [*_contract(s), *_map(s), *_boundary(s)]
     lines = ["**Architecture**", "", *parts, *_rules(s), *_update(s), "", LEGEND]
     return "\n".join(lines)

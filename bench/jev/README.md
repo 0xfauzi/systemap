@@ -4104,3 +4104,83 @@ Command: `uv run python bench/jev/nested_boundaries.py` (the working tree after 
 - M16: pass. The three fixtures have the same counts as in run 1: 4 of 4, 14 of 14, and 30 of 30 actors in the agreeing band.
 
 The sample page of `tests/test_render.py` is 338,231 bytes (+282 bytes), because the map script now hides the port of a hidden flow. The limit of 331 KiB (338,944 bytes) stays.
+
+## M11 and M17: the map tree, the search across maps, and the roll-up of changes (2026-11-04)
+
+Scope: visual step 3 of the nested parts design (the rollout step 8).
+Each page of a tree with nested maps has a Map tree panel, a search index of the other maps for the Find dialog, and, in the Changes view of a parent map, the sections `CHANGES IN NESTED MAPS` and `BOUNDARY CHANGES`.
+The pull request summary of `delta --comment` has the part `Boundary changes`.
+
+### M11: the size of the pages of 50 maps
+
+The script is [`nested_tree_pages.py`](nested_tree_pages.py). Its docstring has the acceptance values, which were written before run 1:
+
+- Each page is at most 1.5 MB (1,572,864 bytes).
+- The Map tree panel and the search index are at most 150 KB (153,600 bytes) together on each page.
+- The parent context mark and the compact preview are at most 8 KB (8,192 bytes) each.
+- The full output of `systemap refresh` is at most 75 MB (78,643,200 bytes).
+
+The tree is generated: 50 maps on 3 nested levels, with 40 cards in each map and 1,902 source modules (the docstring gives the form).
+It is not big5, and no real repository has this form. The design names no fixture for M11.
+Command: `uv run python bench/jev/nested_tree_pages.py` (the working tree of this step, on 9ca8b99). The host has 4 cores.
+
+| Run | Fixture | Result |
+|---|---|---|
+| 1 | Card texts of 50 characters | Failure. `refresh` exited 1 after 707 s and wrote no page: a card holds about 26 characters, and the map check gave "plain word does not fit" for the cards. The script then stopped with an error, because it had no page to measure. No size was measured. |
+| 2 | Card texts of 19 to 21 characters, cards without an entry | Failure. `refresh` exited 1 after 703 s and wrote no page: the map check gave "has no entry" for each card. No size was measured. |
+| 3 | Card texts of 19 to 21 characters, each card with an entry | `place`, `extract`, and `refresh` exited 0. The table gives the sizes. |
+
+Run 3:
+
+| Value | Measured | Acceptance | Result |
+|---|---|---|---|
+| Pages | 50 | | |
+| Largest page | 908,644 bytes | at most 1,572,864 bytes | pass |
+| Smallest page | 524,786 bytes | | |
+| Largest Map tree panel and search index | 79,340 bytes | at most 153,600 bytes | pass |
+| Smallest Map tree panel and search index | 78,477 bytes | | |
+| Largest parent context mark | 3,364 bytes | at most 8,192 bytes | pass |
+| Largest compact preview | 3,375 bytes | at most 8,192 bytes | pass |
+| Full output | 28,852,120 bytes | at most 78,643,200 bytes | pass |
+
+M11 passes on this generated tree. The search index has one row for each component of the other maps, with a card text of at most 60 characters.
+The card texts of this tree have 19 to 21 characters, because a card holds about 26 characters. A tree with longer texts in the model can have a larger index. A measurement on big5 is necessary.
+
+Time, not an acceptance value: `refresh` of the 50 maps took 2,079 s in run 3. The full test suite and the map checks of this repository operated on the same host at the same time, so the value is not a clean measurement.
+In runs 1 and 2, the map check in `refresh` took about 700 s before it stopped. The cause of this time was not examined. The new code of this step reads each map one time for the tree data, and one time for each page for the index rows of the other maps. A profile of `refresh` on a large tree is necessary, and M1 is necessary on big5.
+
+The sample page of `tests/test_render.py`, which has no nested map, is 338,405 bytes (+174 bytes, the group `Other maps` in the script of the Find dialog). The limit of 331 KiB (338,944 bytes) stays.
+A page without nested maps has no Map tree panel, no search index, and no script for them.
+
+### M17: the reviewer test, the written protocol
+
+M17 needs people. This step writes only its protocol. The test did not run, and no result is available.
+
+Acceptance, written before the first session (from the design): at least 8 of 10 reviewers find the planted boundary change from the top page in the Changes view. The median time is at most 2 minutes.
+
+Participants:
+
+- 10 people who review pull requests in their work. They did not write systemap, and they did not see the fixture before the session.
+- Each participant gets a number. The record keeps only the number, not a name.
+
+Material:
+
+1. The fixture of `tests/three_levels.py` with 3 parts of 3 (22 maps on 3 nested levels) in a Git repository, with `systemap place`, `extract`, and `refresh` done. This commit is the base.
+2. One head commit with three model changes:
+   - The planted boundary change: in the map `P1/Q2`, the claim `pkg.p1.q2.r0` goes from the card `R0` to the card `Deep`, which opens the map `P1/Q2/Deep`. The nested map `P1/Q2/Deep` gets one new card with that claim. Thus the boundary change is on level 2, and the nested map change is on level 3.
+   - Two changes that are not boundary changes: a new card text in the map `P0`, and one new flow in the map `P2/Q0`.
+3. The pages of `systemap render --base <base commit>`, opened at the top page with the fragment `#changes`, on a desktop browser at 1440 by 900 px.
+
+Procedure for each participant:
+
+1. Read this text to the participant: "This page shows a change to a system map. Find the change at the boundary of a nested map. Tell the map and the module of that change."
+2. Start the time when the page shows. Do not help the participant.
+3. Stop the time when the participant names the map `P1/Q2` (or the card `R0` or `Deep` in that map) and the module `pkg.p1.q2.r0`. Stop the session at 5 minutes.
+4. Record: the participant number, found or not found, the time in seconds, the path to the answer (the Map tree panel, the section `CHANGES IN NESTED MAPS`, the section `BOUNDARY CHANGES`, the change map, or a different path), and each wrong answer.
+
+Analysis:
+
+- Count the participants who found the change.
+- For the median, a participant who did not find the change gets 300 s.
+- Record all results in this file, with each failure and each stopped session.
+- Change the acceptance values only before the first session, not after it.

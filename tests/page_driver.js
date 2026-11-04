@@ -583,6 +583,7 @@ function main() {
   const scenarios = {keyboard, framing, submap, theme, workspace};
   scenarios.live = live;
   scenarios.pathkeys = pathKeys;
+  scenarios.othermaps = otherMaps;
   // An unknown name is an error: a test whose scenario is absent gets no keyboard report.
   if (!Object.prototype.hasOwnProperty.call(scenarios, scenario)) {
     process.stderr.write(`page_driver: unknown scenario: ${scenario}\n`);
@@ -814,7 +815,7 @@ function submap(page) {
   // A card that opens a map: the panel's preview and Open map link; a
   // double-click and a second Enter go to the page of the map inside, as the
   // link does. The page has no frame. In the Changes view, the links and the
-  // keys add #changes. The T key opens the list of child maps, and the U key
+  // keys add #changes. The T key opens the Map tree panel, and the U key
   // goes to the parent map. A card without a map is left alone by the same keys.
   const {doc, win, svg, A, key} = page;
   const panel = doc.getElementById('panel');
@@ -867,8 +868,8 @@ function submap(page) {
   key('Enter', plain);
   steps.push(state('plain-enter-twice'));
   key('Escape');
-  // The Changes view: the links and the open event add #changes. The change map has no
-  // child map records, so the event comes from the map script, not from a change map card.
+  // The Changes view: the links and the open event add #changes. This page has no revision
+  // comparison and thus no change map, so the event comes from the map script.
   const list = doc.getElementById('maptree');
   const listHrefs = () => (list ? list.querySelectorAll('a').map((a) => a.getAttribute('href')) : []);
   svg.page.setMode('change');
@@ -887,6 +888,34 @@ function submap(page) {
     frames: doc.querySelectorAll('iframe').length, overlays: doc.querySelectorAll('#submap').length,
     panelHas, steps, linkPrevented, enterPrevented: enter, changeHrefs, mapHrefs, keys,
   };
+}
+
+function otherMaps(page) {
+  // The Find dialog on a page of a map tree: for each query, the groups in their order and
+  // the rows of the group "Other maps" with their hints. A click on the first row of that
+  // group goes to the page of its map, with the component in the link fragment.
+  const {doc, win} = page;
+  const start = win.location.href;
+  doc.getElementById('find-open').click();
+  const search = doc.getElementById('pal-input');
+  const report = {queries: {}};
+  ['', 'Cache', 'Writer', 'Gateway'].forEach((q) => {
+    search.value = q;
+    search.dispatchEvent(new EventImpl('input', {bubbles: true}));
+    const groups = doc.getElementById('pal-list').querySelectorAll('.pal__g').map((g) => g.textContent);
+    const other = doc.getElementById('pal-list').querySelectorAll('[data-k]')
+      .filter((o) => o.parentNode.querySelector('.pal__g').textContent === 'Other maps')
+      .map((o) => [o.querySelector('.pal__t').textContent, o.querySelector('.pal__k').textContent]);
+    report.queries[q] = {groups, other};
+  });
+  search.value = 'Cache';
+  search.dispatchEvent(new EventImpl('input', {bubbles: true}));
+  const first = doc.getElementById('pal-list').querySelectorAll('[data-k]')
+    .find((o) => o.parentNode.querySelector('.pal__g').textContent === 'Other maps');
+  if (first) { first.click(); }
+  const href = win.location.href;
+  report.went = href === start ? '' : href;
+  return report;
 }
 
 function pathKeys(page) {

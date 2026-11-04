@@ -13,6 +13,8 @@ the figure a context record (`page_context.context`). With it, the figure shows:
   has no open line shows no join state, because no check confirms the boundary. The page
   never says "verified".
 - The badge: the text "N inside" on a card that opens a map, at its lower-right corner.
+  In the change map, a card whose map or a map below it changed has the badge text
+  "changed inside" and a second outline on its back card (`changed_inside`).
 
 The figure does not draw a relation between two maps that no check examines.
 """
@@ -51,6 +53,7 @@ MARK_COLOURS: tuple[tuple[str, str, str, float], ...] = (
     ("parent context opening card", "ink_2", "surface", 3.0),
     ("preview frame and card", "ink_3", "bg", 3.0),
     ("preview stub", "ink_2", "bg", 3.0),
+    ("changed inside outline", "ink_2", "card", 3.0),
 )
 
 Text = Callable[..., str]
@@ -127,8 +130,37 @@ def notch(label: str, box: Box, stroke: str) -> str:
     )
 
 
-def badge_text(c: Component, opens: Mapping[str, Mapping[str, Any]]) -> str:
+CHANGED_INSIDE = "changed inside"
+
+
+def changed_inside(c: Component, opens: Mapping[str, Mapping[str, Any]], mode: str) -> bool:
+    """Tell if the change map marks the card: its map or a map below it changed
+    (`page_rollup`)."""
+    return mode == "change" and c.opens and bool((opens.get(c.id) or {}).get("changed"))
+
+
+def inside_label(changed: bool) -> str:
+    """Give the end of the card label for a card with a change inside, or nothing."""
+    return f", {CHANGED_INSIDE}" if changed else ""
+
+
+def back_outline(box: Box, offset: float, radius: float, stroke: str, changed: bool) -> str:
+    """Give the second outline on the back card of a card with a change inside, or
+    nothing for a card without a change inside."""
+    if not changed:
+        return ""
+    x, y, w, h = box
+    return (
+        f'<rect class="node__inside-changed" x="{x + offset + 3}" y="{y + offset + 3}" '
+        f'width="{w - 6}" height="{h - 6}" rx="{radius - 1}" fill="none" stroke="{stroke}" '
+        'stroke-width="1"/>'
+    )
+
+
+def badge_text(c: Component, opens: Mapping[str, Mapping[str, Any]], changed: bool = False) -> str:
     """Give the badge text of a card that opens a map, or nothing without a count."""
+    if changed:
+        return CHANGED_INSIDE
     cards = int((opens.get(c.id) or {}).get("cards") or 0) if c.opens else 0
     return f"{cards} inside" if cards else ""
 

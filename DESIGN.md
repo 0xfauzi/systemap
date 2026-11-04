@@ -658,7 +658,10 @@ Each nested map has its own page. The page does not show a nested map in a frame
 A link, a double-click, or a second Enter on a card that opens a map goes to the page of that map.
 The Back control of the browser goes back to the parent page.
 The header of a nested page shows the map path, with one link for each ancestor map.
-The U key goes to the parent map. The T key opens the list of child maps.
+The U key goes to the parent map. The T key opens the Map tree panel.
+The Map tree panel gives each map of the tree, with its component count, its change flag, and its open findings. An unknown count is `not examined`, never zero.
+The Find dialog gives the components of the other maps after the results of the current map.
+The Changes view of a parent page gives the changes of the maps below it and the boundary changes. It counts only model changes, so no change is counted two times.
 On a nested page, a line with the label `Inside <card>` goes around the internal components, and the actors are outside it.
 Each point where a flow between an internal component and an actor crosses this line is a port. Only an open `boundary flow` or `boundary import` finding gives a port a state.
 The page never shows a boundary as verified.

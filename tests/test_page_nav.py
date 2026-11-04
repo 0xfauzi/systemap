@@ -53,21 +53,12 @@ def test_the_hint_names_the_keys_that_apply() -> None:
     assert both.endswith("Press U to go to the parent map.</p>")
 
 
-def test_the_child_list_has_the_link_targets_for_the_changes_view() -> None:
-    assert page_nav.child_list({}) == ""
-    html = page_nav.child_list({"G": {"name": "G", "href": "G/index.html", "cards": 2}})
-    assert html == (
-        '<details class="map-links" id="maptree"><summary>Child maps</summary>'
-        '<a href="G/index.html" data-child-map="G/index.html">G</a></details>'
-    )
-
-
 def test_the_keys_sheet_lists_u_and_t_before_the_question_mark() -> None:
     sheet = page_motion.keys_sheet(page_nav.keys("Gateway", True))
     keys = re.findall(r"<dt>(.*?)</dt>", sheet)
     assert keys[-4:] == ["<kbd>U</kbd>", "<kbd>T</kbd>", "<kbd>?</kbd>", "<kbd>Esc</kbd>"]
     assert "<dd>Go to the parent map</dd>" in sheet
-    assert "<dd>Open the list of child maps</dd>" in sheet
+    assert "<dd>Open the map tree</dd>" in sheet
     assert "<kbd>U</kbd>" not in page_motion.keys_sheet()
 
 

@@ -630,6 +630,24 @@ The parent map must have positions first. A run without `--map` places the paren
 This arrangement occurs only when `place` sets all positions, and only if all actors are in one container that has no region and no internal component.
 A placement that keeps positions does not move a component.
 
+The Map tree panel is on each page of a tree with nested maps. The T key opens it.
+It has one link for each map of the tree, in the order of the tree.
+Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings of the map.
+The open findings are the open lines of `systemap judgement` for the map. If the render has no open lines, the item shows `not examined`.
+The Find dialog also gives the components of the other maps, in the group `Other maps`, after the results of the current map.
+Each result shows the map, for example `in Gateway/Routes`. In each map, the internal components come before the actors.
+Each page has its own copy of this index, so a static page needs no request.
+
+In the Changes view of a page with maps below it, the Details panel has two more sections:
+
+- `CHANGES IN NESTED MAPS`: one link for each changed map below the page, to the Changes view of that map, with the counts of the added, removed, and changed components, flows, and sequences.
+  These counts use only the model of each map. A source change is not in a count.
+- `BOUNDARY CHANGES`: each change to the module claims of a card that opens a map, and each change to an import rule whose `src` is such a card.
+  A claim that goes from one card to a different card of the same map is one move. The row gives the number of changes in the nested map of each card.
+  A rule row gives the reason of the rule. Accept or reject each boundary change in the review.
+
+In the Changes view, a card that opens a map has the text `changed inside` and a second outline on its back card if its map or a map below it changed.
+
 Each parent module must have one claim, without duplicates, in the nested map.
 No extra module is permitted.
 Only one component can open a nested model file.
@@ -1444,10 +1462,12 @@ The list does not print if the component with the most changes connects to more
 than one-third of the map.
 
 - `--comment FILE` writes the architecture summary of the pull request to `FILE`.
-  The summary has four parts:
+  The summary has five parts:
   - Contract: the invariants and the import rules that the change added, removed, or changed.
     systemap compares the committed model at the merge base with the model on disk.
   - Map: the components, the flows, and the sequences that the change added, removed, or changed.
+  - Boundary changes: the rows of the `BOUNDARY CHANGES` section of the Changes view, for all maps.
+    A tree without nested maps and without boundary changes has no such part.
   - Rules: the result of each import rule with the facts at the head commit, and `[rules] unknown`.
   - Map update: the number of delta lines with a necessary action. This row shows only if the number is not 0.
 
@@ -1455,7 +1475,7 @@ than one-third of the map.
   These are the values of `assurance` in `judgement --json`.
   A removed item, an actor, and a sequence have no level.
   Each part gives a maximum of 5 rows, and then the count of the other rows.
-  The summary is one line if these conditions are true: the contract and the map did not change, no rule has the result `fail`, and no delta line has a necessary action.
+  The summary is one line if these conditions are true: the contract, the map, and the boundaries did not change, no rule has the result `fail`, and no delta line has a necessary action.
   If the model at the merge base does not load, the contract and the map are `unknown`, with the cause.
 
   With `[delta] page_url`, the comment also has a link to the Changes view of the page for pull request `N`.
