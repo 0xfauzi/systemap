@@ -102,7 +102,7 @@ def test_audit_triage_plan_and_suggest_say_why_a_bad_answer_stops_them(
     assert capsys.readouterr().out.startswith("triage: Jev gave an incorrect answer")
     assert main(["--root", str(two_cards), "plan", "change the reader", "--provider", "jev"]) == 1
     assert capsys.readouterr().out.startswith("plan: Jev gave an incorrect answer")
-    assert main(["--root", str(two_cards), "suggest", "--jev"]) == 1
+    assert main(["--root", str(two_cards), "suggest", "--decide"]) == 1
     assert capsys.readouterr().out.startswith("suggest --decide: Jev gave an incorrect answer")
     assert not (two_cards / ".systemap/plans").exists()
 
@@ -287,9 +287,9 @@ def test_the_audit_identifier_does_not_contain_the_pick(sample: Sample) -> None:
     assert sure.detail == ("reads like Writer; confidence 0.95",)
 
 
-OLD = "jev mis-fold: Parser claims pkg.parser, which reads like Reader"
+OLD = "decision mis-fold: Parser claims pkg.parser, which reads like Reader"
 NEW = "decision mis-fold: Parser claims pkg.parser"
-OLD_OWNER = "Core: jev owner: pkg.stray is claimed by no card; closest: Writer, Parser, Reader"
+OLD_OWNER = "Core: decision owner: pkg.stray is claimed by no card; closest: Writer, Parser, Reader"
 NEW_OWNER = "Core: decision owner: pkg.stray is claimed by no card"
 
 
@@ -297,9 +297,13 @@ def test_answers_recorded_with_the_old_line_still_match() -> None:
     assert audit.migrated(OLD) == NEW
     assert audit.migrated(OLD_OWNER) == NEW_OWNER
     assert audit.migrated(
-        "jev owner: pkg.x is claimed by no card; it reads like none of the cards"
+        "decision owner: pkg.x is claimed by no card; it reads like none of the cards"
     ) == ("decision owner: pkg.x is claimed by no card")
     assert audit.migrated(NEW) == NEW
+    # From 3.1.0, a line with a previous kind name does not migrate.
+    jev = "jev mis-fold: Parser claims pkg.parser, which reads like Reader"
+    assert audit.migrated(jev) == jev
+    assert not audit.is_audit_answer(Answer(items=(jev,), reason="r", evidence="d1"))
     found = [audit.Line(NEW), audit.Line(NEW_OWNER)]
     evidence = {NEW: "d1", NEW_OWNER: "d2"}
     one = Answer(items=(OLD,), reason="r", evidence="d1")
@@ -360,6 +364,6 @@ def test_suggest_jev_without_a_key_sends_nothing(
 ) -> None:
     cfg = load_config(two_cards)
     assert cfg.jev_cache_path is not None
-    assert main(["--root", str(two_cards), "suggest", "--jev"]) == 1
+    assert main(["--root", str(two_cards), "suggest", "--decide"]) == 1
     assert "set TYPESAFE_API_KEY" in capsys.readouterr().out
     assert not cfg.jev_cache_path.exists()

@@ -1,9 +1,13 @@
-"""`systemap audit` gives the kind-name warnings with the current judgement lines.
+"""`systemap audit` gives no kind-name warning, and `judgement` gives the new name.
 
-The P2 migrations change gave `systemap judgement` the current lines for its warnings:
-an item that is an exact current line gets no warning. `jev_cli.cmd_audit` called
-`decision_kinds.warnings` without the current lines. Thus a current judgement line whose
-text looks like a decision line with a previous kind name got a false warning in audit.
+In 3.0.0, `audit` gave a warning for each previous kind name in `[judgement] answered`.
+From 3.1.0, systemap does not read the previous names. Acceptance values:
+
+1. `audit` gives no warning for an item with a previous kind name, and for a current
+   judgement line whose text looks like such an item.
+2. `audit` calculates no judgement lines for the answers.
+3. `judgement` gives an item with a previous kind name as a stale answer. The row gives
+   the new name.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ import pytest
 from test_audit_findings import Fake, audit_args, two_cards
 
 from systemap import jev_cli, judgement_json
+from systemap.cli import main
 
 __all__ = ["two_cards"]
 
@@ -39,6 +44,7 @@ def with_current_line(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_an_exact_current_line_gets_no_previous_name_warning_in_audit(
     two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Acceptance 1."""
     with_current_line(monkeypatch)
     answer(two_cards, CURRENT)
     capsys.readouterr()
@@ -46,25 +52,39 @@ def test_an_exact_current_line_gets_no_previous_name_warning_in_audit(
     assert "warning:" not in capsys.readouterr().err
 
 
-def test_an_earlier_decision_line_still_gets_the_warning_in_audit(
-    two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_an_earlier_decision_line_gets_no_warning_in_audit(
+    two_cards: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    with_current_line(monkeypatch)
+    """Acceptance 1."""
     answer(two_cards, EARLIER)
     capsys.readouterr()
     assert jev_cli.cmd_audit(audit_args(two_cards, dry_run=True), send=Fake()) == 0
-    assert capsys.readouterr().err.splitlines() == [
-        'warning: [judgement] answered uses the previous name "jev sentence". '
-        'Change it to "decision sentence". From 3.1.0, systemap does not read the previous names.'
-    ]
+    assert "warning:" not in capsys.readouterr().err
 
 
-def test_audit_calculates_no_judgement_lines_without_a_previous_name(
+def test_judgement_gives_the_new_name_for_an_earlier_decision_line(
+    two_cards: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 3."""
+    answer(two_cards, EARLIER)
+    capsys.readouterr()
+    main(["--root", str(two_cards), "judgement"])
+    captured = capsys.readouterr()
+    assert (
+        f"  stale answer: '{EARLIER}' has the previous kind name \"jev sentence\", which "
+        'systemap does not read. Change "jev sentence" to "decision sentence" in '
+        "[judgement] answered."
+    ) in captured.out.splitlines()
+    assert "previous name" not in captured.err
+
+
+def test_audit_calculates_no_judgement_lines(
     two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Acceptance 2."""
     calls: list[int] = []
     monkeypatch.setattr(judgement_json, "current_lines", lambda *args: calls.append(1) or [])
-    answer(two_cards, "decision sentence: Reader's sentence may not describe its modules")
+    answer(two_cards, EARLIER)
     assert jev_cli.cmd_audit(audit_args(two_cards, dry_run=True), send=Fake()) == 0
     assert calls == []
     assert "warning:" not in capsys.readouterr().err

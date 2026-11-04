@@ -13,6 +13,9 @@ Acceptance values:
    This is also true for the decision lines of `audit`.
 4. `decision_kinds` and `judgement_moves` have no line migration.
 5. An answer for a line about a test file is stale. `retired` gives the cause.
+6. From 3.1.0, the forms of 2.0.0 and of the releases before it in `REMOVED` select no
+   line, and they get no migration warning. The judgement report gives each one as a
+   stale answer with the action. For a previous kind name, the action gives the new name.
 """
 
 from __future__ import annotations
@@ -26,51 +29,9 @@ from systemap.config import Answer
 
 # The name of each earlier form, an earlier line, and its current line.
 TEXT_FORMS: dict[str, tuple[str, str]] = {
-    "parser name": (
-        "unknown surface: module pkg.a (pkg/a.py:2): source could not be parsed: "
-        "SyntaxError under Python 3.11.10",
-        "unknown surface: module pkg.a (pkg/a.py): source could not be parsed: SyntaxError",
-    ),
-    "npm package": (
-        "unknown surface: tsconfig.json extends '@x/base': "
-        "the npm tsconfig package could not be read",
-        "unknown surface: tsconfig.json extends '@x/base': "
-        "the configuration package could not be read",
-    ),
-    "language syntax": (
-        "unknown surface: module web.a (src/a.ts): The parser could not parse the TypeScript "
-        "syntax.",
-        "unknown surface: module web.a (src/a.ts): The parser could not parse the source syntax.",
-    ),
-    "parser version": (
-        "unknown surface: module web.a (src/a.ts): The parser could not parse the source "
-        "syntax. Source excerpt: 'f(,)' (parser version 0.23.2)",
-        "unknown surface: module web.a (src/a.ts): The parser could not parse the source syntax.",
-    ),
-    "source excerpt": (
-        "unknown surface: module web.a (src/a.ts): The parser could not parse the source "
-        "syntax. Source excerpt: 'f(,)'",
-        "unknown surface: module web.a (src/a.ts): The parser could not parse the source syntax.",
-    ),
-    "module line number": (
-        "unknown surface: module web.a (src/a.ts:254): dynamic import",
-        "unknown surface: module web.a (src/a.ts): dynamic import",
-    ),
-    "test file line number": (
-        "unknown surface: test file tests/a.spec.ts:3: source could not be read",
-        "unknown surface: test file tests/a.spec.ts: source could not be read",
-    ),
-    "entry kind identifier": (
-        "entry point 7 public_functions into Api have no sequence (component Api)",
-        "entry point 7 public functions into Api have no sequence (component Api)",
-    ),
     "provider pick": (
-        "jev mis-fold: Parser claims pkg.parser, which reads like Reader",
+        "decision mis-fold: Parser claims pkg.parser, which reads like Reader",
         "decision mis-fold: Parser claims pkg.parser",
-    ),
-    "decision kind name": (
-        "Core: jev flow: A -> B ('x'): the code where they meet may not carry it",
-        "Core: decision flow: A -> B ('x'): the code where they meet may not carry it",
     ),
     "crossing count": (
         "crossing import: Skill imports Config in 3 modules and no flow connects them",
@@ -89,6 +50,23 @@ TEXT_FORMS: dict[str, tuple[str, str]] = {
         "resolve the package.json bin target to a TypeScript module.",
     ),
 }
+
+
+# The earlier lines that 2.0.0 and 3.0.0 read, and that 3.1.0 does not read.
+REMOVED = (
+    "unknown surface: module pkg.a (pkg/a.py): source could not be parsed: "
+    "SyntaxError under Python 3.11.10",
+    "unknown surface: tsconfig.json extends '@x/base': the npm tsconfig package could not be read",
+    "unknown surface: module web.a (src/a.ts): The parser could not parse the TypeScript syntax.",
+    "unknown surface: module web.a (src/a.ts): The parser could not parse the source "
+    "syntax. Source excerpt: 'f(,)' (parser version 0.23.2)",
+    "unknown surface: module web.a (src/a.ts): The parser could not parse the source "
+    "syntax. Source excerpt: 'f(,)'",
+    "unknown surface: module web.a (src/a.ts:254): dynamic import",
+    "entry point 7 public_functions into Api have no sequence (component Api)",
+    "jev mis-fold: Parser claims pkg.parser, which reads like Reader",
+    "Core: jev flow: A -> B ('x'): the code where they meet may not carry it",
+)
 
 
 def test_each_earlier_form_has_one_pattern_and_one_case() -> None:
@@ -169,3 +147,23 @@ def test_an_answer_for_a_test_file_line_is_stale_with_a_cause() -> None:
     assert result.stale == [item]
     report = "\n".join(judgement.report(result))
     assert f"stale answer: '{item}' is no longer a finding: judgement gives no line" in report
+
+
+@pytest.mark.parametrize("item", REMOVED)
+def test_a_removed_form_selects_no_line_and_the_report_gives_the_action(item: str) -> None:
+    """Acceptance 6."""
+    assert answer_migrations.current_line(item) == item
+    assert answer_migrations.warnings([Answer(items=(item,), reason="r")]) == []
+    result = judgement.apply_answers([], [Answer(items=(item,), reason="r", evidence="d")], {})
+    assert result.stale == [item]
+    report = "\n".join(judgement.report(result))
+    names = decision_kinds.renamed(item)
+    if names:
+        assert (
+            f"stale answer: '{item}' has the previous kind name \"{names[0]}\", which "
+            f'systemap does not read. Change "{names[0]}" to "{names[1]}" in [judgement] answered.'
+        ) in report
+    else:
+        assert f"stale answer: '{item}' is now missing. Remove it from [judgement] answered." in (
+            report
+        )

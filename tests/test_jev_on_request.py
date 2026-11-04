@@ -3,7 +3,7 @@
 The selection does not read the language of the project. The tests use a Python
 fixture and a TypeScript fixture.
 
-The user selects Jev only with `--decide` (or its previous name `--jev`) on the command
+The user selects Jev only with `--decide` on the command
 line. A key in the environment and `[jev] enabled = true` in systemap.toml do not select
 Jev, because a cloned repository can contain any systemap.toml.
 
@@ -95,8 +95,8 @@ def test_jev_enabled_true_sends_zero_requests(
 def test_the_jev_option_sends_requests_with_no_configuration(
     renamed: Path, counter: Counter, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance: with --jev and no [jev] table, delta sends the requests in SELECTED."""
-    code, out, err = delta(renamed, capsys, "--jev")
+    """Acceptance: with --decide and no [jev] table, delta sends the requests in SELECTED."""
+    code, out, err = delta(renamed, capsys, "--decide")
     assert [(m, p) for m, p, _ in counter.requests] == SELECTED
     assert "decision move: pkg.ledger -> pkg.records_store" in out
     assert "hint:" not in err
@@ -106,7 +106,7 @@ def test_no_jev_sends_zero_requests_with_jev_enabled_true(
     renamed: Path, counter: Counter, capsys: pytest.CaptureFixture[str]
 ) -> None:
     add_jev(renamed, "enabled = true")
-    _code, out, err = delta(renamed, capsys, "--no-jev")
+    _code, out, err = delta(renamed, capsys, "--no-decide")
     assert counter.requests == []
     assert "Jev suggestions" not in out
     assert "hint:" not in err
@@ -171,7 +171,7 @@ def test_a_key_sends_zero_requests_for_typescript(
 def test_the_jev_option_sends_requests_for_typescript(
     renamed_ts: Path, counter: Counter, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance: with --jev and no [jev] table, delta on TypeScript sends requests."""
-    delta(renamed_ts, capsys, "--jev")
+    """Acceptance: with --decide and no [jev] table, delta on TypeScript sends requests."""
+    delta(renamed_ts, capsys, "--decide")
     assert counter.requests[0][:2] == ("GET", "/models")
     assert any(path == "/systemone" for _m, path, _b in counter.requests)

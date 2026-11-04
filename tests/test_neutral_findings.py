@@ -12,8 +12,8 @@ Before this change:
 Acceptance:
 
 - The two lines name no language and no package manager.
-- An answer item in the earlier form selects the line in the current form, and the
-  judgement warnings name the earlier item.
+- 2.0.0 and 3.0.0 also read an answer item in the earlier form. From 3.1.0, such an item
+  selects no line, gets no warning, and is a stale answer.
 - With the separator of its adapter, a TypeScript fixture that imports `ai.example`
   gives 0 model sdk lines, and an import of `ai/rsc` gives 1. A Python fixture that
   imports `google.adk.tools` gives 1.
@@ -49,14 +49,14 @@ def _lines(tmp_path: Path, tree: dict[str, str]) -> list[str]:
     return source_facts.unknown_fact_lines(extract.build(config.load(tmp_path)))
 
 
-def _migrates(line: str, earlier: str) -> None:
-    assert answer_migrations.current_line(earlier) == line
-    assert answer_migrations.current_line(f"sub: {earlier}") == f"sub: {line}"
+def _not_read(line: str, earlier: str) -> None:
+    assert answer_migrations.current_line(earlier) == earlier
+    assert answer_migrations.current_line(f"sub: {earlier}") == f"sub: {earlier}"
     assert answer_migrations.current_line(line) == line
     answer = Answer(items=(earlier,), reason="known", evidence="digest")
     result = judgement.apply_answers([line], [answer], {line: "digest"})
-    assert result.open == [] and result.stale == [] and result.pending == []
-    assert any(earlier in warning for warning in answer_migrations.warnings([answer]))
+    assert result.open == [line] and result.stale == [earlier] and result.pending == []
+    assert answer_migrations.warnings([answer]) == []
 
 
 def test_the_configuration_package_line_names_no_language(tmp_path: Path) -> None:
@@ -68,7 +68,7 @@ def test_the_configuration_package_line_names_no_language(tmp_path: Path) -> Non
     earlier = "unknown surface: tsconfig.json extends '@vendor/tsconfig': " + (
         "the npm tsconfig package could not be read"
     )
-    _migrates(line, earlier)
+    _not_read(line, earlier)
 
 
 def test_the_typescript_parse_line_names_no_language(tmp_path: Path) -> None:
@@ -81,7 +81,7 @@ def test_the_typescript_parse_line_names_no_language(tmp_path: Path) -> None:
         "The parser could not parse the source syntax.",
         "The parser could not parse the TypeScript syntax.",
     )
-    _migrates(line, earlier)
+    _not_read(line, earlier)
 
 
 def _sdk_lines(tmp_path: Path, tree: dict[str, str], module: str) -> list[str]:

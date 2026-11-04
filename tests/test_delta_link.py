@@ -128,7 +128,7 @@ def commits(two_cards: Path) -> Path:
 
 
 def delta(root: Path, *argv: str) -> int:
-    return main(["--root", str(root), "delta", "--no-jev", *argv])
+    return main(["--root", str(root), "delta", "--no-decide", *argv])
 
 
 UPDATE = (

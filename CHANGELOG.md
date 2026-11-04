@@ -7,6 +7,39 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
+## Unreleased
+
+### Changes that can break a script or a CI job
+
+- systemap does not read the previous names and line forms that 2.0.0 and 3.0.0 read with a warning.
+  3.0.0 said that it reads them until 3.1.0.
+  - `delta --jev`, `delta --no-jev`, and `suggest --jev` give a usage error and exit 2. Use `--decide` and `--no-decide`.
+  - `audit --kind "jev flow"` and the other previous `jev` names give a usage error and exit 2.
+  - A family answer with a previous name, for example `kind = "jev flow"`, gives a configuration error.
+  - `systemap explain "jev flow"` gives no explanation.
+  - An exact answer with a previous `jev` name matches no line. `judgement` gives it as a stale answer, and the row gives the new name, for example
+    `stale answer: 'jev sentence: ...' has the previous kind name "jev sentence", which systemap does not read. Change "jev sentence" to "decision sentence" in [judgement] answered.`
+    The evidence digest of a decision line does not change. Thus an exact answer with one item stays current after you change the name.
+  - An exact answer in a line form from 2.0.0 or before 2.0.0 matches no line. These forms are:
+    the `unknown surface` line with `under Python <version>`, `the npm tsconfig package`, or `the TypeScript syntax`,
+    the `unknown surface` line with a line number in the location, a source excerpt, or a parser version,
+    and the `entry point` line with a kind identifier such as `public_functions`.
+    `judgement` gives the current line as an open line and the earlier item as a stale answer.
+    Examine the source again. Then record the answer with the current line.
+  - `judgement` and `audit` give no warning for these names and forms.
+
+  These earlier line forms stay:
+  - a line with a control character,
+  - the `crossing import` line and the `package_export` line with a count,
+  - the `decision mis-fold` and `decision owner` lines with the pick of the provider,
+  - an `unknown surface` line that moved to a nested map,
+  - a re-export target line without names.
+
+  The earlier answer items in these forms still select the current line.
+
+  Step: on 3.0.0, run `systemap judgement --strict`. Replace each item that a warning names. Then install this release.
+  After the upgrade, replace each `--jev` and `--no-jev` in scripts and CI files.
+
 ## 3.0.0 - 2026-11-03
 
 ### Changes that can break a script or a CI job

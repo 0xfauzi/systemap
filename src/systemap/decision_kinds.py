@@ -4,22 +4,21 @@
 and `OWNER`. The names do not name a provider, because Jev or OpenAI can give the
 answers.
 
-Before this release, each kind name started with "jev". `PREVIOUS` gives the previous
-name of each kind. Until 3.1.0, an answer in `[judgement] answered` can use an
-previous name, and it matches the line with the current name. `answer_migrations` changes
-an item with a previous name to the current line. `warnings` gives one warning for each
-previous name in the answers.
+Before 2.0.0, each kind name started with "jev". 2.0.0 and 3.0.0 also read an answer in
+`[judgement] answered` with a previous name. From 3.1.0, systemap does not read the
+previous names: an answer item with a previous name matches no line. `PREVIOUS` gives
+the previous name of each kind for two uses only:
 
-The evidence digest of a line is the digest of the same line with its previous kind
-name (`previous_line`). Thus a digest recorded before the rename stays correct. The
-word "decision" in the line also does not select a module or a component with that
+- The evidence digest of a line is the digest of the same line with its previous kind
+  name (`previous_line`). Thus a digest recorded before the rename stays correct.
+- `renamed` finds an answer item with a previous name. The judgement report then gives
+  the new name to the maintainer.
+
+The word "decision" in the line also does not select a module or a component with that
 name.
 """
 
 from __future__ import annotations
-
-from collections.abc import Iterable
-from typing import Protocol
 
 MISFOLD = "decision mis-fold"
 OWNER = "decision owner"
@@ -31,7 +30,7 @@ MOVE = "decision move"
 # The kinds that `systemap audit` prints, and that `--kind` selects.
 KINDS = (MISFOLD, OWNER, SENTENCE, FLOW, GOVERNS)
 
-# The previous name of each kind. systemap reads these names until 3.1.0.
+# The previous name of each kind. systemap does not read these names as kinds.
 PREVIOUS = {
     "jev mis-fold": MISFOLD,
     "jev owner": OWNER,
@@ -41,44 +40,24 @@ PREVIOUS = {
     "jev move": MOVE,
 }
 _LATER = {new: old for old, new in PREVIOUS.items()}
-# The audit kinds with their previous names, for the `--kind` option.
-AUDIT_NAMES = (*KINDS, *(old for old, new in PREVIOUS.items() if new in KINDS))
-_NAMES = (*KINDS, MOVE, *PREVIOUS)
+_NAMES = (*KINDS, MOVE)
 
 
-class Answered(Protocol):
-    """The fields of a configured answer that can contain a kind name."""
-
-    @property
-    def items(self) -> tuple[str, ...]: ...
-
-    @property
-    def kind(self) -> str: ...
-
-    @property
-    def reviewed(self) -> tuple[str, ...]: ...
-
-
-def current(kind: str) -> str:
-    """Give the current name of a kind. A current name or another kind stays the same."""
-    return PREVIOUS.get(kind, kind)
-
-
-def _parts(line: str) -> tuple[str, str, str] | None:
+def _parts(line: str, names: tuple[str, ...] = _NAMES) -> tuple[str, str, str] | None:
     """Give the map prefix, the kind name, and the remaining text of a decision line."""
     head, sep, _rest = line.partition(": ")
     for prefix in ("", head + sep) if sep else ("",):
         body = line[len(prefix) :]
-        for name in _NAMES:
+        for name in names:
             if body.startswith(name + ": "):
                 return prefix, name, body[len(name) + 2 :]
     return None
 
 
 def kind_of(line: str) -> str | None:
-    """Give the current kind name of a decision line, or None for a different line."""
+    """Give the kind name of a decision line, or None for a different line."""
     found = _parts(line)
-    return current(found[1]) if found else None
+    return found[1] if found else None
 
 
 def bare(line: str) -> str:
@@ -88,7 +67,7 @@ def bare(line: str) -> str:
 
 
 def previous_line(line: str) -> str:
-    """Change the current kind name in a decision line to the previous name."""
+    """Change the kind name in a decision line to the previous name, for the digest."""
     found = _parts(line)
     if found is None:
         return line
@@ -96,28 +75,7 @@ def previous_line(line: str) -> str:
     return f"{prefix}{_LATER.get(name, name)}: {rest}"
 
 
-def previous_names(answers: Iterable[Answered]) -> list[str]:
-    """Give each previous kind name in the answers one time, in the configured sequence."""
-    found: list[str] = []
-    for answer in answers:
-        lines = (*answer.items, *answer.reviewed)
-        names = [answer.kind] + [p[1] for p in map(_parts, lines) if p]
-        found += [n for n in names if n in PREVIOUS and n not in found]
-    return found
-
-
-def warnings(answers: Iterable[Answered]) -> list[str]:
-    """Give one warning for each previous kind name in `[judgement] answered`."""
-    return [
-        f'warning: [judgement] answered uses the previous name "{name}". '
-        f'Change it to "{PREVIOUS[name]}". From 3.1.0, systemap does not read the previous names.'
-        for name in previous_names(answers)
-    ]
-
-
-def option_warning(name: str) -> str:
-    """Give the warning for an previous kind name in the `--kind` option."""
-    return (
-        f'warning: "{name}" is the previous name of "{PREVIOUS[name]}". Use the new name. '
-        "From 3.1.0, systemap does not read the previous names."
-    )
+def renamed(line: str) -> tuple[str, str] | None:
+    """Give the previous kind name and the new name if a line starts with a previous name."""
+    found = _parts(line, tuple(PREVIOUS))
+    return (found[1], PREVIOUS[found[1]]) if found else None

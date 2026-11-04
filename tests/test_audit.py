@@ -1,4 +1,4 @@
-"""systemap audit, triage and the --jev flags: the questions, the thresholds, the
+"""systemap audit, triage and the --decide flags: the questions, the thresholds, the
 answers file shared with judgement, and the CLI end to end on recorded answers."""
 
 from __future__ import annotations
@@ -560,7 +560,7 @@ def test_judgement_ignores_audit_answers(
     assert "stale" not in out.splitlines()[0] and "stale answer" not in out
 
 
-# ---- delta --jev and suggest --jev: the pieces that read the report and the pairs ---
+# ---- delta --decide and suggest --decide: the pieces that read the report and the pairs ---
 
 
 def test_delta_asks_only_about_the_unclaimed_modules(sample: Sample) -> None:

@@ -258,6 +258,7 @@ def test_two_records_with_the_same_line_give_one_line_and_two_sources(tmp_path: 
 
 
 # Each earlier form with a volatile value, and its current form (facts format 11).
+# 2.0.0 and 3.0.0 read these forms. 3.1.0 does not read them.
 EARLIER_FORMS = [
     (
         "unknown surface: module web.index (src/index.ts:8): the re-export target "
@@ -303,25 +304,19 @@ EARLIER_FORMS = [
 
 
 @pytest.mark.parametrize(("earlier", "current"), EARLIER_FORMS)
-def test_an_item_in_an_earlier_form_selects_the_line_without_volatile_values(
-    earlier: str, current: str
-) -> None:
-    """trial3-1. Acceptance: for each earlier form with a line number, a source excerpt,
-    or a parser version, `answer_migrations.current_line` gives the current form, with and
-    without a map prefix. The current form does not change. An answer with the earlier
-    item and the digest of the current line answers the current line: it is not open,
-    not stale, and not pending. `warnings` names the earlier item, but not an item about a
-    test file."""
+def test_an_item_in_an_earlier_form_selects_no_line(earlier: str, current: str) -> None:
+    """trial3-1. Acceptance: from 3.1.0, `answer_migrations.current_line` does not change
+    an earlier form with a line number, a source excerpt, or a parser version, with and
+    without a map prefix. An answer with the earlier item does not answer the current
+    line: the line is open, and the item is stale. `warnings` does not name the item."""
     for prefix in ("", "Web: "):
         item, now = prefix + earlier, prefix + current
-        assert answer_migrations.current_line(item) == now
+        assert answer_migrations.current_line(item) == item
         assert answer_migrations.current_line(now) == now
         answer = Answer(items=(item,), reason="known", evidence="a" * 64)
         result = judgement.apply_answers([now], [answer], {now: "a" * 64})
-        assert result.open == [] and result.stale == [] and result.pending == []
-        named = any(item in warning for warning in answer_migrations.warnings([answer]))
-        # `judgement` gives no line about a test file (issue 114). No warning names the item.
-        assert named != bool(answer_migrations.retired(item))
+        assert result.open == [now] and result.stale == [item] and result.pending == []
+        assert answer_migrations.warnings([answer]) == []
 
 
 # ---- trial3-2 and trial3-6: a type re-export of a declaration file ---------------------

@@ -434,10 +434,6 @@ AUDIT = {
     ),
 }
 
-# The previous names of the decision kinds give the explanation of the new name.
-# systemap reads the previous names until 3.1.0.
-PREVIOUS = {old: AUDIT[new] for old, new in decision_kinds.PREVIOUS.items()}
-
 # ---- what `systemap check` refuses -------------------------------------------------
 
 CHECK = {
@@ -591,7 +587,7 @@ CHECK = {
     ),
 }
 
-LESSONS: dict[str, Lesson] = {**JUDGEMENT, **DELTA, **AUDIT, **PREVIOUS, **CHECK}
+LESSONS: dict[str, Lesson] = {**JUDGEMENT, **DELTA, **AUDIT, **CHECK}
 
 
 def lesson(kind: str) -> Lesson | None:
@@ -608,16 +604,13 @@ def whole(kind: str) -> list[str]:
     """This function gives the full explanation for `systemap explain`."""
     found = LESSONS.get(kind)
     if found is None:
-        known = ", ".join(sorted(set(LESSONS) - set(PREVIOUS)))
+        known = ", ".join(sorted(LESSONS))
         return [
             f"explain: there is no line kind with the name {kind!r}.",
             f"  the kinds are: {known}",
         ]
-    current = decision_kinds.current(kind)
-    name = [f"  new name: {current}"] if current != kind else []
     return [
         f"{kind}",
-        *name,
         f"  meaning: {found.means}",
         f"  importance: {found.why}",
         f"  action: {found.do}",

@@ -3,14 +3,14 @@
 Acceptance values:
 
 - With `OPENAI_API_KEY` set and no selection, each command that asks questions (audit,
-  triage, plan, `suggest --jev`, `delta --jev`) sends zero requests to OpenAI. The test
+  triage, plan, `suggest --decide`, `delta --decide`) sends zero requests to OpenAI. The test
   uses a Python fixture and a TypeScript fixture for delta.
 - With OpenAI selected, the request body agrees with the documented form
   (`fixtures/openai_decisions.json`): `model`, `input`, and `questions`, with a
   `predicate` or a `choice` question and its `choices`.
 - A refusal gives no finding and no crash for each question type that OpenAI can use:
   the audit questions (owner, sentence, flow, governs) and the owner question of
-  `delta --jev`. The other question types have no measured value for OpenAI. They send
+  `delta --decide`. The other question types have no measured value for OpenAI. They send
   zero requests and give the reason.
 - A failed request stops the command with exit 1 and the reason. No other provider
   answers.
@@ -282,8 +282,8 @@ def test_a_key_without_a_selection_sends_zero_requests_to_openai(
     assert _run(two_cards, "audit") == 1
     assert _run(two_cards, "triage", "the reader fails") == 1
     assert _run(two_cards, "plan", "change the reader") == 1
-    assert _run(two_cards, "suggest", "--jev") == 1
-    _run(renamed, "delta", "--base", "HEAD~1", "--jev")
+    assert _run(two_cards, "suggest", "--decide") == 1
+    _run(renamed, "delta", "--base", "HEAD~1", "--decide")
     out = capsys.readouterr().out
     assert out.count(providers.NOT_SELECTED) == 3
     assert out.count("set TYPESAFE_API_KEY") == 2
@@ -293,9 +293,9 @@ def test_a_key_without_a_selection_sends_zero_requests_to_openai(
 def test_a_key_without_a_selection_sends_zero_requests_for_typescript(
     renamed_ts: Path, counted: Decisions, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    _run(renamed_ts, "delta", "--base", "HEAD~1", "--jev")
+    _run(renamed_ts, "delta", "--base", "HEAD~1", "--decide")
     assert counted.requests == []
-    _run(renamed_ts, "delta", "--base", "HEAD~1", "--jev", "--provider", "openai")
+    _run(renamed_ts, "delta", "--base", "HEAD~1", "--decide", "--provider", "openai")
     assert counted.requests, "the control: an explicit selection sends requests"
 
 
@@ -347,7 +347,7 @@ def test_a_question_type_without_a_measured_value_sends_nothing(
 ) -> None:
     assert _run(two_cards, "triage", "the reader fails", "--provider", "openai") == 1
     assert _run(two_cards, "plan", "change the reader", "--provider", "openai") == 1
-    assert _run(two_cards, "suggest", "--jev", "--provider", "openai") == 1
+    assert _run(two_cards, "suggest", "--decide", "--provider", "openai") == 1
     assert counted.requests == []
     out = capsys.readouterr().out.splitlines()
     assert out == [
@@ -362,7 +362,7 @@ def test_a_question_type_without_a_measured_value_sends_nothing(
         f"audit: {decision.unmeasured('openai', 'decision mis-fold')}\n"
     )
     # Delta leaves out the move question and asks the owner question.
-    _run(renamed, "delta", "--base", "HEAD~1", "--jev", "--provider", "openai")
+    _run(renamed, "delta", "--base", "HEAD~1", "--decide", "--provider", "openai")
     assert counted.requests
     assert all(q["name"] == "owner" for _m, _p, b in counted.requests for q in b["questions"])
     out = capsys.readouterr().out
