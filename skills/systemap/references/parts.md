@@ -23,17 +23,11 @@ The steps and the checks are the same with sub-agents and without sub-agents.
 
 ## Terms
 
-- main agent: the agent that writes the top map, divides the work, and examines the results together.
-- nested part: one nested map, its contract file, and the model files with its file prefix.
-- part agent: the agent that makes the nested map of one nested part. It is a sub-agent, or the main agent at a later step.
-- part plan: the output of `systemap parts`. The plan of the top map is `map/parts/plan.json`.
-- result file: the file in which a part agent records its verdicts, answers, boundary requests, and questions.
-- write set: the files that one agent can change.
-- boundary flow: a flow between a component that opens a nested map and an adjacent component of the parent map.
-- boundary import: an import from a module of a nested part to a module of a component outside that nested part.
-- boundary request: a change to a module claim or to a boundary flow that a part agent asks the main agent to make.
-- contract commit: the Git commit with the top map, the boundary rules, the stubs, and the `map=` fields.
-- stub: a nested model file that has only the components from `systemap parts --stub`.
+The glossary in `references/language.md` gives the meaning of these terms:
+main agent, sub-agent, nested map, nested part, part agent, part plan, result file, write set, stem, file prefix,
+map prefix, boundary flow, boundary import, boundary request, contract commit, stub, and Git worktree.
+Without sub-agents, the main agent is also the part agent of each nested part.
+The plan of the top map is `map/parts/plan.json`.
 
 The stem of a nested map is its map ID in lower case, with `_` in place of each `/`. For example, the map `Gateway/Routes` has the model file `map/gateway_routes.py`.
 `systemap parts --map ID --json` gives the model file, the contract file, the file prefix, and the result file of each nested part.
@@ -73,6 +67,8 @@ Then run `systemap parts`. It writes the part plan. Commit the top map, the cont
 ## Step 4. Start the part agents
 
 Give each part agent its own Git worktree from the contract commit. In one shared folder, the main agent cannot find in step 5 which agent changed a file.
+Git does not track `.systemap/`. Thus copy `.systemap/decisions.json` into each worktree before its part agent starts.
+The lock `.systemap/write.lock` stops a second writer only in the same folder.
 Start five part agents or fewer at one time. This limit is temporary. A measurement is necessary to replace it.
 A sub-agent starts without the text of your session. Thus give it this full message, with the values from `systemap parts --map <MAP ID> --json`:
 
@@ -82,6 +78,7 @@ The writing profile is <profile>.
 Map the nested part <MAP ID>. Get its record with: systemap parts --map <MAP ID> --json
 Write only these files: <model_file>, <contract_file>, <result_file>,
   and new model files whose names start with <file_prefix>.
+  If your record has level_2 true, also the JSON files in map/parts/ whose names start with <stem>_.
 Do not run: systemap extract, refresh, render, init, triage, or decisions submit.
 Use systemap place, review, describe, and journeys only with --map <MAP ID>.
 Use only these layer IDs: <layers>. Use these artifacts for flows to actors: <boundary_flows>.
@@ -133,20 +130,24 @@ The request kinds are `move_module`, `add_flow`, `remove_flow`, and `artifact`.
 
 Start this step only after each part agent has stopped and has committed. For each nested part, in the plan `order`:
 
-1. Merge the worktree branch of the nested part.
-2. Run `git diff --name-only <contract commit> <part commit>`. Each file must be in the write set.
-   If not, run `git revert --no-edit <part commit>`, or do not merge the branch. Then send the nested part back.
+1. Run `git diff --name-only <commit before the part> <part branch>`. Each file must be in the write set.
+   With worktrees, the commit before the part is the contract commit. Without sub-agents, it is the last commit before the nested part.
+   If a file is not in the write set, do not merge the branch. Without sub-agents, revert each commit of the nested part with `git revert --no-edit`.
+   Then send the nested part back.
+2. Merge the worktree branch of the nested part. Without sub-agents, its commits are already on the branch.
 3. Run `systemap parts --results`. If it gives a problem for the nested part, send the nested part back.
+   After step 6, a nested part that step 5 submitted shows a different `contract_digest`. Do not send it back for this problem.
 4. Run `systemap check --map ID`. It must exit 0.
 
 Then for the full tree:
 
 5. For each nested part that no boundary request changes, run `systemap decisions submit FILE` with its verdicts. Then record its answers in `systemap.toml`.
    Do this before a boundary change, because a boundary change makes the verdicts not current.
-6. Decide each boundary request. For an accepted request, change the top model or the top contract. Then run `systemap parts` again.
+6. Decide each boundary request. For an accepted request, change the top model or the top contract. Then run `systemap parts` again and commit.
    Send each changed nested part back with the request and this note: "Make the verdict file again. The verdicts of the earlier file are not current."
 7. Send each nested part back one time if it has open lines or if step 6 changed it. Put the lines in the message.
-   Then do steps 1 to 5 for these nested parts. After that, correct the remaining lines yourself.
+   Give each of these nested parts a worktree from the last commit, so that it copies the digests of the new plan.
+   Then do items 1 to 5 for these nested parts. After that, correct the lines that stay open yourself.
 8. Run `systemap place --map ID` for each nested part. Then run `systemap refresh`, `systemap check`, `systemap rules`, and `systemap judgement`.
    Only this run without `--map` gives the result.
 9. Examine all new names and sentences of the tree in one pass. Thus the words agree across the nested parts.
@@ -159,8 +160,11 @@ Then for the full tree:
 
 ## Nested parts inside a nested part
 
-A nested part with more than 400 modules has `level_2` true in the plan. Its part agent does steps 1 to 5 inside its nested part:
+A nested part with more than 400 modules has `level_2` true in the plan. Its part agent does steps 1 to 5 inside its nested part, with these changes:
 
+- It obeys the rules for a part agent and does not run the commands that its message prohibits. In step 1, it does not run `systemap extract`.
+- In step 5, it does not do items 5, 8, and 10. It runs `systemap parts --map ID --results` in place of `systemap parts --results`.
+- Its write set also has the plan and the result files of its nested parts: the JSON files in `map/parts/` whose names start with its stem and `_`.
 - Its own map is the parent map of its nested parts. It does not change the module claims of that map.
 - `systemap parts --map ID` also writes the plan of its nested parts, for example `map/parts/gateway_plan.json`.
 - `systemap parts --map ID --stub CARD` writes each stub. Then run `systemap check --map ID` in place of `refresh` and `check`.
@@ -171,7 +175,7 @@ A nested part with more than 400 modules has `level_2` true in the plan. Its par
 ## Without sub-agents
 
 Do steps 1 to 3. Then do one nested part at a time, in the plan `order`. Use the message of step 4 as your task.
-Write the result file and commit after each nested part. In step 5, compare each part commit with the commit before it.
+Write the result file and commit after each nested part.
 If you must start again in a new session, read the plan and the result files first.
 
 ## After a source change
@@ -180,11 +184,12 @@ If you must start again in a new session, read the plan and the result files fir
 2. First, do the lines without a map prefix and the `systemap rules` failures.
    Give each new module a component assignment on the top map. The nested map then gives a line for the missing claim.
 3. If a boundary rule fails, examine the import. If the import is correct, add the component to `dst`. Give a reason with the commit.
-4. Group the other lines by map prefix. For each nested part with lines, use the message of step 4 with its delta lines.
+4. A component that gets more than ten modules can become a new nested part. Use step 3 for it.
+5. Step 5 removed `map/parts/`. Thus run `systemap parts` again and commit. This commit is the new contract commit.
+6. Use the map prefix of each other line to find its nested part. For each nested part with lines, use the message of step 4 with its delta lines.
    If two or fewer nested parts change, do them in sequence.
-5. If more than one-third of the components of a nested part change, make its nested map again.
-6. A component that gets more than ten modules can become a new nested part. Use step 3 for it.
-7. Do step 5 from its item 2.
+   If more than one-third of the components of a nested part change, make its nested map again.
+7. Do step 5.
 
 ## Completion conditions
 

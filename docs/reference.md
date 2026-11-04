@@ -662,7 +662,7 @@ The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
 The fixture in [`tests/test_nested.py`](../tests/test_nested.py) has five top-level
 components. Two open nested maps.
-The fixture in [`tests/three_levels.py`](../tests/three_levels.py) has 11 maps with its default sizes, on three levels below the top map.
+The fixture in [`tests/three_levels.py`](../tests/three_levels.py) has 11 maps with its default sizes: the top map and 10 nested maps on three levels below it.
 
 ### Map a large system in nested parts
 
@@ -679,15 +679,17 @@ Without sub-agents, one agent does the nested parts in sequence and commits afte
    Then it runs `systemap parts` and commits. This commit is the contract commit.
 4. Each part agent gets one nested part, the message in `references/parts.md`, and its own Git worktree from the contract commit.
    It writes only its write set: its model file, its contract file, the model files with its file prefix, and its result file.
+   A nested part with nested parts also writes their plan and result files.
    It uses `--map ID` with `check`, `judgement`, `place`, `review`, `describe`, `journeys`, and `decisions pending`.
    It does not run `extract`, `refresh`, `render`, `init`, `triage`, or `decisions submit`.
    It records answers only in the forms `item` and `items`. It writes a boundary request for a change to a module claim or a boundary flow.
-5. After each part agent has stopped, the main agent merges each branch in the plan `order`.
-   It compares the changed files with the write set. Then it runs `systemap parts --results` and `systemap check --map ID`, and submits the verdicts of each result file.
-   Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without `--map`.
+5. After each part agent has stopped, the main agent examines each branch in the plan `order`.
+   It compares the changed files with the write set before it merges the branch. Then it runs `systemap parts --results` and `systemap check --map ID`.
+   It submits the verdicts of each nested part that no boundary request changes. Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without `--map`.
 
 Only the main agent writes `systemap.toml`, `.systemap/decisions.json`, the top model, the top contract, the plan, and `docs/map/`.
-The lock files stop a second writer with an error. They do not merge two writes.
+The lock files stop a second writer in the same folder with an error. They do not merge two writes.
+Git does not track `.systemap/`, so the main agent copies `.systemap/decisions.json` into each worktree.
 A part agent that finds `.systemap/write.lock` held by a different command stops and tells the main agent. It does not remove the lock.
 
 The `boundary flow` and `boundary import` lines show where a nested map and its parent map do not agree about a flow or an import across the boundary.

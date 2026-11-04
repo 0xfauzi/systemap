@@ -927,7 +927,7 @@ The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
 The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/test_nested.py"><code>tests/test_nested.py</code></a> has five top-level
 components. Two open nested maps.
-The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/three_levels.py"><code>tests/three_levels.py</code></a> has 11 maps with its default sizes, on three levels below the top map.</p>
+The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/three_levels.py"><code>tests/three_levels.py</code></a> has 11 maps with its default sizes: the top map and 10 nested maps on three levels below it.</p>
 <h3 id="map-a-large-system-in-nested-parts">Map a large system in nested parts</h3>
 <p>If a map needs two or more nested maps, more than one agent can do the work.
 The skill gives the procedure in <a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/references/parts.md"><code>references/parts.md</code></a>.
@@ -942,15 +942,17 @@ The rule records the imports of the component at that commit. The reason must sa
 Then it runs <code>systemap parts</code> and commits. This commit is the contract commit.</li>
 <li>Each part agent gets one nested part, the message in <code>references/parts.md</code>, and its own Git worktree from the contract commit.
 It writes only its write set: its model file, its contract file, the model files with its file prefix, and its result file.
+A nested part with nested parts also writes their plan and result files.
 It uses <code>--map ID</code> with <code>check</code>, <code>judgement</code>, <code>place</code>, <code>review</code>, <code>describe</code>, <code>journeys</code>, and <code>decisions pending</code>.
 It does not run <code>extract</code>, <code>refresh</code>, <code>render</code>, <code>init</code>, <code>triage</code>, or <code>decisions submit</code>.
 It records answers only in the forms <code>item</code> and <code>items</code>. It writes a boundary request for a change to a module claim or a boundary flow.</li>
-<li>After each part agent has stopped, the main agent merges each branch in the plan <code>order</code>.
-It compares the changed files with the write set. Then it runs <code>systemap parts --results</code> and <code>systemap check --map ID</code>, and submits the verdicts of each result file.
-Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without <code>--map</code>.</li>
+<li>After each part agent has stopped, the main agent examines each branch in the plan <code>order</code>.
+It compares the changed files with the write set before it merges the branch. Then it runs <code>systemap parts --results</code> and <code>systemap check --map ID</code>.
+It submits the verdicts of each nested part that no boundary request changes. Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without <code>--map</code>.</li>
 </ol>
 <p>Only the main agent writes <code>systemap.toml</code>, <code>.systemap/decisions.json</code>, the top model, the top contract, the plan, and <code>docs/map/</code>.
-The lock files stop a second writer with an error. They do not merge two writes.
+The lock files stop a second writer in the same folder with an error. They do not merge two writes.
+Git does not track <code>.systemap/</code>, so the main agent copies <code>.systemap/decisions.json</code> into each worktree.
 A part agent that finds <code>.systemap/write.lock</code> held by a different command stops and tells the main agent. It does not remove the lock.</p>
 <p>The <code>boundary flow</code> and <code>boundary import</code> lines show where a nested map and its parent map do not agree about a flow or an import across the boundary.
 The <a href="#what-does-the-second-pass-find">second pass</a> gives the lines.

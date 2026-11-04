@@ -17,6 +17,7 @@ from conftest import SAMPLE_TREE, write_tree
 
 from systemap import skill
 from systemap.cli import main
+from systemap.parts_result import FORMS, LISTS, REQUEST_KINDS, TEXTS
 
 
 def worked_example() -> str:
@@ -251,7 +252,6 @@ def test_the_skill_names_each_reference_and_the_parts_procedure() -> None:
         ".systemap/write.lock",
     ):
         assert command in parts, command
-    from systemap.parts_result import FORMS, LISTS, REQUEST_KINDS, TEXTS
 
     block = re.search(r"```json\n(.*?)```", parts, re.S)
     assert block is not None
