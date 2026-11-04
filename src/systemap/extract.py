@@ -569,15 +569,6 @@ def _in_package(name: str, prefixes: Iterable[str]) -> bool:
     return any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
 
 
-def _dump_python_syntax(tree: ast.AST) -> str:
-    """Serialize shared Python syntax the same way across supported interpreters.
-
-    `python_syntax.dump` gives the text. The source-review digest and each `api`
-    fingerprint use the same function.
-    """
-    return python_syntax.dump(tree)
-
-
 def _surface_and_syntax(
     raw: str, module: str, is_package: bool, prefixes: frozenset[str], read: bool
 ) -> tuple[dict[str, Any] | None, str]:
@@ -601,7 +592,8 @@ def _surface_and_syntax(
 
 def _normalized(raw: str) -> str:
     try:
-        return _dump_python_syntax(python_tree.parse(raw))
+        # The source-review digest and each `api` fingerprint use the same dump.
+        return python_syntax.dump(python_tree.parse(raw))
     except (SyntaxError, ValueError):
         return raw
 

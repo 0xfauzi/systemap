@@ -192,6 +192,17 @@ def test_the_history_cache_key_holds_the_parser_of_the_language(
     assert "tree-sitter-typescript" in languages.repository("typescript").parser_version()
 
 
+def test_the_history_cache_key_holds_the_systemap_version(
+    python_facts: tuple[config.Config, dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A different systemap release gives a different cache scope (issue 136). Thus delta
+    does not compare new facts with the facts that an earlier release kept."""
+    cfg, _facts_of = python_facts
+    before = history.cache_scope(cfg, "3.13")
+    monkeypatch.setattr(history, "__version__", "0.0.0")
+    assert history.cache_scope(cfg, "3.13") != before
+
+
 def test_an_interface_name_can_contain_a_dollar_sign(
     python_facts: tuple[config.Config, dict[str, Any]],
     typescript_facts: tuple[config.Config, dict[str, Any]],

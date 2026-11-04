@@ -34,10 +34,8 @@ CHUNK = 1 << 20
 # If `git cat-file --batch` gives no bytes for this number of seconds, the reader stops it.
 BLOB_LIMIT = git_command.TIMEOUT
 # The version of the facts at a commit. Version 2 adds `refused_paths`. The facts cache
-# scope contains this value, so a cache of version 1 is not read. Version 3: the Python
-# `api` fingerprints and `constants` previews have the CPython 3.11 text on each
-# interpreter (issue 136). A cache of version 2 from 3.12 or 3.13 has different values.
-TREE_READER = 3
+# scope contains this value, so a cache of version 1 is not read.
+TREE_READER = 2
 
 
 class DeltaError(Exception):

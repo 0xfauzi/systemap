@@ -1,7 +1,8 @@
 """The history reader caches facts for committed source snapshots.
 
 The cache path is `.systemap/facts/<sha>-<scope>.json`. The scope includes extraction
-settings and parser versions, because these can change the facts for the same commit.
+settings, parser versions and the systemap version, because these can change the facts
+for the same commit.
 The reader does not write to the working tree. The maintainer can delete the cache.
 
 A revision from a person goes to `delta.resolve` first. Then the Git commands get only
@@ -20,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    __version__,
     delta,
     delta_git,
     extraction,
@@ -54,8 +56,13 @@ def cache_scope(cfg: Config, parser: str) -> str:
     """This function gives the cache scope for the extraction settings and the parser.
 
     The language adapter gives the parser version. A change of the parser version gives
-    a different scope, because the parser can change the facts for the same commit."""
-    key = f"{cfg!r}|format={extraction.FORMAT}|tree={delta_git.TREE_READER}|parser={parser}"
+    a different scope, because the parser can change the facts for the same commit. The
+    scope also contains the systemap version, because a different release can extract
+    different facts from the same source (for example issue 136)."""
+    key = (
+        f"{cfg!r}|format={extraction.FORMAT}|tree={delta_git.TREE_READER}|parser={parser}"
+        f"|systemap={__version__}"
+    )
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 

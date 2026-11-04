@@ -22,6 +22,7 @@ from systemap import (
     config,
     extract,
     python_entry,
+    python_syntax,
     python_tree,
     source_facts,
     source_text,
@@ -243,7 +244,7 @@ def test_the_syntax_digest_does_not_change_the_shared_tree(
     source = "def f(x: int) -> int:\n    return x\n\nclass C:\n    pass\n" + SOURCE
     tree = as_on(ast.parse(source))
     before = ast.dump(tree, include_attributes=True)
-    extract._dump_python_syntax(tree)
+    python_syntax.dump(tree)
     assert ast.dump(tree, include_attributes=True) == before
     assert not any("_fields" in vars(node) for node in ast.walk(tree))
 

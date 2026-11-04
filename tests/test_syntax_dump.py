@@ -18,7 +18,7 @@ import hashlib
 
 import pytest
 
-from systemap import extract
+from systemap import python_syntax
 
 SOURCE = 'width = 4\nx = "a"\ny = f"{x:<{width}}"\n'
 # The digest of the dump of SOURCE on each measured interpreter after the change.
@@ -59,7 +59,7 @@ def as_on_3_12_3(tree: ast.AST) -> ast.AST:
 
 
 def digest(tree: ast.AST) -> str:
-    return hashlib.sha256(extract._dump_python_syntax(tree).encode("utf-8")).hexdigest()
+    return hashlib.sha256(python_syntax.dump(tree).encode("utf-8")).hexdigest()
 
 
 @pytest.mark.parametrize("text", list(SHAPES))
@@ -82,5 +82,5 @@ def test_the_dump_has_the_recorded_digest() -> None:
 
 
 def test_a_constant_with_text_stays() -> None:
-    dump = extract._dump_python_syntax(ast.parse('x = 1\na = f"{x:>10} end"\n'))
+    dump = python_syntax.dump(ast.parse('x = 1\na = f"{x:>10} end"\n'))
     assert "Constant(value='>10')" in dump and "Constant(value=' end')" in dump

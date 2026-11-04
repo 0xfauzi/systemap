@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import functools
 import sys
 from collections.abc import Callable, Iterator
 from typing import Any
@@ -122,9 +123,9 @@ def dump(node: ast.AST) -> str:
     The function does not change the node. Other steps read the same tree from
     `python_tree`.
     """
-    # Python 3.12 added empty type_params; 3.13 stopped dumping empty
-    # lists by default. Retain the 3.11 representation for shared syntax,
-    # while retaining nonempty type parameters as meaningful source.
+    # CPython 3.12 adds an empty `type_params` field, and CPython 3.13 does not write empty
+    # lists by default. The dump keeps the 3.11 text. It keeps a `type_params` field that
+    # is not empty, because that field is part of the source.
     empty_fields = {"show_empty": True} if SHOW_EMPTY else {}
     with _hidden_for_dump(node):
         return ast.dump(node, include_attributes=False, **empty_fields)
@@ -161,48 +162,99 @@ def _hidden_for_dump(tree: ast.AST) -> Iterator[None]:
             joined.values = values
 
 
-# CPython 3.12.3 writes this f-string as f'{x['a']}'. CPython 3.11, 3.12.13 and 3.13 select
-# a quote that is not in a replacement field.
-_PROBE = "f\"{x['a']}\""
+class UnparseError(RuntimeError):
+    """The interpreter has no unparser that gives the text of CPython 3.11."""
+
+
+# Each f-string is also its `ast.unparse` text on CPython 3.11. CPython 3.12.3 writes the
+# first f-string as f'{x['a']}': it selects a quote that is in a replacement field.
+# CPython 3.12 and 3.13 write the second f-string as f"{x:\'}": they add a backslash before
+# each quote of a format spec. CPython 3.11 does not add it.
+PROBES = ("f\"{x['a']}\"", 'f"{x:\'}"')
 # The quotes of the CPython unparser, in the order of preference.
 _MULTI_QUOTES = ('"""', "'''")
 _ALL_QUOTES = ("'", '"', *_MULTI_QUOTES)
-_UNPARSERS: dict[Callable[[ast.AST], str], Callable[[ast.AST], str]] = {}
 
 
 def unparse(node: ast.AST) -> str:
     """Give the `ast.unparse` text of CPython 3.11 for a node, on each supported interpreter.
 
-    If `ast.unparse` writes the quotes of an f-string as CPython 3.12.3 does, the function
-    uses the f-string step of CPython 3.12.13. The two versions are different only in
-    that step.
+    If `ast.unparse` gives a different text for one of the `PROBES`, the function uses an
+    unparser that writes each f-string as CPython 3.11 does.
     """
-    current = ast.unparse
-    chosen = _UNPARSERS.get(current)
-    if chosen is None:
-        probe = ast.parse(_PROBE, mode="eval").body
-        chosen = current if current(probe) == _PROBE else _corrected_unparse(current)
-        _UNPARSERS[current] = chosen
-    return chosen(node)
+    return _unparser()(node)
 
 
-def _corrected_unparse(current: Callable[[ast.AST], str]) -> Callable[[ast.AST], str]:
-    """Give an unparse function that selects the quotes of an f-string as CPython 3.11 does.
+@functools.cache
+def _unparser() -> Callable[[ast.AST], str]:
+    return select(ast.unparse)
 
-    The class `ast._Unparser` is not public. If the interpreter has no such class, the
-    function gives `ast.unparse` without a change.
+
+def select(current: Callable[[ast.AST], str]) -> Callable[[ast.AST], str]:
+    """Give `current` if it gives the 3.11 text of each probe, else the corrected unparser.
+
+    If the corrected unparser also gives a different text, the function raises
+    UnparseError, because the stored facts must not silently change with the interpreter.
     """
+    if _agrees(current):
+        return current
+    corrected = _corrected_unparse()
+    if not _agrees(corrected):
+        raise UnparseError(
+            "systemap cannot give the CPython 3.11 text of an f-string on Python "
+            f"{sys.version.split()[0]}. Use Python 3.11, 3.12 or 3.13."
+        )
+    return corrected
+
+
+def _agrees(unparser: Callable[[ast.AST], str]) -> bool:
+    try:
+        return all(unparser(ast.parse(probe, mode="eval").body) == probe for probe in PROBES)
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
+def _corrected_unparse() -> Callable[[ast.AST], str]:
+    """Give an unparse function that writes an f-string as CPython 3.11 does.
+
+    The class `ast._Unparser` is not public. Thus `select` uses this function only if it
+    gives the 3.11 text of each probe.
+    """
+    # CPython 3.14 sets `ast._Unparser` only after the first call of `ast.unparse`.
+    ast.unparse(ast.Constant(value=0))
     base: Any = getattr(ast, "_Unparser", None)
     if base is None:
-        return current
+        return ast.unparse
     if sys.version_info < (3, 12):
-        # The unparser of CPython 3.11 is the reference.
+        # The unparser of CPython 3.11 is the reference. Only the tests use this step.
         return lambda node: str(base().visit(node))
 
     class Unparser(base):  # type: ignore[misc]
         visit_JoinedStr = _visit_joined_str
 
+        def _write_fstring_inner(self, node: ast.AST, is_format_spec: bool = False) -> None:
+            if is_format_spec and isinstance(node, ast.Constant) and isinstance(node.value, str):
+                self.write(_format_spec_text(node.value))
+            else:
+                super()._write_fstring_inner(node, is_format_spec=is_format_spec)
+
     return lambda node: str(Unparser().visit(node))
+
+
+def _format_spec_text(value: str) -> str:
+    """Give the text of a format spec as CPython 3.11 writes it.
+
+    CPython 3.11 writes an escape sequence for a backslash and for each character that is
+    not printable, other than a newline and a tab. It writes a quote with no change.
+    """
+    text = value.replace("{", "{{").replace("}", "}}")
+    return "".join(_escaped(char) for char in text)
+
+
+def _escaped(char: str) -> str:
+    if char == "\\" or not (char.isprintable() or char in "\n\t"):
+        return char.encode("unicode_escape").decode("ascii")
+    return char
 
 
 def _visit_joined_str(self: Any, node: ast.JoinedStr) -> None:

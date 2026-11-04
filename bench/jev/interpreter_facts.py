@@ -42,6 +42,7 @@ from __future__ import annotations
 import ast
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -111,10 +112,12 @@ def _differences(name: str, a: dict[str, Any], b: dict[str, Any]) -> list[tuple[
         va, vb = _values(a, field), _values(b, field)
         if va == vb:
             continue
-        pairs = [(x, y) for x, y in zip(va, vb, strict=False) if x != y]
-        x, y = pairs[0] if pairs else ("", "")
+        # A multiset difference: one added or removed value does not move the others.
+        only_a, only_b = Counter(va) - Counter(vb), Counter(vb) - Counter(va)
+        x, y = next(iter(only_a), ""), next(iter(only_b), "")
         example = f"{name} {field}:\n  {x[:160]}\n  {y[:160]}"
-        out.append((field, len(pairs) + abs(len(va) - len(vb)), example))
+        changed = max(sum(only_a.values()), sum(only_b.values()))
+        out.append((field, changed, example))
     return out
 
 

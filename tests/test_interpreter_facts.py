@@ -6,7 +6,8 @@ Two facts used the interpreter text directly:
   default, for example `args=[]`.
 - A `constants` preview used `ast.unparse`. CPython 3.12.3 writes the quotes of an
   f-string differently when a replacement field contains a quote. CPython 3.11, 3.12.13
-  and 3.13 select a different quote.
+  and 3.13 select a different quote. CPython 3.12 and 3.13 also add a backslash before a
+  quote or a newline of a format spec, and CPython 3.11 does not.
 
 The CI matrix has 3.11 and 3.13 and no 3.12.3. Thus each test of an interpreter puts a
 model of that interpreter in place of `ast.dump` or `ast.unparse`, and the tests give the
@@ -75,6 +76,21 @@ PREVIEWS = {
     ),
     "f'plain {x}'": ("f'plain {x}'", "f'plain {x}'"),
 }
+# For each f-string with a quote or a newline in a format spec: the `ast.unparse` text on
+# CPython 3.11.15, on CPython 3.12.3, and on CPython 3.12.13 and 3.13.14. CPython 3.12 and
+# 3.13 add a backslash before the quote or the newline.
+FORMAT_SPECS = {
+    'f"{x:\'}"': ('f"{x:\'}"', "f'{x:\\'}'", 'f"{x:\\\'}"'),
+    'f"{x[\'a\']:\\"}"': (
+        'f"""{x[\'a\']:"}"""',
+        "f'{x['a']:\\\"}'",
+        'f"""{x[\'a\']:\\"}"""',
+    ),
+    'f"""{x:\n}"""': ('f"""{x:\n}"""', "f'{x:\\n}'", "f'{x:\\n}'"),
+}
+PREVIEWS.update(
+    {text: (earlier, on_3_12_3) for text, (earlier, on_3_12_3, _) in FORMAT_SPECS.items()}
+)
 
 REAL_DUMP = ast.dump
 REAL_UNPARSE = ast.unparse
@@ -107,7 +123,9 @@ def dump_as_on_3_13(node: ast.AST, *args: Any, show_empty: bool = False, **kwarg
 def unparse_as_on_3_12_3(node: ast.AST) -> str:
     """A model of `ast.unparse` of CPython 3.12.3 for the recorded f-strings."""
     text = REAL_UNPARSE(node)
-    return {earlier: later for earlier, later in PREVIEWS.values()}.get(text, text)
+    later = {earlier: on_3_12_3 for earlier, on_3_12_3 in PREVIEWS.values()}
+    later.update({newer: on_3_12_3 for _, on_3_12_3, newer in FORMAT_SPECS.values()})
+    return later.get(text, text)
 
 
 def test_the_fingerprints_have_the_3_11_text() -> None:
@@ -137,7 +155,9 @@ def test_the_preview_has_the_3_11_text(text: str) -> None:
 def test_the_unparse_of_3_12_3_gives_the_3_11_preview(
     monkeypatch: pytest.MonkeyPatch, text: str
 ) -> None:
-    monkeypatch.setattr(ast, "unparse", unparse_as_on_3_12_3)
+    monkeypatch.setattr(
+        python_syntax, "_unparser", lambda: python_syntax.select(unparse_as_on_3_12_3)
+    )
     assert unparse_as_on_3_12_3(ast.parse(text, mode="eval").body) == PREVIEWS[text][1]
     surface = extract.parse_surface(f"VALUE = {text}\n")
     assert surface is not None
@@ -153,7 +173,7 @@ def _with_all_quotes() -> ast.Expression:
 
 @pytest.mark.parametrize("text", list(PREVIEWS))
 def test_the_corrected_unparse_gives_the_3_11_text(text: str) -> None:
-    corrected = python_syntax._corrected_unparse(REAL_UNPARSE)
+    corrected = python_syntax._corrected_unparse()
     assert corrected(ast.parse(text, mode="eval").body) == PREVIEWS[text][0]
 
 
@@ -171,5 +191,14 @@ SAME_SHAPES: list[Callable[[], ast.AST]] = [
 def test_the_corrected_unparse_agrees_with_the_unparse_of_this_interpreter(
     make: Callable[[], ast.AST],
 ) -> None:
-    corrected = python_syntax._corrected_unparse(REAL_UNPARSE)
+    corrected = python_syntax._corrected_unparse()
     assert corrected(make()) == REAL_UNPARSE(make())
+
+
+def test_an_unparser_without_the_3_11_text_stops_the_extraction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If no unparser gives the 3.11 text, the function stops and gives no stored text."""
+    monkeypatch.setattr(python_syntax, "_corrected_unparse", lambda: unparse_as_on_3_12_3)
+    with pytest.raises(python_syntax.UnparseError, match="cannot give the CPython 3.11 text"):
+        python_syntax.select(unparse_as_on_3_12_3)

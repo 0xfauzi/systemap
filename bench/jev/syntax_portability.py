@@ -8,7 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from systemap.extract import _dump_python_syntax
+from systemap.python_syntax import dump as _dump_python_syntax
 
 root = Path.cwd()
 

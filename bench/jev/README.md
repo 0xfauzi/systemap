@@ -820,12 +820,39 @@ Results:
 | 3.12.13 | 0 | 0 |
 | 3.13.14 | 193 `api` fingerprints in 81 modules | 705 in 228 of 613 files |
 
-The facts cache in `.systemap/facts` uses `TREE_READER` in its scope, but not the systemap version. A cache that 3.0.0 wrote on 3.13 has the earlier fingerprints. Thus `TREE_READER` is now 3.
+The facts cache in `.systemap/facts` uses `TREE_READER` in its scope, but not the systemap version. A cache that 3.0.0 wrote on 3.13 has the earlier fingerprints. Thus the first change set `TREE_READER` to 3. The review replaced this step: the scope now contains the systemap version, and `TREE_READER` stays 2.
 
 `tests/test_interpreter_facts.py` puts a model of 3.13 `ast.dump` and a model of 3.12.3 `ast.unparse` in place of the real functions. Thus the tests give the same result on each interpreter in CI.
 The models use the texts that were recorded on 3.11.15, 3.12.3 and 3.13.14. The tests passed with `uv run --isolated` on the four interpreters.
 With the `src/` of main, 14 tests of the file fail on 3.11.15 and 15 tests fail on 3.13.14. The test of each cause fails on the two versions.
 The time of the extraction is not measured. 3.14 is not measured.
+
+#### The review run (2026-11-04)
+
+The review found a third difference. CPython 3.12 and 3.13 (also 3.12.13) add a backslash before a quote or a newline of a format spec. CPython 3.11 does not. Shapes that were parsed with `ast.unparse` on each interpreter:
+
+| F-string | 3.11.15 | 3.12.3 | 3.12.13 and 3.13.14 |
+|---|---|---|---|
+| `f"{x:'}"` | `f"{x:'}"` | `f'{x:\'}'` | `f"{x:\'}"` |
+| `f"{x['a']:\"}"` | `f"""{x['a']:"}"""` | `f'{x['a']:\"}'` | `f"""{x['a']:\"}"""` |
+| `f"""{x:` newline `}"""` | `f"""{x:` newline `}"""` | `f'{x:\n}'` | `f'{x:\n}'` |
+
+The change: `python_syntax.unparse` now makes a test with two probes, `f"{x['a']}"` and `f"{x:'}"`. If `ast.unparse` gives a different text for a probe, the function uses an unparser with the `visit_JoinedStr` step of 3.12.13 and the format spec text of 3.11. Thus 3.12.13 and 3.13 also use this unparser. If this unparser also gives a different text for a probe, the function stops with `UnparseError`. It does not silently store a different text.
+With the 9 shapes of the review, `python_syntax.unparse` gives the same text on 3.11.15, 3.12.3, 3.12.13 and 3.13.14.
+`compare` now counts the changed values as a multiset difference, not by position.
+
+The same method and the same acceptance values as the first run. The main copy is 231993f. The standard library list has 613 files. Results:
+
+| Comparison | Modules of the copy that differ | Standard library files that differ |
+|---|---|---|
+| main 3.11.15 against the change on 3.11.15 | 0 | 0 |
+| main 3.11.15 against the change on 3.12.3 | 0 | 0 |
+| main 3.11.15 against the change on 3.12.13 | 0 | 0 |
+| main 3.11.15 against the change on 3.13.14 | 0 | 0 of 610 |
+
+- Acceptance 1, 2 and 3 pass again.
+- The values that change for a user on each interpreter, main against the change on the same interpreter, are the same as in the first run: 0 on 3.11.15, 2 previews of the copy and 1 standard library value on 3.12.3, 0 on 3.12.13, and 193 `api` fingerprints in 81 modules of the copy and 705 values in 228 standard library files on 3.13.14. The multiset count gives the same totals as the positional count.
+- The format spec change changes 0 values of the copy and 0 values of the standard library on each interpreter. Thus no stored value of the two sets has a quote or a newline in a format spec.
 
 
 ## Flow selection measurements

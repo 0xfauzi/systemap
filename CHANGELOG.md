@@ -11,12 +11,15 @@ A layer is a filtered view of the map.
 
 ### Changes that can break a script or a CI job
 
-- The stored facts in `map.json` are now the same on each supported Python interpreter (issue 136).
+- For a Python file that each supported interpreter parses, the stored facts in `map.json` are now the same on each interpreter (issue 136).
   On Python 3.11, no stored value changes, and the facts format stays 13.
-  If a map was extracted on Python 3.13, `systemap extract --check` gives a stale result one time.
-  In this repository, 193 of 3,821 `api` fingerprints in 81 modules change on 3.13.
-  On a 3.12 version that writes f-string quotes as CPython 3.12.3 does, a `constants` preview of an f-string can change.
-  The preview changes if a replacement field of the f-string contains a quote. In this repository, 2 previews change on 3.12.3.
+  On Python 3.12 and 3.13, some stored values change one time. Then `systemap extract --check` gives a stale result one time:
+  - On 3.13, an `api` fingerprint changes. In this repository, 193 of 3,821 `api` fingerprints in 81 modules change.
+  - On 3.12 and 3.13, the `api` fingerprint of a `type` statement changes. It does not have the empty `type_params` field now.
+  - On 3.12.3, an `api` fingerprint of an f-string with a format spec that ends with a replacement field changes. It does not have `Constant(value='')` now.
+  - On 3.12.3, a `constants` preview or a signature with an f-string changes if a replacement field of the f-string contains a quote. In this repository, 2 previews change.
+  - On 3.12 and 3.13, a `constants` preview or a signature with an f-string changes if a format spec contains a quote or a newline. In this repository, 0 values change.
+  A file that parses on one interpreter and not on a different interpreter still gives different facts. Its unknown record also contains the version of the interpreter.
 
   Step: if you extract on Python 3.12 or 3.13, run `systemap refresh` one time after the upgrade and commit the output.
 
@@ -25,11 +28,12 @@ A layer is a filtered view of the map.
 - An `api` fingerprint used `ast.dump` without `show_empty`. Python 3.13 does not write empty lists by default, so the fingerprint was different from 3.11.
   Each stored syntax dump now uses one function, `python_syntax.dump`. The source-review digest also uses this function.
   The function gives the 3.11 text on each interpreter.
-- A `constants` preview used `ast.unparse`. CPython 3.12.3 selects the quote of an f-string without a check of the replacement fields, so the preview was different from 3.11.
+- A `constants` preview used `ast.unparse`. CPython 3.12.3 selects the quote of an f-string without a check of the replacement fields. CPython 3.12 and 3.13 add a backslash before a quote or a newline of a format spec. Thus the preview was different from 3.11.
   Each stored text from the syntax tree now uses `python_syntax.unparse`.
-  If `ast.unparse` writes the quotes as 3.12.3 does, this function uses the f-string step of CPython 3.12.13.
-- The facts cache in `.systemap/facts` has a new scope (`TREE_READER` 3).
-  Thus `delta` does not compare new facts with facts that systemap 3.0.0 kept on Python 3.12 or 3.13.
+  If `ast.unparse` gives a different text from 3.11 for an f-string, this function uses an unparser that writes the f-string as 3.11 does.
+  If that unparser also gives a different text, the extraction stops with an error. It does not store a different text.
+- The scope of the facts cache in `.systemap/facts` now contains the systemap version.
+  Thus `delta` does not compare new facts with facts that an earlier systemap release kept.
 
 ## 3.0.0 - 2026-11-03
 
