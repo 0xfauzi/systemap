@@ -52,6 +52,8 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (figure.FigureError, "", STALE),
     # The message of a refused cache or output file gives the path, the cause, and the fix.
     (file_write.RefusedFile, "", STALE),
+    # The message of a held lock gives the path, the holder, and the fix.
+    (file_write.HeldLock, "", STALE),
     (place.PlaceError, "", STALE),
     (review.ReviewError, "", STALE),
     (decisions_submit.DecisionError, "", STALE),

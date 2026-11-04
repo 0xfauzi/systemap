@@ -637,6 +637,9 @@ Commands use all maps in the map tree:
 
 - `suggest` shows maps above forty components.
   It lists the components with the most modules as possible nested maps.
+  For each component, it gives the `map=` value: the map id in lower case, with `_` in place of each `/`, and `.py`.
+  For example, the map `Gateway/Routes` has the file `map/gateway_routes.py` and the value `map="gateway_routes.py"`.
+  All model files are in the folder of the top model file.
 
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
@@ -848,6 +851,18 @@ These files are the Jev, OpenAI, and agent caches, the facts cache in `.systemap
 The file has the line `*`. Thus `git add -A` does not add these files to the repository.
 The command does not change an existing `.systemap/.gitignore` file, also if it is a link or a folder.
 It does not change the `.gitignore` file in the repository root.
+
+Only one command at a time can write the shared files.
+`extract`, `refresh`, `render`, and `decisions submit` make the lock file `.systemap/write.lock`.
+The lock file contains the process ID, the command, and the time.
+If a different command holds the lock, the command stops with exit code `1`.
+It does not wait, and it writes no file that the lock controls.
+Each write of a model file also makes the lock file `<model file>.lock`, for example `map/gateway.py.lock`.
+Thus two commands can write two different model files at the same time.
+A command removes its lock file when it stops, also after an error.
+If a process stops before it can remove its lock file, the file stays.
+Then the error gives the path and the holder.
+If no systemap command operates, remove the lock file. Then use the command again.
 
 ### `systemap init [--no-ci | --strict-ci]`
 

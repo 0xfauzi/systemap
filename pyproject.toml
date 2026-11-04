@@ -97,8 +97,9 @@ paths = ['src']
 [tool.codespell]
 # raed, recrod and nam are DELIBERATE misspellings in tests that assert the
 # closest-match suggestion ("closest: read", "unknown key: nam"). Correcting
-# them would break the tests. nd is a Dijkstra variable in route.py.
-ignore-words-list = "nam,nd,raed,recrod"
+# them would break the tests. nd is a Dijkstra variable in route.py. Misue is the
+# family name of an author that docs/design/nested-parts.md cites.
+ignore-words-list = "misue,nam,nd,raed,recrod"
 # bench/jev/results holds captured commit subjects and model answers: another
 # project's typo in a commit message is evidence, not something to correct.
 # src/systemap/page_font.py holds a font as base64 text, which can contain word-like parts.

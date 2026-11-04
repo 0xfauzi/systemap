@@ -10,6 +10,9 @@ not, the writer adds one inline table for each answer:
 
 The writer writes the file only if the TOML parser gives the previous data with only these
 changes. If not, it writes nothing and tells the person to add the answers.
+
+Each write holds `.systemap/write.lock` from the read to the write
+(`file_write.exclusive`). Thus a different command cannot write the file between them.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from systemap import file_write
 from systemap.config import CONFIG_FILE, ConfigError
 
 
@@ -214,6 +218,11 @@ def add(root: Path, source: str, entries: list[dict[str, Any]]) -> Path:
         raise AnswerWriteError(
             f"The project has no {CONFIG_FILE}. Use systemap init. Then submit the results again."
         )
+    with file_write.exclusive(root):
+        return _add(root, source, entries)
+
+
+def _add(root: Path, source: str, entries: list[dict[str, Any]]) -> Path:
     target = path(root, source)
     raw = target.read_bytes()
     text = raw.decode("utf-8-sig")
@@ -256,6 +265,11 @@ def renew_evidence(root: Path, source: str, digests: dict[str, str]) -> Path:
     The writer changes only the text of these values in the inline tables of the answers
     list. It writes the file only if the TOML parser gives the previous data with only
     these changes."""
+    with file_write.exclusive(root):
+        return _renew(root, source, digests)
+
+
+def _renew(root: Path, source: str, digests: dict[str, str]) -> Path:
     target = path(root, source)
     raw = target.read_bytes()
     text = raw.decode("utf-8-sig")

@@ -49,9 +49,9 @@ def test_suggest_says_when_a_map_is_past_forty_cards_and_which_cards_to_open() -
     model, meaning, facts = _model({f"C{i}": (12 if i < 2 else 1) for i in range(41)})
     lines = suggest.nesting_lines(_tree(model, meaning), facts)  # type: ignore[arg-type]
     assert lines[0] == (
-        'nesting: the top map has 41 components, more than 40. A nested map can reduce the component count. Open a map in a component with many modules. Set map="map/<card>.py" in that component. Use the same module set in the nested map:'
+        "nesting: the top map has 41 components, more than 40. A nested map can reduce the component count. Open a map in a component with many modules. In that component, set map to the file name in the list. Use the same module set in the nested map:"
     )
-    assert lines[1:] == ["  C0: 12 modules", "  C1: 12 modules"]
+    assert lines[1:] == ['  C0: 12 modules, map="c0.py"', '  C1: 12 modules, map="c1.py"']
     # Under forty with no wide card: nothing to open; a wide card alone is named.
     model, meaning, facts = _model({"A": 3, "B": 4})
     assert suggest.nesting_lines(_tree(model, meaning), facts) == [  # type: ignore[arg-type]

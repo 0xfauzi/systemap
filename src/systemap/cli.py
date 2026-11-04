@@ -1381,7 +1381,25 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    file_write.command = f"systemap {args.command}"
+    if args.func in LOCKED:
+        return failures.run(_locked, args)
     return failures.run(args.func, args)
+
+
+def _locked(args: argparse.Namespace) -> int:
+    """Run a command that writes shared files while it holds `.systemap/write.lock`.
+
+    A check run writes nothing, so it does not take the lock. The configuration must load
+    first, so that a failure makes no lock file."""
+    if getattr(args, "check", False):
+        return int(args.func(args))
+    with file_write.exclusive(config.load(_root(args)).root):
+        return int(args.func(args))
+
+
+# These commands write the facts, the pages, the configuration, or the decision store.
+LOCKED = (cmd_extract, cmd_refresh, cmd_render)
 
 
 if __name__ == "__main__":

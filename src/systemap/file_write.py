@@ -32,6 +32,15 @@ operates. A different process that tries to get the same lock waits. The operati
 system releases the lock when the process stops, also after a failure. A lock file that
 is a link, a FIFO, or a device gives `RefusedFile`.
 
+`exclusive` permits only one command at a time to write the shared files of the
+repository. It makes `.systemap/write.lock` with O_EXCL. The file holds the process ID,
+the command, and the time. A different process that tries to get the lock does not wait.
+It gets `HeldLock`, with the path and the holder. In one process, an inner `exclusive` for
+the same lock continues and does not stop the command. `exclusive_file` does the same for
+the lock `<path>.lock` of one file, for example a model file. The `with` statement removes
+the lock when it stops, also after a failure. A stopped process cannot remove its lock.
+Thus a later command gets `HeldLock`, and only a person removes that lock file.
+
 `ignore_caches` makes the file `.systemap/.gitignore` with the line `*` if the folder has
 no entry with that name. Then Git does not add the caches in that folder after
 `git add -A`. The function does not change an existing entry.
@@ -44,9 +53,11 @@ import os
 import secrets
 import stat
 import sys
+import threading
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager, suppress
+from collections.abc import Iterable, Iterator
+from contextlib import ExitStack, contextmanager, suppress
+from datetime import UTC, datetime
 from pathlib import Path
 
 from systemap import repo_files
@@ -79,6 +90,9 @@ IGNORE_ALL = "*\n"
 # These values are a limit. They are not a measurement. A measurement on Windows CI is
 # necessary to know if the limit is sufficient.
 RETRY_REPLACE = os.name == "nt"
+WRITE_LOCK = f"{CACHE_FOLDER}/write.lock"
+# The command that operates in this process. `cli.main` sets it. A lock file records it.
+command = "systemap"
 REPLACE_WAITS = (0.05, 0.1, 0.2, 0.4)
 
 
@@ -89,6 +103,18 @@ class RefusedFile(Exception):
         super().__init__(
             f"{path}: the command does not use this file, because {cause}. "
             "Remove the file or the link. Then run the command again."
+        )
+
+
+class HeldLock(Exception):
+    """A different command holds the lock. This command does not wait for it."""
+
+    def __init__(self, lock: Path, holder: str) -> None:
+        super().__init__(
+            f"{lock}: a different command holds this lock ({holder}). This command stopped "
+            "before it changed a file that the lock controls. If no systemap command "
+            f"operates now, a stopped command left the lock. Then remove {lock} and run the "
+            "command again."
         )
 
 
@@ -361,3 +387,99 @@ else:
 
     def _unlock(fd: int) -> None:
         fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+# The depth of each lock that this process holds, by the absolute path of the lock file.
+_DEPTH: dict[str, int] = {}
+_GUARD = threading.Lock()
+
+
+@contextmanager
+def exclusive(root: Path, holder: str = "") -> Iterator[None]:
+    """Hold `.systemap/write.lock` in the root while the `with` statement operates.
+
+    A different process that holds the lock gives HeldLock. In this process, an inner
+    `exclusive` continues. The folder of the lock file must be in the root."""
+    lock = root / WRITE_LOCK
+    folder(root, lock)
+    ignore_caches(root, lock)
+    with _parent(root, lock) as parent, _held(lock, parent, holder):
+        yield
+
+
+@contextmanager
+def exclusive_file(path: Path, holder: str = "") -> Iterator[None]:
+    """Hold the lock `<path>.lock` of one file while the `with` statement operates."""
+    with _held(path.with_name(f"{path.name}.lock"), None, holder):
+        yield
+
+
+@contextmanager
+def exclusive_files(paths: Iterable[Path], holder: str = "") -> Iterator[None]:
+    """Hold the lock of each file. The locks are taken in the sequence of the paths."""
+    with ExitStack() as stack:
+        for path in sorted(set(paths)):
+            stack.enter_context(exclusive_file(path, holder))
+        yield
+
+
+@contextmanager
+def _held(lock: Path, parent: int | None, holder: str) -> Iterator[None]:
+    """Make the lock file, or continue if this process holds it. Remove it at the end."""
+    key = os.path.abspath(lock)
+    with _GUARD:
+        depth = _DEPTH.get(key, 0)
+        _DEPTH[key] = depth + 1
+    try:
+        text = "" if depth else _take(lock, parent, holder)
+    except BaseException:
+        _leave(key)
+        raise
+    try:
+        yield
+    finally:
+        if _leave(key):
+            _give_back(lock, parent, text)
+
+
+def _leave(key: str) -> bool:
+    """Give True if the process no longer holds the lock."""
+    with _GUARD:
+        _DEPTH[key] -= 1
+        if _DEPTH[key]:
+            return False
+        del _DEPTH[key]
+        return True
+
+
+def _take(lock: Path, parent: int | None, holder: str) -> str:
+    """Make the lock file with O_EXCL. Give its text. A lock that exists gives HeldLock."""
+    name = _name(lock, parent)
+    started = datetime.now(UTC).isoformat(timespec="seconds")
+    text = f"process {os.getpid()}, command {holder or command}, started {started}"
+    try:
+        handle = os.open(name, _TEMPORARY_FLAGS, 0o666, dir_fd=parent)
+    except FileExistsError:
+        raise HeldLock(lock, _holder(name, parent)) from None
+    with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as out:
+        out.write(text + "\n")
+    return text
+
+
+def _holder(name: str, parent: int | None) -> str:
+    """Give the text of a lock file that a different command made, or a short notice."""
+    try:
+        handle = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent)
+        with os.fdopen(handle, encoding="utf-8", errors="replace") as source:
+            text = source.read(400).strip()
+    except OSError:
+        text = ""
+    return text or "the holder is not known"
+
+
+def _give_back(lock: Path, parent: int | None, text: str) -> None:
+    """Remove the lock file if it still holds the text of this process."""
+    name = _name(lock, parent)
+    if _holder(name, parent) == text:
+        with suppress(FileNotFoundError):
+            os.unlink(name, dir_fd=parent)

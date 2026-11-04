@@ -3741,3 +3741,34 @@ uv run python bench/typescript_descriptions.py /path/to/ky /path/to/vite
 For declaration imports, TypeScript 5.9.3 `resolveModuleName` with `moduleResolution: bundler` confirmed all nine parameterized import cases in `tests/test_typescript_declarations.py`.
 The cases include `./types.d`, JavaScript extension substitution, directory indexes, and a path alias.
 Regression tests also cover source priority, declaration priority before a directory index, and alias fallback order.
+
+## M6: two writers at the same time (2026-11-04)
+
+Scope: step 1 of [the nested parts design](../../docs/design/nested-parts.md).
+The script is [`lock_race.py`](lock_race.py). Its docstring has the acceptance values, which were written before the run.
+Each run uses a new copy of the nested fixture of `tests/test_nested.py`, after `place` and `extract`.
+The two processes of a run start at the same time. The host has 4 cores.
+
+Acceptance, written before the run:
+
+- Part A: 100 runs of two `decisions submit` processes, with one `supported` verdict for a judgement line of the map Gateway and one for a line of the map Style. 0 lost answer rows and 0 lost store records. Each process that does not exit 0 gives the lock error.
+- Part B: 100 runs of two writers of different nested model files. 100 percent of the runs exit 0 in the two processes, and each file has its new digest.
+- Part C: two writers of the same model file. This part is for information only. It has no acceptance value.
+
+Difference from the design: `place --map` is not available before step 2 of the design. Thus parts B and C use `review CARD --map MAP`, which writes only the model file of that map.
+
+Command: `uv run python bench/jev/lock_race.py 100`
+
+| Part | Runs | Result |
+|---|---|---|
+| A | 100 | 82 processes stopped with the lock error. 0 stopped with a different error. 0 lost answer rows. 0 lost store records. |
+| B | 100 | 100 runs with exit 0 in the two processes. 0 lock errors. 0 lost digests. |
+| C | 100 | 33 runs with exit 0 in the two processes. 67 runs with a lock error. 0 lost digests. |
+
+Results:
+
+- Part A passes. In 82 runs the two processes operated at the same time, and the second process stopped. In the other 18 runs, the two processes did not operate at the same time, and the two submits recorded their verdicts.
+- Part B passes.
+- Part C: a trial run with 3 runs, before the run above, gave 2 lost digests. At that time, `review` held the model lock only during the write, not from the read to the write. The second writer then wrote a text that did not have the digest of the first writer. After that result, `review` holds the lock of each model file of the map from the read to the write, and the trial with 5 runs and the run above gave 0 lost digests.
+- A trial run with 5 runs of all three parts, before the run above, gave 5 lock errors in part A, 5 runs with exit 0 in part B, and 4 lock errors in part C, with 0 lost rows, records, and digests.
+- Not measured: the time of a submit with the lock. A lock that a stopped process left was tested in `tests/test_lock.py`, not in this script.
