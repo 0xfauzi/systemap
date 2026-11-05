@@ -15,7 +15,8 @@ the cells that the screen covers.
 
 Colors. The script reads the theme tokens of the page one time, and again only when the
 theme changes. Text. The script measures each word one time for each font and keeps the
-wrapped lines of each card for each font size.
+wrapped lines of each card for each count of columns. The width of a text grows with the
+font size, so the lines in a count of columns do not change with the size.
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ var PREVIEW0 = 80, PREVIEW1 = 150;
 var MARK_H = 22;
 // No text below this size, in CSS pixels.
 var MIN_TEXT = 7;
+// While the camera moves, a card with a name below this size shows only its name.
+var MOVE_TEXT = 10;
 // A map with this count of cards or more can use one image for its marks.
 var BIG = 100;
 // The full resolution comes back this time after the camera stops.
@@ -159,9 +162,10 @@ function readColors() {
 // ---- text -------------------------------------------------------------------
 // The width of each word at 1 px, for each font. The width of a text grows with the
 // font size, so one measure serves each size.
-var WORDS = new Map();
-// The fonts or the theme changed: the measured widths are not correct.
-function textChanged() { WORDS.clear(); P_WIDEST = 0; }
+var WORDS = new Map(), TEXTS = 0;
+// The fonts or the theme changed: the measured widths are not correct. TEXTS is in the
+// key of each image that has text (page_canvas_draw), so such an image is made again.
+function textChanged() { WORDS.clear(); P_WIDEST = 0; TEXTS++; }
 function font(weight, size, mono) { return weight + ' ' + size + 'px ' + (mono ? FONT_MONO : FONT_UI); }
 function unitWidth(word, weight, mono) {
   var key = weight + (mono ? 'm' : 's') + word, w = WORDS.get(key);
@@ -179,9 +183,10 @@ function fit(text, size, width, weight, mono) {
   return lo ? text.slice(0, lo) + '...' : '';
 }
 // The lines of a text at a font size, in a width, with a maximum count of lines. A card
-// keeps the result for each text, size, width and count.
+// keeps the result for each text, count of columns and count of lines. A column is half
+// of the font size, so the lines in a count of columns are the same at each size.
 function wrap(c, name, text, size, width, lines, weight) {
-  var cols = Math.floor(width / size * 2), key = name + '|' + size + '|' + cols + '|' + lines;
+  var cols = Math.floor(width / size * 2), key = name + '|' + cols + '|' + lines;
   c._wrap = c._wrap || new Map();
   if (c._wrap.has(key)) return c._wrap.get(key);
   width = cols * size / 2;

@@ -6,8 +6,7 @@ follows the rules of the section "Performance" of docs/design/nested-canvas.md:
 - It paints with the 2D API of a `<canvas>` element. It makes no SVG element.
 - It draws only the cards and the flows that the box index of a map gives for the screen.
 - It puts the boxes of one style in one path (`Batch`), and it draws no text below 7 px.
-- When the cards of a large map are marks only, it draws the map into an image one time
-  for each zoom step, and it uses that image in each frame (`marksImage`).
+- It draws a large map from images of that map (`page_canvas_image`).
 
 Level of detail. The screen size of a card selects what the card shows: a mark in its
 layer color, then the name, then the card text, the description and the fact row, and
@@ -21,8 +20,10 @@ not on the screen. Each neighbour has one portal. For each direction, the deepes
 that has a port to the neighbour gives the boundary flow, and the flow is drawn one time,
 from the portal. That line has right angles. It goes from the actor card of the nested
 flow (`fp` of the port in the canvas data) to the port on the frame of the open card,
-around the frame, and to the portal. It crosses no card, no text and no portal, and it
-stays on the screen. When no such line is possible, the portal has no line.
+around the frame, and to the portal. It crosses no card and no text, and it stays on the
+screen. It crosses no portal that has a `show` of HARD or more. A portal with a smaller
+`show` only makes the line fade. When no such line is possible, the portal has no line.
+The line fades in and out with the camera (`page_canvas_fade`).
 
 A portal is in a band at the screen edge, and the camera fit keeps the cards of a map out
 of these bands. On a narrow screen, a portal is at the top or the bottom only. Portals on
@@ -116,13 +117,13 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
   var fs = q(clamp(10.5 * a, 0, 13));
   if (!labels || fs < MIN_TEXT) return;
   NOTE = g === ctx;
-  m.boxes.forEach(function (b) {
-    text(b.n, ox + a * (b.b[0] + 13), oy + a * (b.b[1] + 19), fs, C['--ink-3'], alpha, 600);
-  });
-  m.regions.forEach(function (b, i) {
-    text((i + 1) + '  ' + b.n, ox + a * (b.b[0] + 13), oy + a * (b.b[1] + 20), fs, C['--ink-2'], alpha, 600);
-  });
+  boxNames(m, a, ox, oy, function (s, x, y, color) { text(s, x, y, fs, color, alpha, 600); });
   NOTE = false;
+}
+// The name of each container and region, at its screen point.
+function boxNames(m, a, ox, oy, each) {
+  m.boxes.forEach(function (b) { each(b.n, ox + a * (b.b[0] + 13), oy + a * (b.b[1] + 19), C['--ink-3']); });
+  m.regions.forEach(function (b, i) { each((i + 1) + '  ' + b.n, ox + a * (b.b[0] + 13), oy + a * (b.b[1] + 20), C['--ink-2']); });
 }
 function drawFlows(g, list, a, ox, oy, alpha, arrows) {
   if (alpha <= 0.02 || !list.length) return;
@@ -154,10 +155,8 @@ function drawLabels(list, a, ox, oy, alpha) {
   if (fs < 8 || alpha <= 0.05) return;
   // The plate fits the text. The text stops at 13 px, so a plate of the label box would
   // grow past the text and cover the routes.
-  var bg = new Batch(true), ph = fs * 1.5;
-  list.forEach(function (f) {
-    if (!f.lb) return;
-    var pw = unitWidth(f.a, 500) * fs + 6, px = ox + a * (f.lb[0] + f.lb[2] / 2) - pw / 2, py = oy + a * (f.lb[1] + f.lb[3] / 2) - ph / 2;
+  var bg = new Batch(true);
+  plates(list, a, ox, oy, fs, function (px, py, pw, ph) {
     bg.rect(C['--map'], alpha * 0.9, px, py, pw, ph, 3);
     obstacle(px, py, pw, ph);
   });
@@ -168,25 +167,14 @@ function drawLabels(list, a, ox, oy, alpha) {
   });
 }
 
-// ---- the image of the marks of a large map -------------------------------------------
-// One image for each half step of zoom (a factor of 1.41). A pan uses the same image.
-function marksImage(m, a) {
-  var z = Math.round(Math.log2(a) * 2) / 2, s = Math.pow(2, z) * (window.devicePixelRatio || 1), key = EPOCH + '|' + z;
-  if (m.img && m.img.key === key) return m.img;
-  var w = Math.ceil(m.size[0] * s), h = Math.ceil(m.size[1] * s);
-  if (w < 1 || h < 1 || w > 4096 || h > 4096) return null;
-  var c = m.img ? m.img.canvas : document.createElement('canvas'), g;
-  c.width = w; c.height = h; g = c.getContext('2d');
-  g.fillStyle = C['--map']; g.fillRect(0, 0, w, h);
-  drawBoxes(g, m, s, 0, 0, 1, false);
-  drawFlows(g, m.flows, s, 0, 0, 0.7, false);
-  var marks = new Batch(true);
-  m.cards.forEach(function (card) {
-    marks.rect(colors(card).mark, 1, s * card.b[0], s * card.b[1], s * card.b[2], s * card.b[3], 0);
+// The screen box of the plate of each flow label with a font size of `fs`.
+function plates(list, a, ox, oy, fs, each) {
+  var ph = fs * 1.5;
+  list.forEach(function (f) {
+    if (!f.lb) return;
+    var pw = unitWidth(f.a, 500) * fs + 6;
+    each(ox + a * (f.lb[0] + f.lb[2] / 2) - pw / 2, oy + a * (f.lb[1] + f.lb[3] / 2) - ph / 2, pw, ph);
   });
-  marks.flush(g);
-  m.img = {canvas: c, key: key};
-  return m.img;
 }
 
 // ---- cards ------------------------------------------------------------------------
@@ -217,7 +205,10 @@ function cardText(c, x, y, w, h, alpha) {
   if (u < MIN_TEXT || t <= 0.02) return;
   title(c, x + pad, top, w - 2 * pad, u, t);
   top += u * 1.4;
-  details(c, x + pad, top, w - 2 * pad, y + h - pad * 0.6 - top, t, u);
+  // While the camera moves, a card with a name below MOVE_TEXT shows only its name. While
+  // the name grows from MOVE_TEXT to MOVE_TEXT + 2, the text under the name fades in.
+  // Text is the largest cost of a moving frame.
+  details(c, x + pad, top, w - 2 * pad, y + h - pad * 0.6 - top, sharp ? t : t * smooth(MOVE_TEXT, MOVE_TEXT + 2, u), u);
 }
 function facts(c) {
   var n = (c.m || []).length, parts = [];
@@ -302,7 +293,10 @@ function drawMap(m, alpha, open) {
   if (alpha <= 0.01) return;
   var v = view(m), a = v.a, ox = v.ox, oy = v.oy, mw = m.size[0] * a, mh = m.size[1] * a;
   if (ox > W || oy > H || ox + mw < 0 || oy + mh < 0) return;
-  if (m.cards.length >= BIG && m.maxH * a < MARK_H - 6 && m.maxW * a < PREVIEW0) {
+  var big = m.cards.length >= BIG, marks = big && m.maxH * a < MARK_H - 6 && m.maxW * a < PREVIEW0;
+  // Also ask for the map image in a frame of marks, which has free time to make it.
+  var whole = big && !sharp && open >= 1 ? mapImage(m, a) : null;
+  if (marks) {
     var img = marksImage(m, a);
     if (img) {
       ctx.globalAlpha = alpha; ctx.drawImage(img.canvas, ox, oy, mw, mh); STATS.image++; STATS.cards += m.cards.length;
@@ -311,6 +305,11 @@ function drawMap(m, alpha, open) {
     }
   }
   var x0 = -ox / a, y0 = -oy / a, x1 = (W - ox) / a, y1 = (H - oy) / a;
+  if (whole) {
+    ctx.globalAlpha = alpha; ctx.drawImage(whole.lo.canvas, ox, oy, mw, mh);
+    ctx.globalAlpha = alpha * whole.t; ctx.drawImage(whole.hi.canvas, ox, oy, mw, mh);
+    STATS.image += 2; STATS.cards += mapObstacles(m, a, ox, oy, [x0, y0, x1, y1], alpha); return;
+  }
   drawBoxes(ctx, m, a, ox, oy, alpha * (0.4 + 0.6 * open), open > 0.5);
   var flows = m.flowIndex.query(x0, y0, x1, y1, []);
   drawFlows(ctx, flows, a, ox, oy, alpha * (0.35 + 0.65 * open), m.maxH * a > 14);
@@ -373,15 +372,22 @@ function neighbour(chain, i, id) {
 }
 // One portal for each neighbour card. A portal has one boundary flow for each direction
 // of a port to that neighbour. The deepest map that has a port in that direction gives it.
+// A port of a map above that gave a visible flow in the last frames stays as a `spare`
+// line of its portal, so that its flow fades out (`fadeOf`).
 function portalsOf(chain) {
   var out = [], seen = {}, at = new Map();
   for (var i = chain.length - 1; i >= 0; i--) {
     var m = chain[i].child;
     (m.ports || []).forEach(function (p) {
       var key = p.x + '|' + p.d;
-      if (seen[key]) return;
+      if (seen[key] && !FADE.size) return;
       var nb = neighbour(chain, i, p.x);
       if (!nb) return;
+      if (seen[key]) {
+        var s = at.get(nb);
+        if (s && FADE.has(lineKey(nb, p, m))) s.lines.push({p: p, m: m, open: chain[i], spare: true});
+        return;
+      }
       seen[key] = true;
       var t = at.get(nb);
       if (!t) {
@@ -406,7 +412,8 @@ function sibling(chain, nb) {
 function whereOf(m) { return 'in ' + (m.id ? m.id.split('/').pop() : DATA.name); }
 // The portals are in a band at each screen edge. The camera fit keeps the cards of a map
 // out of these bands (`gutters`, `fitBox`). Thus a portal does not cover a card of the
-// open map. P_TOP and P_BOTTOM are the middle of a portal at the top and at the bottom.
+// open map. P_TOP and P_BOTTOM are the middle of a portal at the top and at the bottom
+// (P_BOTTOM when the help line has one line, `bottomRow`).
 var P_H = 34, P_EDGE = 20, P_GAP = 6, P_TOP = 84, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
 function portalSpan(idUnit, whereUnit) { return Math.min(Math.max(idUnit * 12, whereUnit * 10.5) + 30, P_MAX); }
 function portalWidth(id, where) { return portalSpan(unitWidth(id, 600), unitWidth(where, 400)); }
@@ -423,10 +430,17 @@ function portalWidest() {
   return P_WIDEST;
 }
 // The screen bands that the camera fit keeps free: at the left and the right, at the top
-// (the path and the portals) and at the bottom (the portals and the help line).
+// (the path and the portals) and at the bottom (the portals and the help line). The side
+// bands are there only when the widest portal fits in 12 % of the screen width. On a narrow
+// screen, each portal is in the top or the bottom row. Then the side bands are 0, and the
+// open map can use all the width (`fitBox` keeps a small margin).
 function gutters() {
-  return {x: Math.min(P_EDGE + portalWidest() + P_GAP, 0.12 * W), top: P_TOP + P_H / 2 + P_GAP, bottom: P_BOTTOM + P_H / 2 + P_GAP};
+  var side = P_EDGE + portalWidest() + P_GAP;
+  return {x: side <= 0.12 * W ? side : 0, top: P_TOP + P_H / 2 + P_GAP, bottom: bottomRow() + P_H / 2 + P_GAP};
 }
+// The middle of a portal in the bottom row, from the screen bottom. When the help line
+// wraps, the row moves up by the height of each added line.
+function bottomRow() { return P_BOTTOM + HELP_LH * (helpLines().length - 1); }
 // The place of a portal: the middle of its neighbour, moved into the screen. A portal that
 // touches the left or the right band is on that side (`side` -1 or 1). Else it is at the
 // top or the bottom (`side` 0). When a portal is wider than the side band (on a narrow
@@ -436,7 +450,7 @@ function gutters() {
 // change while the camera moves, thus the stacks below do not jump.
 function portalPlace(t, r, o) {
   var cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, x0 = P_EDGE + t.w / 2, x1 = W - P_EDGE - t.w / 2;
-  var band = gutters().x >= P_EDGE + t.w + P_GAP, bottom = Math.max(P_TOP, H - P_BOTTOM);
+  var band = gutters().x >= P_EDGE + t.w + P_GAP, bottom = Math.max(P_TOP, H - bottomRow());
   t.x = clamp(cx, x0, x1); t.y = clamp(cy, P_TOP, bottom);
   t.side = !band ? 0 : cx <= x0 ? -1 : cx >= x1 ? 1 : 0;
   if (!band) t.y = cy < o[1] + o[3] / 2 ? P_TOP : bottom;
@@ -448,10 +462,11 @@ function order(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
 // as far as necessary. A portal that comes into view pushes the others gradually (`show`).
 function apart(list) {
   list.sort(function (a, b) { return a.along - b.along || order(a.nb.id, b.nb.id) || order(a.where, b.where); });
+  var low = H - bottomRow();
   [-1, 1].forEach(function (side) {
-    stack(list.filter(function (t) { return t.side === side; }), 'y', function () { return P_H + P_GAP; }, P_TOP, H - P_BOTTOM);
+    stack(list.filter(function (t) { return t.side === side; }), 'y', function () { return P_H + P_GAP; }, P_TOP, low);
   });
-  [P_TOP, Math.max(P_TOP, H - P_BOTTOM)].forEach(function (row) {
+  [P_TOP, Math.max(P_TOP, low)].forEach(function (row) {
     var line = list.filter(function (t) { return !t.side && t.y === row; }), ends = rowEnds(list, row);
     stack(line, 'x', function (a, b) { return (a.w + b.w) / 2 + P_GAP; }, ends[0], ends[1]);
   });
@@ -489,17 +504,24 @@ function rowEnds(list, row) {
 }
 
 // ---- boundary flows ---------------------------------------------------------------
-// The screen boxes that a boundary flow must not cross, as x0, y0, x1, y1: each card that
-// a frame draws, the text of each open card, each flow label, each portal, the path and the
-// help line. The array is used again in each frame, so its size does not grow.
-var OBST = [], NOBST = 0;
-function obstacle(x, y, w, h) {
+// The screen boxes that a boundary flow must not cross, as x0, y0, x1, y1, a weight and the
+// box in the frame before: each card that a frame draws, the text of each open card, each
+// flow label, each portal, the path and the help line. The weight is 1, but the weight of a
+// portal is its `show`. A box with a weight of less than HARD does not stop a path. It only
+// makes the fade value of a path near it less (`boxCap`). Thus a portal that comes into
+// view pushes a line away gradually. A box that moves with the camera has no box `was`:
+// `before` gives it. A portal, the path and the help line give it. The array is used again
+// in each frame, so its size does not grow.
+var OBST = [], NOBST = 0, HARD = 0.5, OB = 10;
+function obstacle(x, y, w, h, weight, was) {
   if (w <= 0 || h <= 0 || x > W || y > H || x + w < 0 || y + h < 0) return;
   OBST[NOBST++] = x; OBST[NOBST++] = y; OBST[NOBST++] = x + w; OBST[NOBST++] = y + h;
+  OBST[NOBST++] = weight === undefined ? 1 : weight; OBST[NOBST++] = was ? 0 : 1;
+  for (var k = 0; k < 4; k++) OBST[NOBST++] = was ? was[k] : 0;
 }
 // Tell if a segment with a right angle goes into no box. A segment can touch a box.
 function clear(p, q) {
-  for (var i = 0; i < NOBST; i += 4) if (into(p, q, OBST, i)) return false;
+  for (var i = 0; i < NOBST; i += OB) if (OBST[i + 4] >= HARD && into(p, q, OBST, i)) return false;
   return true;
 }
 // Tell if the segment goes into the box x0, y0, x1, y1 at index i of b, by more than 1 pixel.
@@ -529,12 +551,19 @@ function straight(p) {
 }
 // The last two segments to the edge of a portal box pr: across, then up or down (or the
 // opposite order). When the point is in the range of the portal, there is one segment only.
+// Else the second segment goes to the near corner of the portal, and it moves to the middle
+// of the edge while the point moves away from the range (`slide`). Thus the path does not
+// jump when the point goes out of the range. Give the length of the one segment, or
+// Infinity: when that length goes to 0, the gutter goes into the portal.
+function slide(lo, hi, v, out) { return v < (lo + hi) / 2 ? lo + Math.min(out, (hi - lo) / 2) : hi - Math.min(out, (hi - lo) / 2); }
 function legs(pts, q, pr, across) {
   var cx = (pr[0] + pr[2]) / 2, cy = (pr[1] + pr[3]) / 2;
-  if (across && q[1] > pr[1] && q[1] < pr[3]) pts.push([q[0] < cx ? pr[0] : pr[2], q[1]]);
-  else if (across) pts.push([cx, q[1]], [cx, q[1] < cy ? pr[1] : pr[3]]);
-  else if (q[0] > pr[0] && q[0] < pr[2]) pts.push([q[0], q[1] < cy ? pr[1] : pr[3]]);
-  else pts.push([q[0], cy], [q[0] < cx ? pr[0] : pr[2], cy]);
+  var outX = Math.max(pr[0] - q[0], q[0] - pr[2], 0), outY = Math.max(pr[1] - q[1], q[1] - pr[3], 0), x, y;
+  if (across && !outY) { x = q[0] < cx ? pr[0] : pr[2]; pts.push([x, q[1]]); return Math.abs(x - q[0]); }
+  if (!across && !outX) { y = q[1] < cy ? pr[1] : pr[3]; pts.push([q[0], y]); return Math.abs(y - q[1]); }
+  if (across) { x = slide(pr[0], pr[2], q[0], outY); pts.push([x, q[1]], [x, q[1] < cy ? pr[1] : pr[3]]); }
+  else { y = slide(pr[1], pr[3], q[1], outX); pts.push([q[0], y], [q[0] < cx ? pr[0] : pr[2], y]); }
+  return Infinity;
 }
 // One possible path from the gutter point `from` on side s: around the frame (at the
 // gutter `e`) in the direction `step` to side `side`, and then to the portal. Give null
@@ -544,8 +573,9 @@ function aroundTo(a, from, f, e, s, side, step, pr, across) {
   while (k !== side && n++ < 4) { pts.push(cornerOf(e, step > 0 ? k : (k + 3) % 4)); k = (k + step + 4) % 4; }
   var q = onSide(e, side, (pr[0] + pr[2]) / 2, (pr[1] + pr[3]) / 2);
   pts.push(q);
-  legs(pts, q, pr, across);
+  var leg = legs(pts, q, pr, across);
   pts = straight(pts);
+  pts.leg = leg;
   for (var i = 1; i < pts.length; i++) {
     if (!onScreen(pts[i]) || (i > 1 && (!clear(pts[i - 1], pts[i]) || into(pts[i - 1], pts[i], f)))) return null;
   }
@@ -565,8 +595,9 @@ function pathCost(p) {
 // from the screen edge, on the part of the frame that has no card and no text. Each
 // segment has a right angle to the next, as a route does. The
 // script makes the paths on the four sides, in the two directions, and with the two orders
-// of the last segments. It uses the shortest path that stays on the screen and goes into
-// no box of OBST. Give null when there is no such path, or when the port has no `fp`.
+// of the last segments. It gives each of these 16 paths (`all`, null for a path that goes off
+// the screen or into a box of OBST) and its cost, and `best`, the index of the shortest path.
+// Give null when the port has no `fp`, or when the first segment is not possible.
 var GUTTER = 16, RING = 4;
 function boundaryPath(t, l) {
   var p = l.p, fp = p.fp;
@@ -576,36 +607,54 @@ function boundaryPath(t, l) {
   var a = [v.ox + v.a * fp[0][0], v.oy + v.a * fp[0][1]], dx = fp[1][0] - fp[0][0], dy = fp[1][1] - fp[0][1];
   var s = dy < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3, from = onSide(e, s, a[0], a[1]);
   if (!onScreen(a) || !onScreen(from) || !clear(a, from)) return null;
-  var pr = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2], best = null, cost = Infinity;
+  var pr = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2], all = [], costs = [], best = -1;
   for (var side = 0; side < 4; side++) {
     for (var c = 0; c < 4; c++) {
       var pts = aroundTo(a, from, f, e, s, side, c < 2 ? 1 : -1, pr, c % 2 === 0), k = pts ? pathCost(pts) : Infinity;
-      if (k < cost) { cost = k; best = pts; }
+      if (best < 0 ? k < Infinity : k < costs[best]) best = all.length;
+      all.push(pts); costs.push(k);
     }
   }
-  if (!best) return null;
-  if (p.d === 'in') best.reverse();
-  return {pts: best, port: onSide([r[0], r[1], r[0] + r[2], r[1] + r[3]], s, a[0], a[1])};
+  return {all: all, costs: costs, best: best, pr: pr, f: f, e: e, port: onSide([r[0], r[1], r[0] + r[2], r[1] + r[3]], s, a[0], a[1])};
 }
+
 function drawBoundary(t, l) {
-  var b = boundaryPath(t, l);
-  if (!b) return;
-  var p = b.pts, n = p.length, color = C['--l-' + flowLayer(l)] || C['--flow'];
-  LINKS.push({id: t.nb.id, d: l.p.d, points: p});
-  ctx.globalAlpha = t.show * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
-  ctx.beginPath(); cutLine(ctx, p, 0, 0, 1); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = color; ctx.beginPath(); arrowHead(ctx, p[n - 1][0], p[n - 1][1], p[n - 2][0], p[n - 2][1], 8); ctx.fill();
+  var key = lineKey(t.nb, l.p, l.m), b = l.spare && !FADE.has(key) ? null : boundaryPath(t, l), paths = fadeOf(key, b, l.spare);
+  if (!paths.length) return;
+  var color = C['--l-' + flowLayer(l)] || C['--flow'], most = 0;
+  paths.forEach(function (one) {
+    var p = one.pts.slice(), n = p.length, alpha = t.show * one.v;
+    if (l.p.d === 'in') p.reverse();
+    most = Math.max(most, alpha);
+    LINKS.push({id: t.nb.id, d: l.p.d, points: p, key: key + '#' + one.i, alpha: alpha});
+    ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
+    ctx.beginPath(); cutLine(ctx, p, 0, 0, 1); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.beginPath(); arrowHead(ctx, p[n - 1][0], p[n - 1][1], p[n - 2][0], p[n - 2][1], 8); ctx.fill();
+  });
   // The port: a small circle on the frame of the open card.
-  ctx.fillStyle = C['--map']; ctx.beginPath(); ctx.arc(b.port[0], b.port[1], 3.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+  ctx.globalAlpha = most * 0.9; ctx.fillStyle = C['--map']; ctx.beginPath(); ctx.arc(b.port[0], b.port[1], 3.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
 }
-var HITS = [], LINKS = [];
+// The portal boxes of the frame before, for the speed of a portal (`boxCap`).
+var HITS = [], LINKS = [], PLACES = new Map();
 // The lines come first, so that no line goes over the text of a portal.
 function drawPortals(list, chain) {
   var path = pathParts(chain);
-  obstacle(12, 10, path.total, 38);
-  obstacle(18, H - 28, unitWidth(HELP, 400) * 11.5, 16);
-  list.forEach(function (t) { obstacle(t.x - t.w / 2, t.y - t.h / 2, t.w, t.h); });
+  obstacle(12, 10, path.total, 38, 1, [12, 10, 12 + path.total, 48]);
+  var help = helpLines();
+  help.forEach(function (line, i) {
+    var y = H - 28 - HELP_LH * (help.length - 1 - i), w = unitWidth(line, 400) * HELP_FS;
+    obstacle(18, y, w, 16, 1, [18, y, 18 + w, y + 16]);
+  });
+  var places = new Map();
+  list.forEach(function (t) {
+    var key = t.nb.map.id + '/' + t.nb.id, box = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2];
+    places.set(key, box);
+    obstacle(box[0], box[1], t.w, t.h, t.show, PLACES.get(key) || box);
+  });
+  PLACES = places;
+  fadeFrame();
   list.forEach(function (t) { t.lines.forEach(function (l) { drawBoundary(t, l); }); });
+  fadeEnd();
   list.forEach(function (t) {
     var w = t.w, h = t.h, x = t.x - w / 2, y = t.y - h / 2;
     var sc = 0.85 + 0.15 * t.show;
@@ -647,9 +696,21 @@ function drawPath(chain) {
   });
   text(level, x + 12, y + 19.5, 11.5, C['--ink-3'], 1);
 }
-var HELP = 'Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit';
+var HELP = ['Wheel or pinch: zoom', 'drag: move', 'double-click a card: go in', 'Esc: go out', 'F: fit'], HELP_FS = 11.5, HELP_LH = 15;
+// The help line in lines that fit the screen width, with 18 px at each side. A line breaks
+// only between two parts. The last line is at the screen bottom.
+function helpLines() {
+  var out = [], cur = '', room = (W - 36) / HELP_FS;
+  HELP.forEach(function (part) {
+    var next = cur ? cur + ' · ' + part : part;
+    if (cur && unitWidth(next, 400) > room) { out.push(cur); cur = part; } else cur = next;
+  });
+  out.push(cur);
+  return out;
+}
 function drawHelp() {
-  text(HELP, 18, H - 16, 11.5, C['--ink-3'], 0.9);
+  var lines = helpLines();
+  lines.forEach(function (line, i) { text(line, 18, H - 16 - HELP_LH * (lines.length - 1 - i), HELP_FS, C['--ink-3'], 0.9); });
 }
 var FRAMES = [];
 function drawHud(began, half) {

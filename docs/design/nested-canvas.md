@@ -26,8 +26,8 @@ Each value comes from a script whose acceptance value was written before the run
 |---|---|---|
 | Frame time while zooming, prototype renderer, 50 maps and 2,000 cards, headless Chromium, 4-core Xeon at 2.1 GHz | p95 frame interval at most 16.7 ms | PASS: 240 frames in each of 3 runs, all at 16.7 ms. No frame was longer than 25 ms. |
 | Size of one page with all 50 maps of the M11 tree, from the current pages (shared blocks one time) | at most 10 MB raw and 2 MB gzip | not known yet (the run is in progress) |
-| C1: size of the canvas data (`canvas_data.text`) of the M11 tree, 50 maps | at most 2 MB raw | PASS: 731,326 bytes raw and 30,236 bytes after gzip -6. One build took 22 s. See `bench/jev/README.md`. |
-| C2: frame time of the canvas page of step 2, half resolution while the camera moves, 4 times CPU throttling: M11 tree (pan, all top cards with previews, dive), 400 cards (pan, dive), 1,500 cards (pan). No GPU: Chromium paints in software. | p95 at most 33 ms (two 60 Hz ticks, 33.33 ms, plus 5 percent: 35.0 ms) | PASS in run 2: p95 16.7 to 16.8 ms, and 33.3 ms for the dive of the 400-card map. Run 1 failed the dive (p95 550 ms): long dashed paths of the maps above the view. See `bench/jev/README.md`. |
+| C1: size of the canvas data (`canvas_data.text`) of the M11 tree, 50 maps | at most 2 MB raw | PASS after PR #152 (3 runs): 732,502 bytes raw and 30,256 bytes after gzip -6. One build takes 1.9 to 2.1 s. Before PR #152, one build took 22 s for 731,326 bytes. The key `fp` of the nested-flow ports (7afa36f) added the 1,176 bytes. See `bench/jev/README.md`. |
+| C2: frame time of the canvas page of step 2, half resolution while the camera moves, 4 times CPU throttling: M11 tree (pan, all top cards with previews, dive), 400 cards (pan, dive), 1,500 cards (pan). No GPU: Chromium paints in software. | p95 at most 35 ms (two 60 Hz ticks, 33.3 ms, plus 5 percent) | PASS in run 2: p95 16.7 to 16.8 ms, and 33.3 ms for the dive of the 400-card map. Run 1 failed the dive (p95 550 ms): long dashed paths of the maps above the view. After the change for the deep zoom, the dive of the 400-card map has p95 of one tick (16.7 or 16.8 ms) in 17 of 17 runs. See `bench/jev/README.md`. |
 | C2 at normal CPU speed, same scenarios | p95 at most 17.5 ms | PASS in run 2: p95 16.7 to 16.8 ms. |
 | C3: load to an interactive map, M11 tree, 50 maps | at most 1.5 s at normal CPU speed | PASS: 76 ms (264 ms with 4 times throttling). The time of `canvas_data.build` is not included. |
 
@@ -37,7 +37,7 @@ The frame time on a real slow device is not measured yet. The `?hud` readout of 
 
 The maintainer asked for care with the speed of the canvas when many elements are on the screen. The prototype was measured in the views that show the most cards. Each value below comes from a script whose acceptance value was written before the run. The host is headless Chromium on a 4-core Xeon at 2.1 GHz with no GPU. Thus the browser paints in software, and the values are worse than on a usual laptop or phone. That difference is not measured.
 
-Acceptance for each view: p95 frame interval at most 16.7 ms at normal CPU speed, and at most 33 ms with 4 times CPU throttling.
+Acceptance for each view: p95 frame interval at most 16.7 ms at normal CPU speed, and at most 35 ms with 4 times CPU throttling. The maintainer set the second limit to two 60 Hz ticks (33.3 ms) plus 5 percent, because the timer of the ticks has a small error.
 
 | Renderer | 50 maps, all top cards open | 400 cards, pan | 1,500 cards, pan | 50 maps, 4 times throttling |
 |---|---|---|---|---|
@@ -52,10 +52,13 @@ These are the rules for the renderer of step 2:
 1. **Draw on a `<canvas>`.** Do not make SVG elements at each frame. The hidden tree list gives access for keyboards and screen readers.
 2. **Resolution.** Use half resolution while the camera moves. Draw at full resolution 150 ms after the camera stops.
 3. **Large maps.** When the cards of a map are marks only (a map of 400 to 1,500 cards when it is far away), draw the marks of that map into an image one time for each zoom step, and use that image at each frame. The 1,500-card map fails without this.
+   While the camera moves, draw a large open map with no nested map and no port from images of the full map. Make one image for each half step of zoom, at the moving resolution, with at most 2 million pixels. Make each image in slices, in the free time of the moving frames. Between two steps, draw the lower image and the higher image over it, with an opacity that follows the zoom. Thus each fade of the level of detail follows the zoom. Until the two images are complete, draw the map as usual.
 4. **Less work at each frame.**
    - Draw only the cards on the screen. Use an index of the card boxes for each map.
    - Do not draw text below 7 px.
-   - Keep the wrapped text of each card for each font size.
+   - Keep the wrapped text of each card for each count of columns. A column is half of the font size, so the lines do not change with the size.
+   - After the font loads, set each font that the drawing uses and measure the words of each card. Do this in the idle time of the page.
+   - While the camera moves, a card with a name below 10 px shows only its name. While the name grows from 10 px to 12 px, the text under the name fades in. Text is the largest cost of a moving frame. It is a visible change: when the camera stops, the text under the name comes back at one time. The rule "Nothing appears at one time" does not permit this change, so the maintainer must accept it or remove it.
    - Read the theme colors one time, and again only when the theme changes.
 5. **A performance test in CI.** A Playwright test uses the scenarios of `bench/jev` (the M11 tree, a 400-card map, and a 1,500-card map) with 4 times CPU throttling. It fails when a p95 value is more than its limit. A frame-rate display (`?hud`) lets a person measure on a real device.
 
@@ -63,7 +66,7 @@ The data side must also be fast. The first canvas data build took 22 s for 50 ma
 - `model.claimed` compared each pattern with each module. This was 20 million comparisons.
 - `judgement_evidence.names` compiled one regular expression for each judgement line and each module.
 
-PR #152 replaces both with indexes that give the same output bytes. On the M11 tree, `check` goes from 69.6 s to 9.8 s, and `judgement` from 571.9 s to 6.0 s (`bench/jev/README.md`). Measure C1 again after that PR merges.
+PR #152 replaces both with indexes that give the same output bytes. On the M11 tree, `check` goes from 69.6 s to 9.8 s, and `judgement` from 571.9 s to 6.0 s (`bench/jev/README.md`). After that PR merged, C1 was measured again in 3 runs: one build of the canvas data for 50 maps takes 1.9 to 2.1 s, not 22 s.
 
 ## The data
 
@@ -99,7 +102,7 @@ The renderer is a script in the page (`page_canvas.py` gives it, under the curre
 - A camera move changes the scale in log space. It goes out and back in when the two views are far apart.
 - With `prefers-reduced-motion`, each camera move occurs at one time.
 
-**Rings and portals.** They come from the camera position at each frame, as in the prototype. The portal of a neighbour that two levels connect takes the deepest connection. The boundary flow of the map that is open around the view is drawn one time, from its portal.
+**Rings and portals.** They come from the camera position at each frame, as in the prototype. The portal of a neighbour that two levels connect takes the deepest connection. The boundary flow of the map that is open around the view is drawn one time, from its portal. A boundary flow fades in and out with the camera. It fades out before a card, a text or a portal gets to it, because it must not cross them (`page_canvas_fade.py`, F1 in `bench/jev/README.md`).
 
 **The path.** The path is on the canvas at the top left. Each segment moves the camera to that level.
 
@@ -133,7 +136,7 @@ Each step is a pull request with the required checks of AGENTS.md, `/code-review
 
 1. **Data.** `canvas_data.py`, tests, and the measurement C1: the bytes of the canvas data for the M11 tree. Acceptance: at most 2 MB raw for 50 maps.
 2. **Renderer behind a setting.** `[render] canvas = true` writes the canvas page in place of the linked pages. It covers level of detail, opening, the camera, rings, portals, the path, and the URL hash. Measurements:
-   - C2: frame time with 4 times CPU throttling in Chromium. Acceptance: p95 at most 33 ms.
+   - C2: frame time with 4 times CPU throttling in Chromium. Acceptance: p95 at most 35 ms. The maintainer set this limit to two 60 Hz ticks (33.3 ms) plus 5 percent, because the timer of the ticks has a small error.
    - C3: load to an interactive map for 50 maps. Acceptance: at most 1.5 s.
 3. **Access and phone.** Keyboard, the hidden tree list, and touch. Measurements:
    - C4: axe-core. Acceptance: 0 serious or critical issues.

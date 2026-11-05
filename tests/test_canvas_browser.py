@@ -30,6 +30,19 @@ Acceptance values:
     and two maps of the generated M11 tree, on a screen of 1440 x 900 pixels and on a
     screen of 390 x 844 pixels.
 
+11. A boundary flow fades in and out with the camera. It does not appear or go at one
+    time. The M11 tree, on a screen of 1440 x 900 pixels without reduced motion, has four
+    slow camera moves of 200 frames each: from the top fit into the map P0/A0, from P0/A0
+    out to the top fit, from the map P0 into P0/A0, and a zoom from 0.5 to 3 times the fit
+    of P0/A0. The alpha of each drawn path of a boundary flow changes by 0.25 or less
+    between two frames. A path that is not drawn has the alpha 0. No drawn path goes into
+    a card that is not open. The moves draw boundary flows in 30 frames or more.
+12. The camera fit of a map zooms to that map. After the fit, the frame of the map covers
+    at least 80 percent of the free width: the screen width less a band at each side as
+    wide as the widest portal at that side. The frame is in the free width. The test uses
+    two maps of the generated M11 tree, on a screen of 390 x 844 pixels and on a screen of
+    1440 x 900 pixels.
+
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
 
@@ -206,6 +219,16 @@ def _luma(css: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def test_a_boundary_flow_fades_with_the_camera(tree: Path) -> None:
+    """Acceptance 11."""
+    dives = drive(tree, "--fade", ids=("P0/A0", "P0"))["dives"]
+    assert [d["frames"] for d in dives] == [200, 200, 200, 200]
+    assert sum(d["drawn"] for d in dives) >= 30
+    for dive in dives:
+        assert dive["problems"] == [], dive
+        assert dive["worst"] <= 0.25, dive
+
+
 @pytest.mark.parametrize("flags", [("--fits",), ("--fits", "--phone")])
 def test_a_portal_does_not_cover_a_card_of_the_open_map(
     driven: dict[str, Any], tree: Path, flags: tuple[str, ...]
@@ -217,3 +240,13 @@ def test_a_portal_does_not_cover_a_card_of_the_open_map(
     assert fitted["P0/A0"]["chain"] == ["P0", "P0/A0"] and fitted["P0/A0"]["portals"] == 4
     assert fitted["P0"]["covered"] == []
     assert fitted["P0/A0"]["covered"] == []
+
+
+@pytest.mark.parametrize("flags", [("--fits", "--phone"), ("--fits",)])
+def test_the_fit_zooms_to_the_open_map(tree: Path, flags: tuple[str, ...]) -> None:
+    """Acceptance 12."""
+    fitted = drive(tree, *flags, ids=("P0", "P0/A0"))
+    for fit in (fitted["P0"], fitted["P0/A0"]):
+        x, _, w, _ = fit["frame"]
+        assert w >= 0.8 * fit["free"], fit
+        assert fit["band"] - 1 <= x and x + w <= fit["band"] + fit["free"] + 1, fit

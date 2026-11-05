@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -33,6 +33,14 @@ const covered = (page) => page.evaluate(() => {
   });
   return out;
 });
+
+// The screen box of the frame of the map `id`, and the free width: the screen width less a
+// band at each side as wide as the widest portal in the left or the right 15 % of the screen.
+const free = (page, id) => page.evaluate((id) => {
+  const W = innerWidth, sides = window.systemapCanvas.hits().filter((h) => h.kind === 'portal' && (h.x + h.w < 0.15 * W || h.x > 0.85 * W));
+  const band = Math.max(0, ...sides.map((p) => (p.x < W / 2 ? p.x + p.w : W - p.x)));
+  return { frame: window.systemapCanvas.frame(id), band, free: W - 2 * band };
+}, id);
 
 async function run(file, card, neighbour, light) {
   const browser = await chromium.launch();
@@ -122,8 +130,8 @@ async function phone(file, card) {
 }
 
 // --fits: on a screen of 1440 x 900 pixels (390 x 844 with --phone), the camera fit of
-// each map, and the portals that cover a card of that map. CARD is the ID of the first map
-// and NEIGHBOUR of the second.
+// each map, the portals that cover a card of that map, and the frame and the free width.
+// CARD is the ID of the first map and NEIGHBOUR of the second.
 async function fits(file, ids, small) {
   const browser = await chromium.launch();
   const viewport = small ? { width: 390, height: 844 } : { width: 1440, height: 900 };
@@ -135,7 +143,7 @@ async function fits(file, ids, small) {
   for (const id of ids) {
     await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
     const s = await state(page);
-    out[id] = { chain: s.chain, portals: s.hits.filter((h) => h.kind === 'portal').length, covered: await covered(page) };
+    out[id] = { chain: s.chain, portals: s.hits.filter((h) => h.kind === 'portal').length, covered: await covered(page), ...await free(page, id) };
   }
   await browser.close();
   return out;
@@ -189,12 +197,66 @@ async function links(file, ids) {
   return out;
 }
 
+// --fade: on a screen of 1440 x 900 pixels, without reduced motion, four slow camera moves of
+// 200 frames each, with one animation frame for each camera step: from the top fit into the
+// map CARD, from the map CARD out to the top fit, from the map NEIGHBOUR into the map CARD,
+// and a zoom from 0.5 to 3 times the fit of the map CARD. The scale moves in log space, and
+// the move is slow at its two ends (smoothstep). Each frame records the alpha of each drawn
+// boundary flow path. `worst` is the largest change of an alpha between two frames, where a
+// path that is not drawn has the alpha 0. A problem is a drawn path that goes into a card
+// that is not open.
+async function fade(file, ids) {
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' });
+  const page = await context.newPage();
+  await page.goto('file://' + file);
+  await settle(page);
+  const out = { dives: [] };
+  for (const [from, to, za, zb] of [['', ids[0], 1, 1], [ids[0], '', 1, 1], [ids[1], ids[0], 1, 1], [ids[0], ids[0], 0.5, 3]]) {
+    out.dives.push(await page.evaluate(([from, to, za, zb]) => new Promise((done) => {
+      const S = window.systemapCanvas, W = innerWidth, H = innerHeight, fa = S.fit(from), fb = S.fit(to);
+      const mid = (c) => [c.x + W / 2 / c.k, c.y + H / 2 / c.k], [ax, ay] = mid(fa), [bx, by] = mid(fb);
+      const a = { k: fa.k * za }, b = { k: fb.k * zb };
+      const into = (p, q, r) => Math.min(p[0], q[0]) < r[0] + r[2] - 1 && Math.max(p[0], q[0]) > r[0] + 1 &&
+        Math.min(p[1], q[1]) < r[1] + r[3] - 1 && Math.max(p[1], q[1]) > r[1] + 1;
+      const r = { from, to, zoom: [za, zb], frames: 0, drawn: 0, worst: 0, where: '', problems: [] };
+      let f = 0, before = {};
+      const step = () => {
+        const u = f / 199, t = u * u * (3 - 2 * u), k = a.k * Math.pow(b.k / a.k, t), cx = ax + (bx - ax) * t, cy = ay + (by - ay) * t;
+        S.view({ x: cx - W / 2 / k, y: cy - H / 2 / k, k });
+        const now = {}, open = new Set(S.chain()), cards = [];
+        S.maps().forEach((m) => S.boxes(m.id).forEach((c) => {
+          if (!open.has((m.id ? m.id + '/' : '') + c.id)) cards.push([m.id + ':' + c.id, c.b]);
+        }));
+        S.links().forEach((l) => {
+          const key = l.key || l.id + '|' + l.d;
+          now[key] = Math.max(now[key] || 0, l.alpha === undefined ? 1 : l.alpha);
+          r.drawn++;
+          for (let i = 1; i < l.points.length; i++) {
+            cards.forEach(([name, box]) => { if (into(l.points[i - 1], l.points[i], box)) r.problems.push(f + ' ' + key + ' into ' + name); });
+          }
+        });
+        if (f) new Set(Object.keys(now).concat(Object.keys(before))).forEach((key) => {
+          const d = Math.abs((now[key] || 0) - (before[key] || 0));
+          if (d > r.worst) { r.worst = d; r.where = f + ' ' + key; }
+        });
+        before = now; r.frames = ++f;
+        if (f < 200) requestAnimationFrame(step); else done(r);
+      };
+      requestAnimationFrame(step);
+    }), [from, to, za, zb]));
+  }
+  await browser.close();
+  return out;
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
   const small = process.argv.includes('--phone');
   const out = process.argv.includes('--fits') ? await fits(file, [card, neighbour], small)
     : process.argv.includes('--links') ? await links(file, [card, neighbour])
+    : process.argv.includes('--fade') ? await fade(file, [card, neighbour])
     : small ? await phone(file, card) : await run(file, card, neighbour, process.argv.includes('--light'));
   process.stdout.write(JSON.stringify(out) + '\n');
 })().catch((err) => { process.stderr.write(String(err && err.stack || err) + '\n'); process.exit(1); });

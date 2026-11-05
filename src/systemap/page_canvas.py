@@ -1,8 +1,8 @@
 """The renderer script of the canvas page: the camera, the frames and the input.
 
 The canvas page (`canvas_page`) has one script element with `SCRIPT`. It joins the
-scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`) and the part in
-this module. The page CSP (`page_csp`) gets the digest of that element.
+scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`), the image part
+(`page_canvas_image`), the fade part (`page_canvas_fade`) and the part in this module. The page CSP (`page_csp`) gets the digest of that element.
 
 Camera. The wheel and the pinch zoom at the pointer, and a drag moves the map. A
 double-click, or a tap, goes into the card under the pointer. Esc goes out one level, F
@@ -13,7 +13,8 @@ Reduce motion, each move occurs at one time.
 
 Frames. An input event asks for one frame (`requestAnimationFrame`). While the camera
 moves, the canvas has half of the device resolution. STILL_MS after the last move, the
-script draws one frame at full resolution.
+script draws one frame at full resolution. While a boundary flow fades, the script asks
+for more frames (`fadeLater`).
 
 The URL hash holds the camera target: the ID of the open map, for example
 `#Gateway/Routes`. A link with a hash opens the canvas at that map. When the camera
@@ -28,6 +29,8 @@ state to the tests and the measurement scripts. It changes nothing on the page.
 from __future__ import annotations
 
 from systemap.page_canvas_draw import DRAW
+from systemap.page_canvas_fade import FADE
+from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_scene import SCENE
 
 CSS = """
@@ -109,8 +112,21 @@ function draw() {
   drawPortals(portals, CHAIN);
   drawPath(CHAIN);
   drawHelp();
+  if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
   drawn++;
+  if (FADING) fadeLater();
+  LAST_CAM = {x: cam.x, y: cam.y, k: cam.k};
+}
+// A boundary flow that fades asks for more frames (`FADING`). While the camera moves, the
+// moves give the frames. Thus, after a camera change, the script asks for a frame only when
+// no frame comes in FADE_WAIT ms. When the camera did not change, it asks for the next frame.
+var LAST_CAM = null, fadeTimer = 0, FADE_WAIT = 50;
+function fadeLater() {
+  var n = drawn;
+  clearTimeout(fadeTimer);
+  if (LAST_CAM && LAST_CAM.x === cam.x && LAST_CAM.y === cam.y && LAST_CAM.k === cam.k) request();
+  else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
 function hashMap() {
@@ -235,7 +251,41 @@ if (window.matchMedia) {
 }
 // The page font is in the page as data. The canvas starts its load at the first text. When
 // it is loaded, the measured word widths and the wrapped lines are not correct.
-function fontLoaded() { textChanged(); ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request(); }
+function fontLoaded() {
+  textChanged(); ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request();
+  var list = warmList();
+  idle(function () { warm(list, 0); });
+}
+// The first text in a new font, and the first measure of a word, are slow. Thus, after the
+// font is loaded, the script sets each font that the drawing can use, and it measures the
+// name and the words of each card. It does this in the idle time of the page, in slices of
+// WARM_MS.
+var WARM_MS = 4;
+function warmList() {
+  var list = [], words = new Set();
+  for (var s = MIN_TEXT; s <= 26; s += 0.5) {
+    list.push(font(400, s), font(600, s));
+    if (s <= 13) list.push(font(500, s));
+    if (s <= 19) list.push(font(400, s, true));
+  }
+  ORDER.forEach(function (m) {
+    m.cards.forEach(function (c) {
+      list.push([c.id, 600]);
+      (String(c.p || '') + ' ' + String(c.d || '')).split(/\s+/).forEach(function (w) { if (w) words.add(w); });
+    });
+  });
+  words.forEach(function (w) { list.push([w, 400]); });
+  return list;
+}
+function warm(list, at) {
+  var t0 = performance.now();
+  while (at < list.length && performance.now() - t0 < WARM_MS) {
+    var x = list[at++];
+    if (typeof x === 'string') { ctx.font = x; ctx.measureText('Ag'); } else unitWidth(x[0], x[1]);
+  }
+  if (at < list.length) idle(function () { warm(list, at); });
+}
+function idle(f) { if (window.requestIdleCallback) requestIdleCallback(f); else setTimeout(f, 0); }
 if (document.fonts && document.fonts.load) {
   Promise.all([document.fonts.load(font(400, 12)), document.fonts.load(font(600, 12))]).then(fontLoaded, function () { /* the system font stays */ });
 }
@@ -252,6 +302,8 @@ window.systemapCanvas = {
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
   fit: function (id) { return fitBox(id ? frameOf(MAPS[id]) : topFrame(), 0.06); },
   cardFit: function (mapId, cardId) { return fitBox(worldBox(MAPS[mapId].byId[cardId]), 0.12); },
+  // The screen box of the frame of a map.
+  frame: function (id) { var b = frameOf(id ? MAPS[id] : TOP); return [(b[0] - cam.x) * cam.k, (b[1] - cam.y) * cam.k, b[2] * cam.k, b[3] * cam.k]; },
   box: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; return c ? screenBox(c) : null; },
   chain: function () { return CHAIN.map(function (c) { return c.child.id; }); },
   hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, x: h.x, y: h.y, w: h.w, h: h.h}; }); },
@@ -283,7 +335,7 @@ window.systemapCanvas = {
 };
 """
 
-SCRIPT = "(function(){\n'use strict';\n" + SCENE + DRAW + _INPUT + "})();\n"
+SCRIPT = "(function(){\n'use strict';\n" + SCENE + DRAW + IMAGE + FADE + _INPUT + "})();\n"
 
 # The page embeds the script in a script element. "</" would end the element.
 if "</" in SCRIPT:  # pragma: no cover - a guard for a change of the script text
