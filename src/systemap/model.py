@@ -692,7 +692,8 @@ def module_matches(pattern: str, module: str, package: str | None = None) -> boo
     package.
     For a Python module, the two results are the same.
     A symbol claim covers a public name, not the containing module.
-    Coverage, source change, and map checks use this same procedure."""
+    Coverage, source change, and map checks use this same procedure. `claim_index` gives
+    the same result with an index, and tests/test_claim_index.py compares the two."""
     if is_symbol(pattern):
         return False
     if pattern.endswith(".*"):
@@ -705,14 +706,7 @@ def module_matches(pattern: str, module: str, package: str | None = None) -> boo
     return module == pattern
 
 
-def package_fact(module: str, records: object) -> str | None:
-    """Give the `package` fact of the module, or None when it is not known.
-
-    The records are the module records of the facts (`facts["components"]`). A list of
-    module names, a missing record, or a record of an older extraction gives None."""
-    record = records.get(module) if isinstance(records, Mapping) else None
-    package = record.get("package") if isinstance(record, Mapping) else None
-    return package if isinstance(package, str) and package else None
+package_fact = claim_index.package_fact
 
 
 def covers(pattern: str, module: str, records: object) -> bool:
@@ -724,7 +718,10 @@ def claimed(component: Component, modules: Iterable[str]) -> list[str]:
     """Select the modules that the component implemented_by patterns cover.
 
     With the module records (a mapping), the `package` fact of each record gives its
-    package. With module names only, the dotted names give the packages."""
+    package. With module names only, the dotted names give the packages. The result is
+    the result of `covers` for each module, from an index of the modules (`claim_index`).
+    Do not change the records of `modules` in place after a call, unless the number of
+    modules also changes."""
     return claim_index.claimed(component.implemented_by, modules)
 
 

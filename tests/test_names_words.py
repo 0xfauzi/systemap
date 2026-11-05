@@ -28,7 +28,9 @@ def _text(rng: random.Random) -> str:
 
 
 def _name(rng: random.Random) -> str:
-    joined = rng.choice([".", "-", "/", ":"]).join(rng.choice(PARTS) for _ in range(rng.randint(1, 3)))
+    joined = rng.choice([".", "-", "/", ":"]).join(
+        rng.choice(PARTS) for _ in range(rng.randint(1, 3))
+    )
     return joined if rng.random() < 0.9 else "." + joined
 
 
@@ -45,5 +47,11 @@ def test_names_agrees_with_the_earlier_pattern(seed: int) -> None:
 
 def test_the_cases_of_the_docstring() -> None:
     text = "crossing import: pkg.a imports pkg.ab. See pkg.a-b and pkg.a."
-    for name, found in [("pkg.a", True), ("pkg.ab", True), ("pkg", False), ("pkg.a-b", True), ("a", False)]:
+    for name, found in [
+        ("pkg.a", True),
+        ("pkg.ab", True),
+        ("pkg", False),
+        ("pkg.a-b", True),
+        ("a", False),
+    ]:
         assert judgement_evidence.names(name, text) is found is old_names(name, text)

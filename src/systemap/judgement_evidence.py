@@ -169,13 +169,12 @@ def names(name: str, text: str) -> bool:
     (`words`), with no new pattern for each name. A large tree has thousands of lines and
     modules, and one pattern for each pair took most of the time of `judgement`
     (bench/jev/README.md). A different name uses the pattern."""
-    if _PLAIN.fullmatch(name):
+    if _RUN.fullmatch(name):
         return name in words(text)
     return re.search(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)", text) is not None
 
 
-_PLAIN = re.compile(r"[\w.-]+")
-_RUN = re.compile(r"[\w.-]+")
+_RUN = re.compile(r"[\w.-]+")  # a name that `words` can find, and a run of the text
 _END = re.compile(r"\.(?!\w)")
 
 
@@ -216,7 +215,12 @@ def line_modules(m: nest.Map, line: str, facts: dict[str, Any]) -> list[str]:
     """Give the modules of the components and the modules that a judgement line names."""
     bare = line[len(m.prefix) :]
     modules = [module for card in named_cards(m, line) for module in card_modules(card, facts)]
-    modules += [name for name in facts.get("components", {}) if names(name, bare)]
+    found = words(bare)
+    modules += [
+        name
+        for name in facts.get("components", {})
+        if name in found or (not _RUN.fullmatch(name) and names(name, bare))
+    ]
     return modules
 
 

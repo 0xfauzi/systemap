@@ -4057,3 +4057,14 @@ A profile of the canvas data build found that `model.claimed` compared each `imp
 | `judgement` | 571.9 s | 9.1 s | 0.016 | yes | PASS |
 
 Information only, with no acceptance value: `refresh` took 72 s before and 48 s after (ratio 0.67). The two runs had different start states: the "before" tree had pages from an earlier refresh, and the "after" tree had none. An earlier value of 1,844 s for `refresh` of this tree came from the code of `claude/nested-step-8`, which wrote one page for each of the 50 maps. The claim index does not explain that value.
+
+### Run 3: after the code review
+
+The review changes: `check_coverage` and the missing-claim check use `claimed` and the index, not `covers` for each module; the kept indexes are in least-recently-used order; `line_modules` makes the word set of a line one time; `package_fact` has one implementation. Each command ran on the same tree with the code of main and of the branch. An earlier `refresh` had written the pages of this tree, so `check` reports no stale pages here and exits 0 in the two runs.
+
+| Command | Before | After | Ratio | Same output | Result |
+|---|---|---|---|---|---|
+| `check` | 69.6 s | 19.0 s | 0.27 | yes | PASS |
+| `judgement` | 571.9 s (run 1) | 7.8 s | 0.014 | yes | PASS |
+
+The `check_coverage` change did not make `check` measurably faster (19.5 s, 20.3 s and 19.0 s in the three runs). The rest of the 19 s of `check` is not examined yet.

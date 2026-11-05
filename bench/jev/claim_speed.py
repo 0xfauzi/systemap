@@ -41,6 +41,8 @@ def main(before: Path, after: Path, root: Path) -> int:
     if not (root / "systemap.toml").exists():
         print(f"{root} has no systemap.toml. Write the tree first. The measurement did not run.")
         return 2
+    for checkout in (before, after):  # the environment setup must not be in the seconds
+        subprocess.run(["uv", "sync", "--quiet"], cwd=checkout, check=True)
     ok = True
     for command in COMMANDS:
         old, old_s, old_code = _run(before, root, command)

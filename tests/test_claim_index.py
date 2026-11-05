@@ -91,3 +91,13 @@ def test_at_most_limit_indexes_are_kept() -> None:
     for i in range(claim_index.LIMIT + 3):
         claim_index.claimed(("m.*",), [f"m.{i}"])
     assert len(claim_index.kept()) <= claim_index.LIMIT
+
+
+def test_a_used_index_is_kept_when_other_collections_come() -> None:
+    """The index used last stays, so a collection in use all the time is not built again."""
+    main = ["m.0", "m.1"]
+    claim_index.claimed(("m.*",), main)
+    for i in range(claim_index.LIMIT * 2):
+        claim_index.claimed(("m.*",), [f"m.{i}"])
+        claim_index.claimed(("m.*",), main)  # in use again: it goes to the end
+    assert any(found.source is main for found in claim_index.kept())

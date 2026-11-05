@@ -11,10 +11,12 @@
   is also covered. These are the rules of `model.module_matches`.
 - A symbol claim (`pkg.mod:name`) covers no module.
 
-A list, a tuple or a mapping of modules keeps its index while that same object is used.
-The index holds the object, so its identity cannot go to a different object. The caller
-must not change the module records of such an object after a claim was read from it.
-Other iterables get an index for one call only.
+A list, a tuple or a mapping of modules keeps its index while it is one of the 4
+collections used last. The index holds the object, so its identity cannot go to a
+different object, and the object stays in memory while its index is kept. A change of
+the number of modules makes a new index. The caller must not change the module records
+of such an object in other ways after a claim was read from it. `evidence.clear_evidence`
+and `clear` remove the kept indexes. Other iterables get an index for one call only.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-LIMIT = 4  # the number of module collections that keep an index
+LIMIT = 4  # the number of module collections that keep an index: the 4 used last
 
 
 @dataclass(frozen=True)
@@ -46,7 +48,12 @@ def clear() -> None:
     _kept.clear()
 
 
-def _package(module: str, records: object) -> str | None:
+def package_fact(module: str, records: object) -> str | None:
+    """Give the `package` fact of the module, or None when it is not known.
+
+    The records are the module records of the facts (`facts["components"]`). A list of
+    module names, a missing record, or a record of an older extraction gives None.
+    `model.package_fact` is this function."""
     record = records.get(module) if isinstance(records, Mapping) else None
     package = record.get("package") if isinstance(record, Mapping) else None
     return package if isinstance(package, str) and package else None
@@ -58,7 +65,7 @@ def _build(modules: Iterable[str], source: object) -> _Index:
     pairs: list[tuple[str, int]] = []
     in_package: dict[str, list[int]] = {}
     for i, module in enumerate(names):
-        package = _package(module, records)
+        package = package_fact(module, records)
         pairs.append((package if package is not None else module, i))
         if package is not None:
             in_package.setdefault(package, []).append(i)
@@ -85,8 +92,9 @@ def _index(modules: Iterable[str]) -> _Index:
     if not isinstance(modules, (Mapping, list, tuple)):
         return _build(modules, modules)
     size = len(modules)
-    for found in _kept:
+    for i, found in enumerate(_kept):
         if found.source is modules and found.size == size:
+            _kept.append(_kept.pop(i))  # the last used index goes to the end
             return found
     made = _build(modules, modules)
     _kept.append(made)
