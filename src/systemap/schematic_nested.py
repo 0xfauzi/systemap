@@ -54,6 +54,8 @@ MARK_COLOURS: tuple[tuple[str, str, str, float], ...] = (
     ("preview frame and card", "ink_3", "bg", 3.0),
     ("preview stub", "ink_2", "bg", 3.0),
     ("changed inside outline", "ink_2", "card", 3.0),
+    # A card that opens a map keeps the full contrast of its name in a quiet layer.
+    ("opening card name", "ink", "card", 4.5),
 )
 
 Text = Callable[..., str]

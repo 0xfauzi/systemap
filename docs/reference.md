@@ -631,6 +631,8 @@ This arrangement occurs only when `place` sets all positions, and only if all ac
 A placement that keeps positions does not move a component.
 
 The Map tree panel is on each page of a tree with nested maps. The T key opens it.
+The Map tree button in the header also opens it. The panel opens over the map, and the page does not scroll.
+On a phone, the panel fills the screen. Escape, the Close button, or a click out of the panel closes it.
 It has one link for each map of the tree, in the order of the tree.
 Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings of the map.
 The open findings are the open lines of `systemap judgement` for the map. The `render`, `refresh`, `check`, and `live` commands run the judgement, so each item gives a count. If a render has no judgement result, the item shows `not examined`, not zero. If the base tree of a comparison does not load, the item does not show `changed`, and the Changes panel gives the reason.

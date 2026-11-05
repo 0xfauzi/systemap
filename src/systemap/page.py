@@ -266,6 +266,7 @@ def _header(
         f'<a class="brand" href="#map" aria-label="systemap: system map">{MARK}</a>'
         f'<div class="project">{parent}<h1 class="project-name">'
         f"{esc(name)}</h1>{snap}{_summary(model, meaning)}</div>"
+        + page_tree.panel(nesting.tree, nesting.path)
         + _views(meaning, ch)
         + '<div class="bar__space"></div>'
         + '<button type="button" class="find" id="find-open" aria-haspopup="dialog" '
@@ -421,7 +422,11 @@ def _source_files(cfg: Config, facts: dict[str, Any], nesting: Nesting) -> str:
     )
 
 
-def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, Any]) -> str:
+def _map_section(
+    model: Model, meaning: Meaning, system_svg: str, ch: dict[str, Any], mark: str
+) -> str:
+    """Give the map section. The parent context mark `mark` comes after the map and
+    before the legend, so the two make the foot row of the section (`page_context.CSS`)."""
     return (
         '<section class="map" id="map" aria-label="System map">'
         '<span id="activity-label" hidden></span><h2 id="activity-question" class="sr-only">'
@@ -437,6 +442,7 @@ def _map_section(model: Model, meaning: Meaning, system_svg: str, ch: dict[str, 
         + system_svg
         + "</div></div></div>"
         + page_mapview.zoom()
+        + mark
         + '<div class="legend map-legend" id="map-legend" aria-label="Legend"></div>'
         '<p class="readout" id="map-context" aria-live="polite"></p>'
         + page_guide.card()
@@ -590,8 +596,7 @@ def build(
             _unknown_provenance(payload["provenance"]) + _source_files(cfg, facts, nesting),
         ),
         '<main class="main">',
-        _map_section(model, meaning, system_svg, ch),
-        nesting.mark,
+        _map_section(model, meaning, system_svg, ch, nesting.mark),
         page_changes.stage(ch, change_svg),
         page_nav.hint(nesting.path, bool(nesting.opens)),
         "</section>",
@@ -604,7 +609,6 @@ def build(
             page_rollup.section(nesting.tree.maps, nesting.path, nesting.tree.changes),
         ),
         "</main>",
-        page_tree.panel(nesting.tree, nesting.path),
         page_present.html(),
         page_phone.html(model, meaning),
         page_motion.keys_sheet(page_nav.keys(nesting.path, tree is not None)),

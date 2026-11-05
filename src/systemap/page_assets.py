@@ -198,9 +198,6 @@ body[data-mode="trace"] .trace-controls,body[data-mode="change"] .change-control
 .zoom{position:fixed;top:62px;right:20px;z-index:12}
 .readpanel{margin-top:52px;height:calc(100svh - 104px)}}
 
-/* ---- the list of child maps ---------------------------------------------- */
-.map-links{padding:1rem 24px;font-size:13px}
-
 /* ---- narrow windows ----------------------------------------------------- */
 @media(max-width:1100px){body[data-panel="open"] .main{grid-template-columns:minmax(0,1fr) 340px}
 .find{width:160px}.views{margin-left:0}.snap__at{display:none}}

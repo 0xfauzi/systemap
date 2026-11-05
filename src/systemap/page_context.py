@@ -7,10 +7,12 @@ This module gives three things to the page of a map:
   label, the open boundary lines, and the nested flows of each parent flow of a card that
   opens a map. A boundary line is open if no recorded answer accepts it
   (`judgement.apply_answers`). A port that has no open line shows no join state.
-- The parent context mark: a small figure of the parent map at the left of the canvas.
-  Each parent card is a plain rectangle. The opening card is filled, and the neighbour
-  cards are dashed. The full mark is one link to the opening card in the parent map. A
-  phone does not show it.
+- The parent context mark: a small figure of the parent map at the lower left of the map
+  view. Each parent card is a plain rectangle. The opening card is filled, and the
+  neighbour cards are dashed. The full mark is one link to the opening card in the parent
+  map. The mark has its own row below the map, so it does not cover a card or a flow at
+  a zoom or a position of the map. Its height is `MARK_H` or less. A phone does not show
+  it.
 - The compact preview of a child map for the inspector: one rectangle for each internal
   card in a frame, and one stub at the frame for each actor with a nested flow. It
   replaces the full preview figure, so a page with many child maps stays small.
@@ -30,8 +32,10 @@ from systemap.model import Component, Model
 from systemap.schematic_cards import Box, esc
 from systemap.schematic_nested import centre, frame_box, side
 
-# The width of the parent context mark and of the compact preview, in CSS pixels.
+# The maximum width and height of the parent context mark, and the width of the compact
+# preview, in CSS pixels.
 MARK_W = 168
+MARK_H = 64
 PREVIEW_W = 280
 # The length of a stub at the frame of the compact preview, in preview units.
 STUB = 14
@@ -157,8 +161,10 @@ def _inside_row(card: str, inner: str, src: str, dst: str, art: str) -> dict[str
 # ---- the two small figures -------------------------------------------------------------
 
 
-def _scale(canvas: tuple[int, int], width: int) -> float:
-    return width / max(canvas[0], 1)
+def _scale(canvas: tuple[int, int], width: int, height: int = 0) -> float:
+    """Give the scale that makes the canvas `width` wide, or less to keep it in `height`."""
+    k = width / max(canvas[0], 1)
+    return min(k, height / max(canvas[1], 1)) if height else k
 
 
 def _rect(box: Box, k: float, cls: str) -> str:
@@ -183,7 +189,7 @@ def mark(tree: nest.Tree, m: nest.Map) -> str:
     if parent is None:
         return ""
     near = {c.id for c in m.model.components if c.kind == "actor"}
-    k = _scale(parent.model.canvas, MARK_W)
+    k = _scale(parent.model.canvas, MARK_W, MARK_H)
     rects = []
     for c in _drawn(parent.model):
         role = "ctx__open" if c.id == m.card else "ctx__near" if c.id in near else "ctx__card"
@@ -244,10 +250,17 @@ def _stub(frame: Box, box: Box, k: float) -> str:
     )
 
 
+# The mark and the legend after it are the foot rows of the map section, below the map.
+# Thus the map cannot go below the mark, and a legend on two lines does not cover the mark.
+# The status of a copied link goes to the right end of the row of the mark. The Changes
+# view has its own figure in the full section, so it does not show the mark.
 CSS = r"""
-.ctx{position:absolute;left:24px;bottom:48px;z-index:4;display:flex;flex-direction:column;
-  gap:4px;padding:8px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);
+.ctx{align-self:flex-start;display:flex;align-items:flex-end;gap:10px;margin:8px 24px 6px;
+  padding:8px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface);
   color:var(--ink-2);text-decoration:none}
+@media (min-width:641px){body:not([data-phone]):not([data-mode="change"]) .ctx~.map-legend{
+  position:static;align-self:flex-start;margin:0 24px 10px}
+.ctx~#linkstatus{left:auto;right:24px}}
 .ctx:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ctx__svg{display:block}
 .ctx__k{font:600 11px/1.2 var(--fs);letter-spacing:.08em;text-transform:uppercase}
@@ -255,7 +268,7 @@ CSS = r"""
 .ctx__near{fill:none;stroke:var(--ink-2);stroke-width:1;stroke-dasharray:2 1.5}
 .ctx__open{fill:var(--ink-2);stroke:var(--ink-2);stroke-width:1}
 @media (max-width:640px){.ctx{display:none}}
-body[data-phone] .ctx{display:none}
+body[data-phone] .ctx,body[data-mode="change"] .ctx{display:none}
 .mini{display:block;width:100%;height:auto}
 .mini__frame{fill:none;stroke:var(--ink-3);stroke-width:1}
 .mini__card{fill:var(--card);stroke:var(--ink-3);stroke-width:1}

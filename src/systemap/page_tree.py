@@ -34,6 +34,7 @@ from typing import Any
 from systemap import judgement, nest, page_rollup
 from systemap.boundary_changes import plural
 from systemap.config import Config
+from systemap.page_icons import icon
 from systemap.page_rollup import Changes, href
 
 # The card text of a search row is cut to this number of characters.
@@ -169,16 +170,21 @@ def _item(ov: Overview, m: nest.Map, at: str, below: Mapping[str, list[nest.Map]
 def panel(ov: Overview, at: str) -> str:
     """Give the Map tree panel of the page of the map `at`, or nothing for one map.
 
-    The T key opens the panel. In the Changes view, the page script adds `#changes` to
-    each link (`page_nav`)."""
+    The header has the Map tree button. The panel opens below the button, over the map,
+    so the page does not scroll. On a phone, the panel fills the screen. The T key opens
+    the panel. Escape, the Close button, and a click out of the panel close it. In the
+    Changes view, the page script adds `#changes` to each link (`page_nav`)."""
     if not ov.maps:
         return ""
     below: dict[str, list[nest.Map]] = {}
     for m in ov.maps[1:]:
         below.setdefault(m.parent or "", []).append(m)
     return (
-        '<details class="map-links map-tree" id="maptree"><summary>Map tree</summary>'
-        f"<ul>{_item(ov, ov.maps[0], at, below)}</ul></details>"
+        '<details class="map-tree" id="maptree"><summary title="Map tree (T)" '
+        f'aria-keyshortcuts="T">{icon("tree")}<span class="tree__label">Map tree</span></summary>'
+        '<div class="tree__panel"><div class="tree__head"><h2 class="tree__title">Map tree</h2>'
+        '<button type="button" class="tree__close" data-tree-close>Close</button></div>'
+        f"<ul>{_item(ov, ov.maps[0], at, below)}</ul></div></details>"
     )
 
 
@@ -213,12 +219,44 @@ def data(ov: Overview, at: str) -> dict[str, Any] | None:
 
 CSS = (
     r"""
+body[data-tree] .bar{z-index:40}
+.map-tree{position:relative;flex:none}
+.map-tree>summary{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;
+  border:1px solid var(--line-2);border-radius:6px;font-size:13px;color:var(--ink-2);
+  cursor:pointer;list-style:none;white-space:nowrap}
+.map-tree>summary::-webkit-details-marker{display:none}
+.map-tree>summary:hover,.map-tree[open]>summary{background:var(--raised);color:var(--ink)}
+.tree__panel{position:absolute;left:0;top:calc(100% + 10px);z-index:20;width:360px;
+  max-width:calc(100vw - 32px);max-height:calc(100svh - 80px);overflow:auto;
+  padding:10px 16px 14px;border:1px solid var(--line-2);border-radius:10px;
+  background:var(--surface);font-size:13px;
+  box-shadow:0 14px 40px color-mix(in srgb,#000 40%,transparent)}
+:root[data-theme="light"] .tree__panel{box-shadow:0 14px 40px color-mix(in srgb,#5a4a2a 18%,
+  transparent)}
+.tree__head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tree__title{margin:0;font:600 11px/16px var(--fm);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-2)}
+.tree__close{height:32px;min-height:32px;padding:0 10px;font-size:13px}
 .map-tree ul{margin:4px 0;padding-left:18px;list-style:none}
-.map-tree>ul{padding-left:0}
+.tree__panel>ul{padding-left:0}
 .map-tree li{margin:2px 0}
 .map-tree a,.map-tree .tree__at{display:inline-block;min-height:24px;font-weight:600}
 .tree__at{color:var(--ink)}
 .tree__n{color:var(--ink-2)}
+@media (max-width:1259px){
+.map-tree>summary{width:32px;padding:0;justify-content:center}
+.tree__label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.tree__panel{position:fixed;left:16px;top:60px}
+}
+@media (min-width:821px) and (max-width:1100px){.map-tree{margin-left:-8px}
+.map-tree~.find kbd{display:none}}
+@media (max-width:640px){
+.map-tree>summary{width:40px;height:40px;border:0;background:none}
+.tree__panel{position:fixed;inset:0;width:auto;max-width:none;max-height:none;
+  padding:12px 16px 24px;border:0;border-radius:0;box-shadow:none;font-size:15px}
+.tree__close{height:44px;min-height:44px}
+.map-tree a,.map-tree .tree__at{display:inline-flex;align-items:center;min-height:44px}
+}
 """
     + page_rollup.CSS
 )
@@ -242,5 +280,30 @@ SCRIPT = r"""
           glyph:'<i class="pal__card' + (actor ? ' actor' : '') + '"></i>'});
     });
   };
+  // The Map tree panel opens over the map. The T key opens it and puts the focus on its
+  // button. Escape, the Close button, and a click out of the panel close it. While it is
+  // open, the body has data-tree, so the header with the panel is above the map controls.
+  // Full screen hides the header, so there T does not open the panel and Escape does not
+  // close it.
+  var list = document.getElementById('maptree');
+  if(!list || !P.nav){ return; }
+  var button = list.querySelector('summary');
+  function full(){ return document.body.hasAttribute('data-full'); }
+  function close(focus){
+    if(!list.hasAttribute('open') || full()){ return false; }
+    list.removeAttribute('open');
+    if(focus){ button.focus(); }
+    return true;
+  }
+  P.nav.tree = function(){
+    if(full()){ return false; }
+    list.setAttribute('open', ''); button.focus(); return true; };
+  P.nav.close = function(){ return close(true); };
+  list.addEventListener('toggle', function(){
+    document.body.toggleAttribute('data-tree', list.hasAttribute('open')); });
+  list.addEventListener('click', function(e){
+    if(e.target.closest('[data-tree-close]')){ close(true); } });
+  document.addEventListener('pointerdown', function(e){
+    if(!list.contains(e.target)){ close(false); } });
 })();
 """

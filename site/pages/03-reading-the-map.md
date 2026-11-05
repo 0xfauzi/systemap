@@ -99,11 +99,17 @@ Color shows only the flow kind, the selection, and the change.
 | Notch in the upper-right corner of an actor | On the page of a nested map: the actor is a component of the parent map. |
 | Dotted port on the boundary | A flow or an import at the boundary has an open `boundary flow` or `boundary import` finding. The Details panel gives the finding. |
 
-On the page of a nested map, a small figure at the left shows the parent map.
+On the page of a nested map, a small figure at the lower left shows the parent map.
+The figure has its own row below the map, so it does not cover a component or a flow.
+The Changes view does not show the figure.
 The filled rectangle is the component that opens the current map, and the dashed rectangles are its actors.
 Select the figure to go to the parent map.
 
-The Map tree panel gives each map of the tree. Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings.
+A layer makes the components that it does not show dim.
+In such a layer, a component that opens a map keeps its name, its second card, and its text `N inside` at full contrast.
+Only its border and its plain word go dim.
+
+The Map tree button in the header opens the Map tree panel over the map. The panel gives each map of the tree. Each item gives the component count, the text `changed` if the map or a map below it changed, and the number of open findings.
 If the render has no judgement result, the item shows `not examined`, not zero.
 Find also gives the components of the other maps, in the group `Other maps`.
 In the Changes view of a parent map, the Details panel gives the changes in the nested maps and the boundary changes.

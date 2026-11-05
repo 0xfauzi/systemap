@@ -942,6 +942,26 @@ function pathKeys(page) {
   out.uPrevented = key('u');
   out.up = went();
   out.capital = (key('U'), went());
+  if (list) {
+    // The Map tree panel closes: Escape and the Close button put the focus back on its
+    // button; a pointer down in the panel keeps it open, and a pointer down out of it closes it.
+    const state = (prevented) => ({prevented, open: list.hasAttribute('open'),
+      active: doc.activeElement ? doc.activeElement.tag : ''});
+    key('t');
+    out.escape = state(key('Escape'));
+    key('t');
+    dispatch(list.querySelector('[data-tree-close]'), new EventImpl('click', {bubbles: true}));
+    out.closeButton = state(false);
+    key('t');
+    dispatch(list.querySelector('li'), new EventImpl('pointerdown', {bubbles: true}));
+    out.pointerIn = state(false);
+    dispatch(doc.body, new EventImpl('pointerdown', {bubbles: true}));
+    out.pointerOut = state(false);
+    // Full screen hides the header: T does not open the panel there.
+    doc.body.setAttribute('data-full', '');
+    out.full = state(key('t'));
+    doc.body.removeAttribute('data-full');
+  }
   return out;
 }
 

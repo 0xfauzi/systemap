@@ -469,15 +469,22 @@ def test_pages_are_written_per_map_with_the_links_up_and_down(
     assert top.count('class="node__map"') == 2
     assert "stacked card opens a child map" in top
     # The Map tree panel: one item for each map, with the counts of the same judgement.
+    # The panel is in the header, so it opens over the map and the page does not scroll.
+    header = top[top.index('<header class="bar">') : top.index("</header>")]
+    assert header.count('id="maptree"') == 1 and top.count('id="maptree"') == 1
     assert (
-        '<details class="map-links map-tree" id="maptree"><summary>Map tree</summary><ul><li>'
+        '<span class="tree__label">Map tree</span></summary><div class="tree__panel">'
+        '<div class="tree__head"><h2 class="tree__title">Map tree</h2>'
+        '<button type="button" class="tree__close" data-tree-close>Close</button></div><ul><li>'
         '<span class="tree__at" aria-current="page">demo</span> '
         '<span class="tree__n">4 components, 5 findings</span><ul>'
         '<li><a href="Gateway/index.html" data-child-map="Gateway/index.html">Gateway</a> '
         '<span class="tree__n">3 components, 5 findings</span></li>'
         '<li><a href="Style/index.html" data-child-map="Style/index.html">Style</a> '
-        '<span class="tree__n">2 components, 3 findings</span></li></ul></li></ul></details>' in top
+        '<span class="tree__n">2 components, 3 findings</span></li></ul></li></ul></div></details>'
+        in header
     )
+    assert '<summary title="Map tree (T)" aria-keyshortcuts="T">' in header
     assert '<a href="../index.html" data-child-map="../index.html">demo</a>' in gateway
     assert '<span class="tree__at" aria-current="page">Gateway</span>' in gateway
     assert '<a href="../Style/index.html" data-child-map="../Style/index.html">Style</a>' in gateway

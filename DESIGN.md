@@ -653,7 +653,7 @@ A declared flow keeps its dash pattern during selection.
 No more than one directional cue moves. The cue does not show a recorded run.
 
 Escape closes the newest item first. The order is the Find dialog, the keyboard keys, the source panel of the commit,
-full screen, the sequence, the selection, and then the panel.
+the Map tree panel, full screen, the sequence, the selection, and then the panel.
 Each nested map has its own page. The page does not show a nested map in a frame.
 A link, a double-click, or a second Enter on a card that opens a map goes to the page of that map.
 The Back control of the browser goes back to the parent page.

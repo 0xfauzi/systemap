@@ -112,6 +112,7 @@ CSS = r"""
 .crumbs .crumb{display:inline-block;max-width:16em;overflow:hidden;text-overflow:ellipsis;
   vertical-align:bottom}
 .crumb__back{display:none}
+@media (min-width:641px) and (max-width:1259px){.crumbs ol,.crumbs__up{gap:8px}}
 @media (max-width:640px){
 .crumbs{flex:none}
 .crumbs__up{display:none}
@@ -144,22 +145,16 @@ SCRIPT = r"""
   });
   ['systemap:mode', 'systemap:select'].forEach(function(n){
     svg.addEventListener(n, retarget); });
-  function tree(){
-    var list = document.getElementById('maptree');
-    if(!list){ return false; }
-    list.setAttribute('open', '');
-    var s = list.querySelector('summary');
-    if(s){ s.focus(); }
-    return true;
-  }
   function up(){
     var href = path && path.getAttribute('data-up');
     if(!href){ return false; }
     location.href = href;
     return true;
   }
-  // The key handler of the page script calls these for U and T.
-  P.nav = {up:up, tree:tree};
+  function no(){ return false; }
+  // The key handler of the page script calls these for U, T and Escape. The script of
+  // the Map tree panel (page_tree.py) replaces `tree` and `close`.
+  P.nav = {up:up, tree:no, close:no};
   retarget();
 })();
 """

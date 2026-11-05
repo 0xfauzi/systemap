@@ -149,6 +149,59 @@ def test_a_nested_page_labels_its_neighbours_and_draws_the_frame(
     assert html.count('class="ctx__card"') == 2
 
 
+def test_the_parent_context_mark_has_its_own_row_below_the_map(
+    nested: Path,  # noqa: F811
+) -> None:
+    """The mark does not lie over the map. It is a row of the map section after the map
+    and before the legend, so the map cannot go below it at a zoom or a position."""
+    assert run("--root", str(nested), "refresh") == 0
+    html, _detail = _page(nested, "Gateway")
+    section = html[html.index('<section class="map"') : html.index("</section>")]
+    assert section.index('id="spatialmap"') < section.index('<a class="ctx"')
+    assert section.index('<a class="ctx"') < section.index('id="map-legend"')
+    rule = page_context.CSS[page_context.CSS.index(".ctx{") :]
+    assert "position:absolute" not in rule[: rule.index("}")]
+    # The legend is the row below the mark, but not in the Changes view, where the mark is
+    # hidden and the legend stays over the change map.
+    assert ':not([data-mode="change"]) .ctx~.map-legend{\n  position:static;' in page_context.CSS
+    assert 'body[data-mode="change"] .ctx{display:none}' in page_context.CSS
+    svg = html[html.index('class="ctx__svg"') :]
+    width = float(svg.split('width="', 1)[1].split('"', 1)[0])
+    height = float(svg.split('height="', 1)[1].split('"', 1)[0])
+    assert width <= page_context.MARK_W and height <= page_context.MARK_H
+
+
+def test_a_tall_parent_map_gives_a_mark_of_the_maximum_height() -> None:
+    # A parent canvas 10 times taller than wide: the height limit sets the scale.
+    k = page_context._scale((100, 1000), page_context.MARK_W, page_context.MARK_H)
+    assert 1000 * k == page_context.MARK_H and 100 * k < page_context.MARK_W
+    # A wide parent canvas: the width limit sets the scale.
+    k = page_context._scale((1000, 100), page_context.MARK_W, page_context.MARK_H)
+    assert 1000 * k == page_context.MARK_W and 100 * k < page_context.MARK_H
+
+
+def test_a_card_that_opens_a_map_stays_readable_in_a_quiet_layer(
+    nested: Path,  # noqa: F811
+) -> None:
+    """A layer that does not show a card makes the card quiet. A quiet card that opens a
+    map keeps its name, its second card and its badge at full contrast. Only its border
+    and its plain word go dim."""
+    assert run("--root", str(nested), "refresh") == 0
+    html, _detail = _page(nested)
+    figure = html[html.index('id="schematic"') : html.index("</svg>", html.index('id="schematic"'))]
+    cards = [
+        part[: part.index('class="node__box"')] for part in figure.split('<g class="node ')[1:]
+    ]
+    opening = [head for head in cards if 'class="node__map"' in head]
+    assert len(opening) == 2 and all(" opens" in head[: head.index('"')] for head in opening)
+    plain = [head for head in cards if 'class="node__map"' not in head]
+    assert plain and all(" opens" not in head[: head.index('"')] for head in plain)
+    assert "#schematic .node.dim,#schematic .node.quiet:not(.opens){opacity:.32}" in html
+    assert "#schematic .quiet.opens>.node__box{stroke-opacity:.32}" in html
+    assert '#schematic .quiet.opens>[data-part="job"]{opacity:.32}' in html
+    assert "#schematic .node.quiet{opacity" not in html
+
+
 def test_the_top_page_has_badges_and_the_nested_flows_of_each_parent_flow(
     nested: Path,  # noqa: F811
 ) -> None:

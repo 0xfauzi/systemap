@@ -4243,3 +4243,53 @@ Analysis:
 - For the median, a participant who did not find the change gets 300 s.
 - Record all results in this file, with each failure and each stopped session.
 - Change the acceptance values only before the first session, not after it.
+
+## Three visual corrections of the nested pages (2026-11-05)
+
+Scope: the parent context mark (V3), the Map tree panel (V6), and a card that opens a map in a quiet layer (V5).
+The pages are the tree of `bench/jev/nested_navigation.py` (`make`): top, Gateway, Gateway/Routes, and Gateway/Routes/Handlers with 40 cards.
+The browser is the Playwright Chromium of this machine. The scripts of these checks are temporary scripts. They are not in the repository.
+The acceptance values are from the task, before the change:
+
+- The parent context mark covers 0 cards and 0 flow paths at each zoom and after a drag of the map.
+- The T key opens the Map tree panel, and the page does not scroll (`scrollY` stays 0).
+- The text of a card that opens a map has at least 4.5:1 in Ink and in Paper (M14).
+
+### The parent context mark
+
+Measurement: the number of cards and flow paths whose visible box intersects the box of the mark, at 1440 by 900.
+Each page: Fit, six steps of zoom in, Fit, four steps of zoom out, and one drag of the map toward the mark.
+
+| Page | Before: largest count | After: largest count |
+|---|---|---|
+| Gateway | 1 (after the drag) | 0 |
+| Gateway/Routes | 1 (after the drag) | 0 |
+| Gateway/Routes/Handlers | 20 (at 97 percent) | 0 |
+
+The mark now has its own row below the map, and the legend is the row below the mark. The map area ends above the mark, so the map cannot go below it.
+The mark height is 64 px or less (`page_context.MARK_H`). Before the change, the mark of Gateway/Routes/Handlers was about 260 px high.
+Result: pass.
+
+### The Map tree panel
+
+| Check | Before | After |
+|---|---|---|
+| `scrollY` after T, 1440 by 900 | 180 | 0 |
+| `scrollY` after T, 390 by 844 | 0 (the list was in the page above the grid) | 0 (the panel fills the screen) |
+| Escape closes the panel | no | yes, the focus goes to the Map tree button |
+| A click out of the panel closes it | no | yes |
+
+The Map tree button is in the header. From 641 px to 1259 px, the button shows only its icon. The right end of the header was measured for the Handlers page and the Gateway page at 821, 900, 1000, 1100, 1260, and 1440 px.
+The right end is the same as before or less at each width, with one exception: Gateway at 821 px is 896 px (before: 891 px). At 821 px, the header of Gateway was already wider than the window before the change.
+Result: pass.
+
+### A card that opens a map in a quiet layer
+
+The name, the second card, and the badge of a quiet card that opens a map keep full opacity. The border and the plain word have 0.32 opacity, as before.
+The test `tests/test_theme.py::test_the_marks_of_a_nested_map_clear_their_contrast_floor` has the new row "opening card name" (token `ink` on the ground `card`, floor 4.5). The ratio is 14.86 in Ink and 17.06 in Paper. The badge row is the same as in M14: 8.41 in Ink and 6.80 in Paper.
+Result: pass.
+
+### The size of a page without nested maps
+
+The sample page of `tests/test_render.py` is 338,583 bytes (before: 338,523 bytes, +60 bytes). The limit of 331 KiB (338,944 bytes) stays.
+The script of the Map tree panel is only on a page of a tree with nested maps.

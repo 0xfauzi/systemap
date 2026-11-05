@@ -42,7 +42,9 @@ def test_page_is_small_and_self_contained(sample: Sample) -> None:
     # The group "Other maps" of the Find dialog adds 174 bytes (bench/jev/README.md, "M11
     # and M17"). The page is 338,405 bytes. The limit stays the same. After the review of
     # that step, the Find dialog sorts the shown rows of a group again, and the page is
-    # 338,523 bytes.
+    # 338,523 bytes. The corrections of the parent context mark, the Map tree panel, and the
+    # quiet card that opens a map add 60 bytes (bench/jev/README.md, "Three visual
+    # corrections of the nested pages"). The page is 338,583 bytes.
     assert len(html.encode("utf-8")) < 331 * 1024
     assert "<script src" not in html
     # the one <link> is the favicon, inline as a data URI; nothing is fetched

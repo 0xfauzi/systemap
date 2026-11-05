@@ -886,6 +886,8 @@ The parent map must have positions first. A run without <code>--map</code> place
 This arrangement occurs only when <code>place</code> sets all positions, and only if all actors are in one container that has no region and no internal component.
 A placement that keeps positions does not move a component.</p>
 <p>The Map tree panel is on each page of a tree with nested maps. The T key opens it.
+The Map tree button in the header also opens it. The panel opens over the map, and the page does not scroll.
+On a phone, the panel fills the screen. Escape, the Close button, or a click out of the panel closes it.
 It has one link for each map of the tree, in the order of the tree.
 Each item gives the component count, the text <code>changed</code> if the map or a map below it changed, and the number of open findings of the map.
 The open findings are the open lines of <code>systemap judgement</code> for the map. The <code>render</code>, <code>refresh</code>, <code>check</code>, and <code>live</code> commands run the judgement, so each item gives a count. If a render has no judgement result, the item shows <code>not examined</code>, not zero. If the base tree of a comparison does not load, the item does not show <code>changed</code>, and the Changes panel gives the reason.

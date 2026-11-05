@@ -315,6 +315,7 @@ JS = r"""
   }
   function escape(e){
     if(showSnap(false)){ snap.focus(); e.preventDefault(); return; }
+    if(P.nav && P.nav.close()){ e.preventDefault(); return; }
     if(P.exitFull && P.exitFull()){ e.preventDefault(); return; }
     if(P.journey.active()){ P.journey.end(); e.preventDefault(); return; }
     if(A.state.focus){ A.clear(); A.view.back(); e.preventDefault(); return; }

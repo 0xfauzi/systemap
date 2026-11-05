@@ -32,8 +32,10 @@ def tok(P: Palette, key: str, *fallbacks: str) -> str:
 def _node_style(s: str, t: Palette) -> str:
     """Give the card states: quiet, selected or acting, endpoint, measured, focus, preview.
 
-    Selection is a 1 px border and a 2 px ring in the accent color, with the
-    highlight fill. Keyboard focus is a 2 px ink ring with a 3 px gap."""
+    A quiet card is outside the current layer, and it goes dim. A quiet card that opens a
+    map keeps its name, its second card and its badge at full contrast, so a reader can
+    find the map inside it. Selection is a 1 px border and a 2 px ring in the accent
+    color, with the highlight fill. Keyboard focus is a 2 px ink ring with a 3 px gap."""
     ink, accent, steel = t["ink"], t["accent"], t["steel"]
     line = tok(t, "card_line", "line_2")
     return (
@@ -45,7 +47,11 @@ def _node_style(s: str, t: Palette) -> str:
         f"{s}[data-live] .node.subject .node__box{{stroke:var(--subject,{line})}}"
         f"{s}[data-live] .node.subject rect.node__mark{{stroke:var(--subject,{line})}}"
         f"{s}[data-live] .node.subject path.node__mark{{fill:var(--subject,{line})}}"
-        f"{s} .node.dim,{s} .node.quiet{{opacity:.32}}"
+        f"{s} .node.dim,{s} .node.quiet:not(.opens){{opacity:.32}}"
+        # A quiet card that opens a map keeps its name, its marks, its second card and its
+        # badge at full contrast. Only its border and its plain word go dim.
+        f"{s} .quiet.opens>.node__box{{stroke-opacity:.32}}"
+        f'{s} .quiet.opens>[data-part="job"]{{opacity:.32}}'
         f"{s} .node__ring,{s} .node__selection{{display:none}}"
         f"{s} .node__hl,{s} .node__halo{{display:none;pointer-events:none}}"
         f"{s} .node__hl{{fill:{tok(t, 'hl_soft', 'hl', 'accent_soft')}}}"

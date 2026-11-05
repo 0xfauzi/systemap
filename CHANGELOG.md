@@ -56,6 +56,11 @@ A layer is a filtered view of the map.
   A placement that keeps positions does not move a component. Use `systemap place --map ID --all` to arrange a current nested map again.
 - The Map tree panel replaces the list of child maps. It is on each page of a tree with nested maps, and the T key opens it.
   Each item gives the component count, `changed` if the map or a map below it changed, and the number of open findings, or `not examined`.
+  The Map tree button in the header opens the panel over the map, and the page does not scroll. On a phone, the panel fills the screen.
+  Escape, the Close button, or a click out of the panel closes it.
+- The small figure of the parent map has its own row below the map. Thus it does not cover a component or a flow at a zoom or a position of the map.
+  The Changes view does not show the figure.
+- In a layer that does not show a card that opens a map, the name, the second card, and the text `N inside` of that card keep full contrast.
 - The Find dialog gives the components of the other maps of the tree in the group `Other maps`, after the results of the current map.
 - In the Changes view, the Details panel of a page with maps below it has the sections `CHANGES IN NESTED MAPS` and `BOUNDARY CHANGES`.
   A card that opens a map has the text `changed inside` if its map or a map below it changed.

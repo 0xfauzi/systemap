@@ -461,7 +461,8 @@ def render(
         inside = changed_inside(c, opens, mode)
         g: list[str] = [
             f'<g class="node {state_class}'
-            f'{" subject" if subject else ""}{" quiet" if quiet else ""}" '
+            f"{' subject' if subject else ''}{' quiet' if quiet else ''}"
+            f'{" opens" if c.opens else ""}" '
             f'data-id="{esc(cid)}" data-kind="{esc(kind)}" data-state="{state}" '
             f'data-region="{esc(c.home)}"{marked.attrs} '
             f'role="button" '

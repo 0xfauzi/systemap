@@ -84,3 +84,22 @@ def test_the_u_key_goes_to_the_parent_map(nested: Path) -> None:  # noqa: F811
     assert keys["tPrevented"] is True and keys["listOpen"] is True
     assert keys["uPrevented"] is True and keys["up"] == "../index.html#Gateway"
     assert keys["capital"] == "../index.html#Gateway"
+
+
+def _closes(keys: dict[str, Any]) -> None:
+    """Escape and the Close button close the Map tree panel and put the focus on its
+    button. A pointer down in the panel keeps it open. A pointer down out of it closes it.
+    In full screen, the header is hidden, so T does not open the panel."""
+    assert keys["escape"] == {"prevented": True, "open": False, "active": "summary"}
+    assert keys["closeButton"] == {"prevented": False, "open": False, "active": "summary"}
+    assert keys["pointerIn"]["open"] is True
+    assert keys["pointerOut"]["open"] is False
+    assert keys["full"]["prevented"] is False and keys["full"]["open"] is False
+
+
+@needs_node
+def test_the_map_tree_panel_closes(nested: Path) -> None:  # noqa: F811
+    """On the top page and on a nested page, the Map tree panel closes as a panel does."""
+    assert run("--root", str(nested), "refresh") == 0
+    _closes(_drive(nested / "docs/map/index.html", "pathkeys"))
+    _closes(_drive(nested / "docs/map/Gateway/index.html", "pathkeys"))

@@ -490,6 +490,7 @@ Change:
   - the link "Open the map inside Auth" if that card opens a map.
 - The phone "OUTSIDE" column (page_phone.py:386-399) divides into "Parent map" and "Outside".
 - A small parent context mark shows at the left of the canvas: the parent cards as plain rectangles (about 40 elements), the opening card filled, and the neighbours dashed. The full mark is one link to `../index.html#<card>`. It is not shown on a phone.
+  The mark has its own row below the map, above the legend, so it does not cover a card or a flow at a zoom or a position of the map (correction of 2026-11-05).
 
 ### V4. The frame and the ports
 
