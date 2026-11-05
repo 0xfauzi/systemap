@@ -34,6 +34,38 @@ These are not measured yet:
 
 The steps below measure them.
 
+## Performance
+
+The maintainer asked for care with the speed of the canvas when many elements are on the screen. The prototype was measured in the views that show the most cards. Each value below comes from a script whose acceptance value was written before the run. The host is headless Chromium on a 4-core Xeon at 2.1 GHz with no GPU. Thus the browser paints in software, and the values are worse than on a usual laptop or phone. That difference is not measured.
+
+Acceptance for each view: p95 frame interval at most 16.7 ms at normal CPU speed, and at most 33 ms with 4 times CPU throttling.
+
+| Renderer | 50 maps, all top cards open | 400 cards, pan | 1,500 cards, pan | 50 maps, 4 times throttling |
+|---|---|---|---|---|
+| SVG elements made again at each frame | 33 ms | 67 ms | 100 ms | 67 to 100 ms |
+| `<canvas>` 2D | 17 ms | 33 ms | 50 ms | 67 to 133 ms |
+| `<canvas>`, half resolution while the camera moves | 17 ms | 17 ms | 33 ms | 33 to 50 ms |
+
+A CPU profile of the canvas renderer with 4 times throttling gave these shares: stroke 32 %, text 30 %, fill 18 %, and the scene code less than 5 %. One path for each style (batching) did not change the result. Thus the cost is the area of pixels that the browser paints, not the number of calls.
+
+These are the rules for the renderer of step 2:
+
+1. **Draw on a `<canvas>`.** Do not make SVG elements at each frame. The hidden tree list gives access for keyboards and screen readers.
+2. **Resolution.** Use half resolution while the camera moves. Draw at full resolution 150 ms after the camera stops.
+3. **Large maps.** When the cards of a map are marks only (a map of 400 to 1,500 cards when it is far away), draw the marks of that map into an image one time for each zoom step, and use that image at each frame. The 1,500-card map fails without this.
+4. **Less work at each frame.**
+   - Draw only the cards on the screen. Use an index of the card boxes for each map.
+   - Do not draw text below 7 px.
+   - Keep the wrapped text of each card for each font size.
+   - Read the theme colors one time, and again only when the theme changes.
+5. **A performance test in CI.** A Playwright test uses the scenarios of `bench/jev` (the M11 tree, a 400-card map, and a 1,500-card map) with 4 times CPU throttling. It fails when a p95 value is more than its limit. A frame-rate display (`?hud`) lets a person measure on a real device.
+
+The data side must also be fast. The first canvas data build took 22 s for 50 maps. A profile found two causes outside the canvas code:
+- `model.claimed` compared each pattern with each module. This was 20 million comparisons.
+- `judgement_evidence.names` compiled one regular expression for each judgement line and each module.
+
+PR #152 replaces both with indexes that give the same output bytes. On the M11 tree, `check` goes from 69.6 s to 9.8 s, and `judgement` from 571.9 s to 6.0 s (`bench/jev/README.md`). Measure C1 again after that PR merges.
+
 ## The data
 
 One page has one data object for the tree. It holds no rendered SVG for the maps. For each map, it holds:
@@ -48,7 +80,7 @@ The module is `canvas_data.py`. The data is computed from the current model, fac
 
 ## The renderer
 
-The renderer is a script in the page (`page_canvas.py` gives it, under the current CSP digest rules). It draws SVG from the data at each frame. It draws only the elements on the screen.
+The renderer is a script in the page (`page_canvas.py` gives it, under the current CSP digest rules). It paints the data on a `<canvas>` element with the 2D API, and it follows the rules of the section "Performance". It does not make SVG elements at each frame.
 
 **Level of detail.** This follows the screen size of each card:
 
