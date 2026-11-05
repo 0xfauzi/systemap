@@ -88,7 +88,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("answer_write.py", "_write", "target.write_bytes"): "the configuration that config.load read",
     ("decisions_submit.py", "_restored", "target.write_bytes"): "the same configuration",
     # Model files. os.replace replaces a link. The temporary files are in the model folder.
-    ("model_convert.py", "_same", "tempfile.mkstemp"): MODEL,
+    ("model_convert.py", "same_model", "tempfile.mkstemp"): MODEL,
     ("model_write.py", "_replace", "os.replace"): MODEL,
     ("model_write.py", "_restore", "os.replace"): MODEL,
     ("model_write.py", "replace_bytes", "os.replace"): MODEL + ", to restore its bytes",

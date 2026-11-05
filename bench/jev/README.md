@@ -3901,3 +3901,76 @@ The acceptance passes on this tree. M10 also passes again: the six commands exit
 
 - M1 needs the fixture big5 (about 4,250 modules) divided into 10, 25, and 50 nested maps. big5 is not on this host. M1 was not run.
 - M19 needs a fixture with more than 10,000 source files (issue #92). No such fixture is on this host. M19 was not run.
+
+## M3 and M4: the part plan and the size of one nested model (2026-11-04)
+
+Scope: step 3 of [the nested parts design](../../docs/design/nested-parts.md).
+The script is [`parts_plan.py`](parts_plan.py). Its docstring has the acceptance values, which were written before the run.
+The host has 4 cores. The code is the working tree of step 3 on 70b8c0b.
+
+Command: `uv run python bench/jev/parts_plan.py` (about 10 seconds)
+
+### M3 on a generated tree, not on big5
+
+The design gives M3 on the fixture big5 (about 4,250 modules). big5 is not on this host. Thus M3 of the design was not run.
+The script ran the acceptance of M3 on a different tree: the fixture of [`tests/three_levels.py`](../../tests/three_levels.py) with 7 maps on level 1 and 3 maps on level 2 below each of them, 50 maps in all.
+The plan of the top map has 7 nested parts. This tree has 122 modules with the empty package markers, not about 4,250. Its result does not replace the M3 of the design.
+
+Acceptance, written before the run: the median time of `systemap parts --json` is at most 10 s. Its peak RSS is at most 50 MB above the peak RSS of a process that only loads the tree and reads the facts. Its output is at most 50 MB.
+
+| Measurement | Result |
+|---|---|
+| Exit codes of 5 runs | 0 |
+| Times of 5 runs (s) | 0.40, 0.37, 0.41, 0.34, 0.38 |
+| Median time (s) | 0.38 |
+| Peak RSS of `parts --json` | 35.1 MB |
+| Peak RSS of the load and the facts read | 25.4 MB |
+| Peak RSS above the load and the facts read | 9.7 MB |
+| Output | 14,476 bytes |
+
+The acceptance passes on this tree. The time and the memory on big5 are not known. A measurement on big5 is necessary.
+
+### M4: one nested model with 40 components
+
+Acceptance, written before the run: a nested model with 40 components, flows, sequences, and positions is at most 256 KB (262,144 bytes) and 50,000 values.
+
+The script made the model from the means of the self-map at the same commit. The self-map has 21 components, 80 flows, and 16 sequences. Its model files have 95,277 bytes and 2,320 values without the contract file.
+
+| Mean of the self-map | Value |
+|---|---|
+| Characters of `does` (internal components) | 898.7 |
+| Characters of `interface` | 101.4 |
+| Claims for each internal component | 11.5 |
+| Flows for each component | 3.8 |
+| Source records for each flow | 1.9 |
+| Characters of a relation sentence | 111.2 |
+| Sequences for each component | 0.8 |
+| Steps for each sequence | 4.3 |
+| Characters of a step sentence | 120.4 |
+| Entry points for each sequence | 1.8 |
+
+| Generated model | Result |
+|---|---|
+| Components, flows, sequences | 40, 152, 30 |
+| Size | 214,060 bytes (209.0 KB) |
+| Values (the count of `model_load`) | 4,137 |
+
+M4 passes. The size is 82 percent of the acceptance value, and the size limit is nearer than the value limit. A map with longer `does` text than the self-map can be above 256 KB. The size of a real nested map of 40 components was not measured.
+
+### M3 and M4 again, after the review of step 3 (2026-11-04)
+
+The review of step 3 changed `parts_plan.py`: the plan calculates the crossing imports one time for each parent map, not one time for each nested part. `facts_digest` and `contract_digest` also changed.
+The script now stops with exit code 1 if `place`, `extract`, `refresh`, or a measured process fails. The acceptance values did not change.
+The code is the working tree of the review on 7a48d35. The command and the tree are the same as above.
+
+| Measurement | Result |
+|---|---|
+| Exit codes of 5 runs | 0 |
+| Times of 5 runs (s) | 0.32, 0.32, 0.37, 0.33, 0.34 |
+| Median time (s) | 0.33 |
+| Peak RSS of `parts --json` | 35.9 MB |
+| Peak RSS of the load and the facts read | 25.4 MB |
+| Peak RSS above the load and the facts read | 10.5 MB |
+| Output | 14,476 bytes |
+
+M3 passes on this tree. M4 gives the same values as above: 214,060 bytes and 4,137 values, and passes. The time and the memory on big5 are not known. A measurement on big5 is necessary.

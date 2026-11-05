@@ -404,7 +404,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     results = _check_tree(p, facts)
     stale = cli_scope.stale(p.cfg, p.tree)
     say(*_report_tree(p, results, stale, not args.brief))
-    say(*cli_scope.notes(p.tree, cli_scope.PAGES_NOTE))
+    say(*cli_scope.check_notes(p.cfg, p.tree))
     code = _rules_check(p, facts, not args.brief)
     if not check.tree_ok(results) or stale:
         say(_fix_line(p, results) if not check.tree_ok(results) else "run: systemap refresh")
@@ -1383,7 +1383,7 @@ def build_parser() -> argparse.ArgumentParser:
     model_convert.add_parsers(sub, add_root)
     review.add_parsers(sub, add_root)
     decisions_cli.add_parsers(sub, add_root)
-    cli_scope.add_options(sub)
+    cli_scope.add_parsers(sub, add_root)
     return parser
 
 

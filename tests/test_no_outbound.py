@@ -94,6 +94,7 @@ RUN: dict[str, tuple[str, ...]] = {
     "rules": ("rules",),
     "delta": ("delta", "--base", "HEAD~1"),
     "suggest": ("suggest",),
+    "parts": ("parts",),
     "describe": ("describe",),
     "history": ("history",),
     "explain": ("explain", "crossing import"),
