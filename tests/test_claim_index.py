@@ -100,4 +100,4 @@ def test_a_used_index_is_kept_when_other_collections_come() -> None:
     for i in range(claim_index.LIMIT * 2):
         claim_index.claimed(("m.*",), [f"m.{i}"])
         claim_index.claimed(("m.*",), main)  # in use again: it goes to the end
-    assert any(found.source is main for found in claim_index.kept())
+    assert any(source is main for source, *_ in claim_index._kept)

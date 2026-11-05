@@ -4068,3 +4068,17 @@ The review changes: `check_coverage` and the missing-claim check use `claimed` a
 | `judgement` | 571.9 s (run 1) | 7.8 s | 0.014 | yes | PASS |
 
 The `check_coverage` change did not make `check` measurably faster (19.5 s, 20.3 s and 19.0 s in the three runs). The rest of the 19 s of `check` is not examined yet.
+
+### Run 4: after the `/simplify` review
+
+The review changes:
+- One finder of module names in a line (`judgement_evidence.named_modules`) is used by `line_modules` and by `decisions._subject`. It compiles the pattern of a name with other characters (for example a path) one time for each module collection.
+- `extraction.mapping_drift`, `schematic_cards._claimed_files` and `change` (the owner of each module) use the claim index, not a scan of each module.
+- The tests clear the kept indexes before each test.
+
+| Command | Before | After | Ratio | Same output | Result |
+|---|---|---|---|---|---|
+| `check` | 69.6 s | 9.8 s | 0.14 | yes | PASS |
+| `judgement` | 571.9 s (run 1) | 6.0 s | 0.011 | yes | PASS |
+
+Most of the 19 s of `check` in run 3 was `schematic_cards._claimed_files`, which scanned each module for each module claim of each card.

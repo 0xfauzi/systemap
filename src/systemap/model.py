@@ -666,9 +666,7 @@ def _rule_fields(rule: ImportRule, ids: set[str]) -> list[str]:
     return out
 
 
-def is_symbol(pattern: str) -> bool:
-    """True when an implemented_by value is a symbol claim in pkg.mod:name form."""
-    return ":" in pattern
+is_symbol = claim_index.is_symbol
 
 
 def symbol_claims(component: Component) -> list[tuple[str, str]]:

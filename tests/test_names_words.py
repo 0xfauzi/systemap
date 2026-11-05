@@ -55,3 +55,12 @@ def test_the_cases_of_the_docstring() -> None:
         ("a", False),
     ]:
         assert judgement_evidence.names(name, text) is found is old_names(name, text)
+
+
+@pytest.mark.parametrize("seed", range(200))
+def test_named_modules_agrees_with_a_scan_of_each_name(seed: int) -> None:
+    rng = random.Random(seed)
+    text = _text(rng)
+    modules = {_name(rng): {} for _ in range(rng.randint(0, 30))}
+    found = judgement_evidence.named_modules(modules, text)
+    assert found == [name for name in modules if old_names(name, text)], text

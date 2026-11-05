@@ -196,9 +196,9 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     for c in model.components:
         for m in claimed(c, components):
             owners_of.setdefault(m, []).append(c.id)
-    covered = {i.module: set(claim_index.claimed((i.module,), components)) for i in ignore_list}
+    covered = {i.module: claim_index.claimed((i.module,), components) for i in ignore_list}
     for ignore in ignore_list:
-        matched = sorted(covered[ignore.module])
+        matched = covered[ignore.module]
         if not matched:
             problems.append(f"ignore specifies a module missing from the facts: {ignore.module}")
         elif all(m in markers for m in matched):
@@ -207,7 +207,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
                 f"coverage rule omits it automatically. Remove the ignore entry."
             )
     problems += _claimed_ignores(covered, owners_of, markers, ignore_list)
-    ignored = set().union(*covered.values())
+    ignored = {m for found in covered.values() for m in found}
     mapped = n_ignored = n_markers = 0
     for m in modules:
         owners = owners_of.get(m, [])
@@ -228,7 +228,7 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
 
 
 def _claimed_ignores(
-    covered: Mapping[str, set[str]],
+    covered: Mapping[str, list[str]],
     owners_of: Mapping[str, list[str]],
     markers: set[str],
     ignores: list[Ignore],
