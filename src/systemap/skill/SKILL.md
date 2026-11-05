@@ -170,13 +170,12 @@ The contract file `map/contract.py` gives the invariants and import rules. The o
 Change a rule of the contract only with a `reason`. Write each reason from the code, the documentation, or the commit history. If a reviewer refuses a change to a rule, add the cause to the reason of the rule that stays.
 Invariants come from repository rules, source clauses, assertions, or tests. Cite the source of each invariant. Do not put a proposed rule in the recorded invariant list.
 
-Select the region for each component. Use `systemap place` for positions. A route must not cross an unrelated region.
-Use `pinned=True` only for a position that must stay fixed.
+Select the region for each component. Use `systemap place` for positions. A route must not cross an unrelated region. Use `pinned=True` only for a position that must stay fixed.
 
 A component with more than ten modules can have a nested map. Maps with more than forty components also receive a nested-map suggestion.
-`map="gateway.py"` identifies a model beside the parent model.
-Its internal components must cover all of the parent's module claims, without additions.
-Its actors represent adjacent components. Commands examine every nested map.
+Write the nested model file before you set `map=` on the component. Its internal components must cover all of the parent's module claims, without additions. Its actors represent adjacent components.
+If the map needs two or more nested maps, read `references/parts.md`. If you can start sub-agents, give each sub-agent one nested part. If you cannot, do each nested part in sequence.
+Only the agent of the parent map writes `systemap.toml`, the parent model, and the output. Commands without `--map` examine every nested map. Only a run without `--map` gives the result for completion.
 
 ## Commands
 
@@ -238,3 +237,4 @@ Do not put code or test counts on map components. Keep relationships on flows. D
 - `references/pitfalls.md`: known assignment and tool errors. Read it before the draft.
 - `references/decisions.md`: decision requests, verdicts, and citations. Read it at step 6.
 - `references/maintenance.md`: delta actions and the one-third rule. Read it for a map already in use.
+- `references/parts.md`: nested parts, sub-agents, and the examination of their results. Read it when the map needs two or more nested maps.

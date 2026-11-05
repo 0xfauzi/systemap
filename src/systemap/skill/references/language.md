@@ -336,6 +336,23 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | line span | The first and the last line number of a citation. |
 | decision store | The local file `.systemap/decisions.json` that records the verdicts of a working copy. |
 | session | One continuous period of work of a coding agent. |
+| sub-agent | An agent that a different agent starts for one task. It does not get the session text of the agent that starts it. |
+| main agent | The agent that writes the top map, divides the work, and examines the results of the part agents together. |
+| nested map | A map that shows the internal components of one component of a parent map. |
+| nested part | One nested map, its contract file, and the model files with its file prefix. |
+| part agent | The agent that makes the nested map of one nested part. |
+| part plan | The output of `systemap parts`: the facts for each nested part of one map. |
+| result file | The file in which a part agent records its verdicts, answers, boundary requests, and questions. |
+| write set | The files that one agent can change. |
+| stem | The file name of the model file of a nested map without `.py`: its map ID in lower case, with `_` in place of each `/`. |
+| file prefix | The start of the names of the model files of one nested part: the stem and `_`. |
+| map prefix | The map ID and `: ` at the start of a finding line of a nested map, for example `Gateway: `. |
+| boundary flow | A flow between a component that opens a nested map and an adjacent component of the parent map. |
+| boundary import | An import from a module of a nested part to a module of a component outside that nested part. |
+| boundary request | A change to a module claim or to a boundary flow that a part agent asks the main agent to make. |
+| contract commit | The Git commit with the top map, the boundary rules, the stubs, and the `map=` fields. |
+| stub | A nested model file that has only the components from `systemap parts --stub`. |
+| Git worktree | A different folder with the files of one Git repository, with its own branch. |
 
 | Term | Technical meaning |
 |---|---|
@@ -435,6 +452,7 @@ Use these verbs only for the specified computer operation.
 | pair | Associate source records as candidates in a revision comparison. |
 | route | Calculate a map flow path around layout bounds. |
 | return | Supply the result of a software function to its caller. |
+| merge | Combine two Git branches with `git merge`. |
 
 Do not use these verbs for general human actions.
 Use "examine the source" for a human source review.

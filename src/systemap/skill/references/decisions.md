@@ -39,6 +39,9 @@ Each decision request has an `id`. If the claim does not change, the `id` stays 
 8. If a verdict is `contradicted`, correct the map. Then run `systemap refresh` and do this procedure again.
 9. Run `systemap decisions status`. In your report, give each unknown decision request, its CI result, and its verdicts.
 
+Use `systemap decisions pending --map ID` for one nested map. The request IDs are the same as in a run without `--map`.
+Only the main agent runs `systemap decisions submit`. A part agent writes its verdicts in its result file (`references/parts.md`).
+
 ## Rules
 
 - With Jev, use the sequence from `systemap judgement --order-by-drift` to select the first stale component, but examine all stale components.
