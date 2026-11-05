@@ -9,14 +9,13 @@ The page uses different styles for source facts and authored meaning.
 from __future__ import annotations
 
 import ast
-import contextlib
 import functools
 import hashlib
 import json
 import re
 import sys
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -33,7 +32,9 @@ from systemap import (
     python_tests,
     python_tree,
     repo_files,
+    source_segment,
     source_text,
+    syntax_text,
     unknown_causes,
 )
 from systemap.completeness import parse_state
@@ -51,6 +52,8 @@ from systemap.python_repo import PythonRepository
 from systemap.source_facts import standard_label
 
 CONSTANTS_KEPT = 14
+# The maximum number of characters in the preview of a constant value.
+PREVIEW_LIMIT = 80
 UPPER_NAME = re.compile(r"[A-Z][A-Z0-9_]{2,}")
 PACKAGE_MODULE = "__init__.py"
 # The `type X = ...` statement exists from Python 3.12. An earlier parser cannot read it.
@@ -286,21 +289,6 @@ def module_of(path: Path, pkg_dir: Path, pkg_name: str) -> str:
     return ".".join([pkg_name, *parts]) if parts else pkg_name
 
 
-def signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-    try:
-        args = ast.unparse(node.args)
-    except (AttributeError, ValueError):
-        args = "..."
-    ret = ""
-    if node.returns is not None:
-        try:
-            ret = f" -> {ast.unparse(node.returns)}"
-        except (AttributeError, ValueError):
-            ret = ""
-    prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
-    return f"{prefix}{node.name}({args}){ret}"
-
-
 def opening(text: str | None) -> str:
     """Get the first docstring paragraph that is not a license notice, with a length
     limit (`notice_text`).
@@ -339,15 +327,18 @@ def parse_surface(
     # lower-case object (`app`, `root_agent`) as well as a function or class.
     names: list[dict[str, str]] = []
     statements = _active_statements(tree.body)
+    source = source_segment.Source(raw)
+    # The class nodes that are errors. `_python_api` puts them in the `refusals` bucket.
+    refusals: set[ast.ClassDef] = set()
     for node in statements:
         if isinstance(node, ast.ImportFrom) and is_package and module:
             names.extend(_surface_reexports(node, module, prefixes))
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            _surface_function(node, names, functions)
+            _surface_function(node, source, names, functions)
         elif isinstance(node, ast.ClassDef):
-            _surface_class(node, names, classes, errors)
+            _surface_class(node, source, names, (classes, errors), refusals)
         elif isinstance(node, ast.Assign | ast.AnnAssign):
-            _surface_assignment(node, names, constants)
+            _surface_assignment(node, source, names, constants)
         elif isinstance(node, TYPE_ALIAS):
             _surface_type_alias(node, names, types)
     python_exports.mark_star_exports(statements, names)
@@ -359,7 +350,7 @@ def parse_surface(
         "types": types,
         "constants": constants,
         "names": names,
-        "api": _python_api(statements),
+        "api": _python_api(statements, refusals),
         "executes": any(
             isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) for node in statements
         ),
@@ -375,6 +366,7 @@ def _surface_reexports(
 
 def _surface_function(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    source: source_segment.Source,
     names: list[dict[str, str]],
     functions: list[dict[str, Any]],
 ) -> None:
@@ -384,28 +376,27 @@ def _surface_function(
     # signature keeps its record in `functions`.
     if {"name": node.name, "kind": "function"} not in names:
         names.append({"name": node.name, "kind": "function"})
-    functions.append({"name": node.name, "signature": signature(node)})
+    functions.append({"name": node.name, "signature": source_segment.signature(node, source)})
 
 
 def _surface_class(
     node: ast.ClassDef,
+    source: source_segment.Source,
     names: list[dict[str, str]],
-    classes: list[dict[str, Any]],
-    errors: list[dict[str, Any]],
+    records: tuple[list[dict[str, Any]], list[dict[str, Any]]],
+    refusals: set[ast.ClassDef],
 ) -> None:
+    """Record a public class in `classes` or, for an error, in `errors` and `refusals`."""
     if node.name.startswith("_"):
         return
-    bases = []
-    for base in node.bases:
-        with contextlib.suppress(AttributeError, ValueError):
-            bases.append(ast.unparse(base))
-    is_error = node.name.endswith(("Error", "Exception")) or any(
-        "Error" in base or "Exception" in base for base in bases
-    )
+    classes, errors = records
+    is_error = _is_error(node, source)
+    if is_error:
+        refusals.add(node)
     record = {
         "name": node.name,
         "methods": [
-            signature(child)
+            source_segment.signature(child, source)
             for child in node.body
             if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef)
             and not child.name.startswith("_")
@@ -427,6 +418,7 @@ def _surface_type_alias(
 
 def _surface_assignment(
     node: ast.Assign | ast.AnnAssign,
+    source: source_segment.Source,
     names: list[dict[str, str]],
     constants: list[dict[str, str]],
 ) -> None:
@@ -438,11 +430,8 @@ def _surface_assignment(
         if not UPPER_NAME.fullmatch(target.id):
             names.append({"name": target.id, "kind": "object"})
             continue
-        try:
-            value = ast.unparse(node.value)
-        except (AttributeError, ValueError):
-            value = "?"
-        constants.append({"name": target.id, "value": value[:80]})
+        value = source.text(node.value, PREVIEW_LIMIT)
+        constants.append({"name": target.id, "value": "?" if value is None else value})
         names.append({"name": target.id, "kind": "constant"})
 
 
@@ -463,40 +452,44 @@ def _python_class_api(node: ast.ClassDef) -> str:
     for child in node.body:
         if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
             if child.name == "__init__" or not child.name.startswith("_"):
-                members.append(python_syntax.decorated(child, signature(child)))
+                members.append(python_syntax.fingerprint(child))
         elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
             if not child.target.id.startswith("_"):
-                members.append(f"{child.target.id}:{ast.dump(child.annotation)}")
+                members.append(f"{child.target.id}:{syntax_text.text(child.annotation)}")
     return json.dumps(
         {
-            "bases": [ast.dump(base) for base in node.bases],
-            "decorators": [ast.dump(decorator) for decorator in node.decorator_list],
+            "bases": [syntax_text.text(base) for base in node.bases],
+            "decorators": [syntax_text.text(decorator) for decorator in node.decorator_list],
             "members": members,
         },
         sort_keys=True,
     )
 
 
-def _python_api(body: list[ast.stmt]) -> list[dict[str, str]]:
+def _is_error(node: ast.ClassDef, source: source_segment.Source) -> bool:
+    """Tell if the name or the source text of a base of the class names an error."""
+    bases = [source.text(base) or "" for base in node.bases]
+    return node.name.endswith(("Error", "Exception")) or any(
+        "Error" in base or "Exception" in base for base in bases
+    )
+
+
+def _python_api(body: list[ast.stmt], refusals: set[ast.ClassDef]) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for node in body:
-        out.extend(_python_api_entries(node))
+        out.extend(_python_api_entries(node, refusals))
     return out
 
 
-def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
+def _python_api_entries(node: ast.stmt, refusals: set[ast.ClassDef]) -> list[dict[str, str]]:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
-        fingerprint = python_syntax.decorated(node, signature(node))
+        fingerprint = python_syntax.fingerprint(node)
         return [{"name": node.name, "bucket": "operations", "fingerprint": fingerprint}]
     if isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
-        bases = [ast.unparse(base) for base in node.bases]
-        error = node.name.endswith(("Error", "Exception")) or any(
-            "Error" in base or "Exception" in base for base in bases
-        )
         return [
             {
                 "name": node.name,
-                "bucket": "refusals" if error else "types",
+                "bucket": "refusals" if node in refusals else "types",
                 "fingerprint": _python_class_api(node),
             }
         ]
@@ -507,7 +500,8 @@ def _python_api_entries(node: ast.stmt) -> list[dict[str, str]]:
     if isinstance(node, TYPE_ALIAS):
         name = getattr(getattr(node, "name", None), "id", "")
         public = name and not name.startswith("_")
-        return [{"name": name, "bucket": "types", "fingerprint": ast.dump(node)}] if public else []
+        fingerprint = syntax_text.text(node)
+        return [{"name": name, "bucket": "types", "fingerprint": fingerprint}] if public else []
     return []
 
 
@@ -535,7 +529,7 @@ def _python_api_assignments(node: ast.Assign | ast.AnnAssign) -> list[dict[str, 
         {
             "name": target.id,
             "bucket": "constants",
-            "fingerprint": ast.dump(node, include_attributes=False),
+            "fingerprint": syntax_text.text(node),
         }
         for target in targets
         if isinstance(target, ast.Name) and not target.id.startswith("_")
@@ -565,51 +559,6 @@ def _in_package(name: str, prefixes: Iterable[str]) -> bool:
     return any(name == prefix or name.startswith(prefix + ".") for prefix in prefixes)
 
 
-def _dump_python_syntax(tree: ast.AST) -> str:
-    """Serialize shared Python syntax the same way across supported interpreters.
-
-    The function does not change the tree. Other steps read the same tree from
-    `python_tree`.
-    """
-    # Python 3.12 added empty type_params; 3.13 stopped dumping empty
-    # lists by default. Retain the 3.11 representation for shared syntax,
-    # while retaining nonempty type parameters as meaningful source.
-    empty_fields = {"show_empty": True} if sys.version_info >= (3, 13) else {}
-    with _hidden_for_dump(tree):
-        return ast.dump(tree, include_attributes=False, **empty_fields)
-
-
-def _is_empty_string(node: ast.AST) -> bool:
-    return isinstance(node, ast.Constant) and node.value == ""
-
-
-@contextlib.contextmanager
-def _hidden_for_dump(tree: ast.AST) -> Iterator[None]:
-    """Change the tree for the dump in one walk. Restore each changed node at the end.
-
-    - An empty `type_params` field leaves the fields that `ast.dump` writes.
-    - Each f-string loses each empty string constant from its parts. CPython 3.12.3 adds
-      `Constant('')` at the end of a format spec that ends with a replacement field, for
-      example `f"{x:<{width}}"`. CPython 3.11, 3.12.13 and 3.13 do not add it (issue 126).
-    """
-    hidden: list[ast.AST] = []
-    emptied: list[tuple[ast.JoinedStr, list[ast.expr]]] = []
-    try:
-        for node in python_tree.walk(tree):
-            if getattr(node, "type_params", None) == []:
-                hidden.append(node)
-                vars(node)["_fields"] = tuple(f for f in node._fields if f != "type_params")
-            elif isinstance(node, ast.JoinedStr) and any(map(_is_empty_string, node.values)):
-                emptied.append((node, node.values))
-                node.values = [v for v in node.values if not _is_empty_string(v)]
-        yield
-    finally:
-        for node in hidden:
-            del vars(node)["_fields"]
-        for joined, values in emptied:
-            joined.values = values
-
-
 def _surface_and_syntax(
     raw: str, module: str, is_package: bool, prefixes: frozenset[str], read: bool
 ) -> tuple[dict[str, Any] | None, str]:
@@ -633,7 +582,7 @@ def _surface_and_syntax(
 
 def _normalized(raw: str) -> str:
     try:
-        return _dump_python_syntax(python_tree.parse(raw))
+        return syntax_text.text(python_tree.parse(raw))
     except (SyntaxError, ValueError):
         return raw
 

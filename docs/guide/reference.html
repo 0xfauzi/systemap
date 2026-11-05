@@ -1255,9 +1255,14 @@ A missing value is not known. Then the entry point must have its own sequence.</
 <p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
 </li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 13.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 14.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
+<p>In format 14, the Python syntax digest and the <code>api</code> fingerprints come from the syntax text of systemap (<code>systemap.syntax_text</code>).
+The signatures and the constant values come from the source text.
+Thus each supported Python version gives the same stored values.
+If the syntax tree has a node class that the syntax text does not know, the extraction stops.
+The error gives the class and the Python version.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
 The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.
 <code>judgement</code> gives no line about a test file.</p>
