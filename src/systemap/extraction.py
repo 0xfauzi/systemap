@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    claim_index,
     control_names,
     fact_cache,
     facts_file,
@@ -31,7 +32,7 @@ from systemap import language as languages
 from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
-from systemap.model import Model, covers, is_symbol
+from systemap.model import Model, is_symbol
 from systemap.reexports import resolve_reexports
 from systemap.source_facts import WHOLE_MODULE, entry_label
 
@@ -685,15 +686,14 @@ def mapping_drift(fresh: dict[str, Any], model: Model, prefixes: set[str]) -> li
     Component module claims are authored input. A rename can leave a claim for an
     absent module. This function finds that difference and also examines layout.
     """
-    known = set(fresh["components"])
     out: list[str] = []
     for c in model.components:
         for m in c.implemented_by:
             # A symbol claim names its module before the colon; the name
             # itself is the entry rule's business.
             module = m.partition(":")[0] if is_symbol(m) else m
-            if module.split(".")[0] in prefixes and not any(
-                covers(module, k, fresh["components"]) for k in known
+            if module.split(".")[0] in prefixes and not claim_index.claimed(
+                (module,), fresh["components"]
             ):
                 out.append(
                     f"{c.id} has a module claim for {module}, which is missing from the facts."

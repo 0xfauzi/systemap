@@ -51,15 +51,17 @@ and the entry point records.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import json
 import re
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 from systemap import (
     card_review,
+    claim_index,
     contract_file,
     flow_ids,
     model_load,
@@ -162,8 +164,63 @@ def about_behavior(m: nest.Map, line: str) -> bool:
 
 
 def names(name: str, text: str) -> bool:
-    """Find the exact name as a full word. A dotted name that contains it is not a match."""
+    """Find the exact name as a full word. A dotted name that contains it is not a match.
+
+    A name of word characters, dots and hyphens is found in the words of the text
+    (`words`), with no new pattern for each name. A large tree has thousands of lines and
+    modules, and one pattern for each pair took most of the time of `judgement`
+    (bench/jev/README.md). A different name uses the pattern."""
+    if _RUN.fullmatch(name):
+        return name in words(text)
     return re.search(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)", text) is not None
+
+
+_RUN = re.compile(r"[\w.-]+")  # a name that `words` can find, and a run of the text
+_END = re.compile(r"\.(?!\w)")
+
+
+@dataclasses.dataclass(frozen=True)
+class _NameTable:
+    names: list[str]
+    runs: dict[str, list[int]]  # a name that `words` can find, to its positions
+    others: list[tuple[int, re.Pattern[str]]]  # each other name, with its pattern
+
+
+def _name_table(modules: Iterable[str]) -> _NameTable:
+    names = list(modules)
+    runs: dict[str, list[int]] = {}
+    others: list[tuple[int, re.Pattern[str]]] = []
+    for i, name in enumerate(names):
+        if _RUN.fullmatch(name):
+            runs.setdefault(name, []).append(i)
+        else:
+            others.append((i, re.compile(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)")))
+    return _NameTable(names, runs, others)
+
+
+def named_modules(modules: Iterable[str], text: str) -> list[str]:
+    """Give each module name that `names` finds in the text, in the order of `modules`.
+
+    The names are sorted into two groups one time for each module collection
+    (`claim_index.kept_for`). A name that `words` can find is a set lookup. Each other
+    name, for example a path, has a pattern that is compiled one time."""
+    table = claim_index.kept_for(modules, "names", _name_table)
+    hits = {i for word in words(text) for i in table.runs.get(word, ())}
+    hits.update(i for i, pattern in table.others if pattern.search(text))
+    return [table.names[i] for i in sorted(hits)]
+
+
+@functools.lru_cache(maxsize=4096)
+def words(text: str) -> frozenset[str]:
+    """Give each name of word characters, dots and hyphens that `names` finds in the text.
+
+    Such a name starts where a run of these characters starts. It ends at the end of the
+    run, or before a dot that no word character follows."""
+    out: set[str] = set()
+    for run in _RUN.findall(text):
+        out.add(run)
+        out.update(run[: dot.start()] for dot in _END.finditer(run))
+    return frozenset(out)
 
 
 def map_of(tree: nest.Tree, line: str) -> nest.Map:
@@ -190,7 +247,7 @@ def line_modules(m: nest.Map, line: str, facts: dict[str, Any]) -> list[str]:
     """Give the modules of the components and the modules that a judgement line names."""
     bare = line[len(m.prefix) :]
     modules = [module for card in named_cards(m, line) for module in card_modules(card, facts)]
-    modules += [name for name in facts.get("components", {}) if names(name, bare)]
+    modules += named_modules(facts.get("components", {}), bare)
     return modules
 
 

@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    claim_index,
     extraction,
     figure,
     file_write,
@@ -44,7 +45,6 @@ from systemap.model import (
     Meaning,
     Model,
     claimed,
-    covers,
     defines_entry,
     is_symbol,
     public_names,
@@ -191,8 +191,14 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
     markers = {m for m in modules if source_facts.is_empty_marker(components[m])}
     ignore_list = list(ignores)
     problems: list[str] = []
+    # One claim lookup for each component and each ignore, not one for each module (bench/jev).
+    owners_of: dict[str, list[str]] = {}
+    for c in model.components:
+        for m in claimed(c, components):
+            owners_of.setdefault(m, []).append(c.id)
+    covered = {i.module: claim_index.claimed((i.module,), components) for i in ignore_list}
     for ignore in ignore_list:
-        matched = [m for m in modules if covers(ignore.module, m, components)]
+        matched = covered[ignore.module]
         if not matched:
             problems.append(f"ignore specifies a module missing from the facts: {ignore.module}")
         elif all(m in markers for m in matched):
@@ -200,15 +206,11 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
                 f"ignore is not necessary: {ignore.module} is an empty package marker. The "
                 f"coverage rule omits it automatically. Remove the ignore entry."
             )
-    problems += _claimed_ignores(model, components, markers, ignore_list)
-    ignored = {m for m in modules if any(covers(i.module, m, components) for i in ignore_list)}
+    problems += _claimed_ignores(covered, owners_of, markers, ignore_list)
+    ignored = {m for found in covered.values() for m in found}
     mapped = n_ignored = n_markers = 0
     for m in modules:
-        owners = [
-            c.id
-            for c in model.components
-            if any(covers(p, m, components) for p in c.implemented_by)
-        ]
+        owners = owners_of.get(m, [])
         if len(owners) > 1:
             times = "twice" if len(owners) == 2 else f"{len(owners)} times"
             problems.append(f"claimed {times}: {m} ({', '.join(owners)})")
@@ -226,14 +228,16 @@ def check_coverage(model: Model, facts: dict[str, Any], ignores: Iterable[Ignore
 
 
 def _claimed_ignores(
-    model: Model, modules: Mapping[str, Any], markers: set[str], ignores: list[Ignore]
+    covered: Mapping[str, list[str]],
+    owners_of: Mapping[str, list[str]],
+    markers: set[str],
+    ignores: list[Ignore],
 ) -> list[str]:
     """This function finds an ignore entry whose modules all have a component claim."""
-    claims = [p for c in model.components for p in c.implemented_by]
     out = []
     for ignore in ignores:
-        matched = [m for m in modules if covers(ignore.module, m, modules) and m not in markers]
-        if matched and all(any(covers(p, m, modules) for p in claims) for m in matched):
+        matched = [m for m in covered[ignore.module] if m not in markers]
+        if matched and all(m in owners_of for m in matched):
             out.append(
                 f"ignore is not necessary: {ignore.module} has a component claim. "
                 f"Remove the ignore entry."
@@ -381,7 +385,7 @@ def check_entry(model: Model, facts: dict[str, Any]) -> list[str]:
         for pattern in c.implemented_by:
             if is_symbol(pattern):
                 continue
-            if not any(covers(pattern, m, components) for m in components):
+            if not claim_index.claimed((pattern,), components):
                 out.append(
                     f"{c.id} has a module claim for {pattern}, which is missing from the facts."
                 )

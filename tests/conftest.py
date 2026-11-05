@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 
 import pytest
 
-from systemap import agent, contract, extract, jev, model_load
+from systemap import agent, claim_index, contract, extract, jev, judgement_evidence, model_load
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -77,6 +77,14 @@ def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     The OpenAI key is also removed. A test that selects OpenAI injects its transport."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def fresh_name_indexes() -> None:
+    """Each test starts without the kept module indexes of an earlier test. A test can
+    change the module records of a facts object in place, which the indexes do not see."""
+    claim_index.clear()
+    judgement_evidence.words.cache_clear()
 
 
 @pytest.fixture(autouse=True)
