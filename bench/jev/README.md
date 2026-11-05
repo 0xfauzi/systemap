@@ -4026,3 +4026,33 @@ Command: `uv run python bench/jev/join_round_trip.py` (40 s)
 | Coverage | 185 of 185 modules | 185 of 185 modules |
 
 M5 fails again for the same cause: the same 4 layout problems on the top map. Open lines by kind before the division: 1 `crossing import`, 19 `flow review`, and 1 `stale source review`. After the division: 63 `flow review`, 10 `entry point`, 4 `single module`, 4 `no endpoint source`, 3 `thin layer`, and 1 `crossing import`.
+
+## C1: the size of the canvas data (2026-11-05)
+
+Scope: step 1 of [the nested canvas design](../../docs/design/nested-canvas.md): the module `canvas_data.py`.
+The script is [`canvas_data_size.py`](canvas_data_size.py). Its docstring has the acceptance value, which was written before run 1.
+
+Acceptance: the canvas data of the M11 tree (50 maps, 40 cards in each map) is at most 2 MB (2,097,152 bytes) raw, as the UTF-8 bytes of `canvas_data.text`.
+The gzip size at level 6 and the time have no acceptance value.
+
+The M11 tree is the fixture of `nested_tree_pages.py` on the branch `claude/nested-step-8` (c820839). That script is not on this branch. Thus the new script has a copy of its fixture writer with no change.
+The fixture is generated. It is not big5, and no real repository has this form.
+The script runs `place` and `extract`, not `refresh`. The data is built without the open lines of the judgement.
+Each time is one call of `canvas_data.build` and `canvas_data.text`. The caches of the router, the evidence, and the claims are empty before each call. The host has 4 cores. The code is the working tree of step 1 on accc234.
+
+Command: `uv run python bench/jev/canvas_data_size.py`
+
+| Run | Tree | Maps | Raw bytes | gzip -6 bytes | Times (s) | Median (s) | Result |
+|---|---|---|---|---|---|---|---|
+| 1 | M11 tree | 50 | 731,326 | 30,236 | 22.00, 23.18, 22.37 | 22.37 | pass |
+| 1 | this repository | 1 | 40,420 | 10,902 | 0.42, 0.46, 0.41 | 0.42 | |
+| 2 | M11 tree | 50 | 731,326 | 30,236 | 21.93, 22.38, 21.80 | 21.93 | pass |
+| 2 | this repository | 1 | 40,408 | 10,918 | 0.36, 0.36, 0.35 | 0.36 | |
+
+C1 passes. The raw data of the 50 maps is 731,326 bytes, 35 percent of the acceptance value.
+
+- In run 1, `place` took 5.0 s and `extract` took 2.9 s on the M11 tree. Both exited 0. In run 2, both exited 0. Their times in run 2 were not recorded.
+- In run 1, the time of each build also included the load of the 50 model files (`nest.load`). The tests of the new module operated on the same host near the end of run 1. Run 2 is after the code review. It times only the build and the text.
+- Between the two runs, the facts of this repository were extracted again, and the `does` text of the component Page changed. Thus the bytes of this repository are different. The M11 bytes are the same.
+- The time on the M11 tree is about 0.44 s for each map. The cause of this time was not examined. The build calculates the flow paths of each map with the router, and the page render calculates the same paths. A profile is necessary before step 2 can give a load time (C3).
+- This run does not answer the open question of the design about a map with more than 400 cards. A measurement on such a tree is necessary.

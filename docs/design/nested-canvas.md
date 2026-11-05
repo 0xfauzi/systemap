@@ -26,10 +26,10 @@ Each value comes from a script whose acceptance value was written before the run
 |---|---|---|
 | Frame time while zooming, prototype renderer, 50 maps and 2,000 cards, headless Chromium, 4-core Xeon at 2.1 GHz | p95 frame interval at most 16.7 ms | PASS: 240 frames in each of 3 runs, all at 16.7 ms. No frame was longer than 25 ms. |
 | Size of one page with all 50 maps of the M11 tree, from the current pages (shared blocks one time) | at most 10 MB raw and 2 MB gzip | not known yet (the run is in progress) |
+| C1: size of the canvas data (`canvas_data.text`) of the M11 tree, 50 maps | at most 2 MB raw | PASS: 731,326 bytes raw and 30,236 bytes after gzip -6. One build took 22 s. See `bench/jev/README.md`. |
 
 These are not measured yet:
 - the frame time on a slow device or with CPU throttling;
-- the size of the canvas data in the form below;
 - the time from page load to an interactive map.
 
 The steps below measure them.

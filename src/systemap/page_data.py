@@ -34,9 +34,7 @@ def _module_record(mid: str, record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _unresolved_claims(
-    component: Component, modules: dict[str, Any], owned: list[str]
-) -> list[str]:
+def unresolved_claims(component: Component, modules: dict[str, Any], owned: list[str]) -> list[str]:
     """Give the claims that cover no module. `owned` is `claimed(component, modules)`."""
     resolved = set(owned)
     symbols = {
@@ -75,7 +73,7 @@ def sources(model: Model, facts: dict[str, Any]) -> dict[str, Any]:
             "claims": list(c.implemented_by),
             "points": [source_facts.entry_label(p) for p in points if _owns(p, owned, symbols)],
             "symbol_claims": [{"module": module, "name": name} for module, name in symbols],
-            "unresolved_claims": _unresolved_claims(c, modules, owned),
+            "unresolved_claims": unresolved_claims(c, modules, owned),
         }
     return out
 
