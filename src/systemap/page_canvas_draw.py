@@ -344,16 +344,19 @@ function focusChain() {
   }
   return chain;
 }
+// The edges x0, y0, x1, y1 of the screen box r, cut to `inset` pixels from the screen edge.
+function onScreenEdges(r, inset) {
+  return [Math.max(r[0], inset), Math.max(r[1], inset), Math.min(r[0] + r[2], W - inset), Math.min(r[1] + r[3], H - inset)];
+}
 function drawRings(chain) {
   ctx.setLineDash([]);
   chain.forEach(function (c, i) {
     var r = screenBox(c), over = Math.max(-r[0], -r[1], r[0] + r[2] - W, r[1] + r[3] - H), al = smooth(0, 120, over);
     if (al <= 0.01) return;
-    var inset = 6 + (chain.length - 1 - i) * 6, x0 = Math.max(r[0], inset), y0 = Math.max(r[1], inset);
-    var x1 = Math.min(r[0] + r[2], W - inset), y1 = Math.min(r[1] + r[3], H - inset);
-    if (x1 <= x0 || y1 <= y0) return;
+    var e = onScreenEdges(r, 6 + (chain.length - 1 - i) * 6);
+    if (e[2] <= e[0] || e[3] <= e[1]) return;
     ctx.globalAlpha = al * (0.3 + 0.5 * (i + 1) / chain.length); ctx.strokeStyle = C['--ink-3']; ctx.lineWidth = 1.2;
-    ctx.beginPath(); rr(ctx, x0, y0, x1 - x0, y1 - y0, 14); ctx.stroke();
+    ctx.beginPath(); rr(ctx, e[0], e[1], e[2] - e[0], e[3] - e[1], 14); ctx.stroke();
   });
 }
 // A neighbour is a card of the map of an open card, or of a map above it. A card that is
@@ -569,8 +572,7 @@ function boundaryPath(t, l) {
   var p = l.p, fp = p.fp;
   if (!fp || p.f === undefined) return null;
   var v = view(l.m), r = screenBox(l.open), G = GUTTER, R = RING;
-  var f = [Math.max(r[0], R + 1), Math.max(r[1], R + 1), Math.min(r[0] + r[2], W - R - 1), Math.min(r[1] + r[3], H - R - 1)];
-  var e = [Math.max(r[0] - G, R), Math.max(r[1] - G, R), Math.min(r[0] + r[2] + G, W - R), Math.min(r[1] + r[3] + G, H - R)];
+  var f = onScreenEdges(r, R + 1), e = onScreenEdges([r[0] - G, r[1] - G, r[2] + 2 * G, r[3] + 2 * G], R);
   var a = [v.ox + v.a * fp[0][0], v.oy + v.a * fp[0][1]], dx = fp[1][0] - fp[0][0], dy = fp[1][1] - fp[0][1];
   var s = dy < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3, from = onSide(e, s, a[0], a[1]);
   if (!onScreen(a) || !onScreen(from) || !clear(a, from)) return null;
