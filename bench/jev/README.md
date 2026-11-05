@@ -4138,3 +4138,32 @@ C2 and C3 pass in run 2.
 - The dive of the 400-card map at 4x has p95 33.3 ms: two ticks. It is in the limit of 35.0 ms, but it is more than 33 ms if 33 ms is a strict value.
 - C3 is 76 ms for the real M11 tree at 1x, and 264 ms at 4x. This time is in the browser only. It does not include `canvas_data.build`, which took about 21 s for the M11 tree on this branch (C1).
 - The CI job `canvas-browser` runs `tests/test_canvas_frames.py` with the generated data (M11 shape, 400 cards, 1,500 cards) at 4x and C3 at 1x, with the same limits. On this host, the test passed (8 tests in 31 s).
+
+Run 3 (a second run by a different person, at commit afdaecb, which also fits the plates of the flow labels to their text). The full test suite ran on the same host at the same time. Thus the CPU had more load than in run 2, and the times are not the times of an idle host.
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 585 ms | | | information |
+| M11 shape | C3 load | 4x | 660 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.8 | 33.4 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.8 | 33.4 | pass |
+| M11 tree | dive | 4x | 16.7 | 33.3 | 33.5 | pass |
+| 400 cards | pan-fit | 4x | 16.7 | 16.7 | 33.4 | pass |
+| 400 cards | dive | 4x | 16.7 | 33.4 | 50.0 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.8 | 50.1 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.7 | 50.0 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.8 | 50.0 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 50.0 | pass |
+| M11 tree | C3 load | 1x | 93 ms | | | pass |
+| M11 shape | C3 load | 1x | 91 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+
+C2 and C3 pass in run 3. Two more scenarios have p95 of 33.3 or 33.4 ms (two ticks) at 4x: the dive of the M11 tree and the dive of the 400-card map. Both are in the limit of 35.0 ms. Both are more than 33 ms if 33 ms is a strict value. C3 at 1x is 93 ms for the M11 tree.
