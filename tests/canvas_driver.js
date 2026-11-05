@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -54,9 +54,8 @@ async function run(file, card, neighbour, light) {
   await settle(page);
   out.inside = await state(page);
   // The boundary flows from the portals, and the screen boxes of the cards around them.
-  out.inside.links = await page.evaluate(() => window.systemapCanvas.links ? window.systemapCanvas.links() : null);
-  out.inside.boxes = await page.evaluate((id) => window.systemapCanvas.boxes
-    ? window.systemapCanvas.boxes(id).concat(window.systemapCanvas.boxes('').filter((c) => c.id !== id)) : null, card);
+  out.inside.links = await page.evaluate(() => window.systemapCanvas.links());
+  out.inside.boxes = await page.evaluate((id) => window.systemapCanvas.boxes(id).concat(window.systemapCanvas.boxes('').filter((c) => c.id !== id)), card);
   out.inside.covered = await covered(page);
   // A portal: a neighbour of the open map at the edge of the screen. A click moves the camera to it.
   const portal = out.inside.hits.find((h) => h.kind === 'portal' && h.id === neighbour);
@@ -122,19 +121,70 @@ async function phone(file, card) {
   return out;
 }
 
-// --fits: on a screen of 1440 x 900 pixels, the camera fit of each map, and the portals
-// that cover a card of that map. CARD is the ID of the first map and NEIGHBOUR of the second.
-async function fits(file, ids) {
+// --fits: on a screen of 1440 x 900 pixels (390 x 844 with --phone), the camera fit of
+// each map, and the portals that cover a card of that map. CARD is the ID of the first map
+// and NEIGHBOUR of the second.
+async function fits(file, ids, small) {
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const viewport = small ? { width: 390, height: 844 } : { width: 1440, height: 900 };
+  const context = await browser.newContext({ viewport, reducedMotion: 'reduce' });
   const page = await context.newPage();
   await page.goto('file://' + file);
   await settle(page);
   const out = {};
   for (const id of ids) {
     await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
-    out[id] = { chain: (await state(page)).chain, portals: (await state(page)).hits.filter((h) => h.kind === 'portal').length, covered: await covered(page) };
+    const s = await state(page);
+    out[id] = { chain: s.chain, portals: s.hits.filter((h) => h.kind === 'portal').length, covered: await covered(page) };
   }
+  await browser.close();
+  return out;
+}
+
+// --links: on a screen of 1440 x 900 pixels, the boundary flows at the fit of each map,
+// zoomed out and in, and moved. A problem is a segment that is not horizontal or vertical,
+// that goes into a card that is not open, or that has a point off the screen, or a flow
+// that does not end at the edge of its portal. `atFit` is the count of flows at each fit.
+async function links(file, ids) {
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto('file://' + file);
+  await settle(page);
+  const out = await page.evaluate((ids) => {
+    const S = window.systemapCanvas, W = innerWidth, H = innerHeight, r = { frames: 0, links: 0, atFit: {}, problems: [] };
+    const into = (p, q, b) => Math.min(p[0], q[0]) < b[0] + b[2] - 1 && Math.max(p[0], q[0]) > b[0] + 1 &&
+      Math.min(p[1], q[1]) < b[1] + b[3] - 1 && Math.max(p[1], q[1]) > b[1] + 1;
+    const edge = (p, h) => (Math.abs(p[0] - h.x) < 0.5 || Math.abs(p[0] - h.x - h.w) < 0.5) && p[1] >= h.y - 0.5 && p[1] <= h.y + h.h + 0.5 ||
+      (Math.abs(p[1] - h.y) < 0.5 || Math.abs(p[1] - h.y - h.h) < 0.5) && p[0] >= h.x - 0.5 && p[0] <= h.x + h.w + 0.5;
+    ids.forEach((id) => {
+      const f = S.fit(id);
+      [0.6, 0.8, 1, 1.25, 1.6, 2.5].forEach((z) => [-0.2, 0, 0.2].forEach((d) => {
+        const k = f.k * z, cx = f.x + W / 2 / f.k + d * W / k, cy = f.y + H / 2 / f.k + d * H / k;
+        S.view({ x: cx - W / 2 / k, y: cy - H / 2 / k, k });
+        r.frames++;
+        if (z === 1 && d === 0) r.atFit[id] = S.links().length;
+        const chain = S.chain(), open = new Set(chain), portals = S.hits().filter((h) => h.kind === 'portal');
+        const cards = [];
+        S.maps().forEach((m) => S.boxes(m.id).forEach((c) => {
+          const child = (m.id ? m.id + '/' : '') + c.id;
+          if (!open.has(child) && c.b[0] < W && c.b[1] < H && c.b[0] + c.b[2] > 0 && c.b[1] + c.b[3] > 0) cards.push([m.id + ':' + c.id, c.b]);
+        }));
+        S.links().forEach((l) => {
+          r.links++;
+          const p = l.points, tag = id + ' x' + z + ' ' + d + ' ' + l.id + ' ';
+          p.forEach((q) => { if (q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H) r.problems.push(tag + 'off the screen'); });
+          for (let i = 1; i < p.length; i++) {
+            if (Math.abs(p[i][0] - p[i - 1][0]) > 0.5 && Math.abs(p[i][1] - p[i - 1][1]) > 0.5) r.problems.push(tag + 'not a right angle');
+            cards.forEach(([name, b]) => { if (into(p[i - 1], p[i], b)) r.problems.push(tag + 'into ' + name); });
+          }
+          const end = l.d === 'in' ? p[0] : p[p.length - 1];
+          if (!portals.some((h) => h.id === l.id && edge(end, h))) r.problems.push(tag + 'not at its portal');
+        });
+      }));
+    });
+    return r;
+  }, ids);
   await browser.close();
   return out;
 }
@@ -142,7 +192,9 @@ async function fits(file, ids) {
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
-  const out = process.argv.includes('--fits') ? await fits(file, [card, neighbour])
-    : process.argv.includes('--phone') ? await phone(file, card) : await run(file, card, neighbour, process.argv.includes('--light'));
+  const small = process.argv.includes('--phone');
+  const out = process.argv.includes('--fits') ? await fits(file, [card, neighbour], small)
+    : process.argv.includes('--links') ? await links(file, [card, neighbour])
+    : small ? await phone(file, card) : await run(file, card, neighbour, process.argv.includes('--light'));
   process.stdout.write(JSON.stringify(out) + '\n');
 })().catch((err) => { process.stderr.write(String(err && err.stack || err) + '\n'); process.exit(1); });

@@ -153,13 +153,15 @@ function readColors() {
     });
   });
   FONT_UI = v('--fs', 'sans-serif'); FONT_MONO = v('--fm', 'monospace');
-  EPOCH++; WORDS.clear(); P_WIDEST = 0;
+  EPOCH++; textChanged();
 }
 
 // ---- text -------------------------------------------------------------------
 // The width of each word at 1 px, for each font. The width of a text grows with the
 // font size, so one measure serves each size.
 var WORDS = new Map();
+// The fonts or the theme changed: the measured widths are not correct.
+function textChanged() { WORDS.clear(); P_WIDEST = 0; }
 function font(weight, size, mono) { return weight + ' ' + size + 'px ' + (mono ? FONT_MONO : FONT_UI); }
 function unitWidth(word, weight, mono) {
   var key = weight + (mono ? 'm' : 's') + word, w = WORDS.get(key);

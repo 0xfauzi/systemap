@@ -100,13 +100,13 @@ function draw() {
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d));
   if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
-  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = [];
+  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
   var portals = portalsOf(CHAIN);
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
-  drawPortals(portals);
+  drawPortals(portals, CHAIN);
   drawPath(CHAIN);
   drawHelp();
   if (HUD) drawHud(began, !sharp);
@@ -235,7 +235,7 @@ if (window.matchMedia) {
 }
 // The page font is in the page as data. The canvas starts its load at the first text. When
 // it is loaded, the measured word widths and the wrapped lines are not correct.
-function fontLoaded() { WORDS.clear(); P_WIDEST = 0; ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request(); }
+function fontLoaded() { textChanged(); ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request(); }
 if (document.fonts && document.fonts.load) {
   Promise.all([document.fonts.load(font(400, 12)), document.fonts.load(font(600, 12))]).then(fontLoaded, function () { /* the system font stays */ });
 }
@@ -256,7 +256,7 @@ window.systemapCanvas = {
   chain: function () { return CHAIN.map(function (c) { return c.child.id; }); },
   hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, x: h.x, y: h.y, w: h.w, h: h.h}; }); },
   // The boundary flows from the portals in the last frame: the screen points of each path.
-  links: function () { return LINKS.map(function (l) { return {id: l.id, d: l.d, points: l.points.map(function (p) { return [p[0], p[1]]; })}; }); },
+  links: function () { return LINKS; },
   // The screen boxes of the cards of a map.
   boxes: function (mapId) { return MAPS[mapId].cards.map(function (c) { return {id: c.id, b: screenBox(c)}; }); },
   maps: function () { return ORDER.map(function (m) { return {id: m.id, depth: m.depth, cards: m.cards.length, opens: m.cards.filter(function (c) { return c.child; }).map(function (c) { return c.child.id; })}; }); },

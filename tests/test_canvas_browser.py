@@ -20,11 +20,15 @@ Acceptance values:
    under the pointer stays in its place.
 8. The page uses the theme tokens: the light scheme gives a light background.
 9. The boundary flow from the portal of Auth has right angles and crosses no card: no
-   segment goes into the box of a card of the map Gateway or of the top map.
+   segment goes into the box of a card of the map Gateway or of the top map. In two maps of
+   the generated M11 tree (bench/jev/canvas_frames.py), at the fit and at 17 other camera
+   positions near it, each boundary flow has right angles, stays on the screen, goes into
+   no card that is not open, and ends at the edge of its portal. At the fit of each map,
+   there is a boundary flow.
 10. A portal does not cover a card of the open map. After the camera fit of a map, no card
     of that map is in the band of a portal at its screen edge. The test uses the map Gateway
-    and, on a screen of 1440 x 900 pixels, two maps of the generated M11 tree
-    (bench/jev/canvas_frames.py).
+    and two maps of the generated M11 tree, on a screen of 1440 x 900 pixels and on a
+    screen of 390 x 844 pixels.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -32,7 +36,7 @@ Acceptance 6 also applies on a screen of 390 x 844 pixels.
 from __future__ import annotations
 
 import functools
-import importlib.util
+import itertools
 import json
 import os
 import shutil
@@ -41,11 +45,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from test_canvas_frames import _bench
 from test_canvas_page import _made
 
 ROOT = Path(__file__).resolve().parent
 DRIVER = ROOT / "canvas_driver.js"
-BENCH = ROOT.parent / "bench" / "jev" / "canvas_frames.py"
 
 
 @functools.cache
@@ -90,6 +94,15 @@ def driven(canvas: Path) -> dict[str, Any]:
     return drive(canvas)
 
 
+@pytest.fixture(scope="module")
+def tree(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The canvas page of the generated M11 tree."""
+    bench = _bench()
+    return Path(
+        bench.write_page(bench.nested_tree(), tmp_path_factory.mktemp("tree") / "tree.html")
+    )
+
+
 def test_the_script_runs_under_the_policy(driven: dict[str, Any]) -> None:
     """Acceptance 1."""
     assert driven["errors"] == []
@@ -104,7 +117,7 @@ def test_a_double_click_goes_into_the_map(driven: dict[str, Any]) -> None:
     assert driven["inside"]["label"] == "System map: join / Gateway. Level 1."
 
 
-def _into(segment: list[list[float]], box: list[float]) -> bool:
+def _into(segment: tuple[list[float], list[float]], box: list[float]) -> bool:
     """Tell if a segment with a right angle goes into a box, by more than 1 pixel."""
     (x0, y0), (x1, y1) = segment
     bx, by, bw, bh = box
@@ -122,13 +135,21 @@ def test_a_boundary_flow_crosses_no_card(driven: dict[str, Any]) -> None:
     assert links
     for link in links:
         points = link["points"]
-        segments = list(zip(points, points[1:], strict=False))
+        segments = list(itertools.pairwise(points))
         assert len(segments) >= 2
         for (x0, y0), (x1, y1) in segments:
             assert abs(x0 - x1) < 0.5 or abs(y0 - y1) < 0.5, (x0, y0, x1, y1)
         for card in driven["inside"]["boxes"]:
-            crossed = [s for s in segments if _into([list(s[0]), list(s[1])], card["b"])]
+            crossed = [s for s in segments if _into(s, card["b"])]
             assert not crossed, (card["id"], crossed)
+
+
+def test_the_boundary_flows_near_the_fit(tree: Path) -> None:
+    """Acceptance 9 in the M11 tree."""
+    links = drive(tree, "--links", ids=("P0", "P0/A0"))
+    assert links["frames"] == 36
+    assert links["problems"] == []
+    assert links["atFit"]["P0"] >= 1 and links["atFit"]["P0/A0"] >= 1
 
 
 def test_a_portal_click_moves_the_camera_to_the_neighbour(driven: dict[str, Any]) -> None:
@@ -185,17 +206,13 @@ def _luma(css: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+@pytest.mark.parametrize("flags", [("--fits",), ("--fits", "--phone")])
 def test_a_portal_does_not_cover_a_card_of_the_open_map(
-    driven: dict[str, Any], tmp_path: Path
+    driven: dict[str, Any], tree: Path, flags: tuple[str, ...]
 ) -> None:
     """Acceptance 10."""
     assert driven["inside"]["covered"] == []
-    spec = importlib.util.spec_from_file_location("bench_canvas_frames", BENCH)
-    assert spec is not None and spec.loader is not None
-    bench = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(bench)
-    page = bench.write_page(bench.nested_tree(), tmp_path / "tree.html")
-    fitted = drive(page, "--fits", ids=("P0", "P0/A0"))
+    fitted = drive(tree, *flags, ids=("P0", "P0/A0"))
     assert fitted["P0"]["chain"] == ["P0"] and fitted["P0"]["portals"] == 2
     assert fitted["P0/A0"]["chain"] == ["P0", "P0/A0"] and fitted["P0/A0"]["portals"] == 4
     assert fitted["P0"]["covered"] == []

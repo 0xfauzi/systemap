@@ -184,40 +184,46 @@ def _parent_flows(parent: Model, card: str, other: str, way: str) -> list[int]:
     return [i for i, f in enumerate(parent.flows) if f.edge == edge]
 
 
-Rect = tuple[float, float, float, float]
+Box = tuple[float, float, float, float]
+Point = tuple[float, float]
 
 
-def _crosses(segment: Rect, box: Rect) -> bool:
-    """Tell if the line from (x0, y0) to (x1, y1), with x0 = x1 or y0 = y1, goes into the box."""
-    x0, y0, x1, y1 = segment
+def _crosses(a: Point, b: Point, box: Box) -> bool:
+    """Tell if the line from `a` to `b`, with the same x or the same y, goes into the box."""
     bx, by, bw, bh = box
-    return min(x0, x1) < bx + bw and max(x0, x1) > bx and min(y0, y1) < by + bh and max(y0, y1) > by
+    return (
+        min(a[0], b[0]) < bx + bw
+        and max(a[0], b[0]) > bx
+        and min(a[1], b[1]) < by + bh
+        and max(a[1], b[1]) > by
+    )
 
 
 def _frame_path(
-    actor: str, boxes: Mapping[str, Rect], size: tuple[float, float], used: str
+    actor: str, boxes: Mapping[str, Box], size: Point, used: str
 ) -> list[list[float | int]]:
     """Give the shortest straight line from a side of the actor card to the frame of the
-    map that crosses no other card. The side `used` of the route is not a candidate.
+    map that crosses no other card. The line does not start on the side `used` of the route.
 
     Give an empty list when each side has a card between the actor card and the frame."""
     x, y, w, h = boxes[actor]
     cx, cy = x + w / 2, y + h / 2
-    sides: dict[str, Rect] = {
-        "left": (x, cy, 0, cy),
-        "right": (x + w, cy, size[0], cy),
-        "top": (cx, y, cx, 0),
-        "bottom": (cx, y + h, cx, size[1]),
+    sides: dict[str, tuple[Point, Point]] = {
+        "left": ((x, cy), (0.0, cy)),
+        "right": ((x + w, cy), (size[0], cy)),
+        "top": ((cx, y), (cx, 0.0)),
+        "bottom": ((cx, y + h), (cx, size[1])),
     }
     clear = [
-        (abs(seg[2] - seg[0]) + abs(seg[3] - seg[1]), seg)
-        for side, seg in sides.items()
-        if side != used and not any(_crosses(seg, b) for cid, b in boxes.items() if cid != actor)
+        (abs(b[0] - a[0]) + abs(b[1] - a[1]), a, b)
+        for side, (a, b) in sides.items()
+        if side != used
+        and not any(_crosses(a, b, box) for cid, box in boxes.items() if cid != actor)
     ]
     if not clear:
         return []
-    _length, (x0, y0, x1, y1) = min(clear, key=lambda one: one[0])
-    return [_box((x0, y0)), _box((x1, y1))]
+    _length, a, b = min(clear, key=lambda one: one[0])
+    return [_box(a), _box(b)]
 
 
 def _flow_ports(
@@ -225,12 +231,13 @@ def _flow_ports(
     parent: Model,
     routes: Mapping[int, Route],
     lines: dict[tuple[str, str, str], list[str]],
-    boxes: Mapping[str, Rect],
+    boxes: Mapping[str, Box],
 ) -> list[dict[str, Any]]:
     """Give one port for each nested flow between an internal component and an actor.
 
     A line goes to the first port of its component, actor, and direction only."""
     out = []
+    size = (float(m.model.canvas[0]), float(m.model.canvas[1]))
     for i, f in enumerate(m.model.flows):
         if nest_join.crossing(m.model, m.card, f.src, f.dst):
             inner, other, way = f.src, f.dst, "out"
@@ -239,8 +246,11 @@ def _flow_ports(
         else:
             continue
         route = routes[i]
-        side = route.dst_side if way == "out" else route.src_side
-        canvas = (float(m.model.canvas[0]), float(m.model.canvas[1]))
+        end, side = (
+            (route.points[-1], route.dst_side)
+            if way == "out"
+            else (route.points[0], route.src_side)
+        )
         out.append(
             {
                 "x": other,
@@ -248,10 +258,10 @@ def _flow_ports(
                 "d": way,
                 "f": i,
                 "pf": _parent_flows(parent, m.card, other, way),
-                "at": _box(route.points[-1] if way == "out" else route.points[0]),
+                "at": _box(end),
                 "sd": side,
                 **_some(
-                    fp=_frame_path(other, boxes, canvas, side),
+                    fp=_frame_path(other, boxes, size, side),
                     n=lines.pop((inner, other, way), []),
                 ),
             }
@@ -264,7 +274,7 @@ def _ports(
     m: nest.Map,
     facts: dict[str, Any],
     routes: Mapping[int, Route],
-    boxes: Mapping[str, Rect],
+    boxes: Mapping[str, Box],
     open_lines: Collection[str] | None,
 ) -> list[dict[str, Any]]:
     """Give the ports of a nested map with the boundary lines of each port.
