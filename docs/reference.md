@@ -174,6 +174,8 @@ For each finding, change the model or record the reason for its stored state.
 | missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
 | contract reason | An invariant or an import rule of the contract has no `reason`, for example `contract reason: invariant 3 has no reason`. Write the reason in the contract file from the code, the documentation, or the commit history. Do not record an answer. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
+| boundary flow | Only in a nested map. A nested flow between an internal component and the actor X has no parent flow between the component that opens the map and X, in the same direction, for example `Gateway: boundary flow: Routes sends to actor Auth, and the parent map has no flow from Gateway to Auth`. Or, a parent flow between the component that opens the map and X has no nested flow with the actor X, in the same direction, for example `Gateway: boundary flow: the parent flow from Gateway to Auth has no nested flow to actor Auth`. Add the missing flow, remove the incorrect flow, or record the reason. |
+| boundary import | Only in a nested map. A module of an internal component imports a module of the component X outside the map. X is not an actor of the nested map, for example `Gateway: boundary import: Routes imports Auth, and Auth is not an actor of the map inside Gateway`. Or, no nested flow connects the component and the actor X, for example `Gateway: boundary import: Routes imports Auth, and no flow connects Routes and actor Auth`. X is the component that claims the imported module in the nearest map above the nested map. A `count:` row below the line gives the importing modules, and `--verbose` lists the imports. |
 
 Without `--strict`, the report exits 0.
 With `--strict`, it exits 1 while a finding is open.
@@ -1320,15 +1322,19 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 7. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. |
+| `schema_version` | integer | The version of this schema. The value is 8. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. Version 8 added `open[].map_id`, `open[].parent_flow`, `open[].nested_flows`, and `open[].import_pairs`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
-| `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
+| `open[].detail` | list of strings | The imports of a `crossing import` or a `boundary import` finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
 | `open[].cause` | string or null | The cause of an `unknown surface` finding, for example `syntax` or `declaration file`. The `systemap check` section gives the causes. For other kinds, the value is null. |
 | `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
-| `open[].count` | integer or null | The count that the row below the line gives: the importing modules of a `crossing import` finding, or the targets of a `package_export` finding. For other findings, the value is null. |
+| `open[].count` | integer or null | The count that the row below the line gives: the importing modules of a `crossing import` or a `boundary import` finding, or the targets of a `package_export` finding. For other findings, the value is null. |
+| `open[].map_id` | string or null | The ID of the nested map of a `boundary flow` or `boundary import` finding. For other findings, the value is null. |
+| `open[].parent_flow` | object or null | For a boundary finding: `src` and `dst` of the parent flow that the finding is about, and `artifacts`, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For a `boundary import` finding, the direction is from the card to X. If the parent map has only a flow from X to the card, the direction is from X to the card. For other findings, the value is null. |
+| `open[].nested_flows` | list of objects or null | For a boundary finding: each flow of the nested map with the actor that the finding names, with `src`, `dst`, and `artifact`. For other findings, the value is null. |
+| `open[].import_pairs` | list of objects or null | For a `boundary import` finding: each import, with `module` and `imports`. For a `boundary flow` finding, the list is empty. For other findings, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |

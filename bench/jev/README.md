@@ -3974,3 +3974,55 @@ The code is the working tree of the review on 7a48d35. The command and the tree 
 | Output | 14,476 bytes |
 
 M3 passes on this tree. M4 gives the same values as above: 214,060 bytes and 4,137 values, and passes. The time and the memory on big5 are not known. A measurement on big5 is necessary.
+
+## M5: a round trip of the self-map through nested parts (2026-11-04)
+
+Scope: step 4 of [the nested parts design](../../docs/design/nested-parts.md): the judgement kinds `boundary flow` and `boundary import`.
+The script is [`join_round_trip.py`](join_round_trip.py). Its docstring has the acceptance values and the division, which were written before the run.
+The host has 4 cores. The code is the working tree of step 4 on 26bd8e0.
+
+Acceptance, written before the run: after the division of the self-map into nested parts that copy its cards and flows, `systemap judgement` gives 0 `boundary flow` lines and 0 `boundary import` lines. `systemap check` gives the same exit code as before the division, and `systemap rules` gives the same text.
+
+The division: each of the 5 regions of the self-map becomes one card on the top map, and that card opens a nested map with the components of the region. The 5 actors stay on the top map. Of the 80 flows of the self-map, 11 connect two components of one region and go into one nested map. The other 69 flows go to the top map as flows between the part cards and the actors, on 28 ordered pairs, and into the nested maps as flows with an actor.
+Differences from the design, written before the run: the sequences, the layer overrides, the verb overrides, the flow reviews, and the source reviews are not copied.
+
+Command: `uv run python bench/jev/join_round_trip.py` (about 2 minutes)
+
+| Measurement | Before the division | After the division |
+|---|---|---|
+| Maps | 1 | 6 |
+| `boundary flow` lines | 0 | 0 |
+| `boundary import` lines | 0 | 0 |
+| `check` exit code | 0 | 1 |
+| `rules` text | `import rules: The model has no import rules.` | the same text |
+| Coverage | 185 of 185 modules | 185 of 185 modules |
+
+M5 fails. The boundary lines and the `rules` text agree with the acceptance. The `check` exit code does not agree.
+
+- `check` gave 4 layout problems on the top map, and no problem in the 5 nested maps. Two labels of the 69 top flows overlap other labels or a region header: `diagram measurements` (`KeepPart -> Agent`) and `cards, sentences` (`MeanPart -> KeepPart`). The 69 top flows connect 28 ordered pairs, a mean of 2.5 flows for each pair. The `stale` problems of the pages followed, because `refresh` stops after a check error.
+- The 0 `boundary import` lines do not show that each import has a flow between its two original components. The self-map has the open line `crossing import: Placer imports Config` and the answered line `crossing import: Skill imports Config`. After the division, Placer and Config are in the same nested map, and the open line has the prefix of that map. Skill and Config are in different nested maps. A different flow between the two regions connects Skill with the actor of the part of Config. Thus the nested map gives no `boundary import` line for the import of Skill, and the answer of the self-map no longer applies to a line.
+- Lines for information only, after the division: 63 `flow review`, 10 `entry point`, 4 `single module`, 4 `no endpoint source`, 3 `thin layer`, and 1 `crossing import`. The division does not copy the reviews or the sequences, as the docstring says.
+
+A division with fewer top flows, for example one flow for each pair of part cards, was not measured. A measurement is necessary before the design can say that a division of the self-map passes `check`.
+
+### M5 again, after a change of the script structure
+
+The complexity check refused two functions of the script with a cognitive complexity of 17. The functions now call helper functions. The division and the acceptance did not change.
+The run gave the same values as above: 6 maps, 0 `boundary flow` lines, 0 `boundary import` lines, `check` exit code 0 before and 1 after with the same 4 layout problems, and the same `rules` text. M5 fails again for the same cause.
+
+### M5 again, after the review of step 4
+
+The review changed the code that finds the boundary lines one time for each judgement run, the evidence of the boundary lines, the `detail` field of a `boundary import` row, and the direction of `parent_flow` for a `boundary import` row. The rule that gives the lines did not change. The script, the division, and the acceptance did not change. The code is the working tree of the review on 9063986.
+
+Command: `uv run python bench/jev/join_round_trip.py` (40 s)
+
+| Measurement | Before the division | After the division |
+|---|---|---|
+| Maps | 1 | 6 |
+| `boundary flow` lines | 0 | 0 |
+| `boundary import` lines | 0 | 0 |
+| `check` exit code | 0 | 1 |
+| `rules` text | `import rules: The model has no import rules.` | the same text |
+| Coverage | 185 of 185 modules | 185 of 185 modules |
+
+M5 fails again for the same cause: the same 4 layout problems on the top map. Open lines by kind before the division: 1 `crossing import`, 19 `flow review`, and 1 `stale source review`. After the division: 63 `flow review`, 10 `entry point`, 4 `single module`, 4 `no endpoint source`, 3 `thin layer`, and 1 `crossing import`.

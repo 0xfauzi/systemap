@@ -18,6 +18,7 @@ from systemap import (
     flow_review,
     judgement,
     nest,
+    nest_join,
     review_policy,
     source_facts,
 )
@@ -27,15 +28,21 @@ from systemap.config import LINE_KINDS, Answer, Config
 # Version 2 adds `cause` to each row of `open`. Version 3 adds `sources`. Version 4 adds
 # `earlier_flow_reviews`. Version 5 adds `insufficient`, `open_lines`, and `history` to
 # each row of `unknown_requests`. Version 6 adds `count` to each row of `open`. Version 7
-# adds `assurance`: the level, the freshness, and the basis of each claim.
-SCHEMA_VERSION = 7
+# adds `assurance`: the level, the freshness, and the basis of each claim. Version 8 adds
+# `map_id`, `parent_flow`, `nested_flows`, and `import_pairs` to each row of `open`. They
+# have values only for a `boundary flow` or a `boundary import` line (`nest_join.fields`).
+SCHEMA_VERSION = 8
+# The fields of a row of `open` for a line that is not a boundary line.
+NO_BOUNDARY: dict[str, Any] = dict.fromkeys(
+    ("map_id", "parent_flow", "nested_flows", "import_pairs")
+)
 
 
 @dataclass(frozen=True)
 class Judged:
     """This record contains the judgement lines, their evidence digests, the result of
-    the answers, the cause and the sources of each `unknown surface` line, and the count
-    of each line with a count (`line_counts`).
+    the answers, the cause and the sources of each `unknown surface` line, the count
+    of each line with a count (`line_counts`), and the fields of each boundary line.
     """
 
     lines: list[str]
@@ -47,13 +54,20 @@ class Judged:
     earlier: list[dict[str, str]] = field(default_factory=list)
     counts: Mapping[str, tuple[int, str]] = field(default_factory=dict)
     claims: list[assurance.Claim] = field(default_factory=list)
+    boundary: Mapping[str, dict[str, Any]] = field(default_factory=dict)
+    found: Mapping[str, nest_join.Finding] = field(default_factory=dict)
+
+    def import_rows(self, tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
+        """Give the import rows of each crossing-import line and `boundary import` line."""
+        return judgement.crossing_detail_tree(tree, facts) | nest_join.detail(self.found)
 
     def detail(
         self, tree: nest.Tree, facts: dict[str, Any], verbose: bool
     ) -> dict[str, list[str]] | None:
         """Give the rows below each line: the count row, the source rows of an `unknown
-        surface` line, and with `verbose`, the import rows of a crossing-import line."""
-        imports = judgement.crossing_detail_tree(tree, facts) if verbose else {}
+        surface` line, and with `verbose`, the import rows of a crossing-import line and
+        of a `boundary import` line."""
+        imports = self.import_rows(tree, facts) if verbose else {}
         out = {line: [count_row(*count)] for line, count in self.counts.items()}
         for line, rows in imports.items():
             out[line] = [*out.get(line, []), *rows]
@@ -68,17 +82,23 @@ def count_row(count: int, noun: str) -> str:
 
 
 def line_counts(
-    tree: nest.Tree, facts: dict[str, Any], lines: list[str]
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    lines: list[str],
+    found: Mapping[str, nest_join.Finding],
 ) -> dict[str, tuple[int, str]]:
     """Give the count and the counted noun of each line with a count. A count can change
     while the finding stays the same. Thus the count is not in the line.
 
     A crossing-import line counts the modules of the source component that import the
-    destination component. An `unknown surface` line counts the targets of its record."""
-    found = {line: (n, "module") for line, n in judgement.crossing_counts(tree, facts).items()}
-    found |= {line: (n, "target") for line, n in source_facts.unknown_counts(facts).items()}
+    destination component. A `boundary import` line counts the modules of the internal
+    component that import the modules of the other component. An `unknown surface` line
+    counts the targets of its record. `found` is the result of `boundary_findings`."""
+    modules = judgement.crossing_counts(tree, facts) | nest_join.counts(found)
+    out = {line: (n, "module") for line, n in modules.items()}
+    out |= {line: (n, "target") for line, n in source_facts.unknown_counts(facts).items()}
     present = set(lines)
-    return {line: count for line, count in found.items() if line in present}
+    return {line: count for line, count in out.items() if line in present}
 
 
 def current_lines(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> list[str]:
@@ -107,11 +127,33 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     causes = line_causes(lines, facts)
     sources = line_sources(lines, facts)
     earlier = earlier_reviews(tree, facts)
-    counts = line_counts(tree, facts, lines)
+    found = boundary_findings(tree, facts, lines)
+    counts = line_counts(tree, facts, lines, found)
     claims = assurance.of_tree(tree, facts)
+    boundary = nest_join.all_fields(tree, found)
     return Judged(
-        lines, evidence, result, cfg.require_reviews, causes, sources, earlier, counts, claims
+        lines,
+        evidence,
+        result,
+        cfg.require_reviews,
+        causes,
+        sources,
+        earlier,
+        counts,
+        claims,
+        boundary,
+        found,
     )
+
+
+def boundary_findings(
+    tree: nest.Tree, facts: dict[str, Any], lines: list[str]
+) -> dict[str, nest_join.Finding]:
+    """Give the finding of each boundary line of `lines`. A tree with no nested map has
+    no boundary lines."""
+    present = set(lines)
+    found = nest_join.findings(tree, facts) if tree.nested else {}
+    return {line: one for line, one in found.items() if line in present}
 
 
 def earlier_reviews(tree: nest.Tree, facts: dict[str, Any]) -> list[dict[str, str]]:
@@ -199,6 +241,7 @@ def payload(
                 "cause": judged.causes.get(line),
                 "sources": judged.sources.get(line),
                 "count": judged.counts[line][0] if line in judged.counts else None,
+                **judged.boundary.get(line, NO_BOUNDARY),
             }
             for line in shown
         ],

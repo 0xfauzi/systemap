@@ -103,6 +103,8 @@ LINE_KINDS = (
     "model sdk",
     "unknown surface",
     "contract reason",
+    "boundary flow",
+    "boundary import",
 )
 # The kinds of line `systemap audit` prints; answered in the same list.
 AUDIT_KINDS = decision_kinds.KINDS
@@ -360,8 +362,7 @@ def _none(directory: Path) -> bool:
 
 def discover_tests(root: Path, package_dir: PackageDir) -> list[str]:
     """This function finds test and tests directories under the root. It does not search
-    inside a discovered test directory.
-    """
+    inside a discovered test directory."""
     out: list[str] = []
     for dirpath, dirnames, _files in tree_walk.walk(root):
         here = Path(dirpath)
@@ -402,8 +403,7 @@ def default_name(root: Path, language: str) -> str:
 
 def read_raw(root: Path) -> tuple[dict[str, Any], str]:
     """This function reads the configuration table from systemap.toml first, then
-    pyproject.toml.
-    """
+    pyproject.toml."""
     if repo_files.present(root / CONFIG_FILE):
         try:
             text = repo_files.read_text(root, CONFIG_FILE, encoding="utf-8-sig")

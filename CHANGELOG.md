@@ -24,6 +24,17 @@ A layer is a filtered view of the map.
   A configuration from systemap 2.0.0: run `systemap refresh` with systemap 3.0.0 first, then upgrade. This release cannot write the current evidence of an answer from 2.0.0 whose module has a signature or a preview that changed, because the 2.0.0 evidence has the earlier text. Such an answer stays pending.
 - A Python syntax node class or field that systemap does not know stops the extraction with exit code 1. The error gives the class and the Python version.
   Before the change, `ast.dump` wrote such a node, and its text could change with the interpreter.
+- `systemap judgement` has two new finding kinds for each nested map: `boundary flow` and `boundary import`.
+  A current tree with nested maps can get new lines of these kinds. A tree without nested maps gets no new line.
+  The lines of the current kinds do not change, and no recorded answer needs a migration.
+  A CI job that runs `systemap judgement --strict` can then exit 1 until each new line has an action or an answer.
+  - `boundary flow`: a nested flow between an internal component and an actor has no parent flow in the same direction between the component that opens the map and that actor.
+    Or, a parent flow of the component that opens the map has no nested flow with that actor in the same direction.
+  - `boundary import`: a module of an internal component imports a module of a component outside the nested map, and the nested map has no actor or no flow for that component.
+    The owner of the imported module is the component that claims it in the nearest map above the nested map.
+
+  Step: run `systemap judgement`. For each new line, add the flow or the actor, or record an answer with `kind = "boundary flow"`, `kind = "boundary import"`, or an exact `item`.
+- The `judgement --json` schema is version 8. Each row of `open` has the new fields `map_id`, `parent_flow`, `nested_flows`, and `import_pairs`. Their values are null for a line that is not a boundary line.
 
 ### Corrections
 

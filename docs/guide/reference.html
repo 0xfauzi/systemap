@@ -315,6 +315,14 @@ For each finding, change the model or record the reason for its stored state.</p
 <td>model sdk</td>
 <td>A module imports a model SDK or agent framework. Its component is neither an agent nor <code>calls_model</code>. Examples are anthropic, openai, and google.adk. <code>[facts] model_sdks</code> can add or remove names from the built-in list.</td>
 </tr>
+<tr>
+<td>boundary flow</td>
+<td>Only in a nested map. A nested flow between an internal component and the actor X has no parent flow between the component that opens the map and X, in the same direction, for example <code>Gateway: boundary flow: Routes sends to actor Auth, and the parent map has no flow from Gateway to Auth</code>. Or, a parent flow between the component that opens the map and X has no nested flow with the actor X, in the same direction, for example <code>Gateway: boundary flow: the parent flow from Gateway to Auth has no nested flow to actor Auth</code>. Add the missing flow, remove the incorrect flow, or record the reason.</td>
+</tr>
+<tr>
+<td>boundary import</td>
+<td>Only in a nested map. A module of an internal component imports a module of the component X outside the map. X is not an actor of the nested map, for example <code>Gateway: boundary import: Routes imports Auth, and Auth is not an actor of the map inside Gateway</code>. Or, no nested flow connects the component and the actor X, for example <code>Gateway: boundary import: Routes imports Auth, and no flow connects Routes and actor Auth</code>. X is the component that claims the imported module in the nearest map above the nested map. A <code>count:</code> row below the line gives the importing modules, and <code>--verbose</code> lists the imports.</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -1647,7 +1655,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 7. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>.</td>
+<td>The version of this schema. The value is 8. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>. Version 8 added <code>open[].map_id</code>, <code>open[].parent_flow</code>, <code>open[].nested_flows</code>, and <code>open[].import_pairs</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1667,7 +1675,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>open[].detail</code></td>
 <td>list of strings</td>
-<td>The imports of a crossing-import finding, as <code>--verbose</code> prints them. For other kinds, the list is empty.</td>
+<td>The imports of a <code>crossing import</code> or a <code>boundary import</code> finding, as <code>--verbose</code> prints them. For other kinds, the list is empty.</td>
 </tr>
 <tr>
 <td><code>open[].evidence</code></td>
@@ -1687,7 +1695,27 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>open[].count</code></td>
 <td>integer or null</td>
-<td>The count that the row below the line gives: the importing modules of a <code>crossing import</code> finding, or the targets of a <code>package_export</code> finding. For other findings, the value is null.</td>
+<td>The count that the row below the line gives: the importing modules of a <code>crossing import</code> or a <code>boundary import</code> finding, or the targets of a <code>package_export</code> finding. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].map_id</code></td>
+<td>string or null</td>
+<td>The ID of the nested map of a <code>boundary flow</code> or <code>boundary import</code> finding. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].parent_flow</code></td>
+<td>object or null</td>
+<td>For a boundary finding: <code>src</code> and <code>dst</code> of the parent flow that the finding is about, and <code>artifacts</code>, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For a <code>boundary import</code> finding, the direction is from the card to X. If the parent map has only a flow from X to the card, the direction is from X to the card. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].nested_flows</code></td>
+<td>list of objects or null</td>
+<td>For a boundary finding: each flow of the nested map with the actor that the finding names, with <code>src</code>, <code>dst</code>, and <code>artifact</code>. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].import_pairs</code></td>
+<td>list of objects or null</td>
+<td>For a <code>boundary import</code> finding: each import, with <code>module</code> and <code>imports</code>. For a <code>boundary flow</code> finding, the list is empty. For other findings, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].drift</code></td>
