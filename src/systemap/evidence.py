@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from systemap import flow_review
+from systemap import claim_index, flow_review
 from systemap.model import (
     Component,
     Edge,
@@ -339,8 +339,9 @@ def of_model(
 
 
 def clear_evidence() -> None:
-    """Remove all entries from the cache of of_model()."""
+    """Remove all entries from the cache of of_model() and the kept claim indexes."""
     _evidence.clear()
+    claim_index.clear()
 
 
 def _of_model(

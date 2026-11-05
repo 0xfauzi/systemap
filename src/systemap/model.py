@@ -30,7 +30,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import boundary_ids, flow_ids, sequence_ids
+from systemap import boundary_ids, claim_index, flow_ids, sequence_ids
 
 Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
@@ -725,8 +725,7 @@ def claimed(component: Component, modules: Iterable[str]) -> list[str]:
 
     With the module records (a mapping), the `package` fact of each record gives its
     package. With module names only, the dotted names give the packages."""
-    patterns = component.implemented_by
-    return [m for m in modules if any(covers(p, m, modules) for p in patterns)]
+    return claim_index.claimed(component.implemented_by, modules)
 
 
 BUILT = "built"
