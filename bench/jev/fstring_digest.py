@@ -3,7 +3,9 @@
 For each source file in FILE_LIST, the script parses the file with the current
 interpreter and prints one JSON line:
 
-- "digest": the SHA-256 of `_dump_python_syntax` with the issue 126 change.
+- "digest": the SHA-256 of `_dump_python_syntax` with the issue 126 change. Issue 136
+  replaced that function with `syntax_text.text`. The script now uses the new function,
+  so a new run does not give the recorded digests.
 - "empties": the number of empty `Constant('')` items in the parts of each f-string.
   The change removes exactly these items from the dump. Thus the change gives a
   different digest from the earlier dump if and only if "empties" is more than 0.
@@ -29,7 +31,7 @@ import json
 import sys
 from pathlib import Path
 
-from systemap import extract
+from systemap import syntax_text
 
 
 def empties(tree: ast.AST) -> int:
@@ -60,7 +62,7 @@ def main(listing: Path) -> None:
             "v": version,
             "path": path,
             "empties": empties(tree),
-            "digest": sha(extract._dump_python_syntax(tree)),
+            "digest": sha(syntax_text.text(tree)),
         }
         print(json.dumps(row))
 

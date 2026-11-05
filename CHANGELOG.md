@@ -11,6 +11,19 @@ A layer is a filtered view of the map.
 
 ### Changes that can break a script or a CI job
 
+- The facts format is 14 (3.0.0 wrote 13). The stored Python values are now the same on each supported Python version: CPython 3.11, 3.12, 3.13 and 3.14 (issue #136).
+  The syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`), not from `ast.dump`.
+  The signatures, the `constants` previews and the class bases come from the source text, not from `ast.unparse`. The previews keep the limit of 80 characters.
+  Before the change, 3.13 and 3.14 gave different fingerprints for 81 modules of this repository, and 3.12.3 gave different previews for 2 modules.
+  After the change, the five measured interpreters (3.11.18, 3.12.3, 3.12.13, 3.13.18 and 3.14.6) give the same values for this repository and for 610 standard library files.
+
+  Step: after the upgrade, run `systemap refresh` one time and commit the output.
+  The stored values change one time. For the 178 modules of this repository on 3.11, 178 syntax digests, 1,179 of 3,821 fingerprints, 476 of 664 previews and 44 of 1,211 signatures changed. On 3.13 and 3.14, 1,026 fingerprints changed.
+  Each syntax digest changes. Thus each recorded source review of a Python component is stale one time. Examine the claims again, then record the reviews with `systemap review`.
+  `bench/jev/README.md` gives the measurement and the counts for the standard library.
+  A configuration from systemap 2.0.0: run `systemap refresh` with systemap 3.0.0 first, then upgrade. This release cannot write the current evidence of an answer from 2.0.0 whose module has a signature or a preview that changed, because the 2.0.0 evidence has the earlier text. Such an answer stays pending.
+- A Python syntax node class or field that systemap does not know stops the extraction with exit code 1. The error gives the class and the Python version.
+  Before the change, `ast.dump` wrote such a node, and its text could change with the interpreter.
 - `systemap judgement` has two new finding kinds for each nested map: `boundary flow` and `boundary import`.
   A current tree with nested maps can get new lines of these kinds. A tree without nested maps gets no new line.
   The lines of the current kinds do not change, and no recorded answer needs a migration.
@@ -47,6 +60,20 @@ A layer is a filtered view of the map.
 - In the Changes view, the Details panel of a page with maps below it has the sections `CHANGES IN NESTED MAPS` and `BOUNDARY CHANGES`.
   A card that opens a map has the text `changed inside` if its map or a map below it changed.
 - The pull request summary of `delta --comment` has the part `Boundary changes` for a tree with nested maps. It gives each change to the module claims of a card that opens a map and each change to an import rule of such a card, with its reason.
+
+### Changes
+
+- A card that opens a map goes to the page of the nested map. The page no longer shows the nested map in a frame above the parent map.
+  Thus the URL identifies the nested map, and the Back control of the browser goes back. The page policy has `frame-src 'none'`.
+- The header of a nested page shows the map path, with one link for each ancestor map. The page title gives the map ID and the level.
+  On a phone, the header shows the parent link with the mark `<` and the name of the current map.
+- In the Changes view, a link to a nested map adds `#changes`.
+- The U key goes to the parent map and selects the card that opens the current map. The T key opens the list of child maps.
+- The label of a card that opens a map gives the name of the map and its component count. Screen readers do not read the second card.
+
+### Corrections
+
+- CI does the tests and the installation also on Python 3.14. The package classifiers include 3.14.
 
 ## 3.0.0 - 2026-11-03
 
