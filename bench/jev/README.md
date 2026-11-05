@@ -4026,3 +4026,59 @@ Command: `uv run python bench/jev/join_round_trip.py` (40 s)
 | Coverage | 185 of 185 modules | 185 of 185 modules |
 
 M5 fails again for the same cause: the same 4 layout problems on the top map. Open lines by kind before the division: 1 `crossing import`, 19 `flow review`, and 1 `stale source review`. After the division: 63 `flow review`, 10 `entry point`, 4 `single module`, 4 `no endpoint source`, 3 `thin layer`, and 1 `crossing import`.
+
+## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
+
+`bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:
+
+- With the change, `systemap check` and `systemap judgement` give the same output bytes as without it.
+- With the change, each command takes at most 0.5 times the seconds without it.
+
+The tree is the M11 tree of the nested parts design: 50 maps, 40 cards in each map, and about 1,900 modules (`bench/jev/canvas_data_size.py` on the nested canvas branch writes it). `place` and `extract` ran one time before the measurement. The host is a 4-core Xeon at 2.1 GHz. Each value is one run. "Before" is main at c6c0662. "After" is the branch `claude/claim-index`.
+
+### Run 1: the claim index only
+
+A profile of the canvas data build found that `model.claimed` compared each `implemented_by` pattern with each module: 20 million comparisons, 92 of 95 profiled seconds. The new module `claim_index` gives the same modules in the same order from an index of the modules.
+
+| Command | Before | After | Ratio | Same output | Result |
+|---|---|---|---|---|---|
+| `check` | 69.1 s | 19.5 s | 0.28 | yes | PASS |
+| `judgement` | 571.9 s | 492.5 s | 0.86 | yes | FAIL |
+
+`judgement` failed. A profile of `judgement` (1,656 s with the profiler) found the cause in `judgement_evidence.names`. It made one regular expression for each judgement line and each module name: 7.8 million compilations, 1,593 s of the profile. The cache of the `re` module keeps 512 patterns, so almost each call compiled its pattern again.
+
+### Run 2: the claim index and the word set of each line
+
+`names` now finds a name of word characters, dots and hyphens in the set of words of the line (`judgement_evidence.words`, kept for 4,096 lines). A different name still uses the pattern. 500 random cases compare the new procedure with the pattern.
+
+| Command | Before | After | Ratio | Same output | Result |
+|---|---|---|---|---|---|
+| `check` | 69.1 s | 20.3 s | 0.29 | yes | PASS |
+| `judgement` | 571.9 s | 9.1 s | 0.016 | yes | PASS |
+
+Information only, with no acceptance value: `refresh` took 72 s before and 48 s after (ratio 0.67). The two runs had different start states: the "before" tree had pages from an earlier refresh, and the "after" tree had none. An earlier value of 1,844 s for `refresh` of this tree came from the code of `claude/nested-step-8`, which wrote one page for each of the 50 maps. The claim index does not explain that value.
+
+### Run 3: after the code review
+
+The review changes: `check_coverage` and the missing-claim check use `claimed` and the index, not `covers` for each module; the kept indexes are in least-recently-used order; `line_modules` makes the word set of a line one time; `package_fact` has one implementation. Each command ran on the same tree with the code of main and of the branch. An earlier `refresh` had written the pages of this tree, so `check` reports no stale pages here and exits 0 in the two runs.
+
+| Command | Before | After | Ratio | Same output | Result |
+|---|---|---|---|---|---|
+| `check` | 69.6 s | 19.0 s | 0.27 | yes | PASS |
+| `judgement` | 571.9 s (run 1) | 7.8 s | 0.014 | yes | PASS |
+
+The `check_coverage` change did not make `check` measurably faster (19.5 s, 20.3 s and 19.0 s in the three runs). The rest of the 19 s of `check` is not examined yet.
+
+### Run 4: after the `/simplify` review
+
+The review changes:
+- One finder of module names in a line (`judgement_evidence.named_modules`) is used by `line_modules` and by `decisions._subject`. It compiles the pattern of a name with other characters (for example a path) one time for each module collection.
+- `extraction.mapping_drift`, `schematic_cards._claimed_files` and `change` (the owner of each module) use the claim index, not a scan of each module.
+- The tests clear the kept indexes before each test.
+
+| Command | Before | After | Ratio | Same output | Result |
+|---|---|---|---|---|---|
+| `check` | 69.6 s | 9.8 s | 0.14 | yes | PASS |
+| `judgement` | 571.9 s (run 1) | 6.0 s | 0.011 | yes | PASS |
+
+Most of the 19 s of `check` in run 3 was `schematic_cards._claimed_files`, which scanned each module for each module claim of each card.
