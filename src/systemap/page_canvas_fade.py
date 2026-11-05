@@ -44,8 +44,9 @@ function fadeFrame() {
   var now = performance.now(), dt = FADE_LAST ? Math.min(now - FADE_LAST, FADE_DT) : FADE_DT;
   FADE_LAST = now; FADE_FRAME++; FADING = false;
   FADE_STEP = reduced() ? 1 : dt / FADE_MS;
-  CAM_BEFORE = FADE_CAM; FADE_CAM = {x: cam.x, y: cam.y, k: cam.k};
+  CAM_BEFORE = FADE_CAM; FADE_CAM = camCopy();
 }
+function portalKey(t) { return t.nb.map.id + '/' + t.nb.id; }
 // The screen point in the frame before of a screen point of a box that moves with the camera.
 function before(x, y) {
   var c = CAM_BEFORE;
@@ -77,7 +78,6 @@ function pathGaps(pts, x0, y0, x1, y1) {
 }
 // Tell if a segment is on a side of the box e.
 function alongBox(p, q, e) {
-  var near = function (u, v) { return Math.abs(u - v) < 0.5; };
   return (near(p[0], q[0]) && (near(p[0], e[0]) || near(p[0], e[2]))) || (near(p[1], q[1]) && (near(p[1], e[1]) || near(p[1], e[3])));
 }
 // FADE_NEAR times the frames until a distance gets to 0, or 1. A change of less than 0.25
@@ -97,7 +97,7 @@ function boxCap(pts, old, pr) {
   var top = 1, same = pts.length === old.length;
   for (var i = 0; i < NOBST && top > 0; i += OB) {
     var x0 = OBST[i], y0 = OBST[i + 1], x1 = OBST[i + 2], y1 = OBST[i + 3], far = (1 - Math.min(1, OBST[i + 4] / HARD)) * WEIGHT_PX;
-    if (Math.abs(x0 - pr[0]) < 0.5 && Math.abs(y0 - pr[1]) < 0.5 && Math.abs(x1 - pr[2]) < 0.5 && Math.abs(y1 - pr[3]) < 0.5) continue;
+    if (near(x0, pr[0]) && near(y0, pr[1]) && near(x1, pr[2]) && near(y1, pr[3])) continue;
     var p0 = OBST[i + 5] ? before(x0, y0) : [OBST[i + 6], OBST[i + 7]], p1 = OBST[i + 5] ? before(x1, y1) : [OBST[i + 8], OBST[i + 9]];
     var now = pathGaps(pts, x0, y0, x1, y1), was = pathGaps(old, p0[0], p0[1], p1[0], p1[1]);
     if (!same) { now = [Math.min.apply(null, now)]; was = [Math.min.apply(null, was)]; }

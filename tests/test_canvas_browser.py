@@ -96,6 +96,12 @@ def drive(page: Path, *flags: str, ids: tuple[str, str] = ("Gateway", "Auth")) -
     return dict(json.loads(proc.stdout))
 
 
+@functools.cache
+def _fitted(tree: Path, flags: tuple[str, ...]) -> dict[str, Any]:
+    """The `--fits` result for the maps P0 and P0/A0. Each set of flags runs one time."""
+    return drive(tree, *flags, ids=("P0", "P0/A0"))
+
+
 @pytest.fixture(scope="module")
 def canvas(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = _made(tmp_path_factory.mktemp("browser"), "[render]\ncanvas = true\n")
@@ -235,7 +241,7 @@ def test_a_portal_does_not_cover_a_card_of_the_open_map(
 ) -> None:
     """Acceptance 10."""
     assert driven["inside"]["covered"] == []
-    fitted = drive(tree, *flags, ids=("P0", "P0/A0"))
+    fitted = _fitted(tree, flags)
     assert fitted["P0"]["chain"] == ["P0"] and fitted["P0"]["portals"] == 2
     assert fitted["P0/A0"]["chain"] == ["P0", "P0/A0"] and fitted["P0/A0"]["portals"] == 4
     assert fitted["P0"]["covered"] == []
@@ -245,7 +251,7 @@ def test_a_portal_does_not_cover_a_card_of_the_open_map(
 @pytest.mark.parametrize("flags", [("--fits", "--phone"), ("--fits",)])
 def test_the_fit_zooms_to_the_open_map(tree: Path, flags: tuple[str, ...]) -> None:
     """Acceptance 12."""
-    fitted = drive(tree, *flags, ids=("P0", "P0/A0"))
+    fitted = _fitted(tree, flags)
     for fit in (fitted["P0"], fitted["P0/A0"]):
         x, _, w, _ = fit["frame"]
         assert w >= 0.8 * fit["free"], fit

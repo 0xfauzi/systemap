@@ -48,6 +48,10 @@ var STATS = {cards: 0, image: 0};
 function reduced() {
   return (MOTION && MOTION.matches) || document.documentElement.getAttribute('data-reduce-motion') === 'true';
 }
+// The device pixel ratio, the largest side of an image, and a copy of the camera.
+function dpr() { return window.devicePixelRatio || 1; }
+var IMG_MAX = 4096;
+function camCopy() { return {x: cam.x, y: cam.y, k: cam.k}; }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function smooth(a, b, v) { var t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 

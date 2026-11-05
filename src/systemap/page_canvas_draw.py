@@ -81,7 +81,14 @@ function arrowHead(g, x2, y2, x1, y1, size) {
   g.lineTo(x2 - size * Math.cos(an + 0.45), y2 - size * Math.sin(an + 0.45));
 }
 var BACK = new Batch(true), FILL = new Batch(true), LINE = new Batch(false);
+function flushCards(g) { BACK.flush(g); FILL.flush(g); LINE.flush(g); }
 function q(size) { return Math.round(size * 2) / 2; }
+// The font size of the box names and the flow labels, and if the labels show.
+function labelSize(a) { return q(clamp(10.5 * a, 0, 13)); }
+function hasLabels(fs, alpha) { return fs >= 8 && alpha > 0.05; }
+// If a card of screen height h shows its text.
+function hasText(h) { return h >= MARK_H - 4; }
+function near(u, v) { return Math.abs(u - v) < 0.5; }
 function colors(c) {
   if (c._c && c._c.e === EPOCH) return c._c;
   var s = c.s || 'built', actor = c.k === 'actor';
@@ -96,7 +103,10 @@ function text(s, x, y, size, color, alpha, weight, mono, align) {
   if (size < MIN_TEXT || alpha <= 0.02 || !s) return;
   ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.font = font(weight || 400, size, mono);
   ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
-  if (!NOTE) return;
+  if (NOTE) textBox(s, x, y, size, weight, mono, align);
+}
+// The box of a text, as a box that a boundary flow must not cross.
+function textBox(s, x, y, size, weight, mono, align) {
   var w = unitWidth(s, weight || 400, mono) * size;
   obstacle(align === 'center' ? x - w / 2 : x, y - size, w, size * 1.3);
 }
@@ -114,7 +124,7 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
     lines.rect(C['--region'], alpha * 0.8, ox + a * b.b[0], oy + a * b.b[1], a * b.b[2], a * b.b[3], r, 1, 'r');
   });
   fills.flush(g); lines.flush(g);
-  var fs = q(clamp(10.5 * a, 0, 13));
+  var fs = labelSize(a);
   if (!labels || fs < MIN_TEXT) return;
   NOTE = g === ctx;
   boxNames(m, a, ox, oy, function (s, x, y, color) { text(s, x, y, fs, color, alpha, 600); });
@@ -151,8 +161,8 @@ function drawFlows(g, list, a, ox, oy, alpha, arrows) {
   });
 }
 function drawLabels(list, a, ox, oy, alpha) {
-  var fs = q(clamp(10.5 * a, 0, 13));
-  if (fs < 8 || alpha <= 0.05) return;
+  var fs = labelSize(a);
+  if (!hasLabels(fs, alpha)) return;
   // The plate fits the text. The text stops at 13 px, so a plate of the label box would
   // grow past the text and cover the routes.
   var bg = new Batch(true);
@@ -320,9 +330,9 @@ function drawMap(m, alpha, open) {
     if (c.child && w >= PREVIEW0) { opening.push(c); continue; }
     cardBox(c, x, y, w, h, alpha);
     obstacle(x, y, w, h);
-    if (h >= MARK_H - 4) texts.push(c);
+    if (hasText(h)) texts.push(c);
   }
-  BACK.flush(ctx); FILL.flush(ctx); LINE.flush(ctx);
+  flushCards(ctx);
   if (open > 0.3) drawLabels(flows, a, ox, oy, alpha * smooth(0.3, 0.8, open));
   texts.forEach(function (c) { cardText(c, ox + a * c.b[0], oy + a * c.b[1], a * c.b[2], a * c.b[3], alpha); });
   opening.forEach(function (c) { drawOpening(c, a, ox, oy, alpha); });
@@ -525,6 +535,7 @@ function clear(p, q) {
   return true;
 }
 // Tell if the segment goes into the box x0, y0, x1, y1 at index i of b, by more than 1 pixel.
+// It is the same test as `gap(p, q, ...) < 0` (page_canvas_fade). This form is faster.
 function into(p, q, b, i) {
   i = i || 0;
   return Math.min(p[0], q[0]) < b[i + 2] - 1 && Math.max(p[0], q[0]) > b[i] + 1 &&
@@ -540,7 +551,7 @@ function onSide(e, side, x, y) {
 function cornerOf(e, i) { return [i < 2 ? e[2] : e[0], i === 1 || i === 2 ? e[3] : e[1]]; }
 // Remove each point that is on the line of the points before and after it.
 function straight(p) {
-  var out = [p[0]], near = function (u, v) { return Math.abs(u - v) < 0.5; };
+  var out = [p[0]];
   for (var i = 1; i < p.length; i++) {
     var b = p[i], a = out[out.length - 1], z = out[out.length - 2];
     if (near(a[0], b[0]) && near(a[1], b[1])) continue;
@@ -607,7 +618,7 @@ function boundaryPath(t, l) {
   var a = [v.ox + v.a * fp[0][0], v.oy + v.a * fp[0][1]], dx = fp[1][0] - fp[0][0], dy = fp[1][1] - fp[0][1];
   var s = dy < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3, from = onSide(e, s, a[0], a[1]);
   if (!onScreen(a) || !onScreen(from) || !clear(a, from)) return null;
-  var pr = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2], all = [], costs = [], best = -1;
+  var pr = t.box, all = [], costs = [], best = -1;
   for (var side = 0; side < 4; side++) {
     for (var c = 0; c < 4; c++) {
       var pts = aroundTo(a, from, f, e, s, side, c < 2 ? 1 : -1, pr, c % 2 === 0), k = pts ? pathCost(pts) : Infinity;
@@ -619,7 +630,7 @@ function boundaryPath(t, l) {
 }
 
 function drawBoundary(t, l) {
-  var key = lineKey(t.nb, l.p, l.m), b = l.spare && !FADE.has(key) ? null : boundaryPath(t, l), paths = fadeOf(key, b, l.spare);
+  var key = lineKey(t.nb, l.p, l.m), b = boundaryPath(t, l), paths = fadeOf(key, b, l.spare);
   if (!paths.length) return;
   var color = C['--l-' + flowLayer(l)] || C['--flow'], most = 0;
   paths.forEach(function (one) {
@@ -638,25 +649,22 @@ function drawBoundary(t, l) {
 var HITS = [], LINKS = [], PLACES = new Map();
 // The lines come first, so that no line goes over the text of a portal.
 function drawPortals(list, chain) {
-  var path = pathParts(chain);
-  obstacle(12, 10, path.total, 38, 1, [12, 10, 12 + path.total, 48]);
-  var help = helpLines();
-  help.forEach(function (line, i) {
-    var y = H - 28 - HELP_LH * (help.length - 1 - i), w = unitWidth(line, 400) * HELP_FS;
-    obstacle(18, y, w, 16, 1, [18, y, 18 + w, y + 16]);
-  });
+  fadeFrame();
+  var path = pathParts(chain), help = helpLines();
+  fixedObstacle(12, 10, path.total, 38);
+  help.forEach(function (line, i) { fixedObstacle(18, helpY(i, help.length) - 12, unitWidth(line, 400) * HELP_FS, 16); });
   var places = new Map();
   list.forEach(function (t) {
-    var key = t.nb.map.id + '/' + t.nb.id, box = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2];
-    places.set(key, box);
-    obstacle(box[0], box[1], t.w, t.h, t.show, PLACES.get(key) || box);
+    var key = portalKey(t);
+    t.box = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2];
+    places.set(key, t.box);
+    obstacle(t.box[0], t.box[1], t.w, t.h, t.show, PLACES.get(key) || t.box);
   });
   PLACES = places;
-  fadeFrame();
   list.forEach(function (t) { t.lines.forEach(function (l) { drawBoundary(t, l); }); });
   fadeEnd();
   list.forEach(function (t) {
-    var w = t.w, h = t.h, x = t.x - w / 2, y = t.y - h / 2;
+    var w = t.w, h = t.h, x = t.box[0], y = t.box[1];
     var sc = 0.85 + 0.15 * t.show;
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(sc, sc); ctx.translate(-t.x, -t.y);
     ctx.globalAlpha = t.show; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--ink-3']; ctx.lineWidth = 1.2;
@@ -667,6 +675,8 @@ function drawPortals(list, chain) {
     HITS.push({x: x, y: y, w: w, h: h, kind: 'portal', id: t.nb.id, go: function () { flyTo(worldBox(t.nb), 0.3); }});
   });
 }
+// A box that does not move with the camera.
+function fixedObstacle(x, y, w, h) { obstacle(x, y, w, h, 1, [x, y, x + w, y + h]); }
 function flowLayer(l) {
   if (l.p.f !== undefined && l.m.flows[l.p.f]) return l.m.flows[l.p.f].l;
   var up = l.m.owner && l.m.owner.map, f = up && (l.p.pf || []).length ? up.flows[l.p.pf[0]] : null;
@@ -698,19 +708,25 @@ function drawPath(chain) {
 }
 var HELP = ['Wheel or pinch: zoom', 'drag: move', 'double-click a card: go in', 'Esc: go out', 'F: fit'], HELP_FS = 11.5, HELP_LH = 15;
 // The help line in lines that fit the screen width, with 18 px at each side. A line breaks
-// only between two parts. The last line is at the screen bottom.
+// only between two parts. The last line is at the screen bottom. The lines change only
+// when the screen width or the fonts change (`HELP_MEMO`).
+var HELP_MEMO = null;
 function helpLines() {
+  if (HELP_MEMO && HELP_MEMO.w === W && HELP_MEMO.t === TEXTS) return HELP_MEMO.lines;
   var out = [], cur = '', room = (W - 36) / HELP_FS;
   HELP.forEach(function (part) {
     var next = cur ? cur + ' · ' + part : part;
     if (cur && unitWidth(next, 400) > room) { out.push(cur); cur = part; } else cur = next;
   });
   out.push(cur);
+  HELP_MEMO = {w: W, t: TEXTS, lines: out};
   return out;
 }
+// The baseline of help line i of n.
+function helpY(i, n) { return H - 16 - HELP_LH * (n - 1 - i); }
 function drawHelp() {
   var lines = helpLines();
-  lines.forEach(function (line, i) { text(line, 18, H - 16 - HELP_LH * (lines.length - 1 - i), HELP_FS, C['--ink-3'], 0.9); });
+  lines.forEach(function (line, i) { text(line, 18, helpY(i, lines.length), HELP_FS, C['--ink-3'], 0.9); });
 }
 var FRAMES = [];
 function drawHud(began, half) {

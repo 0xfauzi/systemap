@@ -14,12 +14,16 @@ from __future__ import annotations
 IMAGE = r"""
 // ---- the image of the marks of a large map -------------------------------------------
 // One image for each half step of zoom (a factor of 1.41). A pan uses the same image.
-function zoomStep(a) { return Math.round(Math.log2(a) * 2) / 2; }
+// The key has the device pixel ratio, so a change of the ratio makes the image again. The
+// images of the maps that the last frame did not draw are removed first when all the images
+// have more than MARKS_PX pixels.
+var MARKS_PX = 16e6, MARKS = [];
 function marksImage(m, a) {
-  var z = zoomStep(a), s = Math.pow(2, z) * (window.devicePixelRatio || 1), key = EPOCH + '|' + z;
-  if (m.img && m.img.key === key) return m.img;
+  var z = Math.round(Math.log2(a) * 2) / 2, s = Math.pow(2, z) * dpr(), key = EPOCH + '|' + z + '|' + dpr();
+  if (m.img && m.img.key === key) { m.img.used = drawn; return m.img; }
   var w = Math.ceil(m.size[0] * s), h = Math.ceil(m.size[1] * s);
-  if (w < 1 || h < 1 || w > 4096 || h > 4096) return null;
+  if (w < 1 || h < 1 || w > IMG_MAX || h > IMG_MAX) return null;
+  marksRoom(m, w * h);
   var c = m.img ? m.img.canvas : document.createElement('canvas'), g;
   c.width = w; c.height = h; g = c.getContext('2d');
   g.fillStyle = C['--map']; g.fillRect(0, 0, w, h);
@@ -30,8 +34,21 @@ function marksImage(m, a) {
     marks.rect(colors(card).mark, 1, s * card.b[0], s * card.b[1], s * card.b[2], s * card.b[3], 0);
   });
   marks.flush(g);
-  m.img = {canvas: c, key: key};
+  m.img = {canvas: c, key: key, used: drawn, px: w * h};
+  if (MARKS.indexOf(m) < 0) MARKS.push(m);
   return m.img;
+}
+// Remove the marks images of other maps, the oldest first, until `px` more pixels fit in
+// MARKS_PX. Keep each image that the frame before or this frame drew.
+function marksRoom(m, px) {
+  var total = px;
+  MARKS.forEach(function (o) { if (o !== m) total += o.img.px; });
+  MARKS.sort(function (u, v) { return u.img.used - v.img.used; });
+  MARKS = MARKS.filter(function (o) {
+    if (o === m || total <= MARKS_PX || o.img.used >= drawn - 1) return true;
+    total -= o.img.px; o.img = null;
+    return false;
+  });
 }
 
 // ---- the image of a large map while the camera moves ----------------------------------
@@ -41,17 +58,20 @@ function marksImage(m, a) {
 // lower image, and the higher image over it with an opacity from 0 to 1. Thus each fade of
 // the level of detail follows the zoom. A frame makes slices of the images until MAP_MS
 // after its start. Until the two images are complete, the frame uses the normal drawing.
+// The resolution of an image is 2 to the power MAP_STEP times the moving resolution. Thus
+// the frame never shows an image larger than its pixels, and the text stays clear. Only the
+// map that asked last keeps its images (`IMG_MAP`), at most MAP_KEEP images.
 var MAP_STEP = 0.5, MAP_PX = 2e6, MAP_KEEP = 4, MAP_SLICE = 25, MAP_MS = 8;
-var JOB = null, WANT = null, LAST_L = null, ZOOM_DIR = 1;
+var JOB = null, WANT = null, LAST_L = null, ZOOM_DIR = 1, IMG_MAP = null;
 function isLeaf(m) {
   return m._leaf !== undefined ? m._leaf : (m._leaf = !(m.ports && m.ports.length) && m.cards.every(function (c) { return !c.child; }));
 }
 function imageSize(m, z) {
-  var d = (window.devicePixelRatio || 1) * 0.5, s = Math.pow(2, z);
+  var d = dpr() * 0.5 * Math.pow(2, MAP_STEP), s = Math.pow(2, z);
   return {w: Math.ceil(m.size[0] * s * d), h: Math.ceil(m.size[1] * s * d), d: d, s: s, key: TEXTS + '|' + z + '|' + d};
 }
-function readyImage(m, z) {
-  var key = imageSize(m, z).key, list = m._imgs || [];
+function readyImage(m, key) {
+  var list = m._imgs || [];
   for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
   return null;
 }
@@ -61,17 +81,17 @@ function mapImage(m, a) {
   if (!isLeaf(m)) return null;
   var l = Math.log2(a) / MAP_STEP, z = Math.floor(l) * MAP_STEP;
   WANT = {m: m, l: l, z: z};
-  var lo = readyImage(m, z), hi = readyImage(m, z + MAP_STEP);
+  var lo = readyImage(m, imageSize(m, z).key), hi = readyImage(m, imageSize(m, z + MAP_STEP).key);
   return lo && hi ? {lo: lo, hi: hi, t: l - Math.floor(l)} : null;
 }
 // The boxes of the normal drawing that a boundary flow must not cross: the cards on the
 // screen, the plates of the flow labels and the names of the boxes. Give the card count.
 function mapObstacles(m, a, ox, oy, box, alpha) {
-  var cards = m.cardIndex.query(box[0], box[1], box[2], box[3], []), fs = q(clamp(10.5 * a, 0, 13));
+  var cards = m.cardIndex.query(box[0], box[1], box[2], box[3], []), fs = labelSize(a);
   cards.forEach(function (c) { obstacle(ox + a * c.b[0], oy + a * c.b[1], a * c.b[2], a * c.b[3]); });
-  if (fs >= 8 && alpha > 0.05) plates(m.flowIndex.query(box[0], box[1], box[2], box[3], []), a, ox, oy, fs, obstacle);
+  if (hasLabels(fs, alpha)) plates(m.flowIndex.query(box[0], box[1], box[2], box[3], []), a, ox, oy, fs, obstacle);
   if (fs < MIN_TEXT || alpha <= 0.02) return cards.length;
-  boxNames(m, a, ox, oy, function (s, x, y) { if (s) obstacle(x, y - fs, unitWidth(s, 600) * fs, fs * 1.3); });
+  boxNames(m, a, ox, oy, function (s, x, y) { if (s) textBox(s, x, y, fs, 600); });
   return cards.length;
 }
 // The parts of an image in the order of the normal drawing: the boxes, the flows in
@@ -87,11 +107,11 @@ function imageParts(m, s) {
   slices(m.flows, function (part) { drawFlows(ctx, part, s, 0, 0, 1, m.maxH * s > 14); });
   slices(m.cards, function (part) {
     part.forEach(function (c) { cardBox(c, s * c.b[0], s * c.b[1], s * c.b[2], s * c.b[3], 1); });
-    BACK.flush(ctx); FILL.flush(ctx); LINE.flush(ctx);
+    flushCards(ctx);
   });
   parts.push(function () { drawLabels(m.flows, s, 0, 0, 1); });
   slices(m.cards, function (part) {
-    part.forEach(function (c) { if (s * c.b[3] >= MARK_H - 4) cardText(c, s * c.b[0], s * c.b[1], s * c.b[2], s * c.b[3], 1); });
+    part.forEach(function (c) { if (hasText(s * c.b[3])) cardText(c, s * c.b[0], s * c.b[1], s * c.b[2], s * c.b[3], 1); });
   });
   return parts;
 }
@@ -110,11 +130,12 @@ function newJob(m, z) {
   c.width = r.w; c.height = r.h;
   return {m: m, z: z, key: r.key, c: c, g: c.getContext('2d', {alpha: false}), i: 0, d: r.d, s: r.s, parts: imageParts(m, r.s), done: false};
 }
-// Keep the new image. When the map has too many images, remove the image of the step that
+// Keep the new image. Remove each image whose key is not current (the text or the device
+// pixel ratio changed). When the map has too many images, remove the image of the step that
 // is farthest from the current step.
 function keepImage(job, z) {
-  var m = job.m, list = (m._imgs || []).filter(function (im) { return im.texts === TEXTS; });
-  list.push({canvas: job.c, key: job.key, texts: TEXTS, z: job.z});
+  var m = job.m, list = (m._imgs || []).filter(function (im) { return im.key === imageSize(m, im.z).key; });
+  list.push({canvas: job.c, key: job.key, z: job.z});
   list.sort(function (u, v) { return Math.abs(u.z - z) - Math.abs(v.z - z); });
   m._imgs = list.slice(0, MAP_KEEP);
 }
@@ -128,7 +149,7 @@ function wantedSteps(want) {
   ahead = ZOOM_DIR > 0 ? z + 2 * MAP_STEP : z - MAP_STEP;
   return [z, z + MAP_STEP, ahead, ZOOM_DIR > 0 ? z - MAP_STEP : z + 2 * MAP_STEP].filter(function (y) {
     var r = imageSize(m, y);
-    return r.w * r.h <= MAP_PX && r.w <= 4096 && r.h <= 4096 && m.maxH * Math.pow(2, y + MAP_STEP) >= MARK_H - 6 && !readyImage(m, y);
+    return r.w * r.h <= MAP_PX && r.w <= IMG_MAX && r.h <= IMG_MAX && m.maxH * Math.pow(2, y + MAP_STEP) >= MARK_H - 6 && !readyImage(m, r.key);
   });
 }
 // Make slices of the wanted images until MAP_MS after `began`, the start of the frame.
@@ -136,6 +157,8 @@ function makeImages(began) {
   var want = WANT;
   WANT = null;
   if (!want) return;
+  if (IMG_MAP && IMG_MAP !== want.m) IMG_MAP._imgs = null;
+  IMG_MAP = want.m;
   var steps = wantedSteps(want), at = JOB ? steps.indexOf(JOB.z) : -1;
   if (JOB && (JOB.m !== want.m || JOB.key !== imageSize(JOB.m, JOB.z).key || at < 0)) JOB = null;
   else if (JOB) steps.splice(at, 1);

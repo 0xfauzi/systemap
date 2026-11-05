@@ -161,6 +161,8 @@ async function links(file, ids) {
   await settle(page);
   const out = await page.evaluate((ids) => {
     const S = window.systemapCanvas, W = innerWidth, H = innerHeight, r = { frames: 0, links: 0, atFit: {}, problems: [] };
+    // The same test as `into` in page_canvas_draw.py, with a box x, y, w, h. The driver
+    // cannot get the functions of the page.
     const into = (p, q, b) => Math.min(p[0], q[0]) < b[0] + b[2] - 1 && Math.max(p[0], q[0]) > b[0] + 1 &&
       Math.min(p[1], q[1]) < b[1] + b[3] - 1 && Math.max(p[1], q[1]) > b[1] + 1;
     const edge = (p, h) => (Math.abs(p[0] - h.x) < 0.5 || Math.abs(p[0] - h.x - h.w) < 0.5) && p[1] >= h.y - 0.5 && p[1] <= h.y + h.h + 0.5 ||
@@ -217,6 +219,8 @@ async function fade(file, ids) {
       const S = window.systemapCanvas, W = innerWidth, H = innerHeight, fa = S.fit(from), fb = S.fit(to);
       const mid = (c) => [c.x + W / 2 / c.k, c.y + H / 2 / c.k], [ax, ay] = mid(fa), [bx, by] = mid(fb);
       const a = { k: fa.k * za }, b = { k: fb.k * zb };
+      // The same test as `into` in page_canvas_draw.py, with a box x, y, w, h. The driver
+      // cannot get the functions of the page.
       const into = (p, q, r) => Math.min(p[0], q[0]) < r[0] + r[2] - 1 && Math.max(p[0], q[0]) > r[0] + 1 &&
         Math.min(p[1], q[1]) < r[1] + r[3] - 1 && Math.max(p[1], q[1]) > r[1] + 1;
       const r = { from, to, zoom: [za, zb], frames: 0, drawn: 0, worst: 0, where: '', problems: [] };
@@ -229,8 +233,8 @@ async function fade(file, ids) {
           if (!open.has((m.id ? m.id + '/' : '') + c.id)) cards.push([m.id + ':' + c.id, c.b]);
         }));
         S.links().forEach((l) => {
-          const key = l.key || l.id + '|' + l.d;
-          now[key] = Math.max(now[key] || 0, l.alpha === undefined ? 1 : l.alpha);
+          const key = l.key;
+          now[key] = Math.max(now[key] || 0, l.alpha);
           r.drawn++;
           for (let i = 1; i < l.points.length; i++) {
             cards.forEach(([name, box]) => { if (into(l.points[i - 1], l.points[i], box)) r.problems.push(f + ' ' + key + ' into ' + name); });

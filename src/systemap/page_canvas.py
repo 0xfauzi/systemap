@@ -60,7 +60,7 @@ function flyTo(box, pad) { fly(fitBox(box, pad)); }
 function fly(to, ms) {
   stopFlight();
   if (reduced()) { cam = to; moved(); return; }
-  var from = {x: cam.x, y: cam.y, k: cam.k};
+  var from = camCopy();
   var cx0 = from.x + W / 2 / from.k, cy0 = from.y + H / 2 / from.k, cx1 = to.x + W / 2 / to.k, cy1 = to.y + H / 2 / to.k;
   var dist = Math.hypot(cx1 - cx0, cy1 - cy0) * Math.min(from.k, to.k) / Math.max(W, H);
   var dip = Math.log(1 + dist) * 1.1, l0 = Math.log(from.k), l1 = Math.log(to.k);
@@ -99,7 +99,7 @@ function moved(now) {
 }
 function request() { if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; draw(); }); } }
 function draw() {
-  var began = performance.now(), d = (window.devicePixelRatio || 1) * (sharp ? 1 : 0.5);
+  var began = performance.now(), d = dpr() * (sharp ? 1 : 0.5);
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d));
   if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
@@ -116,16 +116,15 @@ function draw() {
   if (HUD) drawHud(began, !sharp);
   drawn++;
   if (FADING) fadeLater();
-  LAST_CAM = {x: cam.x, y: cam.y, k: cam.k};
 }
 // A boundary flow that fades asks for more frames (`FADING`). While the camera moves, the
 // moves give the frames. Thus, after a camera change, the script asks for a frame only when
 // no frame comes in FADE_WAIT ms. When the camera did not change, it asks for the next frame.
-var LAST_CAM = null, fadeTimer = 0, FADE_WAIT = 50;
+var fadeTimer = 0, FADE_WAIT = 50;
 function fadeLater() {
   var n = drawn;
   clearTimeout(fadeTimer);
-  if (LAST_CAM && LAST_CAM.x === cam.x && LAST_CAM.y === cam.y && LAST_CAM.k === cam.k) request();
+  if (CAM_BEFORE && CAM_BEFORE.x === cam.x && CAM_BEFORE.y === cam.y && CAM_BEFORE.k === cam.k) request();
   else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
@@ -242,7 +241,23 @@ window.addEventListener('keydown', function (e) {
 });
 window.addEventListener('hashchange', function () { var m = hashMap(); flyTo(m ? frameOf(m) : topFrame(), 0.06); });
 function measure() { var r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height); }
-window.addEventListener('resize', function () { measure(); request(); });
+// After a change of the screen size (a phone that turns, for example), a camera at the fit
+// of the open map fits that map again. Each other camera keeps the world point at the middle
+// of the screen, and it shows all of the world box that was on the screen before.
+function atFit(m) {
+  var f = fitBox(frameOf(m), 0.06);
+  return Math.abs(cam.k / f.k - 1) < 1e-3 && Math.abs(cam.x - f.x) * cam.k < 1 && Math.abs(cam.y - f.y) * cam.k < 1;
+}
+window.addEventListener('resize', function () {
+  var m = currentMap(), fitted = !flight && atFit(m), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
+  measure();
+  if (fitted) cam = fitBox(frameOf(m), 0.06);
+  else if (!flight) {
+    var k = clamp(cam.k * Math.min(W / w, H / h), KMIN, KMAX);
+    cam = {x: cx - W / 2 / k, y: cy - H / 2 / k, k: k};
+  }
+  request();
+});
 new MutationObserver(function () { readColors(); request(); })
   .observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
 if (window.matchMedia) {
@@ -297,7 +312,7 @@ cam = fitBox(start ? frameOf(start) : topFrame(), 0.06);
 draw(); settled();
 window.systemapCanvas = {
   ready: performance.now(),
-  camera: function () { return {x: cam.x, y: cam.y, k: cam.k}; },
+  camera: camCopy,
   // Set the camera as a move does, and draw the frame now.
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
   fit: function (id) { return fitBox(id ? frameOf(MAPS[id]) : topFrame(), 0.06); },

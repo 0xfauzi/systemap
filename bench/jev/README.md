@@ -4393,6 +4393,102 @@ In the image frames, the cards are a little grey, because the blend of the lower
 
 Not measured: a device with a GPU (part 1 reads one pixel of each image slice with `getImageData`), a device pixel ratio of 2, normal CPU speed, and parts 1 to 3 without part 4 in more runs.
 
+### Runs 7 to 9: after the images, the fades and the phone fit (2026-11-05)
+
+Runs 7, 8 and 9 are on the source of commit d6994df. Since run 6, that commit adds three changes to the page: the images of a large map while the camera moves (parts 1 to 4 of the deep zoom above), the fades of the boundary flows (F1 to F3 below), and the fit on a phone screen. The script `run_frames.py` (in the scratch directory of the work, not in the repository) operated `bench/jev/canvas_frames.py` without changes. Its docstring has the acceptance values, which were written before run 7:
+- Each scenario passes its limit of `canvas_frames.py` in each run.
+- The dive of the 400-card map at 4x has p95 at most 16.8 ms in each run.
+- No p95 increases by one tick (16.7 ms) or more against the same scenario in run 5 or in run 6.
+
+The host. Before each run, a polling loop with `ps` (one sample each 2 s) waited until no Chromium, node or pytest process operated for 30 s. Each run took 85 s. During the runs, the agent of a different task operated Chromium on the host:
+- Run 7: no sample during the run. An error in the script lost it. 30 s before the run, the other agent operated `node info.js` with Chromium.
+- Run 8: the other agent operated `node dive.js` with Chromium from 8 s after the start to the end of the run.
+- Run 9: the other agent operated `node move.js` with Chromium for approximately 20 s of the run, from 27 s after the start.
+- The load average (1 minute) was 0.2 to 1.4 during the samples.
+
+Thus the host was not quiet in runs 8 and 9, and possibly not in run 7. The task specified 2 runs. Run 9 is an added run, because run 8 was not on a quiet host. A busy host can make a frame interval longer. It cannot make it shorter.
+
+For C3, the value is the load time. For a scenario, the value is the p95 frame interval in ms.
+
+| Data | Scenario | CPU | Run 7 | Run 8 | Run 9 | Max of runs 7, 8, 9 (ms) | Runs 5, 6 | Result |
+|---|---|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 294 ms | 224 ms | 294 ms | | 241 ms, 277 ms | information |
+| M11 shape | C3 load | 4x | 246 ms | 229 ms | 254 ms | | 252 ms, 285 ms | information |
+| M11 tree | pan-fit | 4x | 16.8 | 16.8 | 16.8 | 33.3, 33.4, 33.3 | 16.8, 16.8 | pass |
+| M11 tree | all-open | 4x | 16.8 | 16.8 | 16.8 | 33.3, 49.9, 49.9 | 16.7, 16.8 | pass |
+| M11 tree | dive | 4x | 16.7 | 16.7 | 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.8 | pass |
+| 400 cards | pan-fit | 4x | 16.8 | 16.7 | 16.7 | 16.8, 33.4, 16.8 | 16.7, 16.8 | pass |
+| 400 cards | dive | 4x | 16.7 | 16.8 | 16.8 | 33.3, 33.4, 33.3 | 33.3, 33.3 | pass |
+| 1,500 cards | pan-fit | 4x | 16.8 | 16.7 | 16.8 | 33.3, 16.8, 33.4 | 16.7, 16.7 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.7 | 16.7 | 16.8, 16.8, 33.3 | 16.7, 16.7 | pass |
+| M11 shape | all-open | 4x | 16.8 | 16.8 | 16.8 | 33.3, 83.3, 33.2 | 16.7, 16.8 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 16.7 | 16.8, 16.8, 33.4 | 16.7, 16.8 | pass |
+| M11 tree | C3 load | 1x | 77 ms | 71 ms | 64 ms | | 80 ms, 79 ms | pass |
+| M11 shape | C3 load | 1x | 68 ms | 72 ms | 70 ms | | 68 ms, 68 ms | pass |
+| M11 tree | pan-fit | 1x | 16.8 | 16.8 | 16.8 | 16.8, 16.8, 16.8 | 16.8, 16.7 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.7 | 16.7 | 16.8, 16.8, 16.8 | 16.7, 16.7 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.7 | 16.7 | 16.8, 16.8, 16.8 | 16.7, 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.7 | 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.8 | 16.8 | 16.8, 16.8, 99.9 | 16.7, 16.7 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | 16.8, 16.8, 16.8 | 16.8, 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.8 | 16.8 | 16.7 | 16.8, 16.8, 16.8 | 16.7, 16.8 | pass |
+| M11 shape | all-open | 1x | 16.8 | 16.7 | 16.7 | 16.8, 33.3, 16.8 | 16.7, 16.7 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.7 | 16.8 | 16.8, 16.8, 16.8 | 16.8, 16.8 | pass |
+
+C2 and C3 pass in runs 7, 8 and 9. The three acceptance values pass:
+- The dive of the 400-card map at 4x has p95 16.7, 16.8 and 16.8 ms (one tick). In runs 2 to 6 it was 33.3 ms (two ticks). This agrees with the A/B runs of the deep zoom.
+- No p95 increased by one tick or more against run 5 or run 6. The largest p95 of a scenario is 16.8 ms.
+- C3 at 1x is 64 to 77 ms for the M11 tree. In runs 5 and 6 it was 80 and 79 ms.
+
+### A/B after the review fixes (2026-11-05)
+
+A is commit d6994df. B is the same source with the fixes of the review of that commit. These fixes change the renderer:
+- An image of a large map while the camera moves has 1.41 times the moving resolution. Before, the frame showed the lower image up to 1.41 times larger than its pixels, and the names were not clear.
+- The image cache removes each image whose key is not current, also after a change of the device pixel ratio. The key of a marks image has the device pixel ratio.
+- Only the map that asked last keeps its images. The marks images of all maps have at most 16 million pixels together.
+- After a change of the screen size, a camera at the fit of the open map fits that map again.
+- Changes that make the code simpler, with no change of behavior (`/simplify`), and a cache of the help lines.
+
+The script `run_ab.py` (in the scratch directory of the work, not in the repository) operated `bench/jev/canvas_frames.py` of each copy without changes. Its docstring has the acceptance values, which were written before the first run:
+- B: each scenario passes its limit of `canvas_frames.py` in each of the 3 runs.
+- B against A: for each scenario, the median of the 3 p95 values of B is not more than the median of A plus one tick (16.6 ms or more counts as one tick).
+- The dive of the 400-card map at 4x passes its limit in each run of B, because the images now have 2 times the pixels.
+
+The order was A1, B1, A2, B2, A3, B3 in one session. The first start failed before a measurement: the copies had only `src` and `bench`, and the script needs the map of the repository. The second start used full copies. Before each run, a polling loop with `ps` waited until no Chromium, node or pytest process operated for 30 s. The samples during the runs show only the processes of the run. The load average (1 minute) was 0.5 to 1.6 during the runs.
+
+For C3, the value is the load time. For a scenario, the value is the p95 frame interval in ms.
+
+| Data | Scenario | CPU | A: runs 1, 2, 3 | B: runs 1, 2, 3 | Median B minus median A | Result of B |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 266, 240, 240 ms | 230, 246, 288 ms | +6 ms | information |
+| M11 shape | C3 load | 4x | 245, 268, 293 ms | 218, 226, 220 ms | -48 ms | information |
+| M11 tree | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.8 | 0 | pass |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 tree | dive | 4x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.7 | -0.1 | pass |
+| 400 cards | pan-fit | 4x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| 400 cards | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| 1,500 cards | pan-fit | 4x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | pan-fit | 4x | 16.7, 16.7, 16.7 | 16.7, 16.7, 16.8 | 0 | pass |
+| M11 shape | all-open | 4x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | dive | 4x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 | pass |
+| M11 tree | C3 load | 1x | 85, 66, 66 ms | 66, 67, 69 ms | +1 ms | pass |
+| M11 shape | C3 load | 1x | 68, 73, 69 ms | 71, 66, 70 ms | +1 ms | pass |
+| M11 tree | pan-fit | 1x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| M11 tree | all-open | 1x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 | pass |
+| M11 tree | dive | 1x | 16.7, 16.8, 16.8 | 16.7, 16.7, 16.8 | -0.1 | pass |
+| 400 cards | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| 400 cards | dive | 1x | 16.7, 16.8, 16.7 | 16.8, 16.7, 16.8 | +0.1 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| M11 shape | all-open | 1x | 16.7, 16.7, 16.8 | 16.7, 16.7, 16.8 | 0 | pass |
+| M11 shape | dive | 1x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.8 | 0 | pass |
+
+The three acceptance values pass. All p95 values of A and B are one tick.
+
+Two probes of the same fixes, information only. No acceptance value was written before these probes, so they give no pass or fail:
+- The names in the images, with `move.js` and `ink.py` of the visual check of d6994df (the same method). The 400-card map, 1440 x 900, a pan of 40 frames, then the still frame 300 ms later. A name is gone when its ink in the moving frame is less than 0.35 times its ink in the still frame. At 2 times the fit, light: A 50 of 210 gone (median ratio 0.52), B 11 of 210 (0.85). Dark: A 14 of 210, B 5 of 210. At 2.5 times the fit, light: A 65 of 144 (0.36). In B the images at this zoom have more than 2 million pixels, so the frame uses the usual drawing: 0 of 288 (1.06). 390 x 844 at 8 times the fit, light: A 11 of 21 (0.35). B uses the usual drawing: 0 of 42 (1.01).
+- The image cache after a change of the device pixel ratio from 1 to 2 (`dpr.js` of the code review, with a count of the canvases that the page makes). The 400-card map at 1.6 and 2 times the fit, a pan of 120 frames, then two pans at the ratio 2. At 1.6 times the fit, the count of canvases in all after each pan was 5, 123 and 243 for A (about one new canvas in each frame at the ratio 2), and 4, 5 and 5 for B. In B at the ratio 2, the higher image is more than 2 million pixels, so the frames use the usual drawing.
+
 ## F1 to F3: the fade of the boundary flows (2026-11-05)
 
 Scope: the boundary flows of the canvas page (`page_canvas_fade.py`, `page_canvas_draw.py`, `page_canvas.py`). Before this change, a boundary flow was drawn only in a frame where a clear path existed. Thus a line appeared at one time and went at one time. The maintainer rule is "Each change follows the zoom continuously. Nothing appears at one time."
