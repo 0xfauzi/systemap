@@ -81,6 +81,8 @@ select = ["E", "F", "I", "B", "UP", "W"]
 "map/model.py" = ["E501"]
 # The Jev experiments hold their questions as prose in strings, like the model.
 "bench/jev/*.py" = ["E501"]
+# The canvas renderer is one script in strings. A wrapped line of it is harder to read.
+"src/systemap/page_canvas*.py" = ["E501"]
 "tests/**" = ["E501"]
 
 [tool.mypy]

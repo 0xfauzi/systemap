@@ -27,8 +27,8 @@ from systemap import (
     identifier,
     nest,
     out_paths,
-    page,
     reexports,
+    render_pages,
     source_facts,
     unknown_causes,
 )
@@ -605,19 +605,12 @@ def stale(
     out, stored = extraction.saved_drift(cfg, fresh)
     if not stored:
         return out
-    for m in tree.maps:
-        if model_problems(m.model, m.meaning):
-            continue
-        html = page.build(
-            cfg,
-            m.model,
-            m.meaning,
-            m.theme,
-            stored,
-            {"has_change": False},
-            nesting=page.nesting_of(cfg, tree, m, stored),
-        )
-        out += _stale_file(cfg, m.page_path(cfg), html)
+    # A map with model contradictions has no page to compare. The canvas page holds all
+    # maps, so one such map stops the compare of the canvas page.
+    broken = {m.id for m in tree.maps if model_problems(m.model, m.meaning)}
+    if not (broken and cfg.render_canvas):
+        for m, html in render_pages.pages(cfg, tree, stored, skip=broken):
+            out += [] if m.id in broken else _stale_file(cfg, m.page_path(cfg), html)
     return out + figure_problems(cfg, tree, stored, cfg.figures)
 
 

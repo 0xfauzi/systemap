@@ -27,12 +27,11 @@ Each value comes from a script whose acceptance value was written before the run
 | Frame time while zooming, prototype renderer, 50 maps and 2,000 cards, headless Chromium, 4-core Xeon at 2.1 GHz | p95 frame interval at most 16.7 ms | PASS: 240 frames in each of 3 runs, all at 16.7 ms. No frame was longer than 25 ms. |
 | Size of one page with all 50 maps of the M11 tree, from the current pages (shared blocks one time) | at most 10 MB raw and 2 MB gzip | not known yet (the run is in progress) |
 | C1: size of the canvas data (`canvas_data.text`) of the M11 tree, 50 maps | at most 2 MB raw | PASS: 731,326 bytes raw and 30,236 bytes after gzip -6. One build took 22 s. See `bench/jev/README.md`. |
+| C2: frame time of the canvas page of step 2, half resolution while the camera moves, 4 times CPU throttling: M11 tree (pan, all top cards with previews, dive), 400 cards (pan, dive), 1,500 cards (pan). No GPU: Chromium paints in software. | p95 at most 33 ms (two 60 Hz ticks, 33.33 ms, plus 5 percent: 35.0 ms) | PASS in run 2: p95 16.7 to 16.8 ms, and 33.3 ms for the dive of the 400-card map. Run 1 failed the dive (p95 550 ms): long dashed paths of the maps above the view. See `bench/jev/README.md`. |
+| C2 at normal CPU speed, same scenarios | p95 at most 17.5 ms | PASS in run 2: p95 16.7 to 16.8 ms. |
+| C3: load to an interactive map, M11 tree, 50 maps | at most 1.5 s at normal CPU speed | PASS: 76 ms (264 ms with 4 times throttling). The time of `canvas_data.build` is not included. |
 
-These are not measured yet:
-- the frame time on a slow device or with CPU throttling;
-- the time from page load to an interactive map.
-
-The steps below measure them.
+The frame time on a real slow device is not measured yet. The `?hud` readout of the canvas page shows it on a device.
 
 ## Performance
 

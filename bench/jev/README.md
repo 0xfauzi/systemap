@@ -4056,3 +4056,85 @@ C1 passes. The raw data of the 50 maps is 731,326 bytes, 35 percent of the accep
 - Between the two runs, the facts of this repository were extracted again, and the `does` text of the component Page changed. Thus the bytes of this repository are different. The M11 bytes are the same.
 - The time on the M11 tree is about 0.44 s for each map. The cause of this time was not examined. The build calculates the flow paths of each map with the router, and the page render calculates the same paths. A profile is necessary before step 2 can give a load time (C3).
 - This run does not answer the open question of the design about a map with more than 400 cards. A measurement on such a tree is necessary.
+
+## C2 and C3: frame time and load time of the canvas page (2026-11-05)
+
+Scope: step 2 of [the nested canvas design](../../docs/design/nested-canvas.md): the canvas page (`canvas_page.py`, `page_canvas.py`, `page_canvas_scene.py`, `page_canvas_draw.py`) behind `[render] canvas = true`.
+The script is [`canvas_frames.py`](canvas_frames.py) with its browser part [`canvas_frames.js`](canvas_frames.js). Its docstring has the acceptance values, which were written before run 1.
+
+Acceptance:
+- C2: the p95 frame interval of each scenario with 4 times CPU throttling is at most 33 ms. The browser starts a frame at a 60 Hz tick, so an interval is a multiple of 16.67 ms. The limit is 33.33 ms (two ticks) plus 5 percent for the timer error: 35.0 ms.
+- C2 at normal CPU speed: p95 at most 16.7 ms plus 5 percent: 17.5 ms.
+- C3: from the start of the navigation to an interactive map (the first frame is drawn and the input handlers are attached), for 50 maps, at normal CPU speed: at most 1,500 ms. The time with 4 times throttling has no acceptance value.
+
+Each scenario draws 180 frames, and the camera changes at each frame. Thus each frame is drawn at half resolution.
+The host is headless Chromium 153 (Playwright 1.63.0) on a 4-core Xeon at 2.1 GHz with no GPU. Chromium paints in software. Thus the values are worse than on a usual laptop or phone. That difference is not measured.
+The viewport is 1440 x 900 with a device pixel ratio of 1. A screen with a ratio of 2 has 4 times the pixels. That is not measured.
+`M11 tree` is the real canvas data of the M11 tree (`canvas_data.build` after `place` and `extract`). `M11 shape`, `400 cards` and `1,500 cards` are generated data in the same format.
+
+Command: `uv run python bench/jev/canvas_frames.py`
+
+Run 1 (the first renderer):
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 237 ms | | | information |
+| M11 shape | C3 load | 4x | 302 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.8 | 50.1 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.8 | 83.3 | pass |
+| M11 tree | dive | 4x | 33.4 | 550.0 | 1433.3 | fail |
+| 400 cards | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| 400 cards | dive | 4x | 16.7 | 33.4 | 83.2 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.8 | 33.4 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.8 | 66.7 | pass |
+| M11 shape | dive | 4x | 33.4 | 616.6 | 1399.9 | fail |
+| M11 tree | C3 load | 1x | 77 ms | | | pass |
+| M11 shape | C3 load | 1x | 75 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 100.0 | 150.1 | fail |
+| 400 cards | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 116.7 | 333.4 | fail |
+
+Run 1 fails C2 for the dive of the two trees, at 4x and at 1x.
+
+The cause. A CPU profile (CDP `Profiler`, 4x throttling, 121 frames of the dive of the M11 tree, each frame timed in the page) gave 95.1 percent idle time and no frame with more than 30 ms of script time. Thus the script was not the cause. The time was in the paint of the canvas. Deep in a map, the boxes and the routes of the maps above it are millions of pixels long, and the dashed region borders and dashed routes are painted dash by dash in software.
+The correction: the renderer cuts each box and each route point to the canvas, with a margin of 8 pixels, before it paints them (`CUT` in `page_canvas_draw.py`).
+After the correction, two runs of the driver alone (`node bench/jev/canvas_frames.js PAGE dive RATE`) on the M11 tree gave p95 16.8 ms at 4x (median 16.7, max 33.3) and p95 16.8 ms at 1x (max 16.8).
+
+Run 2 (after the correction and the corrections of the code review):
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 264 ms | | | information |
+| M11 shape | C3 load | 4x | 223 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.8 | 33.4 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.7 | 50.0 | pass |
+| M11 tree | dive | 4x | 16.7 | 16.8 | 50.0 | pass |
+| 400 cards | pan-fit | 4x | 16.7 | 16.8 | 33.4 | pass |
+| 400 cards | dive | 4x | 16.7 | 33.3 | 50.0 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.8 | 50.0 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 tree | C3 load | 1x | 76 ms | | | pass |
+| M11 shape | C3 load | 1x | 67 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+
+C2 and C3 pass in run 2.
+- The dive of the 400-card map at 4x has p95 33.3 ms: two ticks. It is in the limit of 35.0 ms, but it is more than 33 ms if 33 ms is a strict value.
+- C3 is 76 ms for the real M11 tree at 1x, and 264 ms at 4x. This time is in the browser only. It does not include `canvas_data.build`, which took about 21 s for the M11 tree on this branch (C1).
+- The CI job `canvas-browser` runs `tests/test_canvas_frames.py` with the generated data (M11 shape, 400 cards, 1,500 cards) at 4x and C3 at 1x, with the same limits. On this host, the test passed (8 tests in 31 s).

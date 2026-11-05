@@ -485,9 +485,12 @@ def _change_svg(
     )
 
 
-def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> str:
+def head_start(title: str, t: dict[str, Any]) -> str:
+    """Give the start of the page head: the charset, the title, the icon and the scheme script.
+
+    The scheme script sets `data-theme` and `data-reduce-motion` before the first render.
+    The map page and the canvas page (`canvas_page`) use the same script."""
     schemes = list(t.get("schemes") or {t["scheme"]: t})
-    title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -500,7 +503,14 @@ def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> s
         "document.documentElement.setAttribute('data-theme',s);var m='false';try{"
         f"if(localStorage.getItem({json.dumps(MOTION_KEY)})==='true'){{m='true'}}}}catch(e){{}}"
         "document.documentElement.setAttribute('data-reduce-motion',m)})();</script>"
-        "<style>"
+    )
+
+
+def _head(cfg: Config, t: dict[str, Any], nesting: Nesting, extra_css: str) -> str:
+    title = f"{cfg.name} system map" + (f": {nesting.path}" if nesting.path else "")
+    return (
+        head_start(title, t)
+        + "<style>"
         + page_font.FACE
         + _compact_css(
             panel_css(t, variables=True) + CSS.replace("{ROOT}", theme_mod.root_css(t)) + extra_css

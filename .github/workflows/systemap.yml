@@ -9,6 +9,7 @@ name: systemap
 # The pre-commit job runs the pre-commit hooks on all files. They include the security hooks.
 # Each setup-uv step uses a fixed uv version. The release workflow uses the same version.
 # For a pull request from a fork, the base-render job renders the page with the base code.
+# The canvas-browser job runs the canvas page in Chromium and measures its frame time.
 
 
 on:
@@ -304,6 +305,43 @@ jobs:
           systemap judgement --strict
           systemap render --check
           systemap describe
+
+  # The canvas page runs in the Chromium of Playwright. One test drives the camera, the
+  # URL hash and a portal (tests/test_canvas_browser.py). One test measures the frame
+  # time with 4 times CPU throttling and the load time (tests/test_canvas_frames.py:
+  # C2 and C3 of docs/design/nested-canvas.md). The runner has no GPU, so Chromium
+  # paints in software. In this job the tests fail when the browser is not available.
+  canvas-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SYSTEMAP_BROWSER_TESTS: required
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - name: Install project
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Install Playwright
+        run: npm install --no-save --no-package-lock playwright@1.63.0 # zizmor: ignore[adhoc-packages]
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the canvas browser tests
+        run: uv run pytest -q tests/test_canvas_browser.py tests/test_canvas_frames.py
 
   plugin:
     runs-on: ubuntu-latest
