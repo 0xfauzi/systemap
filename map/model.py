@@ -336,7 +336,7 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="3b9282ae26d15e51707f5090202b922b85f04fc48376bbcb316e0ad51008a27b",
+        source_review="f8aa249b7f6a36cd87321f700a7e46c359b6bb7b1644de084311f746eef9eeaf",
         does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. With [render] canvas = true, makes the canvas page in place of the linked pages: one canvas element for all maps of the tree, with the data object one time. The page of each nested map then goes to the canvas page with the map ID in the URL hash. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(

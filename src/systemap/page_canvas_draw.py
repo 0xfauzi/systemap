@@ -132,9 +132,13 @@ function drawFlows(g, m, list, a, ox, oy, alpha, arrows) {
 function drawLabels(m, list, a, ox, oy, alpha) {
   var fs = q(clamp(10.5 * a, 0, 13));
   if (fs < 8 || alpha <= 0.05) return;
-  var bg = new Batch(true);
+  // The plate fits the text. The text stops at 13 px, so a plate of the label box would
+  // grow past the text and cover the routes.
+  var bg = new Batch(true), ph = fs * 1.5;
   list.forEach(function (f) {
-    if (f.lb && !(m.fade[f.i] > 0.5)) bg.rect(C['--map'], alpha * 0.9, ox + a * f.lb[0] - 3, oy + a * f.lb[1], a * f.lb[2] + 6, a * f.lb[3], 3);
+    if (!f.lb || m.fade[f.i] > 0.5) return;
+    var pw = unitWidth(f.a, 500) * fs + 6;
+    bg.rect(C['--map'], alpha * 0.9, ox + a * (f.lb[0] + f.lb[2] / 2) - pw / 2, oy + a * (f.lb[1] + f.lb[3] / 2) - ph / 2, pw, ph, 3);
   });
   bg.flush(ctx);
   list.forEach(function (f) {
