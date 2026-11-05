@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -16,6 +16,23 @@ const state = (page) => page.evaluate(() => ({
   hits: window.systemapCanvas.hits(), label: document.getElementById('canvas').getAttribute('aria-label'),
 }));
 const centre = (b) => [b[0] + b[2] / 2, b[1] + b[3] / 2];
+// The cards of the open map that a portal covers, or can cover when it moves along its
+// screen edge, as "portal over card". A portal in the left or the right 15 % of the screen
+// moves up and down. Another portal moves to the left and to the right.
+const covered = (page) => page.evaluate(() => {
+  const S = window.systemapCanvas, chain = S.chain(), id = chain.length ? chain[chain.length - 1] : '', out = [];
+  const map = JSON.parse(document.getElementById('canvas-data').textContent).maps.find((m) => m.id === id);
+  const W = innerWidth, H = innerHeight;
+  const bands = S.hits().filter((h) => h.kind === 'portal').map((p) => (p.x + p.w < 0.15 * W || p.x > 0.85 * W
+    ? { id: p.id, x: p.x, y: 0, w: p.w, h: H } : { id: p.id, x: 0, y: p.y, w: W, h: p.h }));
+  map.cards.forEach((c) => {
+    const b = S.box(id, c.id);
+    bands.forEach((p) => {
+      if (p.x < b[0] + b[2] && p.x + p.w > b[0] && p.y < b[1] + b[3] && p.y + p.h > b[1]) out.push(p.id + ' over ' + c.id);
+    });
+  });
+  return out;
+});
 
 async function run(file, card, neighbour, light) {
   const browser = await chromium.launch();
@@ -36,6 +53,11 @@ async function run(file, card, neighbour, light) {
   await page.mouse.dblclick(...centre(box));
   await settle(page);
   out.inside = await state(page);
+  // The boundary flows from the portals, and the screen boxes of the cards around them.
+  out.inside.links = await page.evaluate(() => window.systemapCanvas.links ? window.systemapCanvas.links() : null);
+  out.inside.boxes = await page.evaluate((id) => window.systemapCanvas.boxes
+    ? window.systemapCanvas.boxes(id).concat(window.systemapCanvas.boxes('').filter((c) => c.id !== id)) : null, card);
+  out.inside.covered = await covered(page);
   // A portal: a neighbour of the open map at the edge of the screen. A click moves the camera to it.
   const portal = out.inside.hits.find((h) => h.kind === 'portal' && h.id === neighbour);
   if (portal) {
@@ -100,9 +122,27 @@ async function phone(file, card) {
   return out;
 }
 
+// --fits: on a screen of 1440 x 900 pixels, the camera fit of each map, and the portals
+// that cover a card of that map. CARD is the ID of the first map and NEIGHBOUR of the second.
+async function fits(file, ids) {
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto('file://' + file);
+  await settle(page);
+  const out = {};
+  for (const id of ids) {
+    await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
+    out[id] = { chain: (await state(page)).chain, portals: (await state(page)).hits.filter((h) => h.kind === 'portal').length, covered: await covered(page) };
+  }
+  await browser.close();
+  return out;
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
-  const out = process.argv.includes('--phone') ? await phone(file, card) : await run(file, card, neighbour, process.argv.includes('--light'));
+  const out = process.argv.includes('--fits') ? await fits(file, [card, neighbour])
+    : process.argv.includes('--phone') ? await phone(file, card) : await run(file, card, neighbour, process.argv.includes('--light'));
   process.stdout.write(JSON.stringify(out) + '\n');
 })().catch((err) => { process.stderr.write(String(err && err.stack || err) + '\n'); process.exit(1); });

@@ -196,10 +196,22 @@ def nested_tree() -> dict[str, Any]:
     return data
 
 
-def _ports(actor: str, first: str, nxt: str) -> list[dict[str, Any]]:
-    """Give the port of the actor of a nested map, and the port of the next card in its parent."""
+def _ports(actor: str, first: str, nxt: str, height: float) -> list[dict[str, Any]]:
+    """Give the port of the actor of a nested map, and the port of the next card in its parent.
+
+    The actor card is at the left of the map. Its line to the frame goes to the left."""
+    middle = height / 2
     ports: list[dict[str, Any]] = [
-        {"at": [186, 200], "d": "in", "f": 0, "i": first, "pf": [], "sd": "right", "x": actor}
+        {
+            "at": [186, middle],
+            "d": "in",
+            "f": 0,
+            "fp": [[36, middle], [0, middle]],
+            "i": first,
+            "pf": [],
+            "sd": "right",
+            "x": actor,
+        }
     ]
     if nxt:
         ports.append({"d": "out", "pf": [0], "x": nxt})
@@ -220,7 +232,7 @@ def _add(
     children = {ids[k]: f"{map_id}/{ids[k]}" if map_id else ids[k] for k in range(opens)}
     m = _map(map_id, ids, 14, children, actor)
     if map_id:
-        m["ports"] = _ports(actor, ids[0], nxt)
+        m["ports"] = _ports(actor, ids[0], nxt, m["size"][1])
     maps.append(m)
     letter = "ABC"[depth] if depth < 3 else "D"
     for k in range(opens):

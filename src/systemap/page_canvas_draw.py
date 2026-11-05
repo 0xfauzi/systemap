@@ -18,7 +18,12 @@ OPEN1 of the screen width, the card changes into the frame of the map.
 Rings and portals. They come from the camera at each frame. A ring is the frame of an
 open map that is larger than the screen. A portal is a neighbour of an open map that is
 not on the screen. The deepest map that has a port to a neighbour gives its portal, and
-its boundary flow is drawn one time, from the portal.
+its boundary flow is drawn one time, from the portal. That line has right angles and
+crosses no card: it goes around the frame of the open map to the port on the frame, and
+then to the actor card of the nested flow (`fp` of the port in the canvas data). A portal
+is in a band at the screen edge, and the camera fit keeps the cards of a map out of these
+bands. Portals on the same edge move along it as far as necessary, so that they do not
+cover each other.
 """
 
 from __future__ import annotations
@@ -98,10 +103,9 @@ function drawFlows(g, m, list, a, ox, oy, alpha, arrows) {
   if (alpha <= 0.02 || !list.length) return;
   var groups = new Map(), width = clamp(1.3 * a, 0.6, 2), head = clamp(7 * a, 3, 8);
   list.forEach(function (f) {
-    var fade = m.fade[f.i] || 0;
-    if (fade >= 0.98 || !f.p.length) return;
-    var key = f.l + '|' + f.ev + '|' + Math.round((1 - fade) * 8), e = groups.get(key);
-    if (!e) { e = {color: C['--l-' + f.l] || C['--flow'], ev: f.ev, alpha: alpha * Math.round((1 - fade) * 8) / 8, list: []}; groups.set(key, e); }
+    if (!f.p.length) return;
+    var key = f.l + '|' + f.ev, e = groups.get(key);
+    if (!e) { e = {color: C['--l-' + f.l] || C['--flow'], ev: f.ev, alpha: alpha, list: []}; groups.set(key, e); }
     e.list.push(f);
   });
   groups.forEach(function (e) {
@@ -136,13 +140,13 @@ function drawLabels(m, list, a, ox, oy, alpha) {
   // grow past the text and cover the routes.
   var bg = new Batch(true), ph = fs * 1.5;
   list.forEach(function (f) {
-    if (!f.lb || m.fade[f.i] > 0.5) return;
+    if (!f.lb) return;
     var pw = unitWidth(f.a, 500) * fs + 6;
     bg.rect(C['--map'], alpha * 0.9, ox + a * (f.lb[0] + f.lb[2] / 2) - pw / 2, oy + a * (f.lb[1] + f.lb[3] / 2) - ph / 2, pw, ph, 3);
   });
   bg.flush(ctx);
   list.forEach(function (f) {
-    if (!f.lb || m.fade[f.i] > 0.5) return;
+    if (!f.lb) return;
     text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], alpha, 500, false, 'center');
   });
 }
@@ -338,10 +342,8 @@ function neighbour(chain, i, id) {
   }
   return first;
 }
-function onScreen(r) { return r[0] < W && r[1] < H && r[0] + r[2] > 0 && r[1] + r[3] > 0; }
 function portalsOf(chain) {
   var out = [], seen = {};
-  ORDER.forEach(function (m) { if (m._fade) { m.fade = {}; m._fade = false; } });
   for (var i = chain.length - 1; i >= 0; i--) {
     var m = chain[i].child;
     (m.ports || []).forEach(function (p) {
@@ -353,49 +355,154 @@ function portalsOf(chain) {
       var r = screenBox(nb), mg = 30, off = Math.max(mg - (r[0] + r[2]), mg - (r[1] + r[3]), r[0] - (W - mg), r[1] - (H - mg));
       var show = smooth(0, 160, off);
       if (show <= 0.01) return;
-      var inner = p.i !== undefined ? m.byId[p.i] : null, where = 'in ' + (nb.map.id ? nb.map.id.split('/').pop() : DATA.name);
-      if (inner && !onScreen(screenBox(inner))) inner = null;
-      if (p.f !== undefined && inner) { m.fade[p.f] = show; m._fade = true; }
-      out.push({p: p, nb: nb, m: m, inner: inner, show: show, where: where, h: 34,
-        w: Math.max(unitWidth(p.x, 600) * 12, unitWidth(where, 400) * 10.5) + 30,
-        x: clamp(r[0] + r[2] / 2, 96, W - 96), y: clamp(r[1] + r[3] / 2, 84, H - 64)});
+      var where = 'in ' + (nb.map.id ? nb.map.id.split('/').pop() : DATA.name);
+      out.push(portalPlace({p: p, nb: nb, m: m, open: chain[i], show: show, where: where, h: P_H, w: portalWidth(p.x, where)}, r));
     });
   }
   return apart(out);
 }
-// Two portals at the same screen edge must not cover each other.
+// The portals are in a band at each screen edge. The camera fit keeps the cards of a map
+// out of these bands (`gutters`, `fitBox`). Thus a portal does not cover a card of the
+// open map. P_TOP and P_BOTTOM are the middle of a portal at the top and at the bottom.
+var P_H = 34, P_EDGE = 20, P_GAP = 6, P_TOP = 84, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
+function portalWidth(id, where) {
+  return Math.min(Math.max(unitWidth(id, 600) * 12, unitWidth(where, 400) * 10.5) + 30, P_MAX);
+}
+// The largest portal width of the data. It is the width of the bands at the left and the right.
+function portalWidest() {
+  if (P_WIDEST) return P_WIDEST;
+  var where = ['in ' + DATA.name];
+  ORDER.forEach(function (m) { if (m.id) where.push('in ' + m.id.split('/').pop()); });
+  ORDER.forEach(function (m) {
+    (m.ports || []).forEach(function (p) { where.forEach(function (w) { P_WIDEST = Math.max(P_WIDEST, portalWidth(p.x, w)); }); });
+  });
+  P_WIDEST = P_WIDEST || 1;
+  return P_WIDEST;
+}
+// The screen bands that the camera fit keeps free: at the left and the right, at the top
+// (the path and the portals) and at the bottom (the portals and the help line).
+function gutters() {
+  return {x: Math.min(P_EDGE + portalWidest() + P_GAP, 0.12 * W), top: P_TOP + P_H / 2 + P_GAP, bottom: P_BOTTOM + P_H / 2 + P_GAP};
+}
+// The place of a portal: the middle of its neighbour, moved into the screen. A portal that
+// touches the left or the right band is on that side (`side` -1 or 1). Else it is at the
+// top or the bottom (`side` 0). `along` is the unmoved place along the edge. Its order
+// does not change while the camera moves, thus the stacks below do not jump.
+function portalPlace(t, r) {
+  var cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, x0 = P_EDGE + t.w / 2, x1 = W - P_EDGE - t.w / 2;
+  t.x = clamp(cx, x0, x1); t.y = clamp(cy, P_TOP, Math.max(P_TOP, H - P_BOTTOM));
+  t.side = cx <= x0 ? -1 : cx >= x1 ? 1 : 0;
+  t.along = t.side ? cy : cx;
+  return t;
+}
+// Portals on the same edge must not cover each other. Each one moves along its edge only
+// as far as necessary. A portal that comes into view pushes the others gradually (`show`).
 function apart(list) {
-  list.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
-  for (var i = 1; i < list.length; i++) for (var j = 0; j < i; j++) {
-    var a = list[j], b = list[i];
-    if (Math.abs(a.x - b.x) < (a.w + b.w) / 2 + 6 && Math.abs(a.y - b.y) < 40) b.y = a.y + 40 > H - 40 ? a.y - 40 : a.y + 40;
-  }
+  list.sort(function (a, b) { return a.along - b.along || (a.p.x < b.p.x ? -1 : 1); });
+  [-1, 1].forEach(function (side) {
+    stack(list.filter(function (t) { return t.side === side; }), 'y', function () { return P_H + P_GAP; }, P_TOP, H - P_BOTTOM);
+  });
+  [P_TOP, H - P_BOTTOM].forEach(function (row) {
+    var line = list.filter(function (t) { return !t.side && t.y === row; }), ends = rowEnds(list, row);
+    stack(line, 'x', function (a, b) { return (a.w + b.w) / 2 + P_GAP; }, ends[0], ends[1]);
+  });
   return list;
 }
-function edgePoint(r, px, py) {
-  var cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, dx = px - cx, dy = py - cy;
-  var s = Math.min(Math.abs(r[2] / 2 / (dx || 1e-9)), Math.abs(r[3] / 2 / (dy || 1e-9)));
-  return [cx + dx * s, cy + dy * s];
+// Push each portal after the one before it, then move the stack back from the far end.
+function stack(line, key, gap, lo, hi) {
+  var i, f;
+  for (i = 1; i < line.length; i++) {
+    f = Math.min(line[i - 1].show, line[i].show);
+    line[i][key] = Math.max(line[i][key], line[i - 1][key] + gap(line[i - 1], line[i]) * f);
+  }
+  for (i = line.length - 1; i >= 0; i--) {
+    var size = key === 'x' ? line[i].w / 2 : 0, end = i === line.length - 1 ? hi - size : line[i + 1][key] - gap(line[i], line[i + 1]) * Math.min(line[i].show, line[i + 1].show);
+    line[i][key] = Math.max(Math.min(line[i][key], end), lo + size);
+  }
 }
-var HITS = [];
+// The free part of a top or a bottom row. A side portal near the row takes its corner.
+// The corner becomes free gradually while that portal moves away from the row.
+function rowEnds(list, row) {
+  var lo = P_EDGE, hi = W - P_EDGE;
+  list.forEach(function (s) {
+    if (!s.side) return;
+    var keep = (1 - smooth(P_H + P_GAP, 2 * (P_H + P_GAP), Math.abs(s.y - row))) * s.show, w = (s.w + P_GAP) * keep;
+    if (s.side < 0) lo = Math.max(lo, P_EDGE + w); else hi = Math.min(hi, W - P_EDGE - w);
+  });
+  return [lo, hi];
+}
+// The boundary flow of a portal, in screen points. The route of the nested flow in the
+// map goes from the actor card to the internal card, and drawFlows draws it. This path
+// goes from the actor card along `fp` to the frame of the open card (the port), then
+// around the frame, at GUTTER pixels from it, to the side that faces the portal, and then
+// to the portal. Each segment has a right angle to the next, as a route does. Thus the
+// path crosses no card of the open map. When the frame is larger than the screen, the
+// path uses the part of the frame on the screen, and the line around the frame stays
+// near the screen edge. Give null when the port has no `fp`, or when the port is not on
+// the screen.
+var GUTTER = 16;
+function boundaryPath(t) {
+  var fp = t.p.fp;
+  if (!fp || t.p.f === undefined) return null;
+  var v = view(t.m), r = screenBox(t.open), G = GUTTER;
+  var f = [Math.max(r[0], G), Math.max(r[1], G), Math.min(r[0] + r[2], W - G), Math.min(r[1] + r[3], H - G)];
+  var a = [v.ox + v.a * fp[0][0], v.oy + v.a * fp[0][1]], dx = fp[1][0] - fp[0][0], dy = fp[1][1] - fp[0][1];
+  // The sides in clockwise order: 0 top, 1 right, 2 bottom, 3 left.
+  var s = dy < 0 ? 0 : dx > 0 ? 1 : dy > 0 ? 2 : 3;
+  var port = s % 2 ? [f[s === 1 ? 2 : 0], a[1]] : [a[0], f[s === 0 ? 1 : 3]];
+  if (port[0] < f[0] || port[0] > f[2] || port[1] < f[1] || port[1] > f[3]) return null;
+  var e = [Math.max(f[0] - G, 4), Math.max(f[1] - G, 4), Math.min(f[2] + G, W - 4), Math.min(f[3] + G, H - 4)];
+  var px = t.x, py = t.y, pr = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2];
+  // The side of the frame that faces the portal: the side that the portal is farthest
+  // past. For a portal in the frame, this is the nearest side.
+  var past = [f[1] - py, px - f[2], py - f[3], f[0] - px], ps = 0;
+  for (var i = 1; i < 4; i++) if (past[i] > past[ps]) ps = i;
+  function onGutter(side, x, y) {
+    return side % 2 ? [e[side === 1 ? 2 : 0], clamp(y, e[1], e[3])] : [clamp(x, e[0], e[2]), e[side === 0 ? 1 : 3]];
+  }
+  var corner = [[e[2], e[1]], [e[2], e[3]], [e[0], e[3]], [e[0], e[1]]];
+  function around(step) {
+    var pts = [a, port, onGutter(s, a[0], a[1])], k = s, n = 0;
+    while (k !== ps && n++ < 4) { pts.push(corner[step > 0 ? k : (k + 3) % 4]); k = (k + step + 4) % 4; }
+    pts.push(onGutter(ps, px, py));
+    return pts;
+  }
+  function length(p) { var l = 0; for (var j = 1; j < p.length; j++) l += Math.abs(p[j][0] - p[j - 1][0]) + Math.abs(p[j][1] - p[j - 1][1]); return l; }
+  var one = around(1), two = around(-1), pts = length(one) <= length(two) ? one : two, end = pts[pts.length - 1];
+  // The last segment goes to the edge of the portal that is nearest.
+  if (ps % 2) { if (end[0] < pr[0] || end[0] > pr[2]) pts.push([end[0] < pr[0] ? pr[0] : pr[2], end[1]]); }
+  else if (end[1] < pr[1] || end[1] > pr[3]) pts.push([end[0], end[1] < pr[1] ? pr[1] : pr[3]]);
+  if (t.p.d === 'in') pts.reverse();
+  return {pts: pts, port: port};
+}
+function drawBoundary(t, color) {
+  var b = boundaryPath(t);
+  if (!b) return;
+  var p = b.pts, n = p.length, bx = W + CUT, by = H + CUT;
+  LINKS.push({id: t.p.x, d: t.p.d, points: p});
+  ctx.globalAlpha = t.show * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
+  ctx.beginPath(); ctx.moveTo(clamp(p[0][0], -CUT, bx), clamp(p[0][1], -CUT, by));
+  for (var i = 1; i < n; i++) ctx.lineTo(clamp(p[i][0], -CUT, bx), clamp(p[i][1], -CUT, by));
+  ctx.stroke(); ctx.setLineDash([]);
+  var to = p[n - 1], an = Math.atan2(to[1] - p[n - 2][1], to[0] - p[n - 2][0]);
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(to[0], to[1]);
+  ctx.lineTo(to[0] - 8 * Math.cos(an - 0.45), to[1] - 8 * Math.sin(an - 0.45));
+  ctx.lineTo(to[0] - 8 * Math.cos(an + 0.45), to[1] - 8 * Math.sin(an + 0.45)); ctx.fill();
+  // The port: a small circle on the frame of the open card.
+  ctx.fillStyle = C['--map']; ctx.beginPath(); ctx.arc(b.port[0], b.port[1], 3.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+}
+var HITS = [], LINKS = [];
+// The lines come first, so that no line goes over the text of a portal.
 function drawPortals(list) {
+  list.forEach(function (t) { drawBoundary(t, C['--l-' + flowLayer(t)] || C['--flow']); });
   list.forEach(function (t) {
-    var w = t.w, h = t.h, x = t.x - w / 2, y = t.y - h / 2, color = C['--l-' + flowLayer(t)] || C['--flow'];
-    if (t.inner) {
-      var ir = screenBox(t.inner), e = edgePoint(ir, t.x, t.y), s = edgePoint([x, y, w, h], e[0], e[1]);
-      var from = t.p.d === 'in' ? s : e, to = t.p.d === 'in' ? e : s, an = Math.atan2(to[1] - from[1], to[0] - from[0]);
-      ctx.globalAlpha = t.show * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
-      ctx.beginPath(); ctx.moveTo(from[0], from[1]); ctx.lineTo(to[0], to[1]); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(to[0], to[1]);
-      ctx.lineTo(to[0] - 8 * Math.cos(an - 0.45), to[1] - 8 * Math.sin(an - 0.45));
-      ctx.lineTo(to[0] - 8 * Math.cos(an + 0.45), to[1] - 8 * Math.sin(an + 0.45)); ctx.fill();
-    }
+    var w = t.w, h = t.h, x = t.x - w / 2, y = t.y - h / 2;
     var sc = 0.85 + 0.15 * t.show;
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(sc, sc); ctx.translate(-t.x, -t.y);
     ctx.globalAlpha = t.show; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--ink-3']; ctx.lineWidth = 1.2;
     ctx.beginPath(); rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.stroke();
-    text(t.p.x, t.x, y + 15, 12, C['--ink'], t.show, 600, false, 'center');
-    text(t.where, t.x, y + 28, 10.5, C['--ink-3'], t.show, 400, false, 'center');
+    text(fit(t.p.x, 12, w - 20, 600), t.x, y + 15, 12, C['--ink'], t.show, 600, false, 'center');
+    text(fit(t.where, 10.5, w - 20, 400), t.x, y + 28, 10.5, C['--ink-3'], t.show, 400, false, 'center');
     ctx.restore();
     HITS.push({x: x, y: y, w: w, h: h, kind: 'portal', id: t.p.x, go: function () { flyTo(worldBox(t.nb), 0.3); }});
   });

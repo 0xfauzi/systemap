@@ -42,10 +42,12 @@ white-space:nowrap}
 
 _INPUT = r"""
 // ---- the camera ---------------------------------------------------------------
+// The camera that fits a world box in the screen. It keeps the bands of the portals free.
 function fitBox(b, pad) {
   pad = pad === undefined ? 0.06 : pad;
-  var k = clamp(Math.min(W * (1 - 2 * pad) / b[2], (H - 56) * (1 - 2 * pad) / b[3]), KMIN, KMAX);
-  return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - (H + 40) / 2 / k, k: k};
+  var g = gutters(), sx = Math.max(W * pad, g.x), top = Math.max(48 + (H - 56) * pad, g.top), bottom = Math.max(8 + (H - 56) * pad, g.bottom);
+  var k = clamp(Math.min(Math.max(1, W - 2 * sx) / b[2], Math.max(1, H - top - bottom) / b[3]), KMIN, KMAX);
+  return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - (top + H - bottom) / 2 / k, k: k};
 }
 var flight = null;
 function stopFlight() { if (flight) { cancelAnimationFrame(flight.raf); flight = null; } }
@@ -98,7 +100,7 @@ function draw() {
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d));
   if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
-  STATS.cards = 0; STATS.image = 0; HITS = [];
+  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = [];
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
   var portals = portalsOf(CHAIN);
@@ -233,7 +235,7 @@ if (window.matchMedia) {
 }
 // The page font is in the page as data. The canvas starts its load at the first text. When
 // it is loaded, the measured word widths and the wrapped lines are not correct.
-function fontLoaded() { WORDS.clear(); ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request(); }
+function fontLoaded() { WORDS.clear(); P_WIDEST = 0; ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request(); }
 if (document.fonts && document.fonts.load) {
   Promise.all([document.fonts.load(font(400, 12)), document.fonts.load(font(600, 12))]).then(fontLoaded, function () { /* the system font stays */ });
 }
@@ -253,6 +255,10 @@ window.systemapCanvas = {
   box: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; return c ? screenBox(c) : null; },
   chain: function () { return CHAIN.map(function (c) { return c.child.id; }); },
   hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, x: h.x, y: h.y, w: h.w, h: h.h}; }); },
+  // The boundary flows from the portals in the last frame: the screen points of each path.
+  links: function () { return LINKS.map(function (l) { return {id: l.id, d: l.d, points: l.points.map(function (p) { return [p[0], p[1]]; })}; }); },
+  // The screen boxes of the cards of a map.
+  boxes: function (mapId) { return MAPS[mapId].cards.map(function (c) { return {id: c.id, b: screenBox(c)}; }); },
   maps: function () { return ORDER.map(function (m) { return {id: m.id, depth: m.depth, cards: m.cards.length, opens: m.cards.filter(function (c) { return c.child; }).map(function (c) { return c.child.id; })}; }); },
   // The camera on the cards of the top map that open a map (the measurement all-open).
   openBox: function () {

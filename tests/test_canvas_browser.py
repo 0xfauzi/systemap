@@ -19,6 +19,12 @@ Acceptance values:
 7. A drag moves the camera with the pointer. The wheel zooms at the pointer: the point
    under the pointer stays in its place.
 8. The page uses the theme tokens: the light scheme gives a light background.
+9. The boundary flow from the portal of Auth has right angles and crosses no card: no
+   segment goes into the box of a card of the map Gateway or of the top map.
+10. A portal does not cover a card of the open map. After the camera fit of a map, no card
+    of that map is in the band of a portal at its screen edge. The test uses the map Gateway
+    and, on a screen of 1440 x 900 pixels, two maps of the generated M11 tree
+    (bench/jev/canvas_frames.py).
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -26,6 +32,7 @@ Acceptance 6 also applies on a screen of 390 x 844 pixels.
 from __future__ import annotations
 
 import functools
+import importlib.util
 import json
 import os
 import shutil
@@ -38,6 +45,7 @@ from test_canvas_page import _made
 
 ROOT = Path(__file__).resolve().parent
 DRIVER = ROOT / "canvas_driver.js"
+BENCH = ROOT.parent / "bench" / "jev" / "canvas_frames.py"
 
 
 @functools.cache
@@ -60,9 +68,9 @@ def browser() -> str:
     return node
 
 
-def drive(page: Path, *flags: str) -> dict[str, Any]:
+def drive(page: Path, *flags: str, ids: tuple[str, str] = ("Gateway", "Auth")) -> dict[str, Any]:
     proc = subprocess.run(
-        [browser(), str(DRIVER), str(page), "Gateway", "Auth", *flags],
+        [browser(), str(DRIVER), str(page), *ids, *flags],
         capture_output=True,
         text=True,
         timeout=180,
@@ -94,6 +102,33 @@ def test_a_double_click_goes_into_the_map(driven: dict[str, Any]) -> None:
     assert driven["inside"]["chain"] == ["Gateway"]
     assert driven["inside"]["hash"] == "#Gateway"
     assert driven["inside"]["label"] == "System map: join / Gateway. Level 1."
+
+
+def _into(segment: list[list[float]], box: list[float]) -> bool:
+    """Tell if a segment with a right angle goes into a box, by more than 1 pixel."""
+    (x0, y0), (x1, y1) = segment
+    bx, by, bw, bh = box
+    return (
+        min(x0, x1) < bx + bw - 1
+        and max(x0, x1) > bx + 1
+        and min(y0, y1) < by + bh - 1
+        and max(y0, y1) > by + 1
+    )
+
+
+def test_a_boundary_flow_crosses_no_card(driven: dict[str, Any]) -> None:
+    """Acceptance 9."""
+    links = [link for link in driven["inside"]["links"] if link["id"] == "Auth"]
+    assert links
+    for link in links:
+        points = link["points"]
+        segments = list(zip(points, points[1:], strict=False))
+        assert len(segments) >= 2
+        for (x0, y0), (x1, y1) in segments:
+            assert abs(x0 - x1) < 0.5 or abs(y0 - y1) < 0.5, (x0, y0, x1, y1)
+        for card in driven["inside"]["boxes"]:
+            crossed = [s for s in segments if _into([list(s[0]), list(s[1])], card["b"])]
+            assert not crossed, (card["id"], crossed)
 
 
 def test_a_portal_click_moves_the_camera_to_the_neighbour(driven: dict[str, Any]) -> None:
@@ -148,3 +183,20 @@ def test_the_light_scheme(canvas: Path, driven: dict[str, Any]) -> None:
 def _luma(css: str) -> float:
     r, g, b = (float(v) for v in css[css.index("(") + 1 : css.index(")")].split(",")[:3])
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def test_a_portal_does_not_cover_a_card_of_the_open_map(
+    driven: dict[str, Any], tmp_path: Path
+) -> None:
+    """Acceptance 10."""
+    assert driven["inside"]["covered"] == []
+    spec = importlib.util.spec_from_file_location("bench_canvas_frames", BENCH)
+    assert spec is not None and spec.loader is not None
+    bench = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bench)
+    page = bench.write_page(bench.nested_tree(), tmp_path / "tree.html")
+    fitted = drive(page, "--fits", ids=("P0", "P0/A0"))
+    assert fitted["P0"]["chain"] == ["P0"] and fitted["P0"]["portals"] == 2
+    assert fitted["P0/A0"]["chain"] == ["P0", "P0/A0"] and fitted["P0/A0"]["portals"] == 4
+    assert fitted["P0"]["covered"] == []
+    assert fitted["P0/A0"]["covered"] == []

@@ -125,11 +125,25 @@ def test_the_ports_agree_with_the_boundary_findings(tmp_path: Path) -> None:
     into = next(port for port in ports if port.get("f") == 0)
     assert (into["x"], into["i"], into["d"], into["pf"]) == ("Auth", "Views", "in", [])
     assert into["at"] == shown["flows"][0]["p"][0]
+    # The line from the actor card Auth to the frame: from the left side to x = 0.
+    x, y, _w, h = next(card["b"] for card in shown["cards"] if card["id"] == "Auth")
+    assert into["fp"] == [[x, y + h / 2], [0, y + h / 2]]
     assert into["n"] == [line for line in lines if "actor Auth sends to Views" in line]
     out = next(port for port in ports if port.get("f") == 1)
     assert (out["x"], out["i"], out["d"], out["pf"]) == ("Store", "Views", "out", [1])
     assert "n" not in out
     _judged_ports(cfg, tree, facts, ports)
+
+
+def test_the_line_to_the_frame_crosses_no_card() -> None:
+    """The line from the actor card to the frame goes around a card that is in the way."""
+    boxes = {"A": (40.0, 100.0, 100.0, 40.0), "B": (0.0, 90.0, 30.0, 60.0)}
+    # The left side has B in the way, and the route uses the right side.
+    assert canvas_data._frame_path("A", boxes, (400.0, 300.0), "right") == [[90, 100], [90, 0]]
+    boxes["C"] = (70.0, 0.0, 40.0, 60.0)
+    assert canvas_data._frame_path("A", boxes, (400.0, 300.0), "right") == [[90, 140], [90, 300]]
+    boxes["D"] = (70.0, 200.0, 40.0, 60.0)
+    assert canvas_data._frame_path("A", boxes, (400.0, 300.0), "right") == []
 
 
 def _crossing(m: nest.Map) -> list[int]:

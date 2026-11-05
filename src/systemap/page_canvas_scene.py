@@ -98,7 +98,7 @@ function layout(b, size) {
   return {s: s, at: [ax + fx / 2, ay + fy / 2], side: null};
 }
 function place(m, x, y, s, depth, owner) {
-  m.T = {x: x, y: y, s: s}; m.depth = depth; m.owner = owner; m.byId = {}; m.fade = {};
+  m.T = {x: x, y: y, s: s}; m.depth = depth; m.owner = owner; m.byId = {};
   m.maxH = 0; m.maxW = 0; ORDER.push(m);
   m.cards.forEach(function (c) {
     c.map = m; c.ins = []; c.outs = []; m.byId[c.id] = c;
@@ -153,7 +153,7 @@ function readColors() {
     });
   });
   FONT_UI = v('--fs', 'sans-serif'); FONT_MONO = v('--fm', 'monospace');
-  EPOCH++; WORDS.clear();
+  EPOCH++; WORDS.clear(); P_WIDEST = 0;
 }
 
 // ---- text -------------------------------------------------------------------
