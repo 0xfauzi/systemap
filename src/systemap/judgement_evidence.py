@@ -51,6 +51,7 @@ and the entry point records.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import json
 import re
@@ -162,8 +163,33 @@ def about_behavior(m: nest.Map, line: str) -> bool:
 
 
 def names(name: str, text: str) -> bool:
-    """Find the exact name as a full word. A dotted name that contains it is not a match."""
+    """Find the exact name as a full word. A dotted name that contains it is not a match.
+
+    A name of word characters, dots and hyphens is found in the words of the text
+    (`words`), with no new pattern for each name. A large tree has thousands of lines and
+    modules, and one pattern for each pair took most of the time of `judgement`
+    (bench/jev/README.md). A different name uses the pattern."""
+    if _PLAIN.fullmatch(name):
+        return name in words(text)
     return re.search(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)", text) is not None
+
+
+_PLAIN = re.compile(r"[\w.-]+")
+_RUN = re.compile(r"[\w.-]+")
+_END = re.compile(r"\.(?!\w)")
+
+
+@functools.lru_cache(maxsize=4096)
+def words(text: str) -> frozenset[str]:
+    """Give each name of word characters, dots and hyphens that `names` finds in the text.
+
+    Such a name starts where a run of these characters starts. It ends at the end of the
+    run, or before a dot that no word character follows."""
+    out: set[str] = set()
+    for run in _RUN.findall(text):
+        out.add(run)
+        out.update(run[: dot.start()] for dot in _END.finditer(run))
+    return frozenset(out)
 
 
 def map_of(tree: nest.Tree, line: str) -> nest.Map:
