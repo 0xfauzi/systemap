@@ -28,7 +28,13 @@ Acceptance values:
 10. A portal does not cover a card of the open map. After the camera fit of a map, no card
     of that map is in the band of a portal at its screen edge. The test uses the map Gateway
     and two maps of the generated M11 tree, on a screen of 1440 x 900 pixels and on a
-    screen of 390 x 844 pixels.
+    screen of 390 x 844 pixels. Also, at the camera fit of each map, no portal covers a box
+    of the maps on the screen (a card, a flow label plate or a text) by more than 0.5
+    pixels. A box with an opacity below 0.05 and a box of the neighbour of the portal do not
+    count. The test uses the 50 maps of the generated M11 tree with 14 columns of cards and
+    with 4 columns of cards, on screens of 1440 x 900, 390 x 844 and 844 x 390 pixels. With 4
+    columns, the bottom and the right rows of the portals are on cards and flow labels of
+    the map above, when a portal does not move off them.
 
 11. A boundary flow fades in and out with the camera. It does not appear or go at one
     time. The M11 tree, on a screen of 1440 x 900 pixels without reduced motion, has four
@@ -72,6 +78,12 @@ Acceptance values:
     at least 90 percent of the free width or of the free height. The screen edge cuts no
     card of the open map. The plates of the path and the help line, and the portals, do not
     cover each other. The help line has one line in the screen width.
+16. At rest, each portal is fully shown or fully gone, and no portal covers a different
+    portal. The generated M11 tree, on screens of 390 x 844, 844 x 390 and 1440 x 900
+    pixels without reduced motion, opens with the hash #P0/A0. Then the camera goes to the
+    fit of the top map and of one map on each level below it, to level 3. 2.5 s after the
+    load, and 1 s after each fit, the alpha of each portal is 0 or 1, and no two portal
+    boxes with an alpha above 0 overlap.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -269,9 +281,24 @@ def test_a_boundary_flow_fades_with_the_camera(
         assert dive["worst"] <= 0.25, dive
 
 
+@functools.cache
+def _clear(page: Path) -> dict[str, Any]:
+    """The `--clear` result of a page. Each page runs one time."""
+    return drive(page, "--clear", ids=("", ""))
+
+
+@pytest.fixture(scope="module")
+def narrow(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The canvas page of the generated M11 tree with 4 columns of cards in each map."""
+    bench = _bench()
+    return Path(
+        bench.write_page(bench.nested_tree(4), tmp_path_factory.mktemp("narrow") / "tree.html")
+    )
+
+
 @pytest.mark.parametrize("flags", [("--fits",), ("--fits", "--phone")])
 def test_a_portal_does_not_cover_a_card_of_the_open_map(
-    driven: dict[str, Any], tree: Path, flags: tuple[str, ...]
+    driven: dict[str, Any], tree: Path, narrow: Path, flags: tuple[str, ...]
 ) -> None:
     """Acceptance 10."""
     assert driven["inside"]["covered"] == []
@@ -280,6 +307,10 @@ def test_a_portal_does_not_cover_a_card_of_the_open_map(
     assert fitted["P0/A0"]["chain"] == ["P0", "P0/A0"] and fitted["P0/A0"]["portals"] == 4
     assert fitted["P0"]["covered"] == []
     assert fitted["P0/A0"]["covered"] == []
+    for page in (tree, narrow):
+        clear = _clear(page)
+        assert clear["fits"] == 150 and clear["portals"] >= 300, clear["portals"]
+        assert clear["problems"] == []
 
 
 @pytest.mark.parametrize("flags", [("--fits", "--phone"), ("--fits",)])
@@ -340,3 +371,19 @@ def test_the_fit_uses_the_screen(tree: Path) -> None:
         assert fit["cut"] == [], fit
         assert fit["covers"] == [], fit
         assert fit["help"][0] + fit["help"][2] <= width, fit
+
+
+def test_a_portal_at_rest_is_fully_shown_or_gone(tree: Path) -> None:
+    """Acceptance 16."""
+    fits = drive(tree, "--rest", ids=("P0/A0", ""))["fits"]
+    assert [(f["W"], f["H"], f["at"]) for f in fits][:5] == [
+        (390, 844, "#P0/A0"),
+        (390, 844, ""),
+        (390, 844, "P0"),
+        (390, 844, "P0/A0"),
+        (390, 844, "P0/A0/B0"),
+    ]
+    assert len(fits) == 15
+    assert sum(f["portals"] for f in fits) > 0
+    for fit in fits:
+        assert fit["problems"] == [], fit

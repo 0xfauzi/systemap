@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -144,6 +144,43 @@ async function fits(file, ids, small) {
     await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
     const s = await state(page);
     out[id] = { chain: s.chain, portals: s.hits.filter((h) => h.kind === 'portal').length, covered: await covered(page), ...await free(page, id) };
+  }
+  await browser.close();
+  return out;
+}
+
+// --clear: on screens of 1440 x 900, 390 x 844 and 844 x 390 pixels, the camera fit of each
+// map. A problem is a portal box that covers a box of the maps on the screen (a card, a
+// flow label plate or a text) with an opacity of 0.05 or more by more than 0.5 pixels.
+// The boxes of the neighbour of the portal do not count. `fits` is the count of fits, and
+// `portals` is the count of portals at these fits.
+const overPortal = (page, id) => page.evaluate((id) => {
+  const S = window.systemapCanvas, out = [], tag = innerWidth + 'x' + innerHeight + ' ' + (id || 'top') + ': ';
+  const portals = S.hits().filter((h) => h.kind === 'portal');
+  portals.forEach((p) => {
+    const nb = S.box(p.map, p.id);
+    S.obstacles().forEach(([x0, y0, x1, y1, alpha]) => {
+      if (alpha < 0.05 || (nb && x0 >= nb[0] - 1 && y0 >= nb[1] - 1 && x1 <= nb[0] + nb[2] + 1 && y1 <= nb[1] + nb[3] + 1)) return;
+      if (p.x < x1 - 0.5 && x0 < p.x + p.w - 0.5 && p.y < y1 - 0.5 && y0 < p.y + p.h - 0.5) {
+        out.push(tag + 'portal ' + p.id + ' over ' + [x0, y0, x1, y1].map(Math.round).join(','));
+      }
+    });
+  });
+  return { problems: out, portals: portals.length };
+}, id);
+async function clearFits(file) {
+  const browser = await chromium.launch(), out = { fits: 0, portals: 0, problems: [] };
+  for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    await page.goto('file://' + file);
+    await settle(page);
+    for (const id of await page.evaluate(() => window.systemapCanvas.maps().map((m) => m.id))) {
+      await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
+      const r = await overPortal(page, id);
+      out.fits++; out.portals += r.portals; out.problems.push(...r.problems);
+    }
+    await context.close();
   }
   await browser.close();
   return out;
@@ -448,11 +485,50 @@ async function layout(file) {
   return { fits: out };
 }
 
+// --rest: the portals at rest. On screens of 390 x 844, 844 x 390 and 1440 x 900 pixels
+// without reduced motion, the page opens with the hash of the map CARD. Then the camera
+// goes to the fit of the top map and of the first map on each level below it, to level 3.
+// 1 s after the camera stops, the result has the alpha of each portal that is not 0 or 1,
+// and each two portals with an alpha above 0 whose boxes overlap.
+const restState = (page, at) => page.evaluate((at) => {
+  const ps = window.systemapCanvas.hits().filter((h) => h.kind === 'portal'), out = [];
+  ps.forEach((a) => { if (a.show > 0 && a.show < 1) out.push(a.map + '/' + a.id + ' alpha ' + a.show); });
+  ps.forEach((a, i) => ps.slice(i + 1).forEach((b) => {
+    if (a.show > 0 && b.show > 0 && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) out.push(a.map + '/' + a.id + ' over ' + b.map + '/' + b.id);
+  }));
+  return { at, W: innerWidth, H: innerHeight, portals: ps.length, problems: out };
+}, at);
+async function rest(file, card) {
+  const browser = await chromium.launch(), out = [];
+  for (const [width, height] of [[390, 844], [844, 390], [1440, 900]]) {
+    const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'no-preference' });
+    const page = await context.newPage();
+    await page.goto('file://' + file + '#' + card);
+    await page.waitForTimeout(2500);
+    out.push(await restState(page, '#' + card));
+    const ids = await page.evaluate(() => {
+      const S = window.systemapCanvas, maps = S.maps(), list = [''];
+      for (let m = maps.find((x) => x.id === ''); m.opens.length && list.length < 4; m = maps.find((x) => x.id === m.opens[0])) list.push(m.opens[0]);
+      return list;
+    });
+    for (const id of ids) {
+      await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
+      await page.waitForTimeout(1000);
+      out.push(await restState(page, id));
+    }
+    await context.close();
+  }
+  await browser.close();
+  return { fits: out };
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
   const small = process.argv.includes('--phone');
   const out = process.argv.includes('--layout') ? await layout(file)
+    : process.argv.includes('--clear') ? await clearFits(file)
+    : process.argv.includes('--rest') ? await rest(file, card)
     : process.argv.includes('--fits') ? await fits(file, [card, neighbour], small)
     : process.argv.includes('--links') ? await links(file, [card, neighbour])
     : process.argv.includes('--fade') ? await fade(file, [card, neighbour], small)

@@ -122,13 +122,15 @@ function draw() {
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
   if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
-  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
+  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0; NMAP = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
   fadeFrame();
-  var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
+  // The portals keep off the boxes that the maps put in OBST (`dodge`).
+  NMAP = NOBST;
+  var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
   drawPortals(portals, path);
   drawPath(path);
   drawHelp();
@@ -377,6 +379,13 @@ window.systemapCanvas = {
   // the path and the help line, and the text of the help line.
   layout: function () {
     return {gutters: gutters(), path: pathPlate(pathParts(CHAIN)), help: helpPlate(), line: helpLine()};
+  },
+  // The boxes of the maps in OBST of the last frame, as x0, y0, x1, y1 and the opacity:
+  // the cards, the flow label plates and the texts. The portals keep off them (`dodge`).
+  obstacles: function () {
+    var out = [];
+    for (var i = 0; i < NMAP; i += OB) out.push([OBST[i], OBST[i + 1], OBST[i + 2], OBST[i + 3], OBST[i + 5]]);
+    return out;
   },
   moving: function () { return !!flight || !sharp; },
   // The alphas of the last frame: HIDE, and for each large map with an image layer, the

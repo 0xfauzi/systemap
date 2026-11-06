@@ -29,7 +29,9 @@ Thus a box that comes onto the line covers it while the line fades out.
 A portal is in a band at the screen edge, and the camera fit keeps the cards of a map out
 of these bands. On a narrow screen, a portal is at the top or the bottom only. Portals on
 the same edge move along it as far as necessary, so that they do not cover each other.
-While the camera moves, the cards can go below the portals, as they can go below the path.
+Then each portal moves off the cards, the flow label plates and the texts of the maps on
+the screen (`dodge` in `page_canvas_fade`). While the camera moves, the cards can go below
+the portals, as they can go below the path.
 """
 
 from __future__ import annotations
@@ -355,18 +357,22 @@ function portalsOf(chain) {
       seen[key] = true;
       var t = at.get(nb);
       if (!t) {
-        var r = screenBox(nb), mg = 30, off = Math.max(mg - (r[0] + r[2]), mg - (r[1] + r[3]), r[0] - (W - mg), r[1] - (H - mg));
-        var show = smooth(0, 160, off);
-        if (show <= 0.01) return;
+        var r = screenBox(nb);
+        if (onScreen(r)) return;
         var where = whereOf(nb.map);
-        t = portalPlace({nb: nb, show: show, where: where, h: P_H, w: portalWidth(nb.id, where), lines: []}, r, screenBox(sibling(chain, nb)));
+        t = portalPlace({nb: nb, show: 1, where: where, h: P_H, w: portalWidth(nb.id, where), lines: []}, r, screenBox(sibling(chain, nb)));
         at.set(nb, t); out.push(t);
       }
       t.lines.push({p: p, m: m, open: chain[i]});
     });
   }
-  return apart(portalFades(out));
+  return dodge(apart(portalFades(out)));
 }
+// Tell if a part of the screen box r is on the screen. A neighbour has a portal only when
+// no part of its card is on the screen. The target `show` of a portal is thus 1 or 0, and
+// `portalFades` changes the `show` by time only. When the camera stops, each portal is
+// fully shown or it fades out fully. It does not stay partly shown.
+function onScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > 0 && r[0] < W && r[1] < H; }
 // The open card in the map of a neighbour.
 function sibling(chain, nb) {
   for (var j = 0; j < chain.length; j++) if (chain[j].map === nb.map) return chain[j];
@@ -408,13 +414,14 @@ function gutters() {
 // top or the bottom (`side` 0). When a portal is wider than the side band (on a narrow
 // screen), it is at the top or the bottom. Then the row is the top row if the neighbour is
 // above the middle of the open card `o` in its map. A camera move does not change this.
-// With no `o` (a portal that fades out), the portal stays at its side or in its row.
+// With no `o` (a portal that fades out), the portal stays at its side or in its row. The
+// row comes from its place before its move off the boxes of the maps (`y0` of `dodge`).
 // `along` is the place along the edge before the portals move apart. Its order does not
 // change while the camera moves, thus the stacks below do not jump.
 function portalPlace(t, r, o) {
   var cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, x0 = P_EDGE + t.w / 2, x1 = W - P_EDGE - t.w / 2;
   var band = gutters().x >= P_EDGE + t.w + P_GAP, bottom = Math.max(P_TOP, H - P_BOTTOM);
-  var top = o ? cy < o[1] + o[3] / 2 : t.y < bottom;
+  var top = o ? cy < o[1] + o[3] / 2 : (t.y0 === undefined ? t.y : t.y0) < bottom;
   if (o) t.side = !band ? 0 : cx <= x0 ? -1 : cx >= x1 ? 1 : 0;
   t.x = t.side < 0 ? x0 : t.side > 0 ? x1 : clamp(cx, x0, x1);
   t.y = !t.side && (!band || !o) ? (top ? P_TOP : bottom) : clamp(cy, P_TOP, bottom);

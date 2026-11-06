@@ -21,8 +21,12 @@ says: "Each change follows the zoom continuously. Nothing appears at one time."
   in one frame. A portal that the chain removes stays, with no lines, until it has faded
   out. The place that a portal keeps on its edge also grows and becomes smaller by time.
   Thus the other portals do not jump.
+- A portal moves off the cards, the flow label plates and the texts of the maps on the
+  screen (`dodge`). It uses the boxes that the frame records in OBST before the portals.
+  It moves along its edge, or a short distance into the screen. This move changes by
+  DODGE_PX pixels for each millisecond or less, thus the portal does not jump.
 - With reduced motion, a line or a portal shows or goes at one time, as each camera move
-  does.
+  does. A portal also goes off the boxes at one time.
 """
 
 from __future__ import annotations
@@ -50,12 +54,14 @@ function fadeFrame() {
   FADE_LAST = now; FADE_FRAME++; FADING = false;
   FADE_STEP = reduced() ? 1 : dt / FADE_MS;
   PORTAL_STEP = reduced() ? 1 : Math.min(dt, PORTAL_DT) / PORTAL_MS;
+  DODGE_STEP = reduced() ? Infinity : Math.min(dt, PORTAL_DT) * DODGE_PX;
 }
 function portalKey(t) { return t.nb.map.id + '/' + t.nb.id; }
-// A portal does not appear or go at one time. The camera gives the target `show` of a
-// portal (`portalsOf`). The `show` that the frame draws goes to that target by `step` or
-// less in each frame, from 0 for a new portal. A portal is drawn only with this `show`.
-// Thus it is never more visible over a card. `room` is the part of its place that a
+// A portal does not appear or go at one time. The target `show` of a portal is 1 while no
+// part of its neighbour is on the screen, and else 0 (`portalsOf`). The `show` that the
+// frame draws goes to that target by `step` or less in each frame, from 0 for a new
+// portal. Thus, when the camera stops, each `show` gets to 1 or 0. A portal is drawn only
+// with this `show`. Thus it is never more visible over a card. `room` is the part of its place that a
 // portal keeps on its edge (`kept`). It goes to 1 by `step` in each frame while the
 // portal is in `list`. A portal of the frame before that is not in `list` (the chain
 // changed) stays at its side or in its row and follows its card, with no lines. Its `show`
@@ -72,6 +78,7 @@ function portalFades(list) {
     var was = PORTALS.get(portalKey(t)), to = t.show;
     t.show = approach(was ? was.show : 0, to, step);
     t.room = Math.min(1, (was ? was.room : 0) + step);
+    t.dx = was ? was.dx : null; t.dy = was ? was.dy : null; t.x0 = was ? was.x0 : undefined; t.y0 = was ? was.y0 : undefined;
     if (t.show !== to || t.room < 1) FADING = true;
     next.set(portalKey(t), t); out.push(t);
   });
@@ -168,5 +175,88 @@ function layerClose() {
   if (pw <= 0 || ph <= 0) return;
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
   ctx.drawImage(LAYER, px, py, pw, ph, px, py, pw, ph); ctx.restore();
+}
+
+// ---- the portals keep off the maps ----------------------------------------------
+// A portal moves off the boxes of the maps on the screen: the cards, the flow label plates
+// and the texts (the first NMAP values of OBST). A box counts when its opacity is
+// DODGE_MIN or more and it is not a box of the neighbour of the portal. A portal keeps
+// DODGE_PAD pixels from such a box, and P_GAP pixels from the other portals. This occurs
+// after `apart`. When the place of the portal is open, the portal stays there. Else it
+// goes to the open place that is nearest to its move in the frame before: along its edge,
+// or DODGE_IN pixels or less into the screen. Thus it does not go from one side of a box
+// to the other side while the camera moves. When no place is open, the portal stays at
+// its place. The move from the place (`dx`, `dy`) goes to its target by DODGE_STEP pixels
+// or less in each frame: DODGE_PX pixels for each millisecond, for PORTAL_DT ms or less.
+// Thus this move adds 3.4 pixels or less in one frame to the move of the place. When the
+// place moves by `moved` pixels in a frame, the step is also DODGE_JUMP - `moved` or less.
+// Thus this move does not make a move of the portal of more than DODGE_JUMP pixels in one
+// frame. When the place moves by DODGE_JUMP pixels or more, this move waits. A new
+// portal starts at its target, because it fades in from 0. With reduced motion, a portal
+// goes to its target at once.
+var NMAP = 0, DODGE_MIN = 0.05, DODGE_PAD = 4, DODGE_PX = 0.2, DODGE_STEP = Infinity, DODGE_IN = 34, DODGE_JUMP = 16;
+function dodge(list) {
+  list.forEach(function (t) {
+    t.moved = t.x0 === undefined ? 0 : Math.hypot(t.x - t.x0, t.y - t.y0);
+    t.x0 = t.x; t.y0 = t.y;
+    if (t.dx === null || t.dx === undefined) t.dx = t.dy = null; else { t.x += t.dx; t.y += t.dy; }
+  });
+  list.forEach(function (t) {
+    var to = dodgeTo(t, list), fresh = t.dx === null;
+    var ex = fresh ? 0 : to[0] - t.dx, ey = fresh ? 0 : to[1] - t.dy, far = Math.hypot(ex, ey);
+    var step = DODGE_STEP === Infinity ? Infinity : Math.min(DODGE_STEP, Math.max(0, DODGE_JUMP - t.moved));
+    if (far > step) { t.dx += ex * step / far; t.dy += ey * step / far; FADING = true; }
+    else { t.dx = to[0]; t.dy = to[1]; }
+    t.x = t.x0 + t.dx; t.y = t.y0 + t.dy;
+  });
+  return list;
+}
+// The boxes near the edge of portal `t` that it must keep off, as x0, y0, x1, y1 with the
+// space around them: the boxes of the maps, and then the other portals from index `n`.
+function dodgeBoxes(t, list) {
+  var nb = screenBox(t.nb), row = !t.side, reach = DODGE_IN + (row ? t.h : t.w) / 2 + P_GAP, out = [];
+  var lo = (row ? t.y0 : t.x0) - reach, hi = (row ? t.y0 : t.x0) + reach, a = row ? 1 : 0;
+  for (var i = 0; i < NMAP; i += OB) {
+    if (OBST[i + 5] < DODGE_MIN || OBST[i + a] >= hi || OBST[i + a + 2] <= lo) continue;
+    if (OBST[i] >= nb[0] - 1 && OBST[i + 1] >= nb[1] - 1 && OBST[i + 2] <= nb[0] + nb[2] + 1 && OBST[i + 3] <= nb[1] + nb[3] + 1) continue;
+    out.push([OBST[i] - DODGE_PAD, OBST[i + 1] - DODGE_PAD, OBST[i + 2] + DODGE_PAD, OBST[i + 3] + DODGE_PAD]);
+  }
+  out.n = out.length;
+  list.forEach(function (o) {
+    if (o !== t) out.push([o.x - o.w / 2 - P_GAP, o.y - o.h / 2 - P_GAP, o.x + o.w / 2 + P_GAP, o.y + o.h / 2 + P_GAP]);
+  });
+  return out;
+}
+// Tell if portal `t` with its middle at x, y covers none of the first `n` boxes, by more
+// than 0.5 pixels.
+function dodgeOpen(t, x, y, boxes, n) {
+  var x0 = x - t.w / 2 + 0.5, y0 = y - t.h / 2 + 0.5, x1 = x + t.w / 2 - 0.5, y1 = y + t.h / 2 - 0.5;
+  for (var i = 0; i < n; i++) { var b = boxes[i]; if (b[0] < x1 && x0 < b[2] && b[1] < y1 && y0 < b[3]) return false; }
+  return true;
+}
+// The moves dx, dy of portal `t` to a place next to each box: along its edge in the two
+// directions, and into the screen (`dir`) by DODGE_IN pixels or less.
+function dodgeMoves(t, boxes) {
+  var row = !t.side, dir = row ? (t.y0 < H / 2 ? 1 : -1) : -t.side, out = [];
+  var lo = row ? P_EDGE + t.w / 2 : P_TOP, hi = row ? W - P_EDGE - t.w / 2 : Math.max(P_TOP, H - P_BOTTOM);
+  var at = row ? t.x0 : t.y0, half = (row ? t.w : t.h) / 2, across = row ? t.y0 : t.x0, deep = (row ? t.h : t.w) / 2;
+  boxes.forEach(function (b) {
+    var a0 = row ? b[0] : b[1], a1 = row ? b[2] : b[3], c = dir > 0 ? (row ? b[3] : b[2]) + deep : (row ? b[1] : b[0]) - deep;
+    [a0 - half, a1 + half].forEach(function (p) { if (p >= lo && p <= hi) out.push(row ? [p - at, 0] : [0, p - at]); });
+    if ((c - across) * dir > 0 && Math.abs(c - across) <= DODGE_IN) out.push(row ? [0, c - across] : [c - across, 0]);
+  });
+  return out;
+}
+// The target move dx, dy of portal `t` from its place. `apart` keeps the portals apart at
+// their places, thus only the boxes of the maps can close the place. A move goes to no box.
+function dodgeTo(t, list) {
+  var boxes = dodgeBoxes(t, list);
+  if (dodgeOpen(t, t.x0, t.y0, boxes, boxes.n)) return [0, 0];
+  var wx = t.dx || 0, wy = t.dy || 0, best = [0, 0], far = Infinity;
+  dodgeMoves(t, boxes).forEach(function (m) {
+    var d = Math.abs(m[0] - wx) + Math.abs(m[1] - wy);
+    if (d < far && dodgeOpen(t, t.x0 + m[0], t.y0 + m[1], boxes, boxes.length)) { far = d; best = m; }
+  });
+  return best;
 }
 """

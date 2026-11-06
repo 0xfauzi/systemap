@@ -195,14 +195,15 @@ def grid_map(n: int) -> dict[str, Any]:
     return {"v": 1, "name": f"{n} cards", "rev": "", "unknown": [], "judged": False, "maps": [m]}
 
 
-def nested_tree() -> dict[str, Any]:
+def nested_tree(cols: int = 14) -> dict[str, Any]:
     """Give generated canvas data with the form of the M11 tree: 50 maps of 40 cards.
 
     The top map has 7 cards that open a map. A map on level 1 has 3 such cards and an
     actor, a map on level 2 has 1 and an actor, and a map on level 3 has none and an
-    actor. A nested map has a port for its actor and for the next card in its parent."""
+    actor. A nested map has a port for its actor and for the next card in its parent.
+    Each map has `cols` columns of cards. The measurements use 14 columns."""
     maps: list[dict[str, Any]] = []
-    _add(maps, "", "P", 7, "", 0, "")
+    _add(maps, "", "P", 7, "", 0, "", cols)
     data = {"v": 1, "name": "M11 shape", "rev": "", "unknown": [], "judged": False, "maps": maps}
     return data
 
@@ -237,11 +238,12 @@ def _add(
     actor: str,
     depth: int,
     nxt: str,
+    cols: int,
 ) -> None:
     """Add a map of 40 cards and, below its first `opens` cards, their maps."""
     ids = [f"{prefix}{k}" for k in range(40 - (1 if actor else 0))]
     children = {ids[k]: f"{map_id}/{ids[k]}" if map_id else ids[k] for k in range(opens)}
-    m = _map(map_id, ids, 14, children, actor)
+    m = _map(map_id, ids, cols, children, actor)
     if map_id:
         m["ports"] = _ports(actor, ids[0], nxt, m["size"][1])
     maps.append(m)
@@ -255,6 +257,7 @@ def _add(
             f"{prefix}{opens}",
             depth + 1,
             ids[k + 1],
+            cols,
         )
 
 
