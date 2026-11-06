@@ -3,14 +3,16 @@
 The canvas page (`canvas_page`) has one script element with `SCRIPT`. It joins the
 scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`), the text part
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
-(`page_canvas_fade`) and the part in this module. The page CSP (`page_csp`) gets the
-digest of that element.
+(`page_canvas_fade`), the keyboard part (`page_canvas_keys`) and the part in this
+module. The page CSP (`page_csp`) gets the digest of that element.
 
 Camera. The wheel and the pinch zoom at the pointer, and a drag moves the map. A
 double-click, or a tap, goes into the card under the pointer. Esc goes out one level, F
 fits the current map, and + and - zoom at the middle of the screen. The arrow keys move
-the map. A camera move changes the scale in log space, and it goes out and back in when
-the two views are far apart. With `prefers-reduced-motion`, or with the page setting
+the map. Tab and Shift+Tab move the keyboard focus through the cards of the current
+map, and Enter goes into the focused card or selects it (`page_canvas_keys`). A camera
+move changes the scale in log space, and it goes out and back in when the two views are
+far apart. With `prefers-reduced-motion`, or with the page setting
 Reduce motion, each move occurs at one time.
 
 Frames. An input event asks for one frame (`requestAnimationFrame`). While the camera
@@ -35,6 +37,7 @@ from __future__ import annotations
 from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
 from systemap.page_canvas_image import IMAGE
+from systemap.page_canvas_keys import KEYS
 from systemap.page_canvas_scene import SCENE
 from systemap.page_canvas_text import TEXT
 
@@ -128,6 +131,7 @@ function draw() {
   CHAIN = focusChain();
   fadeFrame();
   drawMap(TOP, 1, 1);
+  drawSelected();
   drawRings(CHAIN);
   // The portals keep off the boxes that the maps put in OBST (`dodge`).
   NMAP = NOBST;
@@ -135,6 +139,7 @@ function draw() {
   drawPortals(portals, path);
   drawPath(path);
   drawHelp();
+  drawFocus();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
   frameShown();
@@ -198,6 +203,7 @@ function enter(px, py) {
 }
 function goOut() {
   var n = CHAIN.length;
+  focusOut();
   flyTo(n > 1 ? frameOf(CHAIN[n - 2].child) : topFrame(), FIT);
 }
 function fitCurrent() { flyTo(frameOf(currentMap()), FIT); }
@@ -402,11 +408,17 @@ window.systemapCanvas = {
   recorded: function () { var l = LOG || []; LOG = null; return l; },
   // Draw the frame again, and give each text that it draws (`drawnText`).
   texts: function () { TLOG = []; draw(); var l = TLOG; TLOG = null; return l; },
+  // The keyboard focus, the selected card and the ring (`keyState`), and the reading order
+  // of the cards of a map.
+  keys: keyState,
+  order: function (id) { return readingOrder(MAPS[id]).map(function (c) { return c.id; }); },
   stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; }
 };
 """
 
-SCRIPT = "(function(){\n'use strict';\n" + SCENE + DRAW + TEXT + IMAGE + FADE + _INPUT + "})();\n"
+SCRIPT = (
+    "(function(){\n'use strict';\n" + SCENE + DRAW + TEXT + IMAGE + FADE + KEYS + _INPUT + "})();\n"
+)
 
 # The page embeds the script in a script element. "</" would end the element.
 if "</" in SCRIPT:  # pragma: no cover - a guard for a change of the script text

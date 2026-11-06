@@ -61,8 +61,13 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + '<canvas id="canvas" tabindex="0" role="img" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + '<p class="sr-only">The wheel and a pinch zoom the camera. A drag moves the map. '
-        "A double-click on a card goes into the card. Esc goes out one level. "
+        "A double-click on a card goes into the card. "
+        "Tab and Shift+Tab move the keyboard focus through the cards of the current map. "
+        "Enter on a card that opens a map goes into that map. "
+        "Enter on a different card selects it. Esc goes out one level. "
+        "The arrow keys move the map. The keys + and - zoom. "
         "F fits the current map.</p>"
+        + '<p id="canvas-focus" class="sr-only" aria-live="polite"></p>'
         + '<script type="application/json" id="canvas-data">'
         + body
         + "</script>\n<script>"

@@ -103,6 +103,25 @@ Acceptance values:
     values. The page has no script error.
 21. The fade of the count of text columns of a card starts again when the frame before did
     not draw the card. The test runs the function `colFade` of the page script in Node.
+22. Tab and Shift+Tab move the keyboard focus through the cards of the current map in
+    reading order, and then out of the canvas. Tab from the page goes to the canvas. Each
+    card gets the focus one time. A card never comes after a card that is fully below it,
+    and in a row (each card has its vertical middle in the box of the other) the cards go
+    from left to right. Shift+Tab gives the reverse order. After the last card, Tab moves
+    the keyboard focus out of the canvas, and so does Shift+Tab before the first card. The
+    test uses the top map of the fixture and the map P0 of the generated M11 tree.
+23. The focused card has a ring that is 2 px wide or more. At the middle of each side of the
+    ring, the pixel of the page canvas with the ring and the pixel without the keyboard
+    focus on the canvas have a contrast ratio of 3 or more. The test uses the dark scheme
+    and the light scheme.
+24. Enter on Gateway goes into its map, with no focused card. Then Tab focuses the first
+    card of that map. Esc goes out one level, and the keyboard focus is on Gateway. Enter on
+    Auth selects it, and the camera stays in the top map. The arrow keys move the map by 80
+    pixels, + and - zoom by 1.6, and F fits the current map. A pointer input removes the
+    focus from the card.
+25. When Tab focuses a card that is not fully in the free box of the screen, the camera
+    moves. After the move, the box of the card is in the free box. When the card fits in the
+    free box, the zoom does not change. Else the camera zooms out.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -481,3 +500,102 @@ def test_the_column_fade_starts_again_after_a_gap() -> None:
     back, changed = json.loads(proc.stdout)
     assert (back["k"], back["from"], back["f"]) == (14, 14, 1)
     assert (changed["k"], changed["from"], changed["f"]) == (20, 14, 0.2)
+
+
+@pytest.fixture(scope="module")
+def keyed(canvas: Path) -> dict[str, Any]:
+    return drive(canvas, "--keys")
+
+
+def _reading_problems(order: list[str], boxes: list[dict[str, Any]]) -> list[str]:
+    """Give each pair of cards that is not in reading order."""
+    box = {c["id"]: c["b"] for c in boxes}
+    problems = [] if sorted(order) == sorted(box) else ["the order does not have each card"]
+    for i, a in enumerate(order):
+        ax, ay, aw, ah = box[a]
+        for b in order[i + 1 :]:
+            bx, by, bw, bh = box[b]
+            if by + bh <= ay:
+                problems.append(f"{b} is above {a}")
+            row = ay <= by + bh / 2 <= ay + ah and by <= ay + ah / 2 <= by + bh
+            if row and bx < ax:
+                problems.append(f"{b} is at the left of {a}")
+    return problems
+
+
+def _tabbed(found: dict[str, Any]) -> None:
+    order = found["order"]
+    assert _reading_problems(order, found["boxes"]) == []
+    assert found["entered"]["active"] == "canvas" and found["entered"]["focus"] is None
+    assert found["tabs"] == order
+    assert found["backs"] == order[::-1]
+    for out in (found["tabbedOut"], found["backedOut"]):
+        assert out["active"] != "canvas" and out["focus"] is None, out
+
+
+def test_tab_goes_through_the_cards_in_reading_order(keyed: dict[str, Any], tree: Path) -> None:
+    """Acceptance 22."""
+    assert keyed["errors"] == []
+    _tabbed(keyed)
+    found = drive(tree, "--keys", "--order", ids=("P0", ""))
+    assert found["errors"] == []
+    assert len(found["order"]) >= 20
+    _tabbed(found)
+
+
+def _contrast(a: list[int], b: list[int]) -> float:
+    def lum(rgb: list[int]) -> float:
+        c = [v / 255 for v in rgb]
+        c = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_the_focus_ring_is_visible(keyed: dict[str, Any], canvas: Path) -> None:
+    """Acceptance 23."""
+    for found in (keyed, drive(canvas, "--keys", "--light")):
+        ring = found["ring"]
+        assert ring["width"] >= 2
+        for on, off in zip(ring["on"], ring["without"], strict=True):
+            assert _contrast(on, off) >= 3, ring
+
+
+def test_enter_esc_and_the_camera_keys(keyed: dict[str, Any]) -> None:
+    """Acceptance 24."""
+    entry, inner, escaped = keyed["entry"], keyed["inner"], keyed["escaped"]
+    assert entry["chain"] == ["Gateway"] and entry["focus"] is None
+    assert inner["focus"] == {"map": "Gateway", "id": keyed["entryOrder"][0]}
+    assert escaped["chain"] == [] and escaped["focus"] == {"map": "", "id": "Gateway"}
+    assert escaped["active"] == "canvas" and escaped["ring"] is not None
+    selected = keyed["selected"]
+    assert selected["selected"] == {"map": "", "id": "Auth"} and selected["chain"] == []
+    assert keyed["arrows"] == {
+        "ArrowRight": pytest.approx([80, 0]),
+        "ArrowDown": pytest.approx([0, 80]),
+        "ArrowLeft": pytest.approx([-80, 0]),
+        "ArrowUp": pytest.approx([0, -80]),
+    }
+    assert keyed["zoomIn"] == pytest.approx(1.6)
+    assert keyed["zoomOut"] == pytest.approx(1)
+    for key in ("x", "y", "k"):
+        assert keyed["fit"]["camera"][key] == pytest.approx(keyed["fit"]["want"][key])
+    assert keyed["clicked"]["focus"] is None
+
+
+def test_tab_moves_the_camera_to_the_focused_card(keyed: dict[str, Any]) -> None:
+    """Acceptance 25."""
+    for name, zoom in (("far", 1), ("large", None)):
+        found = keyed[name]
+        assert found["focus"] == {"map": "", "id": keyed["order"][1]}
+        g = found["gutters"]
+        x, y, w, h = found["before"]
+        assert x < g["x"] or y < g["top"] or x + w > 1280 - g["x"] or y + h > 800 - g["bottom"]
+        x, y, w, h = found["after"]
+        assert g["x"] - 1 <= x and x + w <= 1280 - g["x"] + 1, found
+        assert g["top"] - 1 <= y and y + h <= 800 - g["bottom"] + 1, found
+        if zoom is None:
+            assert found["zoom"] < 1, found
+        else:
+            assert found["zoom"] == pytest.approx(zoom), found

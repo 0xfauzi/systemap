@@ -718,7 +718,8 @@ function drawPath(path) {
 // row of the portals. On a touch screen, it gives the touch inputs. Else it is the first
 // text of HELP that fits the screen width. A text that does not fit becomes shorter with
 // '...'. The line changes only when the screen width or the fonts change (`HELP_MEMO`).
-var HELP = ['Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit',
+var HELP = ['Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit · Tab: next card',
+  'Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit',
   'Wheel: zoom · drag: move · double-click a card: go in · Esc: go out', 'Wheel: zoom · drag: move · double-click: go in'];
 var HELP_TOUCH = 'Pinch: zoom · drag: move · tap a card: go in', HELP_FS = 11.5, HELP_MEMO = null;
 var TOUCH = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);

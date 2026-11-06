@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --empty]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --empty | --keys [--light | --order]]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -629,11 +629,128 @@ async function empty(file, card) {
   return out;
 }
 
+// --keys: the keyboard focus on a screen of 1280 x 800 pixels with reduced motion. CARD is
+// a card of the top map that opens a map, and NEIGHBOUR is a card of the top map that does
+// not open a map. With --light, the page has the light scheme. With --order, the page
+// opens the map CARD, and the record has only the Tab steps through that map.
+const keyState = (page) => page.evaluate(() => ({
+  ...window.systemapCanvas.keys(), active: document.activeElement ? document.activeElement.id || document.activeElement.tagName : null,
+  chain: window.systemapCanvas.chain(), camera: window.systemapCanvas.camera(),
+}));
+// The colors of the page canvas at the middle of each side of the ring box `b`. The ring
+// line has its middle on that box.
+const ringPixels = (page, b) => page.evaluate((b) => {
+  const cv = document.getElementById('canvas'), g = cv.getContext('2d'), d = cv.width / innerWidth;
+  return [[b[0] + b[2] / 2, b[1]], [b[0] + b[2] / 2, b[1] + b[3]], [b[0], b[1] + b[3] / 2], [b[0] + b[2], b[1] + b[3] / 2]]
+    .map(([x, y]) => Array.from(g.getImageData(Math.floor(x * d), Math.floor(y * d), 1, 1).data.slice(0, 3)));
+}, b);
+// Press `key` `n` times and give the focused card ID after each press.
+async function presses(page, key, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) { await page.keyboard.press(key); const k = await keyState(page); out.push(k.focus ? k.focus.id : null); }
+  return out;
+}
+async function keys(file, card, neighbour, light, order) {
+  const browser = await chromium.launch(), out = { errors: [] };
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce', colorScheme: light ? 'light' : 'dark' });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => out.errors.push(String(e)));
+  const map = order ? card : '';
+  await page.goto('file://' + file + (order ? '#' + encodeURIComponent(card) : ''));
+  await settle(page);
+  out.boxes = await page.evaluate((id) => JSON.parse(document.getElementById('canvas-data').textContent).maps.find((m) => m.id === id).cards.map((c) => ({ id: c.id, b: c.b })), map);
+  out.order = await page.evaluate((id) => window.systemapCanvas.order(id), map);
+  const n = out.order.length;
+  // Tab from the page goes to the canvas. Then Tab goes through the cards and out.
+  await page.keyboard.press('Tab');
+  out.entered = await keyState(page);
+  out.tabs = await presses(page, 'Tab', n);
+  await page.keyboard.press('Tab');
+  out.tabbedOut = await keyState(page);
+  await page.evaluate(() => document.getElementById('canvas').focus());
+  out.backs = await presses(page, 'Shift+Tab', n);
+  await page.keyboard.press('Shift+Tab');
+  out.backedOut = await keyState(page);
+  if (order) { await browser.close(); return out; }
+  // The ring: the pixels of the ring line with and without the keyboard focus on the canvas.
+  await page.evaluate(() => document.getElementById('canvas').focus());
+  await page.keyboard.press('Tab');
+  await settle(page);
+  const ring = (await keyState(page)).ring;
+  out.ring = { width: ring.width, off: ring.off, on: await ringPixels(page, ring.box) };
+  await page.evaluate(() => document.getElementById('canvas').blur());
+  await settle(page);
+  out.ring.without = await ringPixels(page, ring.box);
+  out.ring.colors = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return [s.getPropertyValue('--ink').trim(), s.getPropertyValue('--map').trim()]; });
+  // Enter on CARD goes into its map, Tab goes to its first card, and Esc goes out to CARD.
+  await page.evaluate(() => document.getElementById('canvas').focus());
+  for (let i = 0; i < n && ((await keyState(page)).focus || {}).id !== card; i++) await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await settle(page);
+  out.entry = await keyState(page);
+  out.entryOrder = await page.evaluate((id) => window.systemapCanvas.order(id), card);
+  await page.keyboard.press('Tab');
+  out.inner = await keyState(page);
+  await page.keyboard.press('Escape');
+  await settle(page);
+  out.escaped = await keyState(page);
+  // Enter on NEIGHBOUR selects it.
+  for (let i = 0; i < 2 * n && ((await keyState(page)).focus || {}).id !== neighbour; i++) await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await settle(page);
+  out.selected = await keyState(page);
+  // The arrow keys move the map by 80 pixels, + and - zoom, and F fits the current map.
+  const moves = {};
+  for (const key of ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) {
+    const c0 = (await keyState(page)).camera;
+    await page.keyboard.press(key);
+    const c1 = (await keyState(page)).camera;
+    moves[key] = [(c1.x - c0.x) * c0.k, (c1.y - c0.y) * c0.k];
+  }
+  out.arrows = moves;
+  const k0 = (await keyState(page)).camera.k;
+  await page.keyboard.press('+');
+  await settle(page);
+  out.zoomIn = (await keyState(page)).camera.k / k0;
+  await page.keyboard.press('-');
+  await settle(page);
+  out.zoomOut = (await keyState(page)).camera.k / k0;
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('f');
+  await settle(page);
+  out.fit = { camera: (await keyState(page)).camera, want: await page.evaluate(() => window.systemapCanvas.fit('')) };
+  // A pointer input removes the focus from the card. Then the camera zooms in on the first
+  // card by 3 times (`far`) and by 8 times (`large`), and Tab moves the camera to the second
+  // card.
+  await page.mouse.click(4, 400);
+  out.clicked = await keyState(page);
+  for (const [name, f] of [['far', 3], ['large', 8]]) {
+    await page.keyboard.press('f');
+    await page.mouse.click(4, 400);
+    await page.keyboard.press('Tab');
+    await page.evaluate(([id, f]) => {
+      const S = window.systemapCanvas, b = S.box('', id), c = S.camera(), k = c.k * f;
+      S.view({ x: c.x + (b[0] + b[2] / 2) / c.k - innerWidth / 2 / k, y: c.y + (b[1] + b[3] / 2) / c.k - innerHeight / 2 / k, k });
+    }, [out.order[0], f]);
+    await settle(page);
+    const at = { before: await page.evaluate((id) => window.systemapCanvas.box('', id), out.order[1]), k: (await keyState(page)).camera.k };
+    await page.keyboard.press('Tab');
+    await settle(page);
+    const k = await keyState(page);
+    Object.assign(at, { focus: k.focus, zoom: k.camera.k / at.k, after: await page.evaluate((id) => window.systemapCanvas.box('', id), out.order[1]) });
+    at.gutters = await page.evaluate(() => window.systemapCanvas.layout().gutters);
+    out[name] = at;
+  }
+  await browser.close();
+  return out;
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
   const small = process.argv.includes('--phone');
-  const out = process.argv.includes('--input') ? await input(file, card)
+  const out = process.argv.includes('--keys') ? await keys(file, card, neighbour, process.argv.includes('--light'), process.argv.includes('--order'))
+    : process.argv.includes('--input') ? await input(file, card)
     : process.argv.includes('--empty') ? await empty(file, card)
     : process.argv.includes('--layout') ? await layout(file)
     : process.argv.includes('--clear') ? await clearFits(file)
