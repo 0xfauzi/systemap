@@ -87,6 +87,12 @@ function q(size) { return Math.round(size * 2) / 2; }
 // The font size of the box names and the flow labels, and if the labels show.
 function labelSize(a) { return q(clamp(10.5 * a, 0, 13)); }
 function hasLabels(fs, alpha) { return fs >= 8 && alpha > 0.05; }
+// A text fades in from the size `from` at which the page starts to draw it, for the size
+// `raw` before the rounding to half pixels. Thus a text does not appear at one time in a
+// zoom. The flow labels start at 8 px, and the box names at MIN_TEXT.
+function sizeFade(raw, from) { return smooth(from - 0.25, from + 1.5, raw); }
+function labelAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, 8); }
+function nameAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, MIN_TEXT); }
 // If a card of screen height h shows its text.
 function hasText(h) { return h >= MARK_H - 4; }
 function near(u, v) { return Math.abs(u - v) < 0.5; }
@@ -128,8 +134,9 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
   fills.flush(g); lines.flush(g);
   var fs = labelSize(a);
   if (!labels || fs < MIN_TEXT) return;
+  var na = nameAlpha(a, alpha);
   NOTE = g === ctx;
-  boxNames(m, a, ox, oy, function (s, x, y, color) { text(s, x, y, fs, color, alpha, 600); });
+  boxNames(m, a, ox, oy, function (s, x, y, color) { text(s, x, y, fs, color, na, 600); });
   NOTE = false;
 }
 // The name of each container and region, at its screen point. In a map that has a nested
@@ -174,6 +181,7 @@ function drawFlows(g, list, a, ox, oy, alpha, arrows) {
 }
 function drawLabels(list, a, ox, oy, alpha) {
   var fs = labelSize(a);
+  alpha = labelAlpha(a, alpha);
   if (!hasLabels(fs, alpha)) return;
   // The plate fits the text. The text stops at 13 px, so a plate of the label box would
   // grow past the text and cover the routes.
@@ -209,81 +217,6 @@ function cardBox(c, x, y, w, h, alpha) {
   FILL.rect(k.fill, alpha * t, x, y, w, h, r);
   LINE.rect(k.line, alpha * t, x, y, w, h, r, 1, c.k === 'actor' ? 'a' : '');
 }
-function title(c, x, y, w, size, alpha, extra) {
-  if (size < MIN_TEXT || alpha <= 0.02) return;
-  var name = fit(c.id, size, w, 600);
-  text(name, x, y + size, size, C['--ink'], alpha, 600);
-  if (extra && extra.alpha > 0.02) {
-    var at = unitWidth(name, 600) * size + size * 0.6, small = q(size * 0.82);
-    text(fit(extra.s, small, w - at, 400), x + at, y + size, small, C['--ink-3'], alpha * extra.alpha);
-  }
-}
-// The name of each card has the same size and place, also on a card that opens a map.
-// Thus the name does not move when the preview comes into view.
-function titleSize(h) { return q(clamp(Math.max(Math.min(h * 0.28, 9), h * 0.12), 0, 26)); }
-function inset(h) { return clamp(h * 0.1, 3, 14); }
-function cardText(c, x, y, w, h, alpha) {
-  var t = alpha * smooth(MARK_H - 4, MARK_H + 6, h), pad = inset(h), u = titleSize(h), top = y + Math.max(2, h * 0.06);
-  if (u < MIN_TEXT || t <= 0.02) return;
-  title(c, x + pad, top, w - 2 * pad, u, t);
-  top += u * 1.4;
-  // While the camera moves, a card with a name below MOVE_TEXT shows only its name. While
-  // the name grows from MOVE_TEXT to MOVE_TEXT + 2, the text under the name fades in.
-  // Text is the largest cost of a moving frame. HIDE fades this rule in and out in time.
-  details(c, x + pad, top, w - 2 * pad, y + h - pad * 0.6 - top, t * (1 - HIDE * (1 - smooth(MOVE_TEXT, MOVE_TEXT + 2, u))), u);
-}
-function facts(c) {
-  var n = (c.m || []).length, parts = [];
-  parts.push(c.k === 'actor' ? 'actor' : n + (n === 1 ? ' module' : ' modules'));
-  parts.push(c.ins.length + ' in · ' + c.outs.length + ' out');
-  if (c.as) parts.push(c.as[0] + ' · ' + c.as[1]);
-  return parts.join('  ·  ');
-}
-// The text of a card under its name: the card text, the description, the lists and
-// the fact row. Each part comes into view when the box has space for it.
-function details(c, x, y, w, h, alpha, u) {
-  var fs = q(clamp(u * 0.78, MIN_TEXT, 19)), lh = fs * 1.38, small = q(clamp(u * 0.66, MIN_TEXT, 15));
-  if (h < lh * 0.9 || w < 30 || alpha <= 0.02) return;
-  var bottom = y + h, rows = Math.floor(h / lh), factRow = rows >= 3 && w > 90;
-  if (factRow) bottom -= small * 1.7;
-  var at = y;
-  at = lines(wrap(c, 'p', c.p, fs, w, clamp(Math.floor((bottom - at) / lh), 0, 2), 400), x, at, fs, lh, C['--ink-2'], alpha);
-  var room = Math.floor((bottom - at) / lh), large = room >= 7 && w >= 150;
-  if (c.d && room >= 2) {
-    var shown = alpha * smooth(1.5, 2.5, (bottom - at) / lh);
-    at = lines(wrap(c, 'd', c.d, fs, w, large ? Math.min(4, room - 4) : room, 400), x, at + lh * 0.3, fs, lh, C['--ink-3'], shown);
-  }
-  if (large) lists(c, x, at + lh * 0.5, w, bottom - at - lh * 0.5, fs, small, lh, alpha * smooth(7, 9, room));
-  if (factRow) text(fit(facts(c), small, w, 400), x, y + h - small * 0.3, small, C['--ink-3'], alpha * smooth(2.5, 3.5, rows));
-}
-function lines(list, x, y, fs, lh, color, alpha) {
-  for (var i = 0; i < list.length; i++) text(list[i], x, y + fs + i * lh, fs, color, alpha);
-  return y + list.length * lh;
-}
-function lists(c, x, y, w, h, fs, small, lh, alpha) {
-  if (alpha <= 0.02) return;
-  var flows = c.outs.map(function (f) { return 'to ' + f.t + ' · ' + f.a; })
-    .concat(c.ins.map(function (f) { return 'from ' + f.s + ' · ' + f.a; }));
-  var mods = (c.m || []).concat(c.u || []), two = w >= 320, cw = two ? (w - fs) / 2 : w;
-  var rows = Math.floor(h / lh);
-  if (two) {
-    list('FLOWS', flows, x, y, cw, rows, false);
-    list('MODULES', mods, x + cw + fs, y, cw, rows, true);
-    return;
-  }
-  var first = Math.min(rows, Math.max(2, Math.ceil(rows / 2)));
-  list('FLOWS', flows, x, y, cw, first, false);
-  list('MODULES', mods, x, y + first * lh, cw, rows - first, true);
-  function list(name, items, lx, ly, lw, n, mono) {
-    if (n < 2) return;
-    text(name, lx, ly + small, small, C['--ink-3'], alpha, 600);
-    if (!items.length) { text('none', lx, ly + small + lh, fs, C['--ink-3'], alpha); return; }
-    var fitN = items.length <= n - 1 ? items.length : n - 2;
-    for (var i = 0; i < fitN; i++) text(fit(items[i], fs, lw, 400, mono), lx, ly + small + (i + 1) * lh, fs, C['--ink-2'], alpha, 400, mono);
-    if (fitN < items.length) text('+ ' + (items.length - fitN) + ' more', lx, ly + small + (fitN + 1) * lh, fs, C['--ink-3'], alpha);
-  }
-}
-
 // ---- a card that opens a map -----------------------------------------------------
 function drawOpening(c, a, ox, oy, alpha) {
   var x = ox + a * c.b[0], y = oy + a * c.b[1], w = a * c.b[2], h = a * c.b[3];
@@ -304,7 +237,7 @@ function drawOpening(c, a, ox, oy, alpha) {
   title(c, x + pad, y + Math.max(2, h * 0.06), w - 2 * pad, u, alpha, more);
   if (c.side) {
     var s = c.side;
-    details(c, ox + a * s[0], oy + a * s[1], a * s[2], a * s[3], alpha * (1 - 0.4 * o), u);
+    details(c, ox + a * s[0], oy + a * s[1], a * s[2], a * s[3], alpha * (1 - 0.4 * o), titleRaw(h));
   }
   NOTE = false;
   drawMap(c.child, alpha * pv, o);
@@ -320,11 +253,11 @@ function drawMap(m, alpha, open) {
   // the zoom goes in, in the last quarter step of zoom before the marks end, the images fade
   // in over the marks, where the frame is not expensive. In the other frames of marks, the
   // marks image is less work than the images.
-  var near = !marks || (zoomingIn() && m.maxH * a >= (MARK_H - 6) * Math.pow(2, -MAP_OVER * MAP_STEP));
-  var whole = big ? imageLayer(m, a, !sharp && open >= 1, near) : null;
+  var near = !marks || (zoomingIn() && m.maxH * a >= (MARK_H - 6) * Math.pow(2, -MARKS_OVER * MAP_STEP));
+  var whole = big ? imageLayer(m, a, !sharp && open >= 1, near) : null, full = whole && layerFull(whole);
   if (marks) {
     // The marks image stays current also under a full image layer, for the frames after it.
-    var full = whole && layerFull(whole), img = marksImage(m, a);
+    var img = marksImage(m, a);
     if (full) img = null;
     if (img || full) {
       if (img) { ctx.globalAlpha = alpha; ctx.drawImage(img.canvas, ox, oy, mw, mh); STATS.image++; }
@@ -336,7 +269,7 @@ function drawMap(m, alpha, open) {
   var x0 = -ox / a, y0 = -oy / a, x1 = (W - ox) / a, y1 = (H - oy) / a;
   // An image layer at its full alpha replaces the normal drawing. While it fades, the frame
   // draws the normal drawing and the images over it.
-  if (whole && layerFull(whole)) {
+  if (full) {
     drawLayer(whole, ox, oy, mw, mh, alpha);
     STATS.cards += mapObstacles(m, a, ox, oy, [x0, y0, x1, y1], alpha); return;
   }
@@ -526,10 +459,11 @@ function push(line, key, gap, dir) {
 // Push each portal after the ones before it, then move the stack back from the far end.
 // The limit at the start can push two portals into one place. Thus push them one more time.
 function stack(line, key, gap, lo, hi) {
+  function half(t) { return key === 'x' ? t.w / 2 : 0; }
   push(line, key, gap, 1);
-  line.forEach(function (t) { t[key] = Math.min(t[key], hi - (key === 'x' ? t.w / 2 : 0)); });
+  line.forEach(function (t) { t[key] = Math.min(t[key], hi - half(t)); });
   push(line, key, gap, -1);
-  line.forEach(function (t) { t[key] = Math.max(t[key], lo + (key === 'x' ? t.w / 2 : 0)); });
+  line.forEach(function (t) { t[key] = Math.max(t[key], lo + half(t)); });
   push(line, key, gap, 1);
 }
 // The free part of a top or a bottom row. A side portal near the row takes its corner.
@@ -660,8 +594,7 @@ function boundaryPath(t, l) {
 }
 
 function drawBoundary(t, l) {
-  var key = lineKey(t.nb, l.p, l.m), b = boundaryPath(t, l), paths = fadeOf(key, b, l.spare), s = FADE.get(key);
-  if (s) { s.t = t; s.l = l; }
+  var key = lineKey(t.nb, l.p, l.m), b = boundaryPath(t, l), paths = fadeOf(key, b, t, l);
   if (!paths.length) return;
   var color = C['--l-' + flowLayer(l)] || C['--flow'], most = 0;
   paths.forEach(function (one) {
@@ -681,10 +614,9 @@ function drawBoundary(t, l) {
 var HITS = [], LINKS = [];
 // The lines come first, in the layer of the lines (`layerOpen`). The boxes cover them, and
 // the portals are drawn after them. Thus no line goes over a card, a text or a portal.
-function drawPortals(list, chain) {
-  var path = pathParts(chain), help = helpPlate();
-  fixedObstacle(12, 10, path.total, 38);
-  fixedObstacle(help[0], help[1], help[2], help[3]);
+function drawPortals(list, path) {
+  obstacle.apply(null, pathPlate(path));
+  obstacle.apply(null, helpPlate());
   list.forEach(function (t) {
     t.box = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2];
     obstacle(t.box[0], t.box[1], t.w, t.h, t.show, t.show);
@@ -692,7 +624,7 @@ function drawPortals(list, chain) {
   LUSED = list.length > 0 || FADE.size > 0;
   if (LUSED) {
     var screen = ctx;
-    ctx = layerOpen();
+    ctx = layerOpen(screen);
     try {
       list.forEach(function (t) { t.lines.forEach(function (l) { drawBoundary(t, l); }); });
       fadeLeft(drawBoundary);
@@ -712,8 +644,6 @@ function drawPortals(list, chain) {
     HITS.push({x: x, y: y, w: w, h: h, kind: 'portal', id: t.nb.id, map: t.nb.map.id, show: t.show, go: function () { flyTo(worldBox(t.nb), 0.3); }});
   });
 }
-// A box that does not move with the camera.
-function fixedObstacle(x, y, w, h) { obstacle(x, y, w, h, 1, 1); }
 function flowLayer(l) {
   if (l.p.f !== undefined && l.m.flows[l.p.f]) return l.m.flows[l.p.f].l;
   var up = l.m.owner && l.m.owner.map, f = up && (l.p.pf || []).length ? up.flows[l.p.pf[0]] : null;
@@ -726,8 +656,8 @@ function flowLayer(l) {
 function pathParts(chain) {
   var parts = [{label: DATA.name || 'map', m: TOP}].concat(chain.map(function (c) { return {label: c.id, m: c.child}; }));
   var level = 'level ' + chain.length, total = 12 + 32 * parts.length - 16 + unitWidth(level, 400) * 11.5 + 20;
-  var room = W - 24 - total, c = cap(parts.map(function (p) { return Math.min(unitWidth(p.label, 600) * 12.5, 220); }), room);
-  parts.forEach(function (p) { p.w = Math.min(unitWidth(p.label, 600) * 12.5, 220, c) + 16; total += p.w - 16; });
+  var ws = parts.map(function (p) { return Math.min(unitWidth(p.label, 600) * 12.5, 220); }), c = cap(ws, W - 24 - total);
+  parts.forEach(function (p, i) { p.w = Math.min(ws[i], c) + 16; total += p.w - 16; });
   return {parts: parts, level: level, total: total};
 }
 // The largest width c, 40 or more, so that the widths, each made c or less, fit in `room`.
@@ -740,11 +670,16 @@ function cap(widths, room) {
   }
   return Infinity;
 }
-function drawPath(chain) {
-  var path = pathParts(chain), parts = path.parts, level = path.level, total = path.total;
-  var x = 22, y = 14, h = 30, fs = 12.5, gap = 10;
-  ctx.globalAlpha = 0.96; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--line-2']; ctx.lineWidth = 1; ctx.setLineDash([]);
-  ctx.beginPath(); rr(ctx, 12, y - 4, total, h + 8, (h + 8) / 2); ctx.fill(); ctx.stroke();
+// The screen box x, y, w, h of the plate of the path.
+function pathPlate(path) { return [12, 10, path.total, 38]; }
+// A plate with round ends, under the path or the help line.
+function plate(b, alpha) {
+  ctx.globalAlpha = alpha; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--line-2']; ctx.lineWidth = 1; ctx.setLineDash([]);
+  ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], b[3] / 2); ctx.fill(); ctx.stroke();
+}
+function drawPath(path) {
+  var parts = path.parts, level = path.level, x = 22, y = 14, h = 30, fs = 12.5, gap = 10;
+  plate(pathPlate(path), 0.96);
   parts.forEach(function (p, i) {
     var last = i === parts.length - 1;
     if (i) { text('/', x + 1, y + 20, 13, C['--ink-3'], 1); x += gap + 6; }
@@ -774,8 +709,7 @@ function helpLine() {
 function helpPlate() { return [12, H - 30, unitWidth(helpLine(), 400) * HELP_FS + 20, 22]; }
 function drawHelp() {
   var b = helpPlate();
-  ctx.globalAlpha = 0.9; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--line-2']; ctx.lineWidth = 1; ctx.setLineDash([]);
-  ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], b[3] / 2); ctx.fill(); ctx.stroke();
+  plate(b, 0.9);
   text(helpLine(), b[0] + 10, b[1] + 15, HELP_FS, C['--ink-3'], 1);
 }
 var FRAMES = [];

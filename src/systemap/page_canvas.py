@@ -1,8 +1,10 @@
 """The renderer script of the canvas page: the camera, the frames and the input.
 
 The canvas page (`canvas_page`) has one script element with `SCRIPT`. It joins the
-scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`), the image part
-(`page_canvas_image`), the fade part (`page_canvas_fade`) and the part in this module. The page CSP (`page_csp`) gets the digest of that element.
+scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`), the text part
+(`page_canvas_text`), the image part (`page_canvas_image`), the fade part
+(`page_canvas_fade`) and the part in this module. The page CSP (`page_csp`) gets the
+digest of that element.
 
 Camera. The wheel and the pinch zoom at the pointer, and a drag moves the map. A
 double-click, or a tap, goes into the card under the pointer. Esc goes out one level, F
@@ -34,6 +36,7 @@ from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
 from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_scene import SCENE
+from systemap.page_canvas_text import TEXT
 
 CSS = """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
@@ -123,11 +126,11 @@ function draw() {
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
   fadeFrame();
-  var portals = portalsOf(CHAIN);
+  var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
-  drawPortals(portals, CHAIN);
-  drawPath(CHAIN);
+  drawPortals(portals, path);
+  drawPath(path);
   drawHelp();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
@@ -373,7 +376,7 @@ window.systemapCanvas = {
   // The bands that the camera fit keeps free, the screen boxes x, y, w, h of the plates of
   // the path and the help line, and the text of the help line.
   layout: function () {
-    return {gutters: gutters(), path: [12, 10, pathParts(CHAIN).total, 38], help: helpPlate(), line: helpLine()};
+    return {gutters: gutters(), path: pathPlate(pathParts(CHAIN)), help: helpPlate(), line: helpLine()};
   },
   moving: function () { return !!flight || !sharp; },
   // The alphas of the last frame: HIDE, and for each large map with an image layer, the
@@ -388,7 +391,7 @@ window.systemapCanvas = {
 };
 """
 
-SCRIPT = "(function(){\n'use strict';\n" + SCENE + DRAW + IMAGE + FADE + _INPUT + "})();\n"
+SCRIPT = "(function(){\n'use strict';\n" + SCENE + DRAW + TEXT + IMAGE + FADE + _INPUT + "})();\n"
 
 # The page embeds the script in a script element. "</" would end the element.
 if "</" in SCRIPT:  # pragma: no cover - a guard for a change of the script text

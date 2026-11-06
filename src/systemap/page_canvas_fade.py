@@ -43,13 +43,13 @@ FADE = r"""
 // A line that is not in a portal of the frame has no value, and the script makes no path
 // for it. `FADING` is true when a value did not get to its target in the frame.
 var FADE = new Map(), FADE_MS = 200, FADE_DT = 40;
-var FADE_LAST = 0, FADE_STEP = 1, FADE_FRAME = 0, FADING = false, FADE_CAM = null, CAM_BEFORE = null;
+var FADE_LAST = 0, FADE_STEP = 1, PORTAL_STEP = 1, FADE_FRAME = 0, FADING = false;
 function lineKey(nb, p, m) { return (m.id || '') + '>' + (nb.map.id || '') + '/' + nb.id + '|' + p.d; }
 function fadeFrame() {
   var now = performance.now(), dt = FADE_LAST ? Math.min(now - FADE_LAST, FADE_DT) : FADE_DT;
   FADE_LAST = now; FADE_FRAME++; FADING = false;
   FADE_STEP = reduced() ? 1 : dt / FADE_MS;
-  CAM_BEFORE = FADE_CAM; FADE_CAM = camCopy();
+  PORTAL_STEP = reduced() ? 1 : Math.min(dt, PORTAL_DT) / PORTAL_MS;
 }
 function portalKey(t) { return t.nb.map.id + '/' + t.nb.id; }
 // A portal does not appear or go at one time. The camera gives the target `show` of a
@@ -67,10 +67,10 @@ function portalKey(t) { return t.nb.map.id + '/' + t.nb.id; }
 // `step` is 1.
 var PORTALS = new Map(), PORTAL_MS = 400, PORTAL_DT = 17;
 function portalFades(list) {
-  var next = new Map(), out = [], step = FADE_STEP < 1 ? Math.min(FADE_STEP * FADE_MS, PORTAL_DT) / PORTAL_MS : 1;
+  var next = new Map(), out = [], step = PORTAL_STEP;
   list.forEach(function (t) {
     var was = PORTALS.get(portalKey(t)), to = t.show;
-    t.show = clamp(to, (was ? was.show : 0) - step, (was ? was.show : 0) + step);
+    t.show = approach(was ? was.show : 0, to, step);
     t.room = Math.min(1, (was ? was.room : 0) + step);
     if (t.show !== to || t.room < 1) FADING = true;
     next.set(portalKey(t), t); out.push(t);
@@ -84,11 +84,12 @@ function portalFades(list) {
   PORTALS = next;
   return out;
 }
-// The paths of a line to draw in this frame, each with its value.
-function fadeOf(key, b, spare) {
-  var s = FADE.get(key);
+// The paths of a line to draw in this frame, each with its value. The record of the line
+// keeps the portal `t` and the line `l` of the frame for `fadeLeft`.
+function fadeOf(key, b, t, l) {
+  var s = FADE.get(key), spare = l.spare;
   if (!s) { s = {c: -1, v: {}}; FADE.set(key, s); }
-  s.frame = FADE_FRAME;
+  s.frame = FADE_FRAME; s.t = t; s.l = l;
   var c = s.c;
   if (spare || !b || b.best < 0) c = -1;
   else if (c < 0 || !b.clear[c] || b.costs[c] > 1.25 * b.costs[b.best] + 40) c = b.best;
@@ -97,7 +98,7 @@ function fadeOf(key, b, spare) {
   if (c >= 0 && !(c in s.v)) ids.push(String(c));
   ids.forEach(function (id) {
     var i = +id, was = s.v[id] || 0, target = i === c ? 1 : 0;
-    var v = was < target ? Math.min(was + step, target) : Math.max(was - step, target);
+    var v = approach(was, target, step);
     if (v !== target) FADING = true;
     if (v <= 0.004 || !b) { delete s.v[id]; return; }
     s.v[id] = v;
@@ -106,10 +107,14 @@ function fadeOf(key, b, spare) {
   if (!out.length && c < 0) FADE.delete(key);
   return out;
 }
-// Draw each line that has a value but no portal in this frame, because the chain changed.
-// It fades out from the portal box of its last frame. Thus it does not go at one time.
+// Draw each line that has a value but that the frame did not draw, because the chain
+// changed. It fades out. Its end is on the portal of the same neighbour in this frame, also
+// when that portal fades out. When there is no such portal, its end stays on the portal
+// box of its last frame. Thus a line does not go at one time.
 function fadeLeft(each) {
-  FADE.forEach(function (s) { if (s.frame !== FADE_FRAME && s.t) each(s.t, {p: s.l.p, m: s.l.m, open: s.l.open, spare: true}); });
+  FADE.forEach(function (s) {
+    if (s.frame !== FADE_FRAME) each(PORTALS.get(portalKey(s.t)) || s.t, Object.assign({}, s.l, {spare: true}));
+  });
 }
 // Remove the values of the lines that the frame did not draw.
 function fadeEnd() {
@@ -118,19 +123,23 @@ function fadeEnd() {
 
 // ---- the layer of the boundary flows -------------------------------------------
 // The boundary flows are under the cards, the texts and the portals. The frame draws them
-// into LAYER, with the resolution of the screen canvas. Then it removes the part of LAYER
-// under each box of OBST, with the opacity of the box. Then it puts LAYER on the screen,
-// before the portals. Only the box LBOX around the lines changes, and the next frame
-// clears that box first. A frame with no line puts nothing of the layer on the screen. A
-// frame with no portal and no line value does not use the layer (`LUSED`).
-var LAYER = null, LG = null, LBOX = null, LCLEAR = null, LUSED = false;
-function layerOpen() {
-  if (!LAYER) { LAYER = document.createElement('canvas'); LG = LAYER.getContext('2d'); }
-  if (LAYER.width !== cv.width || LAYER.height !== cv.height) { LAYER.width = cv.width; LAYER.height = cv.height; LCLEAR = null; }
-  LG.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+// into LAYER, with the resolution of the canvas of the frame (`frameCanvas`). Each of the
+// two canvases has its own layer, thus a start or a stop of the camera makes no new layer.
+// Then the frame removes the part of LAYER under each box of OBST, with the opacity of the
+// box. Then it puts LAYER on the canvas of the frame, before the portals. Only the box LBOX
+// around the lines changes, and the next frame on that canvas clears that box first
+// (`clear`). A frame with no line puts nothing of the layer on the screen. A frame with
+// no portal and no line value does not use the layer (`LUSED`).
+var LAYER = null, LG = null, LBOX = null, LCLEAR = null, LUSED = false, LNOW = null;
+function layerOpen(screen) {
+  var o = screen.canvas, L = screen._layer;
+  if (!L) { L = screen._layer = {c: document.createElement('canvas'), clear: null}; L.g = L.c.getContext('2d'); }
+  if (L.c.width !== o.width || L.c.height !== o.height) { L.c.width = o.width; L.c.height = o.height; L.clear = null; }
+  LNOW = L; LAYER = L.c; LG = L.g;
+  LG.setTransform(o.width / W, 0, 0, o.height / H, 0, 0);
   LG.globalCompositeOperation = 'source-over'; LG.globalAlpha = 1;
-  if (LCLEAR) LG.clearRect(LCLEAR[0], LCLEAR[1], LCLEAR[2] - LCLEAR[0], LCLEAR[3] - LCLEAR[1]);
-  LCLEAR = null; LBOX = null;
+  if (L.clear) LG.clearRect(L.clear[0], L.clear[1], L.clear[2] - L.clear[0], L.clear[3] - L.clear[1]);
+  L.clear = LCLEAR = null; LBOX = null;
   return LG;
 }
 // Make LBOX larger, so that it holds the points of a line and `pad` pixels around them.
@@ -139,11 +148,12 @@ function layerHold(pts, pad) {
   pts.forEach(function (p) { b[0] = Math.min(b[0], p[0] - pad); b[1] = Math.min(b[1], p[1] - pad); b[2] = Math.max(b[2], p[0] + pad); b[3] = Math.max(b[3], p[1] + pad); });
   LBOX = b;
 }
-// Remove the part of the layer under the boxes, and put the layer on the screen.
+// Remove the part of the layer under the boxes, and put the layer on the canvas of the
+// frame, which has the size of the layer.
 function layerClose() {
   var b = LBOX;
   if (!b) return;
-  b = LCLEAR = [Math.max(0, Math.floor(b[0])), Math.max(0, Math.floor(b[1])), Math.min(W, Math.ceil(b[2])), Math.min(H, Math.ceil(b[3]))];
+  b = LNOW.clear = LCLEAR = [Math.max(0, Math.floor(b[0])), Math.max(0, Math.floor(b[1])), Math.min(W, Math.ceil(b[2])), Math.min(H, Math.ceil(b[3]))];
   if (b[2] <= b[0] || b[3] <= b[1]) return;
   LG.globalCompositeOperation = 'destination-out'; LG.globalAlpha = 1; LG.fillStyle = '#000'; LG.beginPath();
   for (var i = 0; i < NOBST; i += OB) {
@@ -153,8 +163,8 @@ function layerClose() {
     else { LG.globalAlpha = al; LG.fillRect(x0, y0, x1 - x0, y1 - y0); LG.globalAlpha = 1; }
   }
   LG.fill(); LG.globalCompositeOperation = 'source-over';
-  var sx = cv.width / W, sy = cv.height / H, px = Math.floor(b[0] * sx), py = Math.floor(b[1] * sy);
-  var pw = Math.min(cv.width, Math.ceil(b[2] * sx)) - px, ph = Math.min(cv.height, Math.ceil(b[3] * sy)) - py;
+  var sx = LAYER.width / W, sy = LAYER.height / H, px = Math.floor(b[0] * sx), py = Math.floor(b[1] * sy);
+  var pw = Math.min(LAYER.width, Math.ceil(b[2] * sx)) - px, ph = Math.min(LAYER.height, Math.ceil(b[3] * sy)) - py;
   if (pw <= 0 || ph <= 0) return;
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
   ctx.drawImage(LAYER, px, py, pw, ph, px, py, pw, ph); ctx.restore();

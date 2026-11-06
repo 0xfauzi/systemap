@@ -88,7 +88,13 @@ function readyImage(m, key) {
 // Thus the change between the images and the normal drawing occurs in that part of the
 // zoom, where the frame draws the normal drawing also without images. That image has
 // a little less than one pixel for each pixel of the frame (2 to the power -MAP_OVER / 2).
-var MAP_OVER = 0.5;
+// In that part, a frame draws the normal drawing and the image, which is the most
+// expensive frame of a large map. Thus the part is short (an eighth of a step of zoom),
+// and the layer fades more quickly than the other fades (IMAGE_MS). While the camera
+// zooms, the layer follows the zoom. Thus a slower zoom gives more of these frames.
+// MARKS_OVER is the part of a step before the end of the marks, where the images fade
+// in over the marks image while the zoom goes in (`drawMap`).
+var MAP_OVER = 0.25, MARKS_OVER = 0.5;
 function tooLarge(m, z) { var r = imageSize(m, z); return r.w * r.h > MAP_PX || r.w > IMG_MAX || r.h > IMG_MAX; }
 function mapImage(m, a) {
   if (!isLeaf(m)) return null;
@@ -104,11 +110,11 @@ function mapImage(m, a) {
 // The boxes of the normal drawing that cover a boundary flow: the cards on the screen, the
 // plates of the flow labels and the names of the boxes. Give the card count.
 function mapObstacles(m, a, ox, oy, box, alpha) {
-  var cards = m.cardIndex.query(box[0], box[1], box[2], box[3], []), fs = labelSize(a);
+  var cards = m.cardIndex.query(box[0], box[1], box[2], box[3], []), fs = labelSize(a), la = labelAlpha(a, alpha), na = nameAlpha(a, alpha);
   cards.forEach(function (c) { obstacle(ox + a * c.b[0], oy + a * c.b[1], a * c.b[2], a * c.b[3], 1, alpha); });
-  if (hasLabels(fs, alpha)) plates(m.flowIndex.query(box[0], box[1], box[2], box[3], []), a, ox, oy, fs, function (x, y, w, h) { obstacle(x, y, w, h, 1, alpha); });
-  if (fs < MIN_TEXT || alpha <= 0.02) return cards.length;
-  boxNames(m, a, ox, oy, function (s, x, y) { if (s) textBox(s, x, y, fs, 600, false, '', alpha); });
+  if (hasLabels(fs, la)) plates(m.flowIndex.query(box[0], box[1], box[2], box[3], []), a, ox, oy, fs, function (x, y, w, h) { obstacle(x, y, w, h, 1, la); });
+  if (fs < MIN_TEXT || na <= 0.02) return cards.length;
+  boxNames(m, a, ox, oy, function (s, x, y) { if (s) textBox(s, x, y, fs, 600, false, '', na); });
   return cards.length;
 }
 // The parts of an image in the order of the normal drawing: the boxes, the flows in
@@ -196,26 +202,31 @@ function makeImages(began) {
 //   an image of the scale is complete (to `v` of `mapImage` above the highest step), and to
 //   0 in all other frames. While the value is between 0 and 1, the frame draws the normal
 //   drawing and the images over it. Thus the two drawings are in the same frames only
-//   during a fade. A fade out uses the last images. After a stop, the fade of the next
+//   during a fade: 5 frames or more at 60 frames each second, and above the highest step
+//   for as long as the zoom stays in the part MAP_OVER. A fade out uses the last images. After a stop, the fade of the next
 //   part removes the images and HIDE.
 // - In the layer, each image has a weight that goes to its part of `mapImage`. Its part of
 //   the result is `m._ia` times its weight, divided by the sum of the weights. Thus an image
 //   that becomes complete fades in, and the higher image of a step becomes the lower image
 //   of the next step with no change.
-// - A value or a weight changes by 1 in SPEED_MS or more, and by SPEED_MAX or less in one
-//   frame. With reduced motion, each one goes to its target at once.
+// - HIDE changes by 1 in SPEED_MS or more. The image layer and the weights change by 1 in
+//   IMAGE_MS or more, because a frame of a fade between the images and the normal drawing
+//   draws both. Each value changes by SPEED_MAX or less in one frame. With reduced motion,
+//   each one goes to its target at once.
 // `SPEED_FADING` is true when a value did not get to its target in the frame.
-var HIDE = 0, SPEED_MS = 160, SPEED_MAX = 0.2, SPEED_STEP = 1, SPEED_LAST = 0, SPEED_FADING = false, LAYERS = [];
+var HIDE = 0, SPEED_MS = 160, IMAGE_MS = 80, SPEED_MAX = 0.2, SPEED_STEP = 1, IMAGE_STEP = 1, SPEED_LAST = 0, SPEED_FADING = false, LAYERS = [];
+function speedStep(dt, ms) { return Math.min(SPEED_MAX, dt / ms); }
 function speedFrame() {
   var now = performance.now(), dt = SPEED_LAST ? now - SPEED_LAST : Infinity;
   SPEED_LAST = now; SPEED_FADING = false; LAYERS = [];
-  SPEED_STEP = reduced() ? 1 : Math.min(SPEED_MAX, dt / SPEED_MS);
-  HIDE = toward(HIDE, sharp ? 0 : 1);
+  SPEED_STEP = reduced() ? 1 : speedStep(dt, SPEED_MS);
+  IMAGE_STEP = reduced() ? 1 : speedStep(dt, IMAGE_MS);
+  HIDE = toward(HIDE, sharp ? 0 : 1, SPEED_STEP);
   if (cam.k > ZOOM_K && ZOOM_K) ZOOM_UP = now;
   ZOOM_K = cam.k;
 }
-function toward(v, to) {
-  var n = v < to ? Math.min(to, v + SPEED_STEP) : Math.max(to, v - SPEED_STEP);
+function toward(v, to, step) {
+  var n = approach(v, to, step);
   if (n !== to) SPEED_FADING = true;
   return n;
 }
@@ -226,14 +237,14 @@ function imageLayer(m, a, ask, use) {
   var asked = ask ? mapImage(m, a) : null, parts = use ? asked : null, list = m._iaAt === drawn - 1 && m._iw || [], sum = 0;
   if (m._iaAt !== drawn - 1) m._ia = 0;
   m._iaAt = drawn;
-  m._ia = toward(m._ia, parts ? (parts.v === undefined ? 1 : parts.v) : 0);
+  m._ia = toward(m._ia, parts ? (parts.v === undefined ? 1 : parts.v) : 0, IMAGE_STEP);
   // Without images of the scale, the weights do not change, and only the layer fades out.
   if (parts) {
     parts.forEach(function (p) { if (!list.some(function (e) { return e.img === p[0]; })) list.push({img: p[0], w: 0}); });
     list = list.filter(function (e) {
       var to = 0;
       parts.forEach(function (p) { if (p[0] === e.img) to = p[1]; });
-      e.w = toward(e.w, to);
+      e.w = toward(e.w, to, IMAGE_STEP);
       return e.w > 0 || to > 0;
     });
   }
@@ -302,7 +313,7 @@ function stillFrame(st) {
   if (STILL !== st) return;
   var now = performance.now(), dt = st.last ? now - st.last : Infinity;
   st.last = now;
-  st.s = Math.min(1, st.s + Math.min(SPEED_MAX, dt / SPEED_MS));
+  st.s = Math.min(1, st.s + speedStep(dt, SPEED_MS));
   STILL_CV.style.opacity = String(1 - st.s);
   if (LOG) LOG.push({at: now, ms: performance.now() - now, sharp: true, fine: st.s >= 1, hide: (1 - st.s) * st.was.hide, images: keptLayers(st.was.layers, 1 - st.s)});
   if (st.s < 1) { requestAnimationFrame(function () { stillFrame(st); }); return; }

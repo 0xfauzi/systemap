@@ -337,8 +337,8 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="a682dec3aabd9c90ae1c784da8eeff8e73c63df2f570ea315a70ad352ae3ea40",
-        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. With [render] canvas = true, makes the canvas page in place of the linked pages: one canvas element for all maps of the tree, with the data object one time. The page of each nested map then goes to the canvas page with the map ID in the URL hash. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves. While the camera moves, it can draw a large map from images of the full map, which it makes in slices in the free time of the frames. Each boundary flow fades in and out with the camera.",
+        source_review="31e03ea5df452d8aab3ddd2c9a685d8bfdf697ab3eed678c312fda7188dd4f0e",
+        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. With [render] canvas = true, makes the canvas page in place of the linked pages: one canvas element for all maps of the tree, with the data object one time. The page of each nested map then goes to the canvas page with the map ID in the URL hash. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves. While the camera moves, it can draw a large map from images of the full map, which it makes in slices in the free time of the frames. Each boundary flow fades in and out with the camera, and the text of each card fades in and out with the zoom.",
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
             "systemap.page",
@@ -371,6 +371,7 @@ COMPONENTS = (
             "systemap.page_canvas_draw",
             "systemap.page_canvas_image",
             "systemap.page_canvas_fade",
+            "systemap.page_canvas_text",
         ),
         entry="build",
         region="draw",

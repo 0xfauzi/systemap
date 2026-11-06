@@ -54,6 +54,8 @@ var IMG_MAX = 4096;
 function camCopy() { return {x: cam.x, y: cam.y, k: cam.k}; }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function smooth(a, b, v) { var t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+// The value v moved toward `to` by `step` or less.
+function approach(v, to, step) { return v < to ? Math.min(to, v + step) : Math.max(to, v - step); }
 
 // ---- the index of boxes -------------------------------------------------
 var STAMP = 0;
@@ -186,14 +188,14 @@ function fit(text, size, width, weight, mono) {
   }
   return lo ? text.slice(0, lo) + '...' : '';
 }
-// The lines of a text at a font size, in a width, with a maximum count of lines. A card
-// keeps the result for each text, count of columns and count of lines. A column is half
-// of the font size, so the lines in a count of columns are the same at each size.
-function wrap(c, name, text, size, width, lines, weight) {
-  var cols = Math.floor(width / size * 2), key = name + '|' + cols + '|' + lines;
+// The lines of a text at a font size, in a count of columns, with a maximum count of
+// lines. A column is half of the font size, so the lines in a count of columns are the
+// same at each size. A card keeps the result for each text, count of columns and count of
+// lines.
+function wrap(c, name, text, size, cols, lines, weight) {
+  var key = name + '|' + cols + '|' + lines, width = cols * size / 2;
   c._wrap = c._wrap || new Map();
   if (c._wrap.has(key)) return c._wrap.get(key);
-  width = cols * size / 2;
   var words = String(text).split(/\s+/).filter(Boolean), out = [], cur = '', curW = 0, space = unitWidth(' ', weight) * size;
   var i = 0;
   for (; i < words.length; i++) {

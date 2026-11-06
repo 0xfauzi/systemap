@@ -213,7 +213,9 @@ async function links(file, ids) {
 // an alpha between two frames, where a path that is not drawn has the alpha 0. A problem is
 // a pixel of the layer of the lines (`systemapCanvas.layer`) with an alpha more than 0 in a
 // card that is not open, 2 pixels or more in from the edge of its box. The page puts that
-// layer on the screen with no other change, thus such a pixel is a line pixel over a card.
+// layer on the canvas of the frame with no other change, thus such a pixel is a line pixel
+// over a card. A layer that does not have the size of the canvas of the frame is also a
+// problem: while the camera moves, that canvas has half the resolution.
 // `under` counts the drawn paths that go into a card that is not open. The card covers them.
 async function fade(file, ids, small) {
   const browser = await chromium.launch();
@@ -239,8 +241,9 @@ async function fade(file, ids, small) {
       const r = { from, to, zoom: [za, zb], frames: 0, drawn: 0, under: 0, worst: 0, where: '', checked: 0, problems: [] };
       // The pixels of the layer with an alpha more than 0 in the inside of a card box.
       const pixels = (cards) => {
-        const L = S.layer();
+        const L = S.layer(), screen = S.stats().width;
         if (!L) return;
+        if (L.canvas.width !== screen) r.problems.push(r.frames + ' layer ' + L.canvas.width + ' px wide on a canvas of ' + screen + ' px');
         const sx = L.canvas.width / W, sy = L.canvas.height / H, g = L.canvas.getContext('2d');
         const x0 = Math.floor(L.box[0] * sx), y0 = Math.floor(L.box[1] * sy);
         const w = Math.ceil(L.box[2] * sx) - x0, h = Math.ceil(L.box[3] * sy) - y0;
