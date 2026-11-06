@@ -182,7 +182,7 @@ def _gaps(spans: list[tuple[float, float]], lo: float, hi: float) -> list[tuple[
     return out
 
 
-def _crosses(a: Point, b: Point, box: Box) -> bool:
+def crosses(a: Point, b: Point, box: Box) -> bool:
     """Tell if the horizontal or vertical segment from a to b goes into the box interior.
 
     `check.check_routes` uses the same comparison for a drawn route.
@@ -271,7 +271,7 @@ class Router:
     def _inside(self, box: Box) -> list[int]:
         """Give the grid segments that go into the interior of the box.
 
-        The comparisons are the comparisons of _crosses, with bisect for the ranges.
+        The comparisons are the comparisons of crosses, with bisect for the ranges.
         """
         bx, by, bw, bh = box
         xs, ys, number = self.xs, self.ys, self.grid.number
@@ -353,7 +353,7 @@ class Router:
 
     def _on(self, a: Point, b: Point) -> set[str]:
         """Give the regions whose interior the segment from a to b crosses."""
-        return {rid for rid, box in self.regions.items() if _crosses(a, b, box)}
+        return {rid for rid, box in self.regions.items() if crosses(a, b, box)}
 
     def _segment(self, orient: int, key: tuple[int, int]) -> set[str]:
         """Give the regions whose interior the grid segment crosses. Keep the result."""

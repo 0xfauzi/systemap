@@ -90,6 +90,19 @@ Acceptance values:
     frame again. Each card of the open map has its name in its box, at 8.5 px or more and
     with the alpha 1. The name can be cut with three dots. The box of a name does not
     overlap the box of a different text by more than 0.5 pixels.
+18. An input in a flight stops the flight or changes its end. On a screen of 1440 x 900
+    pixels without reduced motion, F starts a flight to the fit of the top map. An arrow key
+    in that flight stops the flight: 1 s later, the camera is not at the fit. A change of
+    the screen size to 900 x 1440 pixels in that flight changes its end: 2 s later, the
+    camera is at the fit of the top map on the new screen.
+19. A gesture with two fingers is not a tap. A tap with two fingers on the card Gateway,
+    with no move, does not go into the map Gateway. After a pinch, the finger that stays
+    down moves the map: a move of 100 pixels moves the camera by 100 pixels.
+20. A card does not open a map that has no area. When the map Gateway has the size 0 x 0,
+    the hash #Gateway and a double-click on the card Gateway give a camera with finite
+    values. The page has no script error.
+21. The fade of the count of text columns of a card starts again when the frame before did
+    not draw the card. The test runs the function `colFade` of the page script in Node.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -99,7 +112,9 @@ from __future__ import annotations
 import functools
 import itertools
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -109,26 +124,34 @@ import pytest
 from test_canvas_frames import _bench
 from test_canvas_page import _made
 
+from systemap import page_canvas_text
+
 ROOT = Path(__file__).resolve().parent
 DRIVER = ROOT / "canvas_driver.js"
 
 
 @functools.cache
-def _started() -> str | None:
-    """Give the Node command if Playwright can start Chromium. The probe runs one time."""
+def _started() -> tuple[str | None, str]:
+    """Give the Node command if Playwright can start Chromium. The probe runs one time.
+
+    When the probe fails, give None and the error text of the probe."""
     node = shutil.which("node")
     if node is None:
-        return None
-    probe = subprocess.run([node, str(DRIVER), "--probe"], capture_output=True, timeout=120)
-    return node if probe.returncode == 0 else None
+        return None, "The node command is not on the PATH."
+    probe = subprocess.run(
+        [node, str(DRIVER), "--probe"], capture_output=True, text=True, timeout=120
+    )
+    if probe.returncode != 0:
+        return None, (probe.stderr or probe.stdout).strip()
+    return node, ""
 
 
 def browser() -> str:
     """Give the Node command, or skip the test when Playwright cannot start Chromium."""
-    node = _started()
+    node, why = _started()
     if node is None:
         if os.environ.get("SYSTEMAP_BROWSER_TESTS") == "required":
-            pytest.fail("Node with the Playwright package and Chromium is necessary.")
+            pytest.fail("Node with the Playwright package and Chromium is necessary. " + why)
         pytest.skip("the canvas tests need Node with the Playwright package and Chromium")
     return node
 
@@ -400,3 +423,61 @@ def test_the_names_are_clear_at_the_fit(tree: Path) -> None:
     assert sum(m["cards"] for m in maps) == 2000
     for fit in maps:
         assert fit["problems"] == [], fit
+
+
+def test_an_input_in_a_flight(canvas: Path) -> None:
+    """Acceptance 18 and 19."""
+    found = drive(canvas, "--input")
+    arrow, resize = found["arrow"], found["resize"]
+    assert abs(arrow["camera"]["k"] / arrow["fit"]["k"] - 1) > 0.01, arrow
+    for key in ("x", "y", "k"):
+        assert resize["camera"][key] == pytest.approx(resize["fit"][key], rel=1e-3, abs=0.5)
+    assert found["tap"]["chain"] == [], found["tap"]
+    before, after = found["pinch"]["before"], found["pinch"]["after"]
+    assert (after["x"] - before["x"]) * before["k"] == pytest.approx(100, abs=1), found["pinch"]
+
+
+def test_a_card_does_not_open_a_map_with_no_area(canvas: Path, tmp_path: Path) -> None:
+    """Acceptance 20."""
+    html = canvas.read_text(encoding="utf-8")
+    found = re.search(r'id="canvas-data">(.*?)</script>', html, re.S)
+    assert found is not None
+    data = json.loads(found.group(1))
+    for m in data["maps"]:
+        if m["id"] == "Gateway":
+            m["size"] = [0, 0]
+    page = _bench().write_page(data, tmp_path / "empty.html")
+    out = drive(page, "--empty")
+    assert out["errors"] == []
+    for camera in (out["linked"]["camera"], out["entered"]["camera"]):
+        assert all(isinstance(v, float | int) and math.isfinite(v) for v in camera.values())
+
+
+COL_FADE = """
+var PAGE_CTX = {}, STILL_CTX = {}, ctx = PAGE_CTX, drawn = 0, SPEED_STEP = 0.2;
+function toward(v, to, step) { return Math.min(to, v + step); }
+%s
+var c = {}, out = [];
+for (drawn = 0; drawn < 10; drawn++) colFade(c, 'd', 6);
+drawn = 50;
+out.push(Object.assign({}, colFade(c, 'd', 14)));
+drawn = 51;
+out.push(Object.assign({}, colFade(c, 'd', 20)));
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def test_the_column_fade_starts_again_after_a_gap() -> None:
+    """Acceptance 21."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("the test needs Node")
+    found = re.search(r"function colFade\(.*?\n\}\n", page_canvas_text.TEXT, re.S)
+    assert found is not None
+    proc = subprocess.run(
+        [node, "-e", COL_FADE % found.group(0)], capture_output=True, text=True, timeout=60
+    )
+    assert proc.returncode == 0, proc.stderr
+    back, changed = json.loads(proc.stdout)
+    assert (back["k"], back["from"], back["f"]) == (14, 14, 1)
+    assert (changed["k"], changed["from"], changed["f"]) == (20, 14, 0.2)

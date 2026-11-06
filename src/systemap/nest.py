@@ -7,7 +7,7 @@ ancestor model.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,7 +16,7 @@ from urllib.parse import quote
 from systemap import repo_files
 from systemap import theme as theme_mod
 from systemap.config import ArgumentError, Config, ConfigError, load_model
-from systemap.model import Component, Meaning, Model, all_layers
+from systemap.model import Component, Layer, Meaning, Model, all_layers
 
 # Past this many cards a single map stops working; `systemap suggest`
 # says so and names the cards to open.
@@ -159,7 +159,7 @@ def load(cfg: Config, only: str | None = None) -> Tree:
             "repository."
         )
     model, meaning = load_model(cfg.model_path, cfg.model, cfg.root)
-    theme = _theme(cfg, model, meaning)
+    theme = theme_of(cfg, all_layers(model, meaning))
     top = Map("", cfg.model_path, cfg.model, model, meaning, theme, None, "", cfg.root)
     maps = [top]
     loaded = {top.path.resolve(): top.id}
@@ -201,9 +201,10 @@ def _not_opened(m: Map, map_id: str, card: str) -> ArgumentError:
     )
 
 
-def _theme(cfg: Config, model: Model, meaning: Meaning) -> dict[str, Any]:
+def theme_of(cfg: Config, layers: Iterable[Layer]) -> dict[str, Any]:
+    """Give the theme of the configuration, with one color for each layer."""
     try:
-        return theme_mod.resolve(cfg.theme, all_layers(model, meaning))
+        return theme_mod.resolve(cfg.theme, layers)
     except ValueError as exc:
         raise ConfigError(f"{cfg.source or 'theme'}: {exc}") from exc
 
@@ -250,7 +251,7 @@ def _child(
     model, meaning = load_model(path, rel, cfg.root)
     child_id = _child_id(parent, c.id)
     loaded[path] = child_id
-    theme = _theme(cfg, model, meaning)
+    theme = theme_of(cfg, all_layers(model, meaning))
     return Map(child_id, path, rel, model, meaning, theme, parent.id, c.id, cfg.root)
 
 

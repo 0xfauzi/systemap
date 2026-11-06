@@ -46,9 +46,9 @@ The keys of a map:
   component that has no actor in the map), `d` ("in" or "out" of the map), and `pf` (the
   indexes of the parent flows between the opening card and the actor, in the same
   direction). A port of a nested flow also has `i` (the internal component), `f` (the
-  flow index), `at` (the end point of the route), and `sd` (the side of the actor
-  card). It can also have `fp`: two points, from the middle of a side of the actor card
-  to the frame of the map, in a straight line that crosses no other card. The page draws
+  flow index) and `at` (the end point of the route). It can also have `fp`: two points,
+  from the middle of a side of the actor card to the frame of the map, in a straight
+  line that crosses no other card. The page draws
   the boundary flow from the portal to the frame, then along `fp` to the actor card, and
   then along the route of the nested flow. A port without `fp` has no side for this line.
   `n` gives the `boundary flow` and `boundary import` lines of the port. A line that has
@@ -66,7 +66,7 @@ and its flow to Auth in the top map, and a port of the map inside Gateway.
      "l": "data", "lb": [307.8, 167.4, 36.5, 13], "p": [[297, 212], [326, 212],
      [326, 152], [337, 152]], "s": "Gateway", "t": "Auth"}
     {"at": [186, 136], "d": "out", "f": 0, "fp": [[36, 136], [0, 136]], "i": "Routes",
-     "pf": [0], "sd": "right", "x": "Auth"}
+     "pf": [0], "x": "Auth"}
 """
 
 from __future__ import annotations
@@ -87,7 +87,7 @@ from systemap.model import (
     claimed,
     reading,
 )
-from systemap.schematic import Placed, Route, flow_routes, geometry
+from systemap.schematic import Box, Placed, Point, Route, crosses, flow_routes, geometry
 
 VERSION = 1
 
@@ -184,21 +184,6 @@ def _parent_flows(parent: Model, card: str, other: str, way: str) -> list[int]:
     return [i for i, f in enumerate(parent.flows) if f.edge == edge]
 
 
-Box = tuple[float, float, float, float]
-Point = tuple[float, float]
-
-
-def _crosses(a: Point, b: Point, box: Box) -> bool:
-    """Tell if the line from `a` to `b`, with the same x or the same y, goes into the box."""
-    bx, by, bw, bh = box
-    return (
-        min(a[0], b[0]) < bx + bw
-        and max(a[0], b[0]) > bx
-        and min(a[1], b[1]) < by + bh
-        and max(a[1], b[1]) > by
-    )
-
-
 def _frame_path(
     actor: str, boxes: Mapping[str, Box], size: Point, used: str
 ) -> list[list[float | int]]:
@@ -218,7 +203,7 @@ def _frame_path(
         (abs(b[0] - a[0]) + abs(b[1] - a[1]), a, b)
         for side, (a, b) in sides.items()
         if side != used
-        and not any(_crosses(a, b, box) for cid, box in boxes.items() if cid != actor)
+        and not any(crosses(a, b, box) for cid, box in boxes.items() if cid != actor)
     ]
     if not clear:
         return []
@@ -259,7 +244,6 @@ def _flow_ports(
                 "f": i,
                 "pf": _parent_flows(parent, m.card, other, way),
                 "at": _box(end),
-                "sd": side,
                 **_some(
                     fp=_frame_path(other, boxes, size, side),
                     n=lines.pop((inner, other, way), []),

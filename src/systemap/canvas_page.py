@@ -20,7 +20,7 @@ from urllib.parse import quote
 
 from systemap import canvas_data, nest, page, page_csp, page_font
 from systemap import theme as theme_mod
-from systemap.config import Config, ConfigError
+from systemap.config import Config
 from systemap.model import all_layers
 from systemap.page_canvas import CSS, SCRIPT
 
@@ -44,10 +44,7 @@ def tree_theme(cfg: Config, tree: nest.Tree) -> dict[str, Any]:
 
     The layers of the top map come first. Thus they have the colors of the top page."""
     layers = {layer.id: layer for m in tree.maps for layer in all_layers(m.model, m.meaning)}
-    try:
-        return theme_mod.resolve(cfg.theme, layers.values())
-    except ValueError as exc:
-        raise ConfigError(f"{cfg.source or 'theme'}: {exc}") from exc
+    return nest.theme_of(cfg, layers.values())
 
 
 def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
@@ -77,8 +74,9 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
 
 def target(m: nest.Map) -> str:
     """Give the URL of the top page with the hash of the map, relative to the page of `m`."""
-    up = "../" * len(m.id.split("/")) if m.id else ""
-    return f"{up}index.html#{quote(m.id, safe='/')}" if m.id else "index.html"
+    if not m.id:
+        return "index.html"
+    return "../" * (m.id.count("/") + 1) + "index.html#" + quote(m.id, safe="/")
 
 
 def redirect(m: nest.Map) -> str:

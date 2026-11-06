@@ -24,14 +24,13 @@ def page_change(
     base: str,
     head: str,
     source: change.SourceChange | None,
-    pr: dict[str, Any] | None = None,
+    pr: dict[str, Any],
 ) -> ChangeOf:
     """Give the function for the change data of a map page, relative to the revision `base`."""
 
     def of(m: nest.Map) -> dict[str, Any]:
         ch = change.for_page(cfg, m, base, facts, head, source)
-        if pr is not None:
-            ch["pr"] = pr
+        ch["pr"] = pr
         return ch
 
     return of
@@ -46,11 +45,9 @@ def pages(
 ) -> list[tuple[nest.Map, str]]:
     """Give each map of the tree with the text of its page, in tree order.
 
-    A map in `skip` gets an empty text in place of its linked page."""
+    A map in `skip` has no item."""
 
     def linked(m: nest.Map) -> str:
-        if m.id in skip:
-            return ""
         return page.build(
             cfg,
             m.model,
@@ -62,6 +59,6 @@ def pages(
         )
 
     if not cfg.render_canvas:
-        return [(m, linked(m)) for m in tree.maps]
+        return [(m, linked(m)) for m in tree.maps if m.id not in skip]
     changes = {m.id: change_of(m) for m in tree.maps} if change_of else None
     return canvas_page.pages(cfg, tree, facts, changes)

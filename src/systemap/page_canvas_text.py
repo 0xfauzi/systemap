@@ -117,10 +117,13 @@ function block(c, name, s, x, y, room, most, fs, cols, lh, color, alpha) {
 // The count of columns of a text of a card goes from `from` to `k`, with the weight `f` of
 // `k`. When the count changes, the weight goes from 0 to 1 at the speed of HIDE (`toward`).
 // A change of the count occurs when the font size stays at a limit while the card grows or
-// becomes smaller. The text of an image of a map (`drawSlice`) has no fade.
+// becomes smaller. The text of an image of a map (`drawSlice`) has no fade. A card that the
+// frame before did not draw starts again with no fade (`at`).
 function colFade(c, name, k) {
   if (ctx !== PAGE_CTX && ctx !== STILL_CTX) return {from: k, f: 1};
-  var key = '_cols' + name, st = c[key] || (c[key] = {k: k, from: k, f: 1});
+  var key = '_cols' + name, st = c[key];
+  if (!st || st.at < drawn - 1) st = c[key] = {k: k, from: k, f: 1};
+  st.at = drawn;
   if (st.k !== k) { st.from = st.f >= 0.5 ? st.k : st.from; st.k = k; st.f = 0; }
   st.f = toward(st.f, 1, SPEED_STEP);
   return st;

@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --empty]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -560,11 +560,82 @@ async function names(file) {
   return { maps: out };
 }
 
+// --input: the camera input during a flight and with two fingers, on a screen of 1440 x
+// 900 pixels without reduced motion. CARD is a card of the top map that opens a map.
+// `arrow`: the camera 1 s after F and then ArrowRight in the flight, and the fit. `resize`:
+// the camera 2 s after F and then a change of the screen size in the flight, and the fit on
+// the new screen. `tap`: the chain after a tap with two fingers on CARD. `pinch`: the
+// camera before and after a move of 100 pixels of the finger that stays after a pinch.
+// A touch point is [x, y, id]. A touchEnd gives the points that go up.
+const touch = (cdp, type, points) => cdp.send('Input.dispatchTouchEvent', {
+  type, touchPoints: points.map(([x, y, id]) => ({ x, y, id })),
+});
+async function input(file, card) {
+  const browser = await chromium.launch(), out = {};
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference', hasTouch: true });
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  const away = () => page.evaluate(() => { const S = window.systemapCanvas, c = S.camera(); S.view({ x: c.x, y: c.y, k: c.k / 3 }); });
+  await page.goto('file://' + file);
+  await settle(page);
+  await away();
+  await page.keyboard.press('f');
+  await page.waitForTimeout(60);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(1000);
+  out.arrow = { camera: (await state(page)).camera, fit: await page.evaluate(() => window.systemapCanvas.fit('')) };
+  await away();
+  await page.keyboard.press('f');
+  await page.waitForTimeout(60);
+  await page.setViewportSize({ width: 900, height: 1440 });
+  await page.waitForTimeout(2000);
+  out.resize = { camera: (await state(page)).camera, fit: await page.evaluate(() => window.systemapCanvas.fit('')) };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => window.systemapCanvas.view(window.systemapCanvas.fit('')));
+  await settle(page);
+  const [cx, cy] = centre(await page.evaluate((id) => window.systemapCanvas.box('', id), card));
+  await touch(cdp, 'touchStart', [[cx - 10, cy, 0], [cx + 10, cy, 1]]);
+  await touch(cdp, 'touchEnd', [[cx - 10, cy, 0]]);
+  await touch(cdp, 'touchEnd', [[cx + 10, cy, 1]]);
+  await page.waitForTimeout(2000);
+  out.tap = await state(page);
+  await touch(cdp, 'touchStart', [[600, 400, 0], [700, 400, 1]]);
+  await touch(cdp, 'touchMove', [[600, 400, 0], [720, 400, 1]]);
+  await touch(cdp, 'touchEnd', [[720, 400, 1]]);
+  await page.waitForTimeout(100);
+  const before = (await state(page)).camera;
+  for (let i = 1; i <= 5; i++) await touch(cdp, 'touchMove', [[600 - 20 * i, 400, 0]]);
+  await touch(cdp, 'touchEnd', [[500, 400, 0]]);
+  await page.waitForTimeout(100);
+  out.pinch = { before, after: (await state(page)).camera };
+  await browser.close();
+  return out;
+}
+
+// --empty: CARD opens a map with no area. The camera after a link with the hash of CARD,
+// and after a double-click on CARD, with reduced motion.
+async function empty(file, card) {
+  const browser = await chromium.launch(), out = { errors: [] };
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => out.errors.push(String(e)));
+  await page.goto('file://' + file + '#' + encodeURIComponent(card));
+  await settle(page);
+  out.linked = await state(page);
+  await page.mouse.dblclick(...centre(await page.evaluate((id) => window.systemapCanvas.box('', id), card)));
+  await settle(page);
+  out.entered = await state(page);
+  await browser.close();
+  return out;
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
   const small = process.argv.includes('--phone');
-  const out = process.argv.includes('--layout') ? await layout(file)
+  const out = process.argv.includes('--input') ? await input(file, card)
+    : process.argv.includes('--empty') ? await empty(file, card)
+    : process.argv.includes('--layout') ? await layout(file)
     : process.argv.includes('--clear') ? await clearFits(file)
     : process.argv.includes('--rest') ? await rest(file, card)
     : process.argv.includes('--names') ? await names(file)

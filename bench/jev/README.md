@@ -5548,6 +5548,42 @@ The probes of the last view check (`view.js` and `motion.js`), with the pages of
 - The self-map at 390 x 844 in dark: the names are now on the dark card color, not on the light gray mark color. At the M11 fits at 1440 x 900, the cards have more of the card color. At 844 x 390, the M11 cards are 12.4 px to 15.8 px high. They stay marks, with names at 7 px and an alpha of 0.10 or less.
 - Information: at the fit of P0/Q1/Deep at 1440 x 900, the probe found the portal A0 under the portal P1 at the bottom right, in some runs of A (ebfef73) and of B. The result changes with the order of the views. This change does not move the portals. Thus this result is not from this change. A measurement of the portal places at rest is necessary to find the cause.
 
+### K10: one run after the fixes of the fifth review
+
+The fixes of the renderer: a card does not open a map with no area, an arrow key stops a flight, a change of the screen size in a flight changes the end of the flight, a gesture with two fingers is not a tap, the finger that stays after a pinch moves the map, and the column fade of a card starts again after a frame that did not draw the card. These fixes change only the input and the text fade. The frame scenarios have no such input.
+
+`uv run python bench/jev/canvas_frames.py`, one run, on 2026-11-06 at 20:45 UTC. The code is e3452ce with the fixes. Before the run, no chrome, node or pytest process ran for 30 s. The load average (1 minute) was 0.13. The host has 4 cores. The acceptance values are the values of the docstring of `canvas_frames.py`.
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 276 ms | | | information |
+| M11 shape | C3 load | 4x | 315 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.8 | 33.2 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.8 | 50.0 | pass |
+| M11 tree | dive | 4x | 16.7 | 33.3 | 50.0 | pass |
+| 400 cards | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| 400 cards | dive | 4x | 16.7 | 33.3 | 50.0 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.7 | 33.2 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.8 | 50.0 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 tree | C3 load | 1x | 89 ms | | | pass |
+| M11 shape | C3 load | 1x | 76 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+
+Results:
+- Each scenario passes. The largest p95 is 33.3 ms at 4x and 16.8 ms at 1x.
+- Information: the 400-card dive and the M11 tree dive at 4x had a p95 of 33.3 ms. This is the last value in the limit. K6 and K7 found the two values, 16.8 ms and 33.3 ms, in different runs on the same commit. One run cannot show a change from e3452ce.
+- The frame test in CI (tests/test_canvas_frames.py) now runs a scenario up to three times, and passes when two runs are in the limit. Its docstring has this acceptance value. A review found that one run fails on a busy host: a p95 of 49.9 ms for the 400-card dive at 4x with 4 busy processes.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:

@@ -32,6 +32,7 @@ from conftest import Sample, page_detail
 from systemap import nest, page, page_csp, page_live, serve
 from systemap import theme as theme_mod
 from systemap.config import ConfigError
+from systemap.model import all_layers
 from systemap.schematic import page_maps_script
 
 COMPARISON: dict[str, Any] = {
@@ -306,7 +307,7 @@ def test_a_theme_value_with_a_css_comment_mark_is_refused(sample: Sample, value:
         theme_mod.resolve({"ink_2": value}, [])
     cfg = dataclasses.replace(sample.cfg, theme={"ink_2": value})
     with pytest.raises(ConfigError, match="ink_2"):
-        nest._theme(cfg, sample.model, sample.meaning)
+        nest.theme_of(cfg, all_layers(sample.model, sample.meaning))
 
 
 def test_page_detail_reads_the_system_map(sample: Sample) -> None:

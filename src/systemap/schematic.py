@@ -42,8 +42,11 @@ from systemap.model import (
     entry_module,
     reading,
 )
+from systemap.route import Box as Box
 from systemap.route import Placed as Placed
+from systemap.route import Point as Point
 from systemap.route import Route as Route
+from systemap.route import crosses as crosses
 from systemap.route import path_d, routed
 from systemap.schematic_cards import (
     CARD_W as CARD_W,

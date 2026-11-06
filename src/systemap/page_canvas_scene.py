@@ -122,8 +122,9 @@ function place(m, x, y, s, depth, owner) {
   m.cardIndex = new Index(m.cards, function (c) { return c.b; }, m.size[0], m.size[1]);
   m.flowIndex = new Index(m.flows, function (f) { return f.bb; }, m.size[0], m.size[1]);
   m.cards.forEach(function (c) {
+    // A map with no area cannot have a place in a card. Thus the card does not open it.
     var child = c.o !== undefined ? MAPS[c.o] : null;
-    if (!child || child.T) return;
+    if (!child || child.T || !(child.size[0] > 0 && child.size[1] > 0)) return;
     var lay = layout(c.b, child.size);
     c.child = child; c.side = lay.side;
     place(child, x + s * lay.at[0], y + s * lay.at[1], s * lay.s, depth + 1, c);

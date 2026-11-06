@@ -614,7 +614,7 @@ def stale(
     broken = {m.id for m in tree.maps if model_problems(m.model, m.meaning)}
     if not (broken and cfg.render_canvas):
         for m, html in render_pages.pages(cfg, tree, stored, skip=broken):
-            out += [] if m.id in broken else _stale_file(cfg, m.page_path(cfg), html)
+            out += _stale_file(cfg, m.page_path(cfg), html)
     return out + figure_problems(cfg, tree, stored, cfg.figures)
 
 

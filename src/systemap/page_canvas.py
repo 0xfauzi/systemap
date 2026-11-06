@@ -66,7 +66,8 @@ function fitBox(b, pad) {
 }
 var flight = null;
 function stopFlight() { if (flight) { cancelAnimationFrame(flight.raf); flight = null; } }
-function flyTo(box, pad) { fly(fitBox(box, pad)); }
+// A flight to a box keeps the box. Thus a change of the screen size can fit it again.
+function flyTo(box, pad) { fly(fitBox(box, pad)); if (flight) { flight.box = box; flight.pad = pad; } }
 // The scale moves in log space. When the two views are far apart, the path goes out and
 // back in, so that the reader sees where the camera goes.
 function fly(to, ms) {
@@ -207,7 +208,8 @@ function hitAt(px, py) {
   }
   return null;
 }
-var pts = new Map(), drag = null, didMove = false;
+// `multi` is true when the gesture has had two pointers. Such a gesture is not a tap.
+var pts = new Map(), drag = null, didMove = false, multi = false;
 cv.addEventListener('wheel', function (e) {
   e.preventDefault(); stopFlight();
   var p = local(e), dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1);
@@ -216,7 +218,7 @@ cv.addEventListener('wheel', function (e) {
 cv.addEventListener('pointerdown', function (e) {
   stopFlight(); cv.focus({preventScroll: true});
   var p = local(e);
-  pts.set(e.pointerId, p); didMove = false;
+  pts.set(e.pointerId, p); didMove = false; multi = multi || pts.size > 1;
   drag = {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
 });
@@ -240,9 +242,11 @@ cv.addEventListener('pointermove', function (e) {
   moved();
 });
 function up(e) {
-  var was = pts.has(e.pointerId), p = local(e);
+  var was = pts.has(e.pointerId) && !multi, p = local(e);
   pts.delete(e.pointerId);
-  if (!pts.size) { drag = null; cv.classList.remove('drag'); }
+  if (!pts.size) { drag = null; multi = false; cv.classList.remove('drag'); }
+  // After a pinch, the pointer that stays down moves the map.
+  else if (pts.size === 1 && !drag) pts.forEach(function (v) { drag = {x: v[0], y: v[1], cx: cam.x, cy: cam.y}; });
   if (!was || didMove || e.type === 'pointercancel') return;
   var h = hitAt(p[0], p[1]);
   if (h) { h.go(); return; }
@@ -257,10 +261,10 @@ window.addEventListener('keydown', function (e) {
     Escape: goOut, f: fitCurrent, F: fitCurrent,
     '+': function () { fly(zoomed(1.6), 260); },
     '-': function () { fly(zoomed(1 / 1.6), 260); },
-    ArrowLeft: function () { cam = {x: cam.x - step, y: cam.y, k: cam.k}; moved(); },
-    ArrowRight: function () { cam = {x: cam.x + step, y: cam.y, k: cam.k}; moved(); },
-    ArrowUp: function () { cam = {x: cam.x, y: cam.y - step, k: cam.k}; moved(); },
-    ArrowDown: function () { cam = {x: cam.x, y: cam.y + step, k: cam.k}; moved(); }
+    ArrowLeft: function () { stopFlight(); cam = {x: cam.x - step, y: cam.y, k: cam.k}; moved(); },
+    ArrowRight: function () { stopFlight(); cam = {x: cam.x + step, y: cam.y, k: cam.k}; moved(); },
+    ArrowUp: function () { stopFlight(); cam = {x: cam.x, y: cam.y - step, k: cam.k}; moved(); },
+    ArrowDown: function () { stopFlight(); cam = {x: cam.x, y: cam.y + step, k: cam.k}; moved(); }
   };
   keys['='] = keys['+'];
   if (!keys[e.key]) return;
@@ -277,8 +281,11 @@ function atFit(m) {
 }
 window.addEventListener('resize', function () {
   var m = currentMap(), fitted = !flight && atFit(m), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
+  var aim = flight && flight.box ? flight : null;
   measure();
-  if (fitted) cam = fitBox(frameOf(m), FIT);
+  // A flight to a box goes to the fit of that box on the new screen.
+  if (aim) flyTo(aim.box, aim.pad);
+  else if (fitted) cam = fitBox(frameOf(m), FIT);
   else if (!flight) {
     var k = clamp(cam.k * Math.min(W / w, H / h), KMIN, KMAX);
     cam = {x: cx - W / 2 / k, y: cy - H / 2 / k, k: k};
@@ -343,7 +350,6 @@ window.systemapCanvas = {
   // Set the camera as a move does, and draw the frame now.
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
   fit: function (id) { return fitBox(id ? frameOf(MAPS[id]) : topFrame(), FIT); },
-  cardFit: function (mapId, cardId) { return fitBox(worldBox(MAPS[mapId].byId[cardId]), 0.12); },
   // The screen box of the frame of a map.
   frame: function (id) { var b = frameOf(id ? MAPS[id] : TOP); return [(b[0] - cam.x) * cam.k, (b[1] - cam.y) * cam.k, b[2] * cam.k, b[3] * cam.k]; },
   box: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; return c ? screenBox(c) : null; },
@@ -387,13 +393,11 @@ window.systemapCanvas = {
     for (var i = 0; i < NMAP; i += OB) out.push([OBST[i], OBST[i + 1], OBST[i + 2], OBST[i + 3], OBST[i + 5]]);
     return out;
   },
-  moving: function () { return !!flight || !sharp; },
-  // The alphas of the last frame: HIDE, and for each large map with an image layer, the
-  // value of the layer (`v`) and the part of each image in the result (`parts`).
-  layers: function () { return {hide: HIDE, images: LAYERS.slice()}; },
   // Start a record of each frame that the screen shows: its start, its draw time in ms,
   // `sharp`, `fine` (the full drawing at full resolution, with no part of the last moving
-  // frame) and the alphas of `layers`. `recorded` gives the record and stops it.
+  // frame), HIDE, and for each large map with an image layer, the value of the layer (`v`)
+  // and the part of each image in the result (`parts`). `recorded` gives the record and
+  // stops it.
   record: function () { LOG = []; },
   recorded: function () { var l = LOG || []; LOG = null; return l; },
   // Draw the frame again, and give each text that it draws (`drawnText`).

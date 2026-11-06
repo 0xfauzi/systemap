@@ -221,7 +221,6 @@ def _ports(actor: str, first: str, nxt: str, height: float) -> list[dict[str, An
             "fp": [[36, middle], [0, middle]],
             "i": first,
             "pf": [],
-            "sd": "right",
             "x": actor,
         }
     ]
@@ -294,22 +293,36 @@ def write_page(data: dict[str, Any], out: Path) -> Path:
 
 
 @functools.cache
-def node() -> str | None:
-    """Give the Node command if Node and the Playwright package with Chromium are there."""
+def probe() -> tuple[str | None, str]:
+    """Give the Node command if Node and the Playwright package with Chromium are there.
+
+    When the probe fails, give None and the error text of the probe."""
     found = shutil.which("node")
     if found is None:
-        return None
-    probe = subprocess.run(
+        return None, "The node command is not on the PATH."
+    proc = subprocess.run(
         [found, str(DRIVER), "--probe"], capture_output=True, text=True, timeout=120, check=False
     )
-    return found if probe.returncode == 0 else None
+    if proc.returncode != 0:
+        return None, (proc.stderr or proc.stdout).strip()
+    return found, ""
+
+
+def node() -> str | None:
+    """Give the Node command if Node and the Playwright package with Chromium are there."""
+    return probe()[0]
+
+
+def missing() -> str:
+    """Give the failure message when Node, Playwright or Chromium is not there."""
+    return "Node with the Playwright package and Chromium is necessary. " + probe()[1]
 
 
 def run(page: Path, mode: str, rate: int, frames: int = FRAMES) -> dict[str, Any]:
     """Run one scenario (or `load`) in a new browser. Give the result object of the driver."""
     found = node()
     if found is None:
-        raise RuntimeError("Node with the Playwright package and Chromium is necessary.")
+        raise RuntimeError(missing())
     proc = subprocess.run(
         [found, str(DRIVER), str(page), mode, str(rate), str(frames)],
         capture_output=True,
@@ -347,7 +360,7 @@ def cases(tree_name: str) -> list[tuple[str, str]]:
 
 def main() -> int:
     if node() is None:
-        print("failure: Node with the Playwright package and Chromium is necessary.")
+        print("failure: " + missing())
         return 1
     ok = True
     with tempfile.TemporaryDirectory() as tmp:
