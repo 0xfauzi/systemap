@@ -13,8 +13,10 @@ Reduce motion, each move occurs at one time.
 
 Frames. An input event asks for one frame (`requestAnimationFrame`). While the camera
 moves, the canvas has half of the device resolution. STILL_MS after the last move, the
-script draws one frame at full resolution. While a boundary flow fades, the script asks
-for more frames (`fadeLater`).
+script draws one frame at full resolution. A moving frame is on a second canvas over the
+page canvas, and the last moving frame fades out over the full drawing (`stillStart` in
+`page_canvas_image`). While a boundary flow, the text or an image layer fades, the script
+asks for more frames (`fadeLater`).
 
 The URL hash holds the camera target: the ID of the open map, for example
 `#Gateway/Routes`. A link with a hash opens the canvas at that map. When the camera
@@ -39,15 +41,22 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
 outline:none;cursor:grab}
 #canvas.drag{cursor:grabbing}
 #canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+#still{position:fixed;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+#still[hidden]{display:none}
+#canvas:focus-visible+#still{box-shadow:inset 0 0 0 2px var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
 white-space:nowrap}
 """
 
 _INPUT = r"""
 // ---- the camera ---------------------------------------------------------------
-// The camera that fits a world box in the screen. It keeps the bands of the portals free.
+// The camera that fits a world box in the screen. It keeps the bands of the path, the
+// portals and the help line free (`gutters`).
+// `pad` is the margin at each side, as a part of the screen size. The fit of a map has the
+// margin FIT. Thus a wide map fills 92 % of the width of a phone screen.
+var FIT = 0.04;
 function fitBox(b, pad) {
-  pad = pad === undefined ? 0.06 : pad;
+  pad = pad === undefined ? FIT : pad;
   var g = gutters(), sx = Math.max(W * pad, g.x), top = Math.max(48 + (H - 56) * pad, g.top), bottom = Math.max(8 + (H - 56) * pad, g.bottom);
   var k = clamp(Math.min(Math.max(1, W - 2 * sx) / b[2], Math.max(1, H - top - bottom) / b[3]), KMIN, KMAX);
   return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - (top + H - bottom) / 2 / k, k: k};
@@ -89,23 +98,31 @@ function zoomed(f) {
 }
 
 // ---- frames -------------------------------------------------------------------
-var pending = false, sharp = true, stillTimer = 0, CHAIN = [], drawn = 0;
+var pending = false, sharp = true, stillTimer = 0, CHAIN = [], drawn = 0, LOG = null, MOVED_AT = -Infinity;
 // A camera change: draw at half resolution now, and at full resolution when it stops.
 function moved(now) {
-  sharp = false;
+  sharp = false; MOVED_AT = performance.now();
   clearTimeout(stillTimer);
-  stillTimer = setTimeout(function () { sharp = true; if (!flight) { draw(); settled(); } }, STILL_MS);
+  stillTimer = setTimeout(function () { sharp = true; if (!flight) { stillStart(); settled(); } }, STILL_MS);
+  stillStop();
   if (now) draw(); else request();
 }
-function request() { if (!pending) { pending = true; requestAnimationFrame(function () { pending = false; draw(); }); } }
+// A request during the fade after a stop waits for the end of that fade (`stillFrame`).
+function request() {
+  if (pending) return;
+  pending = true;
+  requestAnimationFrame(function () { pending = false; if (STILL) STILL.want = true; else draw(); });
+}
 function draw() {
+  speedFrame();
   var began = performance.now(), d = dpr() * (sharp ? 1 : 0.5);
-  var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d));
-  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+  var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
+  if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
   STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
+  fadeFrame();
   var portals = portalsOf(CHAIN);
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
@@ -114,17 +131,22 @@ function draw() {
   drawHelp();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
+  frameShown();
   drawn++;
-  if (FADING) fadeLater();
+  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS});
+  if (FADING || SPEED_FADING) fadeLater();
 }
-// A boundary flow that fades asks for more frames (`FADING`). While the camera moves, the
-// moves give the frames. Thus, after a camera change, the script asks for a frame only when
-// no frame comes in FADE_WAIT ms. When the camera did not change, it asks for the next frame.
+// A boundary flow that fades asks for more frames (`FADING`), and so does a fade of the image
+// layer or of the text that MOVE_TEXT hides (`SPEED_FADING`). While the camera moves, the
+// moves give the frames. Thus, in the FADE_WAIT ms after a camera change, the script asks for
+// a frame only when no frame comes in FADE_WAIT ms. Later, it asks for the next frame. A move
+// that draws in its own animation frame (a flight, or `view`) thus gets no second draw in
+// the same frame.
 var fadeTimer = 0, FADE_WAIT = 50;
 function fadeLater() {
   var n = drawn;
   clearTimeout(fadeTimer);
-  if (CAM_BEFORE && CAM_BEFORE.x === cam.x && CAM_BEFORE.y === cam.y && CAM_BEFORE.k === cam.k) request();
+  if (performance.now() - MOVED_AT >= FADE_WAIT) request();
   else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
@@ -165,14 +187,14 @@ function pick(px, py) {
 function enter(px, py) {
   var c = pick(px, py);
   if (!c) return;
-  if (c.child && openness(c) < 0.5) flyTo(frameOf(c.child), 0.06);
+  if (c.child && openness(c) < 0.5) flyTo(frameOf(c.child), FIT);
   else if (!c.child) flyTo(worldBox(c), 0.2);
 }
 function goOut() {
   var n = CHAIN.length;
-  flyTo(n > 1 ? frameOf(CHAIN[n - 2].child) : topFrame(), 0.06);
+  flyTo(n > 1 ? frameOf(CHAIN[n - 2].child) : topFrame(), FIT);
 }
-function fitCurrent() { flyTo(frameOf(currentMap()), 0.06); }
+function fitCurrent() { flyTo(frameOf(currentMap()), FIT); }
 function hitAt(px, py) {
   for (var i = HITS.length - 1; i >= 0; i--) {
     var h = HITS[i];
@@ -239,19 +261,19 @@ window.addEventListener('keydown', function (e) {
   if (!keys[e.key]) return;
   e.preventDefault(); keys[e.key]();
 });
-window.addEventListener('hashchange', function () { var m = hashMap(); flyTo(m ? frameOf(m) : topFrame(), 0.06); });
+window.addEventListener('hashchange', function () { var m = hashMap(); flyTo(m ? frameOf(m) : topFrame(), FIT); });
 function measure() { var r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height); }
 // After a change of the screen size (a phone that turns, for example), a camera at the fit
 // of the open map fits that map again. Each other camera keeps the world point at the middle
 // of the screen, and it shows all of the world box that was on the screen before.
 function atFit(m) {
-  var f = fitBox(frameOf(m), 0.06);
+  var f = fitBox(frameOf(m), FIT);
   return Math.abs(cam.k / f.k - 1) < 1e-3 && Math.abs(cam.x - f.x) * cam.k < 1 && Math.abs(cam.y - f.y) * cam.k < 1;
 }
 window.addEventListener('resize', function () {
   var m = currentMap(), fitted = !flight && atFit(m), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
   measure();
-  if (fitted) cam = fitBox(frameOf(m), 0.06);
+  if (fitted) cam = fitBox(frameOf(m), FIT);
   else if (!flight) {
     var k = clamp(cam.k * Math.min(W / w, H / h), KMIN, KMAX);
     cam = {x: cx - W / 2 / k, y: cy - H / 2 / k, k: k};
@@ -308,22 +330,25 @@ if (document.fonts && document.fonts.load) {
 // ---- start ----------------------------------------------------------------------------
 measure(); readColors();
 var start = hashMap();
-cam = fitBox(start ? frameOf(start) : topFrame(), 0.06);
+cam = fitBox(start ? frameOf(start) : topFrame(), FIT);
 draw(); settled();
 window.systemapCanvas = {
   ready: performance.now(),
   camera: camCopy,
   // Set the camera as a move does, and draw the frame now.
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
-  fit: function (id) { return fitBox(id ? frameOf(MAPS[id]) : topFrame(), 0.06); },
+  fit: function (id) { return fitBox(id ? frameOf(MAPS[id]) : topFrame(), FIT); },
   cardFit: function (mapId, cardId) { return fitBox(worldBox(MAPS[mapId].byId[cardId]), 0.12); },
   // The screen box of the frame of a map.
   frame: function (id) { var b = frameOf(id ? MAPS[id] : TOP); return [(b[0] - cam.x) * cam.k, (b[1] - cam.y) * cam.k, b[2] * cam.k, b[3] * cam.k]; },
   box: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; return c ? screenBox(c) : null; },
   chain: function () { return CHAIN.map(function (c) { return c.child.id; }); },
-  hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, x: h.x, y: h.y, w: h.w, h: h.h}; }); },
+  hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, map: h.map, show: h.show, x: h.x, y: h.y, w: h.w, h: h.h}; }); },
   // The boundary flows from the portals in the last frame: the screen points of each path.
   links: function () { return LINKS; },
+  // The layer of the boundary flows of the last frame, and the screen box that it put on
+  // the screen, or null when the frame put no layer on the screen.
+  layer: function () { return LUSED && LCLEAR ? {canvas: LAYER, box: LCLEAR} : null; },
   // The screen boxes of the cards of a map.
   boxes: function (mapId) { return MAPS[mapId].cards.map(function (c) { return {id: c.id, b: screenBox(c)}; }); },
   maps: function () { return ORDER.map(function (m) { return {id: m.id, depth: m.depth, cards: m.cards.length, opens: m.cards.filter(function (c) { return c.child; }).map(function (c) { return c.child.id; })}; }); },
@@ -336,17 +361,30 @@ window.systemapCanvas = {
       b = b ? [Math.min(b[0], w[0]), Math.min(b[1], w[1]), Math.max(b[0] + b[2], w[0] + w[2]) - Math.min(b[0], w[0]),
         Math.max(b[1] + b[3], w[1] + w[3]) - Math.min(b[1], w[1])] : w;
     });
-    return fitBox(b || topFrame(), 0.06);
+    return fitBox(b || topFrame(), FIT);
   },
   // The camera on the deepest map below the first card that opens a map, or on the
   // middle card of a map without such a card (the measurement dive).
   deepFit: function () {
     var m = TOP, c;
     while ((c = m.cards.filter(function (x) { return x.child; })[0])) m = c.child;
-    return m === TOP ? fitBox(worldBox(TOP.cards[TOP.cards.length >> 1]), 0.2) : fitBox(frameOf(m), 0.06);
+    return m === TOP ? fitBox(worldBox(TOP.cards[TOP.cards.length >> 1]), 0.2) : fitBox(frameOf(m), FIT);
+  },
+  // The bands that the camera fit keeps free, the screen boxes x, y, w, h of the plates of
+  // the path and the help line, and the text of the help line.
+  layout: function () {
+    return {gutters: gutters(), path: [12, 10, pathParts(CHAIN).total, 38], help: helpPlate(), line: helpLine()};
   },
   moving: function () { return !!flight || !sharp; },
-  stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: cv.width, sharp: sharp}; }
+  // The alphas of the last frame: HIDE, and for each large map with an image layer, the
+  // value of the layer (`v`) and the part of each image in the result (`parts`).
+  layers: function () { return {hide: HIDE, images: LAYERS.slice()}; },
+  // Start a record of each frame that the screen shows: its start, its draw time in ms,
+  // `sharp`, `fine` (the full drawing at full resolution, with no part of the last moving
+  // frame) and the alphas of `layers`. `recorded` gives the record and stops it.
+  record: function () { LOG = []; },
+  recorded: function () { var l = LOG || []; LOG = null; return l; },
+  stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; }
 };
 """
 

@@ -27,6 +27,17 @@ does. Thus each frame is drawn at half resolution (the rule for a moving camera)
 - `dive`: from the top map at fit to the deepest map below the first card that opens a
   map, and back out. The scale moves in log space.
 
+The driver also has two modes for a stop (added on 2026-11-06, for the A/B of the fades
+after a stop). `main` does not run them, and they have no acceptance value here:
+
+- `dive-stop`: a move from the top fit to the part 0.2 of the dive, and then no camera
+  change for 700 ms.
+- `pan-stop`: the pan of `pan-fit` at the camera of that part of the dive, and then no
+  camera change for 700 ms.
+
+For the 700 ms after the move, the driver gives the count of animation frames, the largest
+interval, and the count of intervals of more than 35 ms.
+
 The data:
 
 - `M11 tree`: the canvas data (`canvas_data.build`) of the M11 tree (50 maps, 40 cards

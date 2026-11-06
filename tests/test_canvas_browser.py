@@ -34,14 +34,44 @@ Acceptance values:
     time. The M11 tree, on a screen of 1440 x 900 pixels without reduced motion, has four
     slow camera moves of 200 frames each: from the top fit into the map P0/A0, from P0/A0
     out to the top fit, from the map P0 into P0/A0, and a zoom from 0.5 to 3 times the fit
-    of P0/A0. The alpha of each drawn path of a boundary flow changes by 0.25 or less
-    between two frames. A path that is not drawn has the alpha 0. No drawn path goes into
-    a card that is not open. The moves draw boundary flows in 30 frames or more.
+    of P0/A0. On that screen and on a screen of 390 x 844 pixels, five more moves zoom
+    out: from the fit of P0, of P0/A0 and of P0/A0/B0 to the fit of the map above, and a
+    zoom from 3 to 0.5 times the fit of P0 and of P0/A0. The alpha of each drawn path of a
+    boundary flow changes by 0.25 or less between two frames. A path that is not drawn has
+    the alpha 0. A boundary flow is under the cards: in each frame, no pixel of the layer
+    of the lines is in a card that is not open, 2 pixels or more in from the edge of its
+    box. The moves on each screen draw boundary flows in 30 frames or more.
 12. The camera fit of a map zooms to that map. After the fit, the frame of the map covers
     at least 80 percent of the free width: the screen width less a band at each side as
     wide as the widest portal at that side. The frame is in the free width. The test uses
     two maps of the generated M11 tree, on a screen of 390 x 844 pixels and on a screen of
     1440 x 900 pixels.
+13. The two speed changes of a moving frame fade in time. They do not appear or go at one
+    time. The generated map of 400 cards, on a screen of 1440 x 900 pixels without reduced
+    motion, has three camera moves, and a stop of 700 ms after each move: a dive into the
+    middle card, a pan, and the dive back out. In each frame, the page gives the alpha of
+    each layer: the text that MOVE_TEXT hides, the image layer of the map, and the part of
+    each image in the result. Each alpha changes by 0.25 or less between two frames. A layer
+    that a frame does not have has the alpha 0. The dive in and the pan show the images at
+    the full alpha, and in 3 or more frames an image layer between 0 and 1. After each
+    stop, 3 or more frames still fade, and the last frame has the full resolution, the
+    full text and no image.
+14. A portal fades in and out by time. It does not appear or go at one time, also when
+    the chain changes. The M11 tree, on a screen of 1440 x 900 pixels and on a screen of
+    390 x 844 pixels without reduced motion, has two slow camera moves of 300 frames
+    each: a dive into the map P0/A0 at the middle of its fit, from the scale of the top
+    fit to the scale of the fit of P0/A0, and the zoom out back. In each move, the chain
+    changes, and the alpha of each portal changes by 0.25 or less between two frames. A
+    portal that is not drawn has the alpha 0. The middle of a portal moves by 16 pixels
+    or less between two frames.
+15. The camera fit of each map uses the screen. The test uses the fit of the top map and of
+    one map on each level below it, to level 3, of the generated M11 tree, on screens of
+    390 x 844, 844 x 390 and 1440 x 900 pixels, and after the screen of 390 x 844 pixels
+    turns to 844 x 390 pixels. At each fit, the frame of the open map is in the free box:
+    the screen less the bands of the portals, the path and the help line. The frame fills
+    at least 90 percent of the free width or of the free height. The screen edge cuts no
+    card of the open map. The plates of the path and the help line, and the portals, do not
+    cover each other. The help line has one line in the screen width.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -225,11 +255,15 @@ def _luma(css: str) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
-def test_a_boundary_flow_fades_with_the_camera(tree: Path) -> None:
+@pytest.mark.parametrize(("flags", "moves"), [(("--fade",), 9), (("--fade", "--phone"), 5)])
+def test_a_boundary_flow_fades_with_the_camera(
+    tree: Path, flags: tuple[str, ...], moves: int
+) -> None:
     """Acceptance 11."""
-    dives = drive(tree, "--fade", ids=("P0/A0", "P0"))["dives"]
-    assert [d["frames"] for d in dives] == [200, 200, 200, 200]
+    dives = drive(tree, *flags, ids=("P0/A0", "P0"))["dives"]
+    assert [d["frames"] for d in dives] == [200] * moves
     assert sum(d["drawn"] for d in dives) >= 30
+    assert sum(d["checked"] for d in dives) > 0
     for dive in dives:
         assert dive["problems"] == [], dive
         assert dive["worst"] <= 0.25, dive
@@ -256,3 +290,53 @@ def test_the_fit_zooms_to_the_open_map(tree: Path, flags: tuple[str, ...]) -> No
         x, _, w, _ = fit["frame"]
         assert w >= 0.8 * fit["free"], fit
         assert fit["band"] - 1 <= x and x + w <= fit["band"] + fit["free"] + 1, fit
+
+
+def test_the_speed_changes_fade_in_time(tmp_path: Path) -> None:
+    """Acceptance 13."""
+    bench = _bench()
+    page = bench.write_page(bench.grid_map(400), tmp_path / "g400.html")
+    moves = {m["kind"]: m for m in drive(page, "--layers")["moves"]}
+    assert list(moves) == ["dive in", "pan", "dive out"]
+    for move in moves.values():
+        assert move["worst"] <= 0.25, move
+        assert move["hideMax"] == 1, move
+        assert move["stillFading"] >= 3, move
+        assert move["end"] == {"sharp": True, "fine": True, "hide": 0, "images": 0}, move
+    for kind in ("dive in", "pan"):
+        assert moves[kind]["full"] >= 1, moves[kind]
+        assert moves[kind]["fading"] >= 3, moves[kind]
+
+
+@pytest.mark.parametrize("flags", [("--portals",), ("--portals", "--phone")])
+def test_a_portal_fades_with_the_camera(tree: Path, flags: tuple[str, ...]) -> None:
+    """Acceptance 14."""
+    moves = drive(tree, *flags, ids=("P0/A0", "P0"))["moves"]
+    assert [m["frames"] for m in moves] == [300, 300]
+    for move in moves:
+        assert move["changes"] >= 1 and move["most"] >= 2, move
+        assert move["worst"] <= 0.25, move
+        assert move["jump"] <= 16, move
+
+
+def test_the_fit_uses_the_screen(tree: Path) -> None:
+    """Acceptance 15."""
+    fits = drive(tree, "--layout", ids=("", ""))["fits"]
+    assert [(f["W"], f["H"], f["id"]) for f in fits][:5] == [
+        (390, 844, ""),
+        (390, 844, "P0"),
+        (390, 844, "P0/A0"),
+        (390, 844, "P0/A0/B0"),
+        (844, 390, "P0/A0/B0"),
+    ]
+    assert len(fits) == 13
+    for fit in fits:
+        width, height, g = fit["W"], fit["H"], fit["gutters"]
+        x, y, w, h = fit["frame"]
+        free_w, free_h = width - 2 * g["x"], height - g["top"] - g["bottom"]
+        assert g["x"] - 1 <= x and x + w <= width - g["x"] + 1, fit
+        assert g["top"] - 1 <= y and y + h <= height - g["bottom"] + 1, fit
+        assert w >= 0.9 * free_w or h >= 0.9 * free_h, fit
+        assert fit["cut"] == [], fit
+        assert fit["covers"] == [], fit
+        assert fit["help"][0] + fit["help"][2] <= width, fit

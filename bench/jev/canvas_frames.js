@@ -3,17 +3,23 @@
 //     node canvas_frames.js PAGE.html MODE RATE [FRAMES]
 //     node canvas_frames.js --probe
 //
-// MODE is load, pan-fit, all-open or dive. RATE is the CPU throttling rate of
+// MODE is load, pan-fit, all-open, dive, dive-stop or pan-stop. RATE is the CPU throttling rate of
 // Emulation.setCPUThrottlingRate. The script prints one JSON object:
 // - load: {ready}: the milliseconds from the start of the navigation to
 //   systemapCanvas.ready (the first frame is drawn and the input handlers are attached);
 // - a scenario: {frames, median, p95, max} of the intervals between animation frames, in
 //   milliseconds. Each frame sets the camera with systemapCanvas.view, as a move does.
+// - dive-stop and pan-stop: the same object for a move, and `stop`: {frames, max, over} of
+//   the intervals between animation frames in the STOP_MS after the move, with no camera
+//   change. `over` is the count of intervals of more than 35 ms (two ticks plus 5 percent).
+//   dive-stop goes from the top fit to the part DEPTH of the dive (the scale moves in log
+//   space). pan-stop moves the camera of that point 200 screen pixels to the left and right.
 // --probe exits 0 if Playwright can start Chromium.
 'use strict';
 const { chromium } = require('playwright');
 
 const VIEWPORT = { width: 1440, height: 900 };
+const STOP_MS = 700, DEPTH = 0.2;
 
 async function open(rate) {
   const browser = await chromium.launch();
@@ -35,7 +41,7 @@ async function load(file, rate) {
 
 // The scenario runs in the page. `at(t)` gives the camera for t from 0 to 1.
 function scenario(args) {
-  const [mode, frames] = args;
+  const [mode, frames, stopMs, depth] = args;
   const api = window.systemapCanvas, W = innerWidth, H = innerHeight;
   const top = api.fit('');
   const centre = (c) => [c.x + W / 2 / c.k, c.y + H / 2 / c.k];
@@ -51,11 +57,28 @@ function scenario(args) {
     const deep = api.deepFit();
     const [cx, cy] = centre(deep);
     const [tx, ty] = centre(top);
-    at = (t) => {
-      const u = t < 0.5 ? 2 * t : 2 - 2 * t, e = u * u * (3 - 2 * u);
-      return camAt(tx + (cx - tx) * e, ty + (cy - ty) * e, top.k * Math.pow(deep.k / top.k, e));
-    };
+    const dive = (e) => camAt(tx + (cx - tx) * e, ty + (cy - ty) * e, top.k * Math.pow(deep.k / top.k, e));
+    const near = dive(depth);
+    if (mode === 'dive-stop') at = (t) => dive(depth * t * t * (3 - 2 * t));
+    else if (mode === 'pan-stop') at = (t) => ({ x: near.x + Math.sin(t * Math.PI * 2) * 200 / near.k, y: near.y, k: near.k });
+    else at = (t) => { const u = t < 0.5 ? 2 * t : 2 - 2 * t; return dive(u * u * (3 - 2 * u)); };
   }
+  const stats = (gaps) => {
+    gaps.sort((a, b) => a - b);
+    const pick = (q) => +gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * q))].toFixed(1);
+    return { frames: gaps.length, median: pick(0.5), p95: pick(0.95), max: pick(1) };
+  };
+  // The intervals between animation frames for `ms` after the move.
+  const still = (ms, done) => {
+    const gaps = [], t0 = performance.now();
+    let last = t0;
+    const tick = (now) => {
+      gaps.push(now - last); last = now;
+      if (now - t0 < ms) requestAnimationFrame(tick);
+      else done({ frames: gaps.length, max: +Math.max(...gaps).toFixed(1), over: gaps.filter((g) => g > 35).length });
+    };
+    requestAnimationFrame(tick);
+  };
   return new Promise((done) => {
     const gaps = [];
     let f = 0, last = null;
@@ -64,9 +87,9 @@ function scenario(args) {
       last = now;
       api.view(at(f / frames));
       if (++f <= frames) { requestAnimationFrame(step); return; }
-      gaps.sort((a, b) => a - b);
-      const pick = (q) => +gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * q))].toFixed(1);
-      done({ frames: gaps.length, median: pick(0.5), p95: pick(0.95), max: pick(1) });
+      const result = stats(gaps);
+      if (!mode.endsWith('-stop')) { done(result); return; }
+      still(stopMs, (stop) => done({ ...result, stop }));
     };
     requestAnimationFrame(step);
   });
@@ -77,7 +100,7 @@ async function frames(file, mode, rate, count) {
   await page.goto('file://' + file);
   await page.waitForFunction(() => window.systemapCanvas && window.systemapCanvas.ready);
   await page.waitForTimeout(300);
-  const result = await page.evaluate(scenario, [mode, count]);
+  const result = await page.evaluate(scenario, [mode, count, STOP_MS, DEPTH]);
   await browser.close();
   return result;
 }
