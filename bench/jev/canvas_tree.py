@@ -1,4 +1,4 @@
-"""T1: the list of the tree on the canvas page (step 3 of docs/design/nested-canvas.md).
+"""L1: the list of the tree on the canvas page (step 3 of docs/design/nested-canvas.md).
 
 Acceptance values, written before the first run on 2026-11-06:
 

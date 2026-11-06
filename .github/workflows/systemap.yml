@@ -309,8 +309,10 @@ jobs:
   # The canvas page runs in the Chromium of Playwright. One test drives the camera, the
   # URL hash and a portal (tests/test_canvas_browser.py). One test measures the frame
   # time with 4 times CPU throttling and the load time (tests/test_canvas_frames.py:
-  # C2 and C3 of docs/design/nested-canvas.md). The runner has no GPU, so Chromium
-  # paints in software. In this job the tests fail when the browser is not available.
+  # C2 and C3 of docs/design/nested-canvas.md). One test runs axe-core on the page
+  # (tests/test_canvas_access.py: C4). The page does not load axe-core: the test puts it
+  # into the page. The runner has no GPU, so Chromium paints in software. In this job the
+  # tests fail when the browser or axe-core is not available.
   canvas-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -334,14 +336,16 @@ jobs:
       - name: Install project
         run: uv sync --frozen --all-extras --dev
 
-      - name: Install Playwright
-        run: npm install --no-save --no-package-lock playwright@1.63.0 # zizmor: ignore[adhoc-packages]
+      # One npm command installs the two packages. A second `npm install --no-save` can
+      # remove the package of the first command. axe-core is only for the test.
+      - name: Install Playwright and axe-core
+        run: npm install --no-save --no-package-lock playwright@1.63.0 axe-core@4.14.0 # zizmor: ignore[adhoc-packages]
 
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 
       - name: Run the canvas browser tests
-        run: uv run pytest -q tests/test_canvas_browser.py tests/test_canvas_frames.py
+        run: uv run pytest -q tests/test_canvas_browser.py tests/test_canvas_frames.py tests/test_canvas_access.py
 
   plugin:
     runs-on: ubuntu-latest

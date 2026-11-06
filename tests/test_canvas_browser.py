@@ -133,6 +133,29 @@ Acceptance values:
     on the link of a flow puts its two cards on the screen. A click on the link of the top
     map fits the top map. A link with the hash of a card in the map Gateway opens that map
     with the card in the middle of the screen. The page has no script error.
+27. A tap selects a card, and a second tap on a card that opens a map goes into it. The test
+    uses a phone screen of 390 x 844 pixels with a touch screen and reduced motion. A tap
+    on Gateway selects Gateway and does not go into it. The plate of its facts is a target
+    of 44 x 44 pixels or more. A second tap on Gateway goes into the map Gateway and
+    removes the selection. After Esc, a tap on Auth selects Auth. A second tap on Auth
+    does not change the chain, and Auth stays selected. A tap on empty space removes the
+    selection. Two fast taps on Gateway go into the map Gateway. The page has no script
+    error. Without reduced motion, the alpha of the selection changes by 0.25 or less
+    between two frames. It gets to 1 after the tap on Gateway and to 0 after the tap on
+    empty space.
+28. C5: the canvas on a phone. The generated M11 tree is on a phone screen of 390 x 844
+    pixels with a touch screen (Playwright `isMobile` and `hasTouch`, 3 device pixels for
+    each pixel) and reduced motion. At the camera fit of each of the 50 maps, the page has
+    no horizontal scroll: its scroll width is 390 pixels and its scroll position is 0. Each
+    target on the canvas, a part of the path or a portal with an alpha above 0.5, is 44
+    pixels or more in width and in height. The fits have 100 or more portals and 50 or
+    more parts of the path. No drawn portal covers a box of the maps, as in acceptance 10.
+    The target of a portal goes into no card by more than 0.5 pixels. The neighbour of the
+    portal and an open card do not count.
+    No card of the open map is in the band of a portal, the screen edge cuts no card of the
+    open map, and the plates of the path and the help line and the portals do not cover each
+    other. At the fit of the top map and of one map on each level below it, to level 3, a
+    tap on a card selects it and gives the plate of its facts, 44 x 44 pixels or more.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -656,3 +679,47 @@ def test_the_list_of_the_tree(canvas: Path) -> None:
     x, y, w, h = hashed["box"]
     assert hashed["chain"] == ["Gateway"] and hashed["hash"] == "#Gateway/" + hashed["card"]
     assert abs(x + w / 2 - 640) < 2 and abs(y + h / 2 - 400 - 20) < 2
+
+
+def test_a_tap_selects_and_a_second_tap_goes_in(canvas: Path) -> None:
+    """Acceptance 27."""
+    found = drive(canvas, "--taps")
+    assert found["errors"] == []
+    steps = {s["name"]: s for s in found["steps"]}
+    seen = {n: (s["chain"], s["selected"]["id"]) for n, s in steps.items()}
+    assert seen == {
+        "card": ([], "Gateway"),
+        "card again": (["Gateway"], None),
+        "neighbour": ([], "Auth"),
+        "neighbour again": ([], "Auth"),
+        "empty": ([], None),
+        "card after empty": ([], "Gateway"),
+        "double tap": (["Gateway"], None),
+    }
+    for name in ("card", "neighbour"):
+        (plate,) = steps[name]["facts"]
+        assert plate["w"] >= 44 and plate["h"] >= 44, plate
+    alphas = [f.get("/Gateway", 0.0) for f in found["fade"]]
+    assert max(abs(a - b) for a, b in itertools.pairwise(alphas)) <= 0.25, alphas
+    top = alphas.index(1)
+    assert alphas[0] == 0 and 0 in alphas[top:], alphas
+
+
+def test_the_canvas_on_a_phone(tree: Path) -> None:
+    """Acceptance 28."""
+    found = drive(tree, "--targets", ids=("", ""))
+    assert found["errors"] == []
+    assert len(found["fits"]) == 50
+    for fit in found["fits"]:
+        assert fit["coarse"] and fit["W"] == 390, fit
+        assert fit["scroll"] == 390 and fit["x"] == 0, fit
+        assert fit["problems"] == [] and fit["into"] == [], fit
+        small = [h for h in fit["hits"] if h["w"] < 44 or h["h"] < 44]
+        assert small == [], (fit["id"], small)
+    kinds = [h["kind"] for fit in found["fits"] for h in fit["hits"]]
+    assert kinds.count("portal") >= 100 and kinds.count("path") >= 50
+    assert len(found["plates"]) == 4
+    for tapped in found["plates"]:
+        assert tapped["selected"]["id"] == tapped["card"], tapped
+        (plate,) = tapped["facts"]
+        assert plate["w"] >= 44 and plate["h"] >= 44, tapped

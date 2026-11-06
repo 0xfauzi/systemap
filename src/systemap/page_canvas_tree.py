@@ -1,11 +1,13 @@
 """The access part of the canvas renderer: the list of the tree and the canvas label.
 
 The canvas page (`canvas_page`) has an empty `nav` element after the canvas. After the
-first frame, this part writes the list of the tree into it from the canvas data, in one
-step. Thus the page bytes do not grow with the list. The list gives each map, its cards
-and its flows. Each card has its name, its card text, its `does` text and its facts: the
+first frame is on the screen, this part writes the list of the tree into it from the
+canvas data, in one step (`buildTree`). Thus the page bytes do not grow with the list, and
+the list does not make the time to the first frame longer. The list gives each map, its
+cards and its flows. Each card has its name, its card text, its `does` text and its facts: the
 modules, the count of flows in and out, the assurance level and the freshness. The cards
-of a map are in reading order: from the top to the bottom, and from the left to the right.
+of a map are in the reading order of Tab (`page_canvas_keys`): the rows from the top to the
+bottom, and in each row the cards from the left to the right.
 A card that opens a map holds the list of that map.
 
 Each item is a link. Its `href` is the URL hash of its card, or of its map for a flow, for
@@ -15,7 +17,10 @@ link with the focus is visible at the top left of the screen, as a skip link is.
 
 The label of the canvas gives the current path. The script writes it when the camera
 stops (`settled`), and only when it changes. Thus no frame writes to the page. When the
-open map changes, a live region tells the path and the count of cards of the new map.
+open map changes, a live region tells the path and the count of cards of the new map. When
+the canvas has the keyboard focus on a card, the same text then also gives that card, and
+the selected card (`heldWords`). Thus the text of the map does not remove the name of the
+focused card before a screen reader reads it.
 """
 
 from __future__ import annotations
@@ -38,8 +43,7 @@ HTML = (
 # The list text has "<\\/" in place of "</": the page embeds the script in a script element.
 TREE = r"""
 // ---- the list of the tree and the canvas label -------------------------------------
-var TREE_EL = document.getElementById('canvas-tree'), SAID = document.getElementById('canvas-said');
-var LABEL = '', SAID_MAP = null, TREE_MS = 0;
+var TREE_EL = document.getElementById('canvas-tree'), LABEL = '', SAID_MAP = null, TREE_MS = null;
 function esc(s) {
   return String(s).replace(/[&<>"]/g, function (ch) { return ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : '&quot;'; });
 }
@@ -51,12 +55,6 @@ function mapName(m) {
   var names = [];
   for (var x = m; x.owner; x = x.owner.map) names.unshift(x.owner.id);
   return [DATA.name || 'map'].concat(names).join(' / ');
-}
-// The indexes of the cards of a map in reading order: from the top to the bottom, then
-// from the left to the right.
-function reading(m) {
-  var cs = m.cards;
-  return cs.map(function (c, i) { return i; }).sort(function (u, v) { return cs[u].b[1] - cs[v].b[1] || cs[u].b[0] - cs[v].b[0]; });
 }
 function sizeText(m) { return counted(m.cards.length, 'card') + ' and ' + counted(m.flows.length, 'flow'); }
 function factsText(c) {
@@ -71,21 +69,21 @@ function factsText(c) {
   return out.join(' ');
 }
 function link(hash, data, text) { return '<a href="' + esc(hash || '#') + '" ' + data + '>' + esc(text) + '<\/a>'; }
-// The lists of the cards and of the flows of a map. The item of a card that opens a map
-// holds the lists of that map.
+// The lists of the cards and of the flows of a map. The cards are in the reading order of
+// Tab (`readingOrder` in `page_canvas_keys`). The item of a card that opens a map holds the
+// lists of that map.
 function mapLists(m) {
-  var name = esc(mapName(m)), at = 'data-m="' + m._oi + '" ', out = ['<ul aria-label="Cards of ' + name + '">'];
-  reading(m).forEach(function (i) {
-    var c = m.cards[i];
-    out.push('<li>', link(hashOf(cardId(c)), at + 'data-c="' + i + '"', c.id), ' ', esc(factsText(c)));
+  var name = esc(mapName(m)), at = 'data-m="' + m.oi + '" ', out = ['<ul aria-label="Cards of ' + name + '">'];
+  readingOrder(m).forEach(function (c) {
+    out.push('<li>', link(hashOf(cardId(c)), at + 'data-c="' + c.i + '"', c.id), ' ', esc(factsText(c)));
     if (c.child) out.push(mapLists(c.child));
     out.push('<\/li>');
   });
   out.push('<\/ul>');
   if (m.flows.length) {
     out.push('<ul aria-label="Flows of ' + name + '">');
-    m.flows.forEach(function (f, j) {
-      out.push('<li>', link(hashOf(m.id), at + 'data-f="' + j + '"', 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a), '<\/li>');
+    m.flows.forEach(function (f) {
+      out.push('<li>', link(hashOf(m.id), at + 'data-f="' + f.i + '"', 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a), '<\/li>');
     });
     out.push('<\/ul>');
   }
@@ -94,7 +92,6 @@ function mapLists(m) {
 function buildTree() {
   if (!TREE_EL) return;
   var t0 = performance.now();
-  ORDER.forEach(function (m, i) { m._oi = i; });
   TREE_EL.innerHTML = '<ul><li>' + link('', 'data-m="0"', 'Map: ' + mapName(TOP)) + ' ' + esc(sizeText(TOP)) + '.' + mapLists(TOP) + '<\/li><\/ul>';
   TREE_MS = performance.now() - t0;
 }
@@ -112,15 +109,19 @@ function goalOf(m, c, f) {
   if (c && !c.child) return {box: worldBox(c), pad: 0.2};
   return {box: frameOf(c ? c.child : m), pad: FIT};
 }
-// The goal that the URL hash gives: a map, or a card of a map. Null when the hash names no
-// map and no card.
+function flyGoal(g) { flyTo(g.box, g.pad); }
+// The ID that the URL hash gives, or '' when the hash is not a correct URI part.
+function hashId() { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ''; } }
+// Write the hash `h` with no new history entry. An empty `h` removes the hash.
+function setHash(h) {
+  try { history.replaceState(null, '', h || location.pathname + location.search); } catch (e) { /* a file page can refuse it */ }
+}
+// The goal that the URL hash gives: a map, or a card of a map. When the hash names no map
+// and no card, it is the top map.
 function hashGoal() {
-  var id = '';
-  try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { id = ''; }
-  if (!id) return null;
-  if (MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
-  var c = hashCard(id);
-  return c ? goalOf(c.map, c, null) : null;
+  var id = hashId(), c = id ? hashCard(id) : null;
+  if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
+  return c ? goalOf(c.map, c, null) : goalOf(TOP, null, null);
 }
 // The card that the ID `id` of a URL hash names, when it is a card that opens no map.
 function hashCard(id) {
@@ -133,18 +134,24 @@ if (TREE_EL) {
     var a = e.target.closest ? e.target.closest('a[data-m]') : null;
     if (!a) return;
     var m = ORDER[+a.getAttribute('data-m')], c = a.hasAttribute('data-c') ? m.cards[+a.getAttribute('data-c')] : null;
-    var f = a.hasAttribute('data-f') ? m.flows[+a.getAttribute('data-f')] : null, goal = goalOf(m, c, f);
+    var f = a.hasAttribute('data-f') ? m.flows[+a.getAttribute('data-f')] : null, href = a.getAttribute('href');
     e.preventDefault();
-    try { history.replaceState(null, '', a.getAttribute('href') === '#' ? location.pathname + location.search : a.getAttribute('href')); } catch (err) { /* a file page can refuse it */ }
-    flyTo(goal.box, goal.pad);
+    setHash(href === '#' ? '' : href);
+    flyGoal(goalOf(m, c, f));
   });
+}
+// The words for the focused card and the selected card, after the words of a new map.
+function heldWords() {
+  var f = FOCUS && document.activeElement === cv && mapOpen(FOCUS) ? FOCUS : null, out = f ? ' ' + cardWords(f) : '';
+  if (SEL_C) out += SEL_C === f ? ' Selected.' : ' Selected: card ' + SEL_C.id + '.';
+  return out;
 }
 // When the camera stops: the label of the canvas gives the current path. When the open map
 // changes, the live region tells the new map. Each element changes only when its text changes.
 function tell(m) {
   var name = mapName(m), label = 'System map: ' + name + '. Level ' + CHAIN.length + '.';
   if (label !== LABEL) { LABEL = label; cv.setAttribute('aria-label', label); }
-  if (SAID && SAID_MAP && m !== SAID_MAP) SAID.textContent = 'Open map: ' + name + '. ' + counted(m.cards.length, 'card') + '.';
+  if (SAID_MAP && m !== SAID_MAP) say('Open map: ' + name + '. ' + counted(m.cards.length, 'card') + '.' + heldWords());
   SAID_MAP = m;
 }
 """

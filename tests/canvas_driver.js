@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --empty | --keys [--light | --order] | --tree]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --taps | --targets | --empty | --keys [--light | --order] | --tree]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -158,13 +158,14 @@ async function fits(file, ids, small) {
 // --clear: on screens of 1440 x 900, 390 x 844 and 844 x 390 pixels, the camera fit of each
 // map. A problem is a portal box that covers a box of the maps on the screen (a card, a
 // flow label plate or a text) with an opacity of 0.05 or more by more than 0.5 pixels.
-// The boxes of the neighbour of the portal do not count. `fits` is the count of fits, and
+// The boxes of the neighbour of the portal do not count. The test uses the drawn box of the
+// portal, which can be smaller than its target. `fits` is the count of fits, and
 // `portals` is the count of portals at these fits.
 const overPortal = (page, id) => page.evaluate((id) => {
   const S = window.systemapCanvas, out = [], tag = innerWidth + 'x' + innerHeight + ' ' + (id || 'top') + ': ';
   const portals = S.hits().filter((h) => h.kind === 'portal');
-  portals.forEach((p) => {
-    const nb = S.box(p.map, p.id);
+  portals.forEach((h) => {
+    const nb = S.box(h.map, h.id), b = h.box, p = { id: h.id, x: b[0], y: b[1], w: b[2], h: b[3] };
     S.obstacles().forEach(([x0, y0, x1, y1, alpha]) => {
       if (alpha < 0.05 || (nb && x0 >= nb[0] - 1 && y0 >= nb[1] - 1 && x1 <= nb[0] + nb[2] + 1 && y1 <= nb[1] + nb[3] + 1)) return;
       if (p.x < x1 - 0.5 && x0 < p.x + p.w - 0.5 && p.y < y1 - 0.5 && y0 < p.y + p.h - 0.5) {
@@ -454,10 +455,11 @@ async function portals(file, card, small) {
 // level 3, on screens of 390 x 844, 844 x 390 and 1440 x 900 pixels, and after the screen
 // of 390 x 844 pixels turns to 844 x 390 pixels. For each fit: the screen size, the frame
 // of the open map, the free bands (`gutters`), the cards of the open map that the screen edge
-// cuts, and the boxes of the path, the help line and the portals that cover each other.
+// cuts, and the boxes of the path, the help line and the portals that cover each other. For a
+// portal, the box is its drawn box.
 const fitState = (page, id) => page.evaluate((id) => {
   const S = window.systemapCanvas, W = innerWidth, H = innerHeight, L = S.layout(), out = [];
-  const boxes = [['path', L.path], ['help', L.help]].concat(S.hits().filter((h) => h.kind === 'portal').map((h) => ['portal ' + h.id, [h.x, h.y, h.w, h.h]]));
+  const boxes = [['path', L.path], ['help', L.help]].concat(S.hits().filter((h) => h.kind === 'portal').map((h) => ['portal ' + h.id, h.box]));
   boxes.forEach(([a, p], i) => boxes.slice(i + 1).forEach(([b, q]) => {
     if (p[0] < q[0] + q[2] && q[0] < p[0] + p[2] && p[1] < q[1] + q[3] && q[1] < p[1] + p[3]) out.push(a + ' over ' + b);
   }));
@@ -612,6 +614,128 @@ async function input(file, card) {
   return out;
 }
 
+// A phone screen of 390 x 844 pixels with a touch screen, as Playwright gives for a phone.
+const PHONE = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 };
+const tapped = (page) => page.evaluate(() => ({ chain: window.systemapCanvas.chain(), selected: window.systemapCanvas.selected(),
+  facts: window.systemapCanvas.hits().filter((h) => h.kind === 'facts') }));
+// The alpha of each selected card in each frame for `ms` milliseconds.
+const selAlphas = (page, ms) => page.evaluate((ms) => new Promise((done) => {
+  const out = [], t0 = performance.now();
+  const step = () => {
+    const a = {};
+    window.systemapCanvas.selected().shown.forEach((e) => { a[e.map + '/' + e.id] = e.alpha; });
+    out.push(a);
+    if (performance.now() - t0 < ms) requestAnimationFrame(step); else done(out);
+  };
+  requestAnimationFrame(step);
+}), ms);
+
+// --taps: the taps on a phone screen with reduced motion. CARD opens a map, and NEIGHBOUR
+// does not. Each item of `steps` gives the chain, the selected card and the plates of
+// facts after a tap: on CARD, on CARD again, then Esc, on NEIGHBOUR, on NEIGHBOUR again, on
+// empty space, on CARD, and a double tap on CARD. `fade`: without reduced motion, the alpha
+// of the selection in each frame for 1.2 s. A tap on CARD occurs after 0.1 s, and a tap on
+// empty space after 0.6 s.
+async function taps(file, card, neighbour) {
+  const browser = await chromium.launch(), out = { steps: [], errors: [] };
+  let context = await browser.newContext({ ...PHONE, reducedMotion: 'reduce' });
+  let page = await context.newPage();
+  page.on('pageerror', (e) => out.errors.push(String(e)));
+  await page.goto('file://' + file);
+  await settle(page);
+  const at = (id) => page.evaluate((id) => window.systemapCanvas.box('', id), id).then(centre);
+  // A point of the open map that is not in a card: the middle of the widest gap between
+  // two cards, along the line through the middle of CARD.
+  const empty = async () => page.evaluate((id) => {
+    const S = window.systemapCanvas, b = S.box('', id), y = b[1] + b[3] / 2, W = innerWidth;
+    const xs = S.boxes('').filter((c) => c.b[1] <= y && c.b[1] + c.b[3] >= y).map((c) => [c.b[0], c.b[0] + c.b[2]]).sort((u, v) => u[0] - v[0]);
+    let best = [0, 0], end = 0;
+    xs.concat([[W, W]]).forEach(([x0, x1]) => { if (x0 - end > best[1] - best[0]) best = [end, x0]; end = Math.max(end, x1); });
+    return [(best[0] + best[1]) / 2, y];
+  }, card);
+  const tap = async (p, name) => { await page.touchscreen.tap(p[0], p[1]); await settle(page); out.steps.push({ name, ...await tapped(page) }); };
+  await tap(await at(card), 'card');
+  await tap(await at(card), 'card again');
+  await page.keyboard.press('Escape');
+  await settle(page);
+  await tap(await at(neighbour), 'neighbour');
+  await tap(await at(neighbour), 'neighbour again');
+  await tap(await empty(), 'empty');
+  await tap(await at(card), 'card after empty');
+  await page.keyboard.press('Escape');
+  await settle(page);
+  const p = await at(card);
+  await page.touchscreen.tap(p[0], p[1]);
+  await page.waitForTimeout(60);
+  await page.touchscreen.tap(p[0], p[1]);
+  await settle(page);
+  out.steps.push({ name: 'double tap', ...await tapped(page) });
+  await context.close();
+  context = await browser.newContext({ ...PHONE, reducedMotion: 'no-preference' });
+  page = await context.newPage();
+  page.on('pageerror', (e) => out.errors.push(String(e)));
+  await page.goto('file://' + file);
+  await settle(page);
+  const q = await at(card), e = await empty();
+  const shown = selAlphas(page, 1200);
+  await page.waitForTimeout(100);
+  await page.touchscreen.tap(q[0], q[1]);
+  await page.waitForTimeout(500);
+  await page.touchscreen.tap(e[0], e[1]);
+  out.fade = await shown;
+  await browser.close();
+  return out;
+}
+
+// --targets: C5 on a phone screen of 390 x 844 pixels with reduced motion. At the camera fit
+// of each map, the page width and the scroll width, the targets on the canvas (the parts
+// of the path and the portals), and the problems of `overPortal` and of `fitState`. Then,
+// at the fit of the top map and of one map on each level below it to level 3, a tap on the
+// first card of the open map that is fully on the screen gives the plate of its facts.
+async function targets(file) {
+  const browser = await chromium.launch(), out = { fits: [], plates: [], errors: [] };
+  const context = await browser.newContext({ ...PHONE, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => out.errors.push(String(e)));
+  await page.goto('file://' + file);
+  await settle(page);
+  for (const id of await page.evaluate(() => window.systemapCanvas.maps().map((m) => m.id))) {
+    await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
+    const s = await page.evaluate(() => ({
+      W: innerWidth, scroll: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
+      x: (window.scrollX || 0), coarse: matchMedia('(pointer: coarse)').matches,
+      hits: window.systemapCanvas.hits().filter((h) => h.show === undefined || h.show > 0.5).map((h) => ({ kind: h.kind, id: h.id, w: h.w, h: h.h })),
+    }));
+    const lay = await fitState(page, id), over = await overPortal(page, id), open = await covered(page);
+    // The targets of the portals that go more than 0.5 pixels into a card of a map. The
+    // neighbour of the portal and an open card do not count.
+    const into = await page.evaluate((id) => {
+      const S = window.systemapCanvas, out = [], chain = S.chain();
+      S.hits().filter((h) => h.kind === 'portal').forEach((h) => S.maps().forEach((m) => S.boxes(m.id).forEach((c) => {
+        const b = c.b, skip = (h.map === m.id && h.id === c.id) || chain.includes((m.id ? m.id + '/' : '') + c.id);
+        if (!skip && h.x < b[0] + b[2] - 0.5 && b[0] < h.x + h.w - 0.5 && h.y < b[1] + b[3] - 0.5 && b[1] < h.y + h.h - 0.5) out.push(h.id + ' into ' + (m.id ? m.id + '/' : '') + c.id);
+      })));
+      return out;
+    }, id);
+    out.fits.push({ id, ...s, into, problems: over.problems.concat(lay.cut.map((c) => 'cut ' + c), lay.covers, open) });
+  }
+  for (const id of await levels(page)) {
+    await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
+    await settle(page);
+    const c = await page.evaluate((id) => {
+      const W = innerWidth, H = innerHeight;
+      return window.systemapCanvas.boxes(id).find((x) => x.b[0] >= 0 && x.b[1] >= 0 && x.b[0] + x.b[2] <= W && x.b[1] + x.b[3] <= H);
+    }, id);
+    await page.touchscreen.tap(...centre(c.b));
+    await settle(page);
+    out.plates.push({ id, card: c.id, ...await tapped(page) });
+    await page.touchscreen.tap(...centre(c.b));
+    await settle(page);
+  }
+  await browser.close();
+  return out;
+}
+
 // --empty: CARD opens a map with no area. The camera after a link with the hash of CARD,
 // and after a double-click on CARD, with reduced motion.
 async function empty(file, card) {
@@ -694,8 +818,12 @@ async function keys(file, card, neighbour, light, order) {
   await page.keyboard.press('Escape');
   await settle(page);
   out.escaped = await keyState(page);
-  // Enter on NEIGHBOUR selects it.
-  for (let i = 0; i < 2 * n && ((await keyState(page)).focus || {}).id !== neighbour; i++) await page.keyboard.press('Tab');
+  // Enter on NEIGHBOUR selects it. Tab after the last card goes to the list of the tree, so
+  // the loop puts the keyboard focus on the canvas again.
+  for (let i = 0; i < 2 * n + 2 && ((await keyState(page)).focus || {}).id !== neighbour; i++) {
+    if ((await keyState(page)).active !== 'canvas') await page.evaluate(() => document.getElementById('canvas').focus());
+    else await page.keyboard.press('Tab');
+  }
   await page.keyboard.press('Enter');
   await settle(page);
   out.selected = await keyState(page);
@@ -745,6 +873,56 @@ async function keys(file, card, neighbour, light, order) {
   return out;
 }
 
+// --tree: the list of the tree. The links of the list, and the state after Enter on the
+// link of CARD, on the link of NEIGHBOUR and on the link of the first flow, and after a click
+// on the link of the top map. Then the state after a link with the hash of a card in the map
+// of CARD.
+async function treeList(file, card, neighbour) {
+  const browser = await chromium.launch(), out = { errors: [] };
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => out.errors.push(String(e)));
+  page.on('console', (m) => { if (m.type() === 'error') out.errors.push(m.text()); });
+  await page.goto('file://' + file);
+  await settle(page);
+  out.links = await page.evaluate(() => [...document.querySelectorAll('#canvas-tree a')].map((a) => ({
+    text: a.textContent, href: a.getAttribute('href'), item: a.parentElement.textContent,
+    lists: [...a.parentElement.querySelectorAll(':scope > ul')].map((u) => u.getAttribute('aria-label')),
+  })));
+  const said = () => page.evaluate(() => document.getElementById('canvas-said').textContent);
+  // Enter on a link with the focus. The link is then visible: give its screen box, and tell if
+  // it is the element at its middle.
+  const enter = async (selector) => {
+    await page.focus(selector);
+    const shown = await page.evaluate(() => {
+      const a = document.activeElement, r = a.getBoundingClientRect();
+      return { box: [r.x, r.y, r.width, r.height], top: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === a };
+    });
+    await page.keyboard.press('Enter');
+    await settle(page);
+    return { shown, ...(await state(page)), said: await said() };
+  };
+  out.card = await enter(`#canvas-tree a[data-c][href="#${card}"]`);
+  out.neighbour = await enter(`#canvas-tree a[data-c][href="#${neighbour}"]`);
+  out.neighbour.box = await page.evaluate((id) => window.systemapCanvas.box('', id), neighbour);
+  out.flow = await enter('#canvas-tree a[data-m="0"][data-f="0"]');
+  const flow = await page.evaluate(() => JSON.parse(document.getElementById('canvas-data').textContent).maps[0].flows[0]);
+  out.flow.ends = await page.evaluate((f) => [window.systemapCanvas.box('', f.s), window.systemapCanvas.box('', f.t)], flow);
+  // A click on the visible link of the top map.
+  await page.focus('#canvas-tree a[href="#"]');
+  const top = await page.evaluate(() => { const r = document.activeElement.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
+  await page.mouse.click(top[0], top[1]);
+  await settle(page);
+  out.top = { ...(await state(page)), said: await said(), fit: await page.evaluate(() => window.systemapCanvas.fit('')) };
+  // A link with the hash of a card in a nested map.
+  const inner = await page.evaluate((id) => JSON.parse(document.getElementById('canvas-data').textContent).maps.find((m) => m.id === id).cards[0].id, card);
+  await page.goto('file://' + file + '#' + encodeURIComponent(card) + '/' + encodeURIComponent(inner));
+  await settle(page);
+  out.hashed = { ...(await state(page)), card: inner, box: await page.evaluate(([m, c]) => window.systemapCanvas.box(m, c), [card, inner]) };
+  await browser.close();
+  return out;
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
@@ -752,6 +930,8 @@ async function keys(file, card, neighbour, light, order) {
   const out = process.argv.includes('--keys') ? await keys(file, card, neighbour, process.argv.includes('--light'), process.argv.includes('--order'))
     : process.argv.includes('--input') ? await input(file, card)
     : process.argv.includes('--tree') ? await treeList(file, card, neighbour)
+    : process.argv.includes('--taps') ? await taps(file, card, neighbour)
+    : process.argv.includes('--targets') ? await targets(file)
     : process.argv.includes('--empty') ? await empty(file, card)
     : process.argv.includes('--layout') ? await layout(file)
     : process.argv.includes('--clear') ? await clearFits(file)

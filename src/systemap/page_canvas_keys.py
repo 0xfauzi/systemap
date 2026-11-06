@@ -15,26 +15,28 @@ moves the card to the middle of the free box, at the same zoom. When the card is
 than the free box, the camera zooms out to the card, with a margin of 20 % of the screen.
 
 Enter on a card that opens a map goes into that map. Enter on a different card selects
-it. Esc goes out one level (`goOut`), and the keyboard focus goes to the card that opens
-the map that the camera comes from. A pointer input on the canvas removes the keyboard
-focus from the card.
+it, with the selection of the touch part (`select` in `page_canvas_touch`). Esc goes out
+one level (`goOut`). When the canvas has the keyboard focus, the keyboard focus then goes
+to the card that opens the map that the camera comes from. A pointer input on the canvas
+removes the keyboard focus from the card. When the map of the focused card closes (for
+example after a zoom out), the card loses the keyboard focus (`liveFocus`), as the
+selected card loses the selection. Then the page draws no ring, and Enter does nothing.
 
-The focused card has a ring 4 px outside its box. The ring is 3 px wide, in the color of
+The focused card has a ring 7 px outside its box. The ring is 3 px wide, in the color of
 the text (`--ink`). Thus the contrast ratio of the ring with the page color (`--map`) is 3
-or more in the two schemes. The selected card has a border of 2.5 px in the selection color
-(`--accent`). The page draws the ring only while the canvas has the keyboard focus. The
-ring and the border have a constant cost in each frame. A text element with
-`aria-live` gives the name of the focused card or the selected card to a screen reader.
+or more in the two schemes, and the ring is outside the line of the selected card. The page
+draws the ring only while the canvas has the keyboard focus. The ring has a constant cost
+in each frame. The live region of the page (`canvas-said`) gives the name of the focused
+card or the selected card to a screen reader.
 """
 
 from __future__ import annotations
 
 KEYS = r"""
 // ---- the keyboard focus -------------------------------------------------------------
-// FOCUS is the focused card, and FOCUS_MAP is the map in which Tab moves. SELECTED is the
-// card that Enter selected.
-var FOCUS = null, FOCUS_MAP = null, SELECTED = null, LIVE = document.getElementById('canvas-focus');
-var RING_OFF = 4, RING_W = 3, PICK_W = 2.5;
+// FOCUS is the focused card, and FOCUS_MAP is the map in which Tab moves.
+var FOCUS = null, FOCUS_MAP = null, LIVE = document.getElementById('canvas-said');
+var RING_OFF = 7, RING_W = 3;
 // The cards of a map in reading order. Each map keeps its order.
 function readingOrder(m) {
   if (m._read) return m._read;
@@ -48,7 +50,7 @@ function readingOrder(m) {
   m._read = [];
   rows.forEach(function (r) {
     r.list.sort(function (a, b) { return a.b[0] - b.b[0]; });
-    m._read = m._read.concat(r.list);
+    Array.prototype.push.apply(m._read, r.list);
   });
   return m._read;
 }
@@ -71,6 +73,12 @@ function setFocus(c) {
   if (c) { FOCUS_MAP = c.map; say(cardWords(c)); }
   request();
 }
+// The focused card, while its map is open or a flight goes. Else no card has the keyboard
+// focus.
+function liveFocus() {
+  if (FOCUS && !flight && !mapOpen(FOCUS)) { FOCUS = null; FOCUS_MAP = null; }
+  return FOCUS;
+}
 // Move the camera when the box of the focused card is not fully in the free box.
 function showFocus(c) {
   var r = screenBox(c), g = gutters(), x0 = g.x, y0 = g.top, x1 = W - g.x, y1 = H - g.bottom;
@@ -87,13 +95,14 @@ function tabStep(back) {
   return true;
 }
 function enterKey() {
-  var c = FOCUS;
+  var c = liveFocus();
   if (!c) return;
-  if (c.child) { FOCUS = null; FOCUS_MAP = c.child; say('Map ' + c.child.id + '.'); request(); flyTo(frameOf(c.child), FIT); return; }
-  SELECTED = c; say('Selected: card ' + c.id + '.'); request();
+  if (c.child) { FOCUS = null; FOCUS_MAP = c.child; request(); flyGoal(goalOf(c.map, c, null)); return; }
+  select(c);
 }
-// Esc: the keyboard focus goes to the card that opens the map that the camera leaves.
-function focusOut() { var n = CHAIN.length; if (n) setFocus(CHAIN[n - 1]); }
+// Esc on the canvas: the keyboard focus goes to the card that opens the map that the camera
+// leaves.
+function focusOut() { var n = CHAIN.length; if (n && document.activeElement === cv) setFocus(CHAIN[n - 1]); }
 cv.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Tab' && tabStep(e.shiftKey)) e.preventDefault();
@@ -106,27 +115,18 @@ function ringBox(c) {
   var r = screenBox(c), w = Math.max(r[2], 4), h = Math.max(r[3], 4), x = r[0] + r[2] / 2 - w / 2, y = r[1] + r[3] / 2 - h / 2;
   return [x - RING_OFF, y - RING_OFF, w + 2 * RING_OFF, h + 2 * RING_OFF];
 }
-function cornerOfCard(r) { return r[2] > 60 ? clamp(r[3] * 0.1, 2, 8) : 0; }
-// The border of the selected card, under the rings and the portals.
-function drawSelected() {
-  if (!SELECTED) return;
-  var r = screenBox(SELECTED);
-  if (!boxOnScreen(r)) return;
-  ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.strokeStyle = C['--accent']; ctx.lineWidth = PICK_W;
-  ctx.beginPath(); rr(ctx, r[0] + PICK_W / 2, r[1] + PICK_W / 2, Math.max(1, r[2] - PICK_W), Math.max(1, r[3] - PICK_W), cornerOfCard(r)); ctx.stroke();
-}
 // The ring of the focused card, over all other drawing. Only while the canvas has the
 // keyboard focus.
 function drawFocus() {
-  if (!FOCUS || document.activeElement !== cv) return;
-  var b = ringBox(FOCUS);
+  if (!liveFocus() || document.activeElement !== cv) return;
+  var r = screenBox(FOCUS), b = ringBox(FOCUS);
   if (!boxOnScreen(b)) return;
   ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.strokeStyle = C['--ink']; ctx.lineWidth = RING_W;
-  ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], cornerOfCard(screenBox(FOCUS)) + RING_OFF); ctx.stroke();
+  ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], cardCorner(r[2], r[3]) + RING_OFF); ctx.stroke();
 }
 // The state of the keyboard focus for the tests.
 function keyState() {
-  var f = FOCUS, s = SELECTED;
+  var f = liveFocus(), s = SEL_C;
   return {focus: f ? {map: f.map.id, id: f.id} : null, selected: s ? {map: s.map.id, id: s.id} : null,
     tabMap: FOCUS_MAP ? FOCUS_MAP.id : null, ring: f ? {box: ringBox(f), width: RING_W, off: RING_OFF} : null,
     live: LIVE ? LIVE.textContent : ''};

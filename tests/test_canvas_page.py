@@ -15,8 +15,9 @@ Acceptance values:
 6. The canvas page has the parts for a screen reader: the canvas has the role img, a
    label with the name of the map, and a description of the inputs. After the canvas, the
    page has one empty `nav` element for the list of the tree and one polite live region.
-   The script writes the list from the canvas data (`buildTree`) and does not give the
-   card texts a second time. A link of the list with the focus has a box of 44 pixels high
+   The canvas, the help text, the list and the live region are in one `main` element. The
+   script writes the list from the canvas data (`buildTree`) and does not give the card
+   texts a second time. A link of the list with the focus has a box of 44 pixels high
    or more. The tree part adds 12,000 bytes or less to the page.
 """
 
@@ -189,7 +190,8 @@ def test_the_page_has_the_parts_for_a_screen_reader(canvas_root: Path) -> None:
     after = top[top.index("</canvas>") :]
     assert after.count('<nav id="canvas-tree" class="tree" aria-label="Map tree"></nav>') == 1
     assert after.count('<p id="canvas-said" class="sr-only" aria-live="polite"></p>') == 1
-    assert "buildTree();" in top
+    assert "setTimeout(buildTree, 0)" in top
+    assert re.search(r"<body><main><canvas .*</nav><p id=\"canvas-said\"[^>]*></p></main>", top)
     assert top.count("Takes the requests.") == 1
     assert re.search(r"\.tree a:focus\{[^}]*min-height:44px", top)
     added = (page_canvas_tree.CSS + page_canvas_tree.HTML + page_canvas_tree.TREE).encode()
