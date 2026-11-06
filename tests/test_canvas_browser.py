@@ -158,10 +158,13 @@ def driven(canvas: Path) -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def tree(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The canvas page of the generated M11 tree."""
+    return _tree_page(tmp_path_factory, "tree")
+
+
+def _tree_page(factory: pytest.TempPathFactory, name: str, cols: int = 14) -> Path:
+    """Write the canvas page of the generated M11 tree with `cols` columns of cards."""
     bench = _bench()
-    return Path(
-        bench.write_page(bench.nested_tree(), tmp_path_factory.mktemp("tree") / "tree.html")
-    )
+    return Path(bench.write_page(bench.nested_tree(cols), factory.mktemp(name) / "tree.html"))
 
 
 def test_the_script_runs_under_the_policy(driven: dict[str, Any]) -> None:
@@ -281,24 +284,15 @@ def test_a_boundary_flow_fades_with_the_camera(
         assert dive["worst"] <= 0.25, dive
 
 
-@functools.cache
-def _clear(page: Path) -> dict[str, Any]:
-    """The `--clear` result of a page. Each page runs one time."""
-    return drive(page, "--clear", ids=("", ""))
-
-
 @pytest.fixture(scope="module")
 def narrow(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The canvas page of the generated M11 tree with 4 columns of cards in each map."""
-    bench = _bench()
-    return Path(
-        bench.write_page(bench.nested_tree(4), tmp_path_factory.mktemp("narrow") / "tree.html")
-    )
+    return _tree_page(tmp_path_factory, "narrow", 4)
 
 
 @pytest.mark.parametrize("flags", [("--fits",), ("--fits", "--phone")])
 def test_a_portal_does_not_cover_a_card_of_the_open_map(
-    driven: dict[str, Any], tree: Path, narrow: Path, flags: tuple[str, ...]
+    driven: dict[str, Any], tree: Path, flags: tuple[str, ...]
 ) -> None:
     """Acceptance 10."""
     assert driven["inside"]["covered"] == []
@@ -307,8 +301,12 @@ def test_a_portal_does_not_cover_a_card_of_the_open_map(
     assert fitted["P0/A0"]["chain"] == ["P0", "P0/A0"] and fitted["P0/A0"]["portals"] == 4
     assert fitted["P0"]["covered"] == []
     assert fitted["P0/A0"]["covered"] == []
+
+
+def test_a_portal_keeps_off_the_boxes_of_the_maps(tree: Path, narrow: Path) -> None:
+    """Acceptance 10."""
     for page in (tree, narrow):
-        clear = _clear(page)
+        clear = drive(page, "--clear", ids=("", ""))
         assert clear["fits"] == 150 and clear["portals"] >= 300, clear["portals"]
         assert clear["problems"] == []
 

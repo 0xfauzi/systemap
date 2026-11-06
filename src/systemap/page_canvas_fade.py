@@ -52,17 +52,19 @@ function lineKey(nb, p, m) { return (m.id || '') + '>' + (nb.map.id || '') + '/'
 function fadeFrame() {
   var now = performance.now(), dt = FADE_LAST ? Math.min(now - FADE_LAST, FADE_DT) : FADE_DT;
   FADE_LAST = now; FADE_FRAME++; FADING = false;
-  FADE_STEP = reduced() ? 1 : dt / FADE_MS;
-  PORTAL_STEP = reduced() ? 1 : Math.min(dt, PORTAL_DT) / PORTAL_MS;
-  DODGE_STEP = reduced() ? Infinity : Math.min(dt, PORTAL_DT) * DODGE_PX;
+  var pdt = Math.min(dt, PORTAL_DT), still = reduced();
+  FADE_STEP = still ? 1 : dt / FADE_MS;
+  PORTAL_STEP = still ? 1 : pdt / PORTAL_MS;
+  DODGE_STEP = still ? Infinity : pdt * DODGE_PX;
 }
 function portalKey(t) { return t.nb.map.id + '/' + t.nb.id; }
-// A portal does not appear or go at one time. The target `show` of a portal is 1 while no
-// part of its neighbour is on the screen, and else 0 (`portalsOf`). The `show` that the
-// frame draws goes to that target by `step` or less in each frame, from 0 for a new
-// portal. Thus, when the camera stops, each `show` gets to 1 or 0. A portal is drawn only
-// with this `show`. Thus it is never more visible over a card. `room` is the part of its place that a
-// portal keeps on its edge (`kept`). It goes to 1 by `step` in each frame while the
+// A portal does not appear or go at one time. The target `show` of each portal in `list`
+// is 1. A neighbour has a portal only while no part of its card is on the screen
+// (`portalsOf`). The `show` that the frame draws goes to 1 by `step` or less in each frame,
+// from 0 for a new portal. A portal that is not in `list` fades out (below). Thus, when the
+// camera stops, each `show` gets to 1 or 0. A portal is drawn only with this `show`. Thus
+// it is never more visible over a card. `room` is the part of its place that a portal
+// keeps on its edge (`kept`). It goes to 1 by `step` in each frame while the
 // portal is in `list`. A portal of the frame before that is not in `list` (the chain
 // changed) stays at its side or in its row and follows its card, with no lines. Its `show`
 // and its `room` go down by `step` in each frame, and it goes when its `room` is 0. A
@@ -75,11 +77,11 @@ var PORTALS = new Map(), PORTAL_MS = 400, PORTAL_DT = 17;
 function portalFades(list) {
   var next = new Map(), out = [], step = PORTAL_STEP;
   list.forEach(function (t) {
-    var was = PORTALS.get(portalKey(t)), to = t.show;
-    t.show = approach(was ? was.show : 0, to, step);
+    var was = PORTALS.get(portalKey(t));
+    t.show = approach(was ? was.show : 0, 1, step);
     t.room = Math.min(1, (was ? was.room : 0) + step);
-    t.dx = was ? was.dx : null; t.dy = was ? was.dy : null; t.x0 = was ? was.x0 : undefined; t.y0 = was ? was.y0 : undefined;
-    if (t.show !== to || t.room < 1) FADING = true;
+    if (was) { t.dx = was.dx; t.dy = was.dy; t.x0 = was.x0; t.y0 = was.y0; }
+    if (t.show < 1 || t.room < 1) FADING = true;
     next.set(portalKey(t), t); out.push(t);
   });
   PORTALS.forEach(function (t, key) {
@@ -188,28 +190,54 @@ function layerClose() {
 // to the other side while the camera moves. When no place is open, the portal stays at
 // its place. The move from the place (`dx`, `dy`) goes to its target by DODGE_STEP pixels
 // or less in each frame: DODGE_PX pixels for each millisecond, for PORTAL_DT ms or less.
-// Thus this move adds 3.4 pixels or less in one frame to the move of the place. When the
-// place moves by `moved` pixels in a frame, the step is also DODGE_JUMP - `moved` or less.
+// Thus, while the camera moves, this move adds 3.4 pixels or less in one frame to the move
+// of the place. While the place does not move, the move can be faster (`dodgeStep`). When
+// the place moves by `moved` pixels in a frame, the step is also DODGE_JUMP - `moved` or less.
 // Thus this move does not make a move of the portal of more than DODGE_JUMP pixels in one
-// frame. When the place moves by DODGE_JUMP pixels or more, this move waits. A new
-// portal starts at its target, because it fades in from 0. With reduced motion, a portal
-// goes to its target at once.
+// frame. When the place moves by DODGE_JUMP pixels or more (a fast camera move, a jump of
+// the camera or a change of the screen size), the step is `moved` or less. Thus the move
+// from the place does not stay from an earlier view, and the portal moves by 2 times
+// `moved` or less. While the move goes step by step, it does not go over a different
+// portal (`dodgePath`). The portal stays in the range of its edge. A new portal starts at
+// its target, because it fades in from 0. With reduced motion, a portal goes to its target
+// at once.
 var NMAP = 0, DODGE_MIN = 0.05, DODGE_PAD = 4, DODGE_PX = 0.2, DODGE_STEP = Infinity, DODGE_IN = 34, DODGE_JUMP = 16;
 function dodge(list) {
   list.forEach(function (t) {
     t.moved = t.x0 === undefined ? 0 : Math.hypot(t.x - t.x0, t.y - t.y0);
     t.x0 = t.x; t.y0 = t.y;
-    if (t.dx === null || t.dx === undefined) t.dx = t.dy = null; else { t.x += t.dx; t.y += t.dy; }
+    if (t.dx !== undefined) { t.x += t.dx; t.y += t.dy; }
   });
   list.forEach(function (t) {
-    var to = dodgeTo(t, list), fresh = t.dx === null;
+    var fresh = t.dx === undefined, jump = t.moved >= DODGE_JUMP, at = fresh || jump || DODGE_STEP === Infinity;
+    var to = dodgeEdge(t, dodgeTo(t, list, at));
+    if (!fresh) { var here = dodgeEdge(t, [t.dx, t.dy]); t.dx = here[0]; t.dy = here[1]; }
     var ex = fresh ? 0 : to[0] - t.dx, ey = fresh ? 0 : to[1] - t.dy, far = Math.hypot(ex, ey);
-    var step = DODGE_STEP === Infinity ? Infinity : Math.min(DODGE_STEP, Math.max(0, DODGE_JUMP - t.moved));
+    var step = fresh || DODGE_STEP === Infinity ? Infinity : jump ? t.moved : dodgeStep(t.moved, far);
     if (far > step) { t.dx += ex * step / far; t.dy += ey * step / far; FADING = true; }
     else { t.dx = to[0]; t.dy = to[1]; }
     t.x = t.x0 + t.dx; t.y = t.y0 + t.dy;
   });
   return list;
+}
+// The step of the move from the place in one frame, when the place moves by `moved` pixels
+// (less than DODGE_JUMP) and the move has `far` pixels to its target. While the place
+// moves by DODGE_CALM pixels or more, the step is DODGE_STEP or less. While the place does
+// not move, the step is DODGE_EASE of `far`, and DODGE_STEP or more. Thus the move slows
+// down near its target, and a long move ends soon after the camera stops. Between the two,
+// the step changes with `moved`. The step is also DODGE_JUMP - `moved` or less, with a
+// margin of DODGE_ROUND pixels for the rounding of the floating point values.
+var DODGE_CALM = 4, DODGE_EASE = 0.25, DODGE_ROUND = 0.05;
+function dodgeStep(moved, far) {
+  var still = clamp(1 - moved / DODGE_CALM, 0, 1), more = Math.max(0, DODGE_EASE * far - DODGE_STEP);
+  return Math.min(DODGE_STEP + still * more, DODGE_JUMP - DODGE_ROUND - moved);
+}
+// The move m of portal `t`, with the portal in the range of its edge. When `apart` puts
+// the place out of that range, the range goes to the place.
+function dodgeEdge(t, m) {
+  var ends = t.side ? [P_TOP, bottomRow()] : rowRange(t), at = t.side ? t.y0 : t.x0;
+  var to = clamp(at + (t.side ? m[1] : m[0]), Math.min(ends[0], at), Math.max(ends[1], at)) - at;
+  return t.side ? [m[0], to] : [to, m[1]];
 }
 // The boxes near the edge of portal `t` that it must keep off, as x0, y0, x1, y1 with the
 // space around them: the boxes of the maps, and then the other portals from index `n`.
@@ -227,18 +255,19 @@ function dodgeBoxes(t, list) {
   });
   return out;
 }
-// Tell if portal `t` with its middle at x, y covers none of the first `n` boxes, by more
-// than 0.5 pixels.
-function dodgeOpen(t, x, y, boxes, n) {
-  var x0 = x - t.w / 2 + 0.5, y0 = y - t.h / 2 + 0.5, x1 = x + t.w / 2 - 0.5, y1 = y + t.h / 2 - 0.5;
-  for (var i = 0; i < n; i++) { var b = boxes[i]; if (b[0] < x1 && x0 < b[2] && b[1] < y1 && y0 < b[3]) return false; }
+// Tell if portal `t`, on its way from the middle x, y to the middle u, v, covers none of
+// the boxes from index i0 to index i1, by more than 0.5 pixels.
+function dodgeOpen(t, x, y, u, v, boxes, i0, i1) {
+  var x0 = Math.min(x, u) - t.w / 2 + 0.5, y0 = Math.min(y, v) - t.h / 2 + 0.5;
+  var x1 = Math.max(x, u) + t.w / 2 - 0.5, y1 = Math.max(y, v) + t.h / 2 - 0.5;
+  for (var i = i0; i < i1; i++) { var b = boxes[i]; if (b[0] < x1 && x0 < b[2] && b[1] < y1 && y0 < b[3]) return false; }
   return true;
 }
 // The moves dx, dy of portal `t` to a place next to each box: along its edge in the two
 // directions, and into the screen (`dir`) by DODGE_IN pixels or less.
 function dodgeMoves(t, boxes) {
   var row = !t.side, dir = row ? (t.y0 < H / 2 ? 1 : -1) : -t.side, out = [];
-  var lo = row ? P_EDGE + t.w / 2 : P_TOP, hi = row ? W - P_EDGE - t.w / 2 : Math.max(P_TOP, H - P_BOTTOM);
+  var ends = row ? rowRange(t) : [P_TOP, bottomRow()], lo = ends[0], hi = ends[1];
   var at = row ? t.x0 : t.y0, half = (row ? t.w : t.h) / 2, across = row ? t.y0 : t.x0, deep = (row ? t.h : t.w) / 2;
   boxes.forEach(function (b) {
     var a0 = row ? b[0] : b[1], a1 = row ? b[2] : b[3], c = dir > 0 ? (row ? b[3] : b[2]) + deep : (row ? b[1] : b[0]) - deep;
@@ -247,15 +276,30 @@ function dodgeMoves(t, boxes) {
   });
   return out;
 }
+// Tell if portal `t` can go from its place of this frame to the move m step by step and
+// not go over a different portal. A portal that it covers now does not stop it. With
+// `at` true (a new portal, reduced motion, or a place that moves by DODGE_JUMP pixels or
+// more), the portal does not slide over the portals between, thus each move can go.
+function dodgePath(t, m, boxes, at) {
+  if (at) return true;
+  var x = t.x0 + (t.dx || 0), y = t.y0 + (t.dy || 0), u = t.x0 + m[0], v = t.y0 + m[1];
+  for (var i = boxes.n; i < boxes.length; i++) {
+    if (!dodgeOpen(t, x, y, x, y, boxes, i, i + 1)) continue;
+    if (!dodgeOpen(t, x, y, u, v, boxes, i, i + 1)) return false;
+  }
+  return true;
+}
 // The target move dx, dy of portal `t` from its place. `apart` keeps the portals apart at
 // their places, thus only the boxes of the maps can close the place. A move goes to no box.
-function dodgeTo(t, list) {
-  var boxes = dodgeBoxes(t, list);
-  if (dodgeOpen(t, t.x0, t.y0, boxes, boxes.n)) return [0, 0];
-  var wx = t.dx || 0, wy = t.dy || 0, best = [0, 0], far = Infinity;
+// When no move is possible, the portal goes back to its place, or it stays where it is if
+// a different portal is on the way.
+function dodgeTo(t, list, at) {
+  var boxes = dodgeBoxes(t, list), back = [0, 0], here = [t.dx || 0, t.dy || 0];
+  if (dodgeOpen(t, t.x0, t.y0, t.x0, t.y0, boxes, 0, boxes.n)) return dodgePath(t, back, boxes, at) ? back : here;
+  var best = dodgePath(t, back, boxes, at) ? back : here, far = Infinity;
   dodgeMoves(t, boxes).forEach(function (m) {
-    var d = Math.abs(m[0] - wx) + Math.abs(m[1] - wy);
-    if (d < far && dodgeOpen(t, t.x0 + m[0], t.y0 + m[1], boxes, boxes.length)) { far = d; best = m; }
+    var d = Math.abs(m[0] - here[0]) + Math.abs(m[1] - here[1]);
+    if (d < far && dodgeOpen(t, t.x0 + m[0], t.y0 + m[1], t.x0 + m[0], t.y0 + m[1], boxes, 0, boxes.length) && dodgePath(t, m, boxes, at)) { far = d; best = m; }
   });
   return best;
 }

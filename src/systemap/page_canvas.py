@@ -122,7 +122,7 @@ function draw() {
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
   if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
-  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0; NMAP = 0;
+  STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
   fadeFrame();

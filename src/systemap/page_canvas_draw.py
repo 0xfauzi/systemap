@@ -358,9 +358,9 @@ function portalsOf(chain) {
       var t = at.get(nb);
       if (!t) {
         var r = screenBox(nb);
-        if (onScreen(r)) return;
+        if (boxOnScreen(r)) return;
         var where = whereOf(nb.map);
-        t = portalPlace({nb: nb, show: 1, where: where, h: P_H, w: portalWidth(nb.id, where), lines: []}, r, screenBox(sibling(chain, nb)));
+        t = portalPlace({nb: nb, where: where, h: P_H, w: portalWidth(nb.id, where), lines: []}, r, screenBox(sibling(chain, nb)));
         at.set(nb, t); out.push(t);
       }
       t.lines.push({p: p, m: m, open: chain[i]});
@@ -369,10 +369,11 @@ function portalsOf(chain) {
   return dodge(apart(portalFades(out)));
 }
 // Tell if a part of the screen box r is on the screen. A neighbour has a portal only when
-// no part of its card is on the screen. The target `show` of a portal is thus 1 or 0, and
-// `portalFades` changes the `show` by time only. When the camera stops, each portal is
-// fully shown or it fades out fully. It does not stay partly shown.
-function onScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > 0 && r[0] < W && r[1] < H; }
+// no part of its card is on the screen. The target `show` of each portal is thus 1, and a
+// portal that is not in the list fades out (`portalFades`). The `show` changes by time
+// only. When the camera stops, each portal is fully shown or it fades out fully. It does
+// not stay partly shown. `onScreen` below is a different test, for a point.
+function boxOnScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > 0 && r[0] < W && r[1] < H; }
 // The open card in the map of a neighbour.
 function sibling(chain, nb) {
   for (var j = 0; j < chain.length; j++) if (chain[j].map === nb.map) return chain[j];
@@ -386,6 +387,10 @@ function whereOf(m) { return 'in ' + (m.id ? m.id.split('/').pop() : DATA.name);
 // from the screen edge. The top row is below the path, and the bottom row is above the
 // help line (`drawHelp`).
 var P_H = 34, P_EDGE = 20, P_GAP = 6, P_TOP = 84, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
+// The middle of a portal in the bottom row, and the range of the middle of portal `t` along
+// the top or the bottom edge.
+function bottomRow() { return Math.max(P_TOP, H - P_BOTTOM); }
+function rowRange(t) { return [P_EDGE + t.w / 2, W - P_EDGE - t.w / 2]; }
 function portalSpan(idUnit, whereUnit) { return Math.min(Math.max(idUnit * 12, whereUnit * 10.5) + 30, P_MAX); }
 function portalWidth(id, where) { return portalSpan(unitWidth(id, 600), unitWidth(where, 400)); }
 // The largest portal width of the data. It is the width of the bands at the left and the
@@ -419,8 +424,8 @@ function gutters() {
 // `along` is the place along the edge before the portals move apart. Its order does not
 // change while the camera moves, thus the stacks below do not jump.
 function portalPlace(t, r, o) {
-  var cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, x0 = P_EDGE + t.w / 2, x1 = W - P_EDGE - t.w / 2;
-  var band = gutters().x >= P_EDGE + t.w + P_GAP, bottom = Math.max(P_TOP, H - P_BOTTOM);
+  var cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, ends = rowRange(t), x0 = ends[0], x1 = ends[1];
+  var band = gutters().x >= P_EDGE + t.w + P_GAP, bottom = bottomRow();
   var top = o ? cy < o[1] + o[3] / 2 : (t.y0 === undefined ? t.y : t.y0) < bottom;
   if (o) t.side = !band ? 0 : cx <= x0 ? -1 : cx >= x1 ? 1 : 0;
   t.x = t.side < 0 ? x0 : t.side > 0 ? x1 : clamp(cx, x0, x1);
@@ -437,7 +442,7 @@ function apart(list) {
   [-1, 1].forEach(function (side) {
     stack(list.filter(function (t) { return t.side === side; }), 'y', function () { return P_H + P_GAP; }, P_TOP, low);
   });
-  [P_TOP, Math.max(P_TOP, low)].forEach(function (row) {
+  [P_TOP, bottomRow()].forEach(function (row) {
     var line = list.filter(function (t) { return !t.side && t.y === row; }), ends = rowEnds(list, row);
     stack(line, 'x', function (a, b) { return (a.w + b.w) / 2 + P_GAP; }, ends[0], ends[1]);
   });

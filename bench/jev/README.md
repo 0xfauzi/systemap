@@ -5204,6 +5204,135 @@ Acceptance values 1 and 3 pass. Acceptance value 2 fails: in run 1, the 400-card
 
 Result: fail. B had 33.3 ms in 3 of 6 runs, and A had 33.3 ms in 3 of 6 runs. The two pages operate the same code for this map. Thus these runs do not show a difference between A and B. They show that the 400-card dive at 4x on this host, with the Chromium processes of other agents, does not stay at one tick. A measurement on a quiet host is necessary to show the rule of 16.8 ms for this change.
 
+## C2 and C3 of commit d55580c: two runs (2026-11-06)
+
+Scope: `bench/jev/canvas_frames.py` without changes, on commit d55580c (the changes of G1, G2 and H1 to H3). There is no A page. The script `run_quiet.py` is in the scratchpad of the agent and is not in the repository. Before each run, it waited until no chrome, chromium, node or pytest process (by the name of the program) had operated for 30 s, with a poll each 1 s. During each run, it recorded these processes each 2 s, but not the processes of the run.
+
+The acceptance values were in the docstring of `run_quiet.py` before the first run:
+1. Each scenario passes its limit of `canvas_frames.py` in each run.
+2. The 400-card dive at 4x has a p95 of at most 16.8 ms in each run.
+3. No p95 of a scenario is one tick (16.1 ms or more) above the largest p95 of the same scenario in runs B1 to B4 of R2.
+4. Information only: C3 at 4x.
+
+The host was not quiet during the runs. Each run started after 30 s with no such process. Then, a different agent started `motion.js` with Chromium (7 to 16 processes) 18 s after the start of run 1 and 4 s after the start of run 2. These processes operated until the end of each run. The load average (1 minute) was 0.64 to 1.95 in run 1 and 0.34 to 1.82 in run 2.
+
+| Data | Scenario | CPU | R2 B: largest p95 | Run 1 | Run 2 | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 394 ms | 264 ms | 253 ms | information |
+| M11 shape | C3 load | 4x | 257 ms | 269 ms | 234 ms | information |
+| M11 tree | pan-fit | 4x | 16.8 | 16.8 | 16.7 | pass |
+| M11 tree | all-open | 4x | 16.8 | 16.8 | 16.8 | pass |
+| M11 tree | dive | 4x | 16.8 | 33.2 | 16.7 | fail (acceptance 3) |
+| 400 cards | pan-fit | 4x | 16.8 | 16.8 | 16.7 | pass |
+| 400 cards | dive | 4x | 16.8 | 33.4 | 16.8 | fail (acceptance 2 and 3) |
+| 1,500 cards | pan-fit | 4x | 16.8 | 16.7 | 16.8 | pass |
+| M11 shape | pan-fit | 4x | 16.8 | 16.7 | 16.8 | pass |
+| M11 shape | all-open | 4x | 16.8 | 16.8 | 16.8 | pass |
+| M11 shape | dive | 4x | 16.8 | 16.8 | 16.8 | pass |
+| M11 tree | C3 load | 1x | 89 ms | 85 ms | 84 ms | pass |
+| M11 shape | C3 load | 1x | 74 ms | 67 ms | 76 ms | pass |
+| M11 tree | pan-fit | 1x | 16.8 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.8 | 16.7 | 16.7 | pass |
+| M11 tree | dive | 1x | 16.8 | 16.8 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.8 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.8 | 16.7 | 16.7 | pass |
+| 1,500 cards | pan-fit | 1x | 16.8 | 16.7 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.8 | 16.7 | 16.7 | pass |
+| M11 shape | all-open | 1x | 16.8 | 16.8 | 16.7 | pass |
+| M11 shape | dive | 1x | 16.8 | 16.8 | 16.8 | pass |
+
+For C3, the R2 B column gives the largest load time of R2 B.
+
+Results:
+- Acceptance 1 passes: each scenario passes its limit of `canvas_frames.py` in the two runs.
+- Acceptance 2 fails: in run 1, the 400-card dive at 4x had a p95 of 33.4 ms. In run 2, it had 16.8 ms.
+- Acceptance 3 fails: in run 1, the M11 tree dive at 4x had 33.2 ms and the 400-card dive at 4x had 33.4 ms. Each is one tick above R2 B. In run 2, each p95 is one tick.
+- In the two runs, the Chromium of a different agent operated. Thus these runs do not show that the change causes the two ticks of run 1. H3 found two ticks in the 400-card dive at 4x also for A, with Chromium of other agents. A measurement on a quiet host for all of the run is necessary.
+
+Not measured: a device with a GPU and a device pixel ratio of 2.
+
+## J1 to J3: the fixes after the fourth review of commit d55580c (2026-11-06)
+
+Scope: the portals of the canvas page (`page_canvas_draw.py`, `page_canvas_fade.py`), after the review of commit d55580c. The review found these problems:
+- `portalsOf` called the point test `onScreen(p)`, not the new box test. The two functions had the same name in one script, and the second one replaced the first one. Thus a neighbour whose card was partly on the screen could get a portal. The box test is now `boxOnScreen`.
+- The move of `dodge` (`dx`, `dy`) stayed from frame to frame as a move from the place of the portal. It waited while the place moved by 16 px or more in one frame. Thus, after a flight, a change of the hash, a change of the screen size or a jump of the camera, the move of an earlier view came back at a different place. A portal at the full alpha was then partly or fully off the screen, and it slid back for up to 1.75 s after the camera stopped. While it slid, it went over other portals.
+
+The changes:
+- When the place moves by 16 px or more in one frame, the move changes by that distance or less in that frame. Thus the move does not stay from an earlier view.
+- While the place does not move, the step is a quarter of the distance to the target, and 3.4 px or more. Thus the move slows down near its target, and a long move ends soon after the camera stops. While the place moves by 4 px or more in one frame, the step is 3.4 px or less, as before. The sum of the step and the move of the place stays less than 16 px.
+- While the move goes step by step, a portal does not go over a different portal. A portal that it covers at the start does not stop it.
+- The portal stays in the range of its edge. When `apart` puts the place out of that range, the range goes to the place.
+- Cleanups with no change of behavior: one value for "no move yet" (`undefined`), `bottomRow()` and `rowRange(t)`, no `show` target in `portalsOf`, one `Math.min(dt, PORTAL_DT)` in `fadeFrame`, `levels()` in the driver, and the `--clear` assertions in their own test.
+
+The probes and the scripts are in the scratchpad of the agent and are not in the repository. No acceptance value was written before the probes of J1. They are information only. A is the page of the review (commit d55580c), from the folder of the review. B is the change.
+
+### J1: the probes of the review
+
+| Probe | Page and screen | A (from the review) | B |
+|---|---|---|---|
+| `hashfly.js`: #P2/A2/B0, then the hash #P3 | `cols4`, 844 x 390 | /P7 at x = -103 with alpha 1.00, then a slide to x = 119 until 2.50 s | /P7 at x = 128 at 1.00 s and at 119 from 1.25 s. No point off the screen. |
+| `hashfly.js`: #P0/A0, then 390 x 844 | `cols4`, 844 x 390 | /P7 at x = -1 and -7 with alpha 1.00, a slide of 284 px, /P7 over /P1 | At rest from 0.75 s. No portal over a different portal. |
+| `rest.js`: the fit of each map, 1.5 s, then 1 s with no camera change | `cols4`, M11 tree, M11 shape, three screens | 8 views with motion on `cols4` | 0 views with motion on each page |
+| `pan.js`: from each fit, a pan of 6 px in each frame, 4 directions | `cols4`, 1440 x 900 and 390 x 844 | 88 (map, direction) pairs with a portal off the screen | 0 pairs |
+
+In the first version of B, the limit of the edge range was applied after the step. Then a portal with a target out of the range moved by a step in each frame, and the limit moved it back. `rest.js` found 12 views on the M11 tree that drew 60 frames in each second with no move. The version above applies the limit to the target and to the start before the step. In the second version of B, the step was 3.4 px or less also while the place did not move. Then `rest.js` found 10 views on `cols4` at 844 x 390 that still moved 1.5 s after the fit, by 35 to 50 px in 1 s. With the step of a quarter of the distance, `trace.js` shows the fit of `cols4` P0/A0/B0 at 844 x 390 at rest 0.78 s after the camera change. The fade in of the portals takes 0.4 s of that time. The first run of the browser tests with the step found a move of 16.000000000000004 px in acceptance 14. The step now keeps a margin of 0.05 px.
+
+`pan.js` with B found a move of 98.9 px of /P7 in one frame, at the fit of P3 at 1440 x 900 with a pan to the left. There the neighbour goes from the left side band to the bottom row, and `apart` puts it after the portal in the corner. Commit 8c1a2d8 and commit d55580c give the same move in the same pan. `dodge` does not cause it. It is not changed here.
+
+### J2: C2 and C3, A/B, on a quiet host
+
+`run_ab.py`. A is commit 8c1a2d8 (no `dodge`). B is the change. Each copy operated its own `bench/jev/canvas_frames.py` without changes. The order was A1, B1, B2, A2, A3, B3. Before each run, the script waited until no chrome, chromium, node or pytest process (by the name of the program) had operated for 30 s. During each run, it recorded these processes each 2 s, but not the processes of the run. A run with a different process in a sample is "not quiet", and the script makes it again.
+
+The acceptance values were in the docstring of `run_ab.py` before the first run:
+1. Each scenario of B passes its limit of `canvas_frames.py` in each quiet run.
+2. The 400-card dive at 4x: the p95 of B is at most 16.8 ms in each quiet run.
+3. For each scenario, the median of B less the median of A is less than 16.1 ms.
+4. Information only: C3 at 4x.
+
+A first attempt stopped after run A1. Its samples had only zombie processes (state Z, with no command line) with the name chrome-headless, from the browsers of the run itself after they closed. Revision 1 of the quiet gate, before the next run A1: a zombie process does not count. The acceptance values did not change. A command of the agent (`systemap refresh`, `check` and `judgement`, about 10 s) also operated at the start of that first A1. The first attempt is not in the table.
+
+All 6 runs were quiet: no sample had a different process. The load average (1 minute) was 0.37 to 1.52.
+
+| Data | Scenario | CPU | A: runs 1 to 3 | B: runs 1 to 3 | Median B minus median A | Result of B |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 294, 255, 279 ms | 266, 268, 305 ms | -11 ms | information |
+| M11 shape | C3 load | 4x | 273, 262, 235 ms | 272, 330, 290 ms | +28 ms | information |
+| M11 tree | pan-fit | 4x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | 0 | pass |
+| M11 tree | dive | 4x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| 400 cards | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| 400 cards | dive | 4x | 33.3, 33.3, 16.8 | 33.3, 33.3, 16.8 | 0 | pass of the limit, fail of acceptance 2 |
+| 1,500 cards | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | all-open | 4x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.7 | -0.1 | pass |
+| M11 shape | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 tree | C3 load | 1x | 78, 71, 76 ms | 90, 84, 70 ms | +8 ms | pass |
+| M11 shape | C3 load | 1x | 72, 66, 65 ms | 71, 70, 67 ms | +4 ms | pass |
+| M11 tree | pan-fit | 1x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| M11 tree | all-open | 1x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 tree | dive | 1x | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 | pass |
+| 400 cards | pan-fit | 1x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.7 | -0.1 | pass |
+| 400 cards | dive | 1x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.7 | 0 | pass |
+| 1,500 cards | pan-fit | 1x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.7 | -0.1 | pass |
+| M11 shape | pan-fit | 1x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | all-open | 1x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.8 | 0 | pass |
+| M11 shape | dive | 1x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.8 | 0 | pass |
+
+Results:
+- Acceptance 1 passes.
+- Acceptance 2 fails: the 400-card dive at 4x of B had a p95 of 33.3 ms in runs 1 and 2. A had the same values in runs 1 and 2, on the same quiet host. The 400-card map has no card that opens a map. Thus the chain is empty, there is no portal, and `dodge` does not operate in these frames. The cause is not in this change. It is also in commit 8c1a2d8. R2 found 16.8 ms in 4 of 4 runs for that code. A measurement of the frames of this dive (as R1) is necessary to find the cause.
+- Acceptance 3 passes: the largest difference of the medians is +0.1 ms.
+
+### J3: the views
+
+The motion probe and the screenshots of the review (`motion.js` of verify3, without changes), on the pages of B: the M11 tree, the 400-card map and the self-map with `[render] canvas = true`, at 1440 x 900, 390 x 844 and 844 x 390, light and dark (18 runs).
+- The largest alpha step between two frames: text 0.2, lines 0.2, portals 0.043, images 0.217. Acceptance: 0.25 or less. Pass.
+- 0 line pixels over cards, 0 page errors, 0 jumps.
+- The item "in stops, fewer than 50 composite pixels change by more than 64" fails on the M11 tree at 1440 x 900 in light (6 frames, largest change 92), as in the review (1 to 7 frames). There, a wrapped second line of a description fades while the camera does not move. This is not a criterion of the review and it is not changed here.
+- The screenshots of the fit of each level show the same layout as the review. At the fit of P0 at 1440 x 900, the portals P1 and T0 are across the right edge of the open card P0, as in the review. The open card is the frame around the view, and a portal does not keep off its body, only off its texts. At the fit of P0/Q1 at 1440 x 900, the portals P1 and T0 are in the bottom right corner, clear of the Q1 card.
+
+Not measured: a device with a GPU and a device pixel ratio of 2.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:

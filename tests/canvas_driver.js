@@ -11,6 +11,12 @@
 const { chromium } = require('playwright');
 
 const settle = (page) => page.waitForTimeout(400);
+// The id of the top map and of the first map on each level below it, to level 3.
+const levels = (page) => page.evaluate(() => {
+  const S = window.systemapCanvas, maps = S.maps(), list = [''];
+  for (let m = maps.find((x) => x.id === ''); m.opens.length && list.length < 4; m = maps.find((x) => x.id === m.opens[0])) list.push(m.opens[0]);
+  return list;
+});
 const state = (page) => page.evaluate(() => ({
   chain: window.systemapCanvas.chain(), hash: location.hash, camera: window.systemapCanvas.camera(),
   hits: window.systemapCanvas.hits(), label: document.getElementById('canvas').getAttribute('aria-label'),
@@ -465,11 +471,7 @@ async function layout(file) {
     const page = await context.newPage();
     await page.goto('file://' + file);
     await settle(page);
-    const ids = await page.evaluate(() => {
-      const S = window.systemapCanvas, maps = S.maps(), list = [''];
-      for (let m = maps.find((x) => x.id === ''); m.opens.length && list.length < 4; m = maps.find((x) => x.id === m.opens[0])) list.push(m.opens[0]);
-      return list;
-    });
+    const ids = await levels(page);
     for (const id of ids) {
       await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
       out.push(await fitState(page, id));
@@ -493,8 +495,9 @@ async function layout(file) {
 const restState = (page, at) => page.evaluate((at) => {
   const ps = window.systemapCanvas.hits().filter((h) => h.kind === 'portal'), out = [];
   ps.forEach((a) => { if (a.show > 0 && a.show < 1) out.push(a.map + '/' + a.id + ' alpha ' + a.show); });
-  ps.forEach((a, i) => ps.slice(i + 1).forEach((b) => {
-    if (a.show > 0 && b.show > 0 && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) out.push(a.map + '/' + a.id + ' over ' + b.map + '/' + b.id);
+  const shown = ps.filter((h) => h.show > 0).map((h) => [h.map + '/' + h.id, [h.x, h.y, h.w, h.h]]);
+  shown.forEach(([a, p], i) => shown.slice(i + 1).forEach(([b, q]) => {
+    if (p[0] < q[0] + q[2] && q[0] < p[0] + p[2] && p[1] < q[1] + q[3] && q[1] < p[1] + p[3]) out.push(a + ' over ' + b);
   }));
   return { at, W: innerWidth, H: innerHeight, portals: ps.length, problems: out };
 }, at);
@@ -506,11 +509,7 @@ async function rest(file, card) {
     await page.goto('file://' + file + '#' + card);
     await page.waitForTimeout(2500);
     out.push(await restState(page, '#' + card));
-    const ids = await page.evaluate(() => {
-      const S = window.systemapCanvas, maps = S.maps(), list = [''];
-      for (let m = maps.find((x) => x.id === ''); m.opens.length && list.length < 4; m = maps.find((x) => x.id === m.opens[0])) list.push(m.opens[0]);
-      return list;
-    });
+    const ids = await levels(page);
     for (const id of ids) {
       await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
       await page.waitForTimeout(1000);
