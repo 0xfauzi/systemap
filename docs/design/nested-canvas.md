@@ -96,7 +96,7 @@ The renderer is a script in the page (`page_canvas.py` gives it, under the curre
 | Screen size of a card | What it shows |
 |---|---|
 | very small: less than 15 px high | a mark in the layer color |
-| small: 15 px high or more | the name. The name fades in from 15 px to 19 px of card height. |
+| small: 15 px high or more | the name. From 15 px to 19 px of card height, the mark changes into a card and the name fades in. |
 | medium | the description and the fact row |
 | large | the lists of flows and modules |
 | a card that opens a map | the preview of the nested map, from the same layout |
@@ -114,11 +114,10 @@ Each change of the level of detail follows the zoom continuously (`page_canvas_t
 |---|---|
 | 15 px | 6.75 px. The name starts to fade in. |
 | 19 px | 8.5 px. The name has the full alpha. |
-| 24 px | 9 px |
 | 24 px to 75 px | 9 px |
 | more than 75 px | 0.12 times the card height, 26 px or less |
 
-Between two rows, the size changes at a constant rate. The fade from 15 px to 19 px of card height has the shape of the fade of the other texts (`sizeFade`). The name is not drawn below 7 px. The card changes from a mark into a card from 16 px to 28 px of height. Thus the name of a small card can be on the mark color. The name has the inset of the card at its left and its right. When a name is wider than that space, the page cuts it and adds three dots. The text under the name starts 1.4 times the name size below the top of the name. Thus the name and that text do not overlap. At the fit of each map of the M11 tree on a screen of 1440 x 900 pixels, the cards are 19.2 px and 24.5 px high. Their names have 8.5 px and 9 px, at the full alpha (K1 in `bench/jev/README.md`, and acceptance 17 of `tests/test_canvas_browser.py`).
+Between two rows, the size changes at a constant rate. The fade from 15 px to 19 px of card height has the shape of the fade of the other texts (`cardShow` in `page_canvas_draw.py`). The name is not drawn below 7 px. In the same range of card height, the card changes from a mark into a card. Thus a name at the full alpha is on the card color, not on the mark color. On a map of 100 cards or more, the page uses the marks image (rule 3) only while the tallest card is less than 15 px high. The name has the inset of the card at its left and its right. When a name is wider than that space, the page cuts it and adds three dots. The text under the name starts 1.4 times the name size below the top of the name. Thus the name and that text do not overlap. At the fit of each map of the M11 tree on a screen of 1440 x 900 pixels, the cards are 19.2 px and 24.5 px high. Their names have 8.5 px and 9 px, at the full alpha (K1 in `bench/jev/README.md`, and acceptance 17 of `tests/test_canvas_browser.py`).
 
 A text in more than one of these layouts, at the same place, is drawn one time. Thus the text that does not change keeps its alpha.
 

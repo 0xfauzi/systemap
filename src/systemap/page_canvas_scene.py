@@ -34,9 +34,8 @@ var HEAD = 0.2, PAD = 0.06;
 var OPEN0 = 0.21, OPEN1 = 0.39;
 // The screen widths of a card over which the preview of its map comes into view.
 var PREVIEW0 = 80, PREVIEW1 = 150;
-// Below this screen height a card is a mark in its layer color.
-var MARK_H = 22;
-// The name of a card fades in from this card height to NAME_H + 4 (`titleRaw`).
+// Below this screen height a card is a mark in its layer color. From this height to
+// NAME_H + 4, the mark changes into a card and the name of the card fades in (`cardShow`).
 var NAME_H = 15;
 // No text below this size, in CSS pixels.
 var MIN_TEXT = 7;

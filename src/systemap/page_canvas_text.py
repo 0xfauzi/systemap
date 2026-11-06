@@ -31,7 +31,7 @@ function title(c, x, y, w, size, alpha, extra) {
 // Thus the name does not move when the preview comes into view. `titleRaw` is the size
 // before the rounding to half pixels, for the card height h. It grows continuously:
 // - from MIN_TEXT - 0.25 at NAME_H (15 px) to MIN_TEXT + 1.5 (8.5 px) at NAME_H + 4. Over
-//   this range the name fades in (`sizeFade`).
+//   this range the name fades in (`cardShow`).
 // - to 9 px at a card height of 24 px. It stays at 9 px to a card height of 75 px.
 // - 0.12 times the card height above that, to 26 px or less.
 function titleRaw(h) {
@@ -40,12 +40,12 @@ function titleRaw(h) {
 }
 function titleSize(h) { return q(titleRaw(h)); }
 function inset(h) { return clamp(h * 0.1, 3, 14); }
-// The text of a card fades in from the size at which the name has MIN_TEXT pixels. Thus the
-// names do not appear at one time in a zoom. The name starts near the top of the card, and the
+// The text of a card fades in from NAME_H to NAME_H + 4 of card height, as the card changes
+// from a mark into a card. Thus the names do not appear at one time in a zoom. The name starts near the top of the card, and the
 // text under the name starts 1.4 times the name size below that top.
 function cardText(c, x, y, w, h, alpha) {
   var ur = titleRaw(h), u = q(ur), pad = inset(h), top = y + Math.max(2, h * 0.06);
-  var t = alpha * sizeFade(ur, MIN_TEXT);
+  var t = alpha * cardShow(h);
   if (u < MIN_TEXT || t <= 0.02) return;
   title(c, x + pad, top, w - 2 * pad, u, t);
   top += u * 1.4;

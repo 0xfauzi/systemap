@@ -5437,6 +5437,117 @@ Results:
 
 Not measured: a device with a GPU and a device pixel ratio of 2.
 
+### K6: C2 and C3, A/B, on a quiet host (a second measurement by a different agent)
+
+`run_ab.py` of K4, with a new docstring. A is commit 895e8cd. B is commit ebfef73 (the change). Each copy (made with `git archive`) operated its own `bench/jev/canvas_frames.py` without changes. The order was A1, B1, B2, A2, A3, B3, with the quiet gate of J2 and K4 (30 s with no chrome, chromium, node, headless_shell or pytest process, and no zombie process counts).
+
+The acceptance values were in the docstring of `run_ab.py` before the first run:
+1. Each scenario of B passes its limit of `canvas_frames.py` (35.0 ms at 4x, 17.5 ms at 1x) in each quiet run.
+2. For each scenario, the median of B less the median of A is less than 16.1 ms.
+3. Information only: the p95 of the 400-card dive at 4x of A and B in each run. Its target is one tick (16.8 ms).
+4. Information only: C3 at 4x.
+
+Run B1 was not quiet in its first attempt: 38 samples had a `node motion.js` process and its chrome-headless processes from a different agent. The script waited 539 s for the next quiet gate and made the run again. The table has the quiet runs only: A1, A2, A3, B1 (attempt 2), B2 and B3. The load average (1 minute) was 0.36 to 1.33.
+
+| Data | Scenario | CPU | A: runs 1 to 3 | B: runs 1 to 3 | Median B minus median A | Result of B |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 287, 261, 295 ms | 300, 291, 283 ms | +4 ms | information |
+| M11 shape | C3 load | 4x | 237, 271, 268 ms | 276, 236, 279 ms | +8 ms | information |
+| M11 tree | pan-fit | 4x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.7 | +0.1 | pass |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 | pass |
+| M11 tree | dive | 4x | 16.8, 16.8, 33.3 | 16.8, 16.8, 16.7 | 0 | pass |
+| 400 cards | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.7 | 0 | pass |
+| 400 cards | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| 1,500 cards | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 | pass |
+| M11 shape | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 | pass |
+| M11 shape | all-open | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 shape | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | 0 | pass |
+| M11 tree | C3 load | 1x | 71, 66, 72 ms | 77, 68, 73 ms | +2 ms | pass |
+| M11 shape | C3 load | 1x | 83, 66, 71 ms | 74, 79, 75 ms | +4 ms | pass |
+| M11 tree | pan-fit | 1x | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 | pass |
+| M11 tree | all-open | 1x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.7 | -0.1 | pass |
+| M11 tree | dive | 1x | 16.7, 16.7, 16.8 | 16.7, 16.8, 16.7 | 0 | pass |
+| 400 cards | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| 400 cards | dive | 1x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7, 16.8, 16.7 | 16.7, 16.7, 16.8 | 0 | pass |
+| M11 shape | pan-fit | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.8 | +0.1 | pass |
+| M11 shape | all-open | 1x | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.8 | 0 | pass |
+| M11 shape | dive | 1x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+
+Results:
+- Acceptance 1 passes: the largest p95 of B is 16.8 ms at 4x and 16.8 ms at 1x.
+- Acceptance 2 passes: the largest difference of the medians is +0.1 ms.
+- Item 3: the 400-card dive at 4x had a p95 of 16.8 ms in each of the 3 runs of A and in each of the 3 runs of B. In J2 and K4, it was 33.2 ms to 33.4 ms in 2 of 3 runs for A and for B. Thus this p95 changes between series of runs on the same host, for A and for B. The cause is not known. A measurement of the frames of this dive (as R1) is necessary to find it.
+- Information: in run A3, the M11 tree dive at 4x had a p95 of 33.3 ms. In the other 5 runs, this p95 was 16.8 ms or less.
+
+### K7: the mark changes into a card with the name, A/B on a quiet host
+
+A review computed the contrast of a name on a small card. Until this change, the card changed from a mark into a card from 16 px to 28 px of card height (`smooth(MARK_H - 6, MARK_H + 6, h)` in `cardBox`). But the name has the full alpha from 19 px. On a card of 19.2 px, the card color had 0.175 of the alpha, and the name was mostly on the mark color. The review gave these WCAG contrasts of the ink on such a card: 2.2:1 for the dark `context` layer, 4.0:1 for the dark `data` layer and 3.7:1 for the light `data` layer. These are computations from the colors of `theme.py`, not browser measurements.
+
+The change: the card changes from a mark into a card from NAME_H (15 px) to NAME_H + 4 (19 px) of card height, with the same function as the name fade (`cardShow`). The name alpha now comes from `cardShow` also. Its values are the same as the values of `sizeFade(titleRaw(h), MIN_TEXT)`. On a map of 100 cards or more, the page uses the marks image only while the tallest card is less than NAME_H (it was 16 px). Thus the marks image and the usual drawing look the same at that height, and the name does not change from 0 to 0.156 of alpha in one frame. With the same computation as the review, the smallest contrast of the ink on a card of 19 px or more is now 14.9:1, and 7.6:1 at 17 px, where the name has 0.5 of the alpha.
+
+`run_ab.py` of K6, with a new docstring. A is commit ebfef73. B is ebfef73 with the change. The order was A1, B1, B2, A2, A3, B3, with the quiet gate of K6. Each run was quiet in its first attempt. The load average (1 minute) was 0.32 to 1.37.
+
+The acceptance values were in the docstring of `run_ab.py` before the first run:
+1. Each scenario of B passes its limit of `canvas_frames.py` (35.0 ms at 4x, 17.5 ms at 1x) in each quiet run.
+2. For each scenario, the median of B less the median of A is less than 16.1 ms.
+3. Information only: the p95 of the 400-card dive at 4x of A and B in each run. Its target is one tick (16.8 ms).
+4. Information only: C3 at 4x.
+
+| Data | Scenario | CPU | A: runs 1 to 3 | B: runs 1 to 3 | Median B minus median A | Result of B |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 257, 335, 289 ms | 288, 301, 260 ms | -1 ms | information |
+| M11 shape | C3 load | 4x | 254, 280, 247 ms | 250, 294, 264 ms | +10 ms | information |
+| M11 tree | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | 0 | pass |
+| M11 tree | dive | 4x | 16.7, 16.8, 16.8 | 33.3, 16.8, 16.8 | 0 | pass |
+| 400 cards | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.8 | 0 | pass |
+| 400 cards | dive | 4x | 16.8, 16.8, 16.8 | 16.7, 33.3, 16.7 | -0.1 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.7 | 0 | pass |
+| M11 shape | pan-fit | 4x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 | pass |
+| M11 shape | all-open | 4x | 16.8, 16.7, 16.8 | 16.7, 16.8, 16.7 | -0.1 | pass |
+| M11 shape | dive | 4x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.7 | -0.1 | pass |
+| M11 tree | C3 load | 1x | 75, 78, 68 ms | 74, 82, 77 ms | +2 ms | pass |
+| M11 shape | C3 load | 1x | 69, 67, 69 ms | 63, 65, 73 ms | -4 ms | pass |
+| M11 tree | pan-fit | 1x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 tree | all-open | 1x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.8 | -0.1 | pass |
+| M11 tree | dive | 1x | 16.8, 16.7, 16.7 | 16.8, 16.7, 16.8 | +0.1 | pass |
+| 400 cards | pan-fit | 1x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | 0 | pass |
+| 400 cards | dive | 1x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | pan-fit | 1x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | all-open | 1x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | dive | 1x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 | pass |
+
+Results:
+- Acceptance 1 passes: the largest p95 of B is 33.3 ms at 4x and 16.8 ms at 1x.
+- Acceptance 2 passes: the largest difference of the medians is +0.1 ms.
+- Item 3: the 400-card dive at 4x had a p95 of 16.8 ms in each of the 3 runs of A, and 33.3 ms in 1 of 3 runs of B (run B2). J2 and K4 found 33.3 ms in 2 of 3 runs for A and for B, and K6 found 16.8 ms in each run. Thus this result does not show a change from A to B.
+- Information: in run B1, the M11 tree dive at 4x had a p95 of 33.3 ms. K6 found the same value in run A3 of commit 895e8cd.
+
+### K8: the step of the mark-to-card blend in slow camera moves
+
+`blend.js`: the moves of K3, 200 frames each. For each card on the screen in two frames after each other, the probe computes the blend value from the screen height h of the card in the two frames: `smooth(15, 19, h)` for B and `smooth(16, 28, h)` for A. The probe does not read pixels. Acceptance for B, written before the first run: the blend value of each card changes by 0.25 or less between two frames.
+
+| Page and screen | Move | A: largest step | B: largest step |
+|---|---|---|---|
+| M11 tree, 1440 x 900 | top fit to P0/Q1 fit, and back | 0.083 | 0.189 |
+| M11 tree, 1440 x 900 | 0.5 to 3 times the fit of P0/Q1 | 0.025 | 0.057 |
+| M11 tree, 390 x 844 | top fit to P0/Q1 fit, and back | 0.083 | 0.189 |
+| M11 tree, 390 x 844 | 0.5 to 3 times the fit of P0/Q1 | 0.024 | 0.057 |
+| self-map, 390 x 844 | fit to a card, and back | 0.022 | 0.05 |
+| 400 cards, 1440 x 900 | fit to a card, and back | 0.044 | 0.101 |
+
+The acceptance passes. The steps of B are the steps of the name alpha in K3, because the two values come from the same function.
+
+### K9: the views after the change of K7
+
+The probes of the last view check (`view.js` and `motion.js`), with the pages of B: the M11 tree, the 400-card map and the self-map, at 1440 x 900, 390 x 844 and 844 x 390, light and dark.
+- `view.js`, at 1440 x 900: at each fit of the open M11 map, each card has its name at 8.5 px or more with the alpha 1. The cards are 19.2 px to 24.5 px high, as in K1. No name overlaps a different text, and no name goes out of its card. At all sizes, no text is below 7 px.
+- `motion.js`, 18 runs: 0 alpha steps above 0.25, 0 line pixels in a box, 0 page errors, and at each fit 0 portals on a card and 0 texts cut by the screen edge. The counts of the stop pixel check are the same as the counts of ebfef73 (5 bad frames in M11 at 1440 x 900 light, 0 in the other runs).
+- The self-map at 390 x 844 in dark: the names are now on the dark card color, not on the light gray mark color. At the M11 fits at 1440 x 900, the cards have more of the card color. At 844 x 390, the M11 cards are 12.4 px to 15.8 px high. They stay marks, with names at 7 px and an alpha of 0.10 or less.
+- Information: at the fit of P0/Q1/Deep at 1440 x 900, the probe found the portal A0 under the portal P1 at the bottom right, in some runs of A (ebfef73) and of B. The result changes with the order of the views. This change does not move the portals. Thus this result is not from this change. A measurement of the portal places at rest is necessary to find the cause.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:

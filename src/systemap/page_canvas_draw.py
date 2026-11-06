@@ -97,6 +97,9 @@ function labelAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, 8); }
 function nameAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, MIN_TEXT); }
 // If a card of screen height h shows its text.
 function hasText(h) { return h >= NAME_H; }
+// From NAME_H to NAME_H + 4 of screen height, a card changes from a mark into a card, and
+// its name fades in. Thus the name is not on the mark color when it has the full alpha.
+function cardShow(h) { return smooth(NAME_H, NAME_H + 4, h); }
 function near(u, v) { return Math.abs(u - v) < 0.5; }
 function colors(c) {
   if (c._c && c._c.e === EPOCH) return c._c;
@@ -112,7 +115,7 @@ function text(s, x, y, size, color, alpha, weight, mono, align) {
   if (size < MIN_TEXT || alpha <= 0.02 || !s) return;
   ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.font = font(weight || 400, size, mono);
   ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
-  if (TLOG) TLOG.push(drawnText(s, x, y, size, alpha, weight));
+  if (TLOG && (ctx === PAGE_CTX || ctx === STILL_CTX)) TLOG.push(drawnText(s, x, y, size, alpha, weight));
   if (NOTE) textBox(s, x, y, size, weight, mono, align, alpha);
 }
 // While TLOG is a list, each text adds its size, its alpha and its screen box x0, y0, x1, y1
@@ -221,7 +224,7 @@ function plates(list, a, ox, oy, fs, each) {
 // ---- cards ------------------------------------------------------------------------
 function cardBox(c, x, y, w, h, alpha) {
   STATS.cards++;
-  var t = smooth(MARK_H - 6, MARK_H + 6, h), k = colors(c), r = w > 60 ? clamp(h * 0.1, 2, 8) : 0;
+  var t = cardShow(h), k = colors(c), r = w > 60 ? clamp(h * 0.1, 2, 8) : 0;
   if (t < 1) FILL.rect(k.mark, alpha * (1 - t), x, y, w, h, 0);
   if (t <= 0) return;
   if (c.child) BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r);
@@ -259,12 +262,12 @@ function drawMap(m, alpha, open) {
   if (alpha <= 0.01) return;
   var v = view(m), a = v.a, ox = v.ox, oy = v.oy, mw = m.size[0] * a, mh = m.size[1] * a;
   if (ox > W || oy > H || ox + mw < 0 || oy + mh < 0) return;
-  var big = m.cards.length >= BIG, marks = big && m.maxH * a < MARK_H - 6 && m.maxW * a < PREVIEW0;
+  var big = m.cards.length >= BIG, marks = big && m.maxH * a < NAME_H && m.maxW * a < PREVIEW0;
   // Also ask for the map image in a frame of marks, which has free time to make it. While
   // the zoom goes in, in the last quarter step of zoom before the marks end, the images fade
   // in over the marks, where the frame is not expensive. In the other frames of marks, the
   // marks image is less work than the images.
-  var near = !marks || (zoomingIn() && m.maxH * a >= (MARK_H - 6) * Math.pow(2, -MARKS_OVER * MAP_STEP));
+  var near = !marks || (zoomingIn() && m.maxH * a >= NAME_H * Math.pow(2, -MARKS_OVER * MAP_STEP));
   var whole = big ? imageLayer(m, a, !sharp && open >= 1, near) : null, full = whole && layerFull(whole);
   if (marks) {
     // The marks image stays current also under a full image layer, for the frames after it.

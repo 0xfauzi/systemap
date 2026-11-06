@@ -173,7 +173,7 @@ function wantedSteps(want) {
   ahead = ZOOM_DIR > 0 ? z + 2 * MAP_STEP : z - MAP_STEP;
   return [z, z + MAP_STEP, ahead, ZOOM_DIR > 0 ? z - MAP_STEP : z + 2 * MAP_STEP].filter(function (y) {
     var r = imageSize(m, y);
-    return r.w * r.h <= MAP_PX && r.w <= IMG_MAX && r.h <= IMG_MAX && m.maxH * Math.pow(2, y + MAP_STEP) >= MARK_H - 6 && !readyImage(m, r.key);
+    return r.w * r.h <= MAP_PX && r.w <= IMG_MAX && r.h <= IMG_MAX && m.maxH * Math.pow(2, y + MAP_STEP) >= NAME_H && !readyImage(m, r.key);
   });
 }
 // Make slices of the wanted images until MAP_MS after `began`, the start of the frame.
