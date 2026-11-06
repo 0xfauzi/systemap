@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -521,6 +521,45 @@ async function rest(file, card) {
   return { fits: out };
 }
 
+// --names: the card names at the fit of each map, on a screen of 1440 x 900 pixels without
+// reduced motion, 1 s after the camera stops. The page draws the frame again and gives each
+// text (`systemapCanvas.texts`). A problem is a card of the open map with no name in its
+// box, a name below 8.5 px or with an alpha below 1, or a name whose box overlaps the box
+// of a different text by more than 0.5 pixels. A name can be cut with three dots.
+const nameState = (page, id) => page.evaluate((id) => {
+  const S = window.systemapCanvas, texts = S.texts(), out = { id, cards: 0, cut: 0, least: Infinity, problems: [] };
+  const inside = (b, c) => b[0] >= c[0] - 0.5 && b[1] >= c[1] - 0.5 && b[2] <= c[0] + c[2] + 0.5 && b[3] <= c[1] + c[3] + 0.5;
+  const named = (s, n) => s === n || (s.endsWith('...') && n.startsWith(s.slice(0, -3)));
+  S.boxes(id).forEach(({ id: card, b }) => {
+    out.cards++;
+    const name = texts.find((t) => t.weight === 600 && named(t.s, card) && inside(t.box, b));
+    if (!name) { out.problems.push(id + ' ' + card + ': no name'); return; }
+    if (name.s !== card) out.cut++;
+    out.least = Math.min(out.least, name.size);
+    if (name.size < 8.5 || name.alpha < 0.999) out.problems.push(id + ' ' + card + ': size ' + name.size + ' alpha ' + name.alpha);
+    texts.forEach((t) => {
+      const o = t.box, n = name.box;
+      if (t === name || t.alpha <= 0.02) return;
+      if (Math.min(o[2], n[2]) - Math.max(o[0], n[0]) > 0.5 && Math.min(o[3], n[3]) - Math.max(o[1], n[1]) > 0.5) out.problems.push(id + ' ' + card + ': under ' + t.s);
+    });
+  });
+  return out;
+}, id);
+async function names(file) {
+  const browser = await chromium.launch(), out = [];
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'no-preference' });
+  const page = await context.newPage();
+  await page.goto('file://' + file);
+  await page.waitForTimeout(1000);
+  for (const id of await page.evaluate(() => window.systemapCanvas.maps().map((m) => m.id))) {
+    await page.evaluate((m) => window.systemapCanvas.view(window.systemapCanvas.fit(m)), id);
+    await page.waitForTimeout(1000);
+    out.push(await nameState(page, id));
+  }
+  await browser.close();
+  return { maps: out };
+}
+
 (async () => {
   if (process.argv[2] === '--probe') { const b = await chromium.launch(); await b.close(); return; }
   const [file, card, neighbour] = process.argv.slice(2);
@@ -528,6 +567,7 @@ async function rest(file, card) {
   const out = process.argv.includes('--layout') ? await layout(file)
     : process.argv.includes('--clear') ? await clearFits(file)
     : process.argv.includes('--rest') ? await rest(file, card)
+    : process.argv.includes('--names') ? await names(file)
     : process.argv.includes('--fits') ? await fits(file, [card, neighbour], small)
     : process.argv.includes('--links') ? await links(file, [card, neighbour])
     : process.argv.includes('--fade') ? await fade(file, [card, neighbour], small)

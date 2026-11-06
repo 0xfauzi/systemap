@@ -5333,6 +5333,110 @@ The motion probe and the screenshots of the review (`motion.js` of verify3, with
 
 Not measured: a device with a GPU and a device pixel ratio of 2.
 
+## K1 to K4: the size of the card names (2026-11-06)
+
+Scope: the name size rule of the canvas page (`titleRaw` in `page_canvas_text.py`). The maintainer decided on 2026-11-06 that a card 20 px to 32 px high gets a larger name on each map, about 9 px for a card 24 px high, and that the names fade in from about 19 px of card height. At commit 895e8cd, the name size was 0.28 times the card height up to 9 px. The alpha of the name was also multiplied by `smooth(18, 28, h)`. At the fit of each nested map of the M11 tree at 1440 x 900, the cards are 19.2 px high (the actor card) and 24.5 px high (the other 39 cards). Thus their names were 5.4 px and 6.9 px, and the fade hid them.
+
+The changes:
+- The name size grows continuously with the card height: 6.75 px at 15 px (`NAME_H`), 8.5 px at 19 px, 9 px at 24 px. It stays at 9 px to 75 px, and above that it is 0.12 times the card height, as before. Thus the rule for cards higher than 32 px did not change, and MOVE_TEXT still hides the text under the name below a card height of 83 px while the camera moves.
+- The name fades in with `sizeFade` (the same shape as before) from 15 px to 19 px of card height. The factor `smooth(18, 28, h)` is removed. `hasText` starts at `NAME_H`.
+- The task asked for a fade "from about 19 px", and for the full alpha at the fit, where the actor card is 19.2 px high. It is not possible to have both. Thus the fade ends at 19 px. A first version faded from 16 px to 19 px. K3 found an alpha step of 0.257 in one move with it. Thus the fade starts at 15 px.
+- The card changes from a mark into a card from 16 px to 28 px, as before. Thus the name of a small card can be on the mark color. The view of the actor card A0 at the fit of P0/Q1 shows a clear name in light and dark.
+- A hook for the tests: `systemapCanvas.texts()` draws the frame again and gives each text with its size, its alpha and its box from the font measurement of the browser.
+
+The probes are in the scratchpad of the agent and are not in the repository. Each acceptance value was in the docstring or the header of its script before the first run. K2 and K5 have no acceptance value. The pages are the real canvas pages of the M11 tree (`m11_tree`), of the 400-card map (`grid_map(400)`) and of the systemap self-map.
+
+### K1: the names at the fit
+
+`probe_names.py` with `tests/canvas_driver.js --names`, 1440 x 900, no reduced motion, 1 s after each fit. Acceptance: on the M11 tree, at the fit of each of the 50 maps, each card name of the open map is drawn at 8.5 px or more with the alpha 1, and its box does not overlap the box of a different text by more than 0.5 px.
+
+| Page | Maps | Cards | Names cut with three dots | Smallest name | Problems |
+|---|---|---|---|---|---|
+| M11 tree | 50 | 2,000 | 0 | 8.5 px | 0 |
+| self-map | 1 | 21 | 0 | 9 px | 0 |
+| 400 cards | 1 | 400 | none drawn | none drawn | 400 cards without a name: at the fit, the cards are 13.8 px high, thus they are marks (information) |
+
+The acceptance passes. The new browser test (acceptance 17 of `tests/test_canvas_browser.py`) makes the same check on the generated M11 tree.
+
+### K2: the name in its card (information)
+
+`widths.js`: the camera at the middle of the fit, with the largest card at 17, 19, 24, 28 and 32 px high, 1 s after the stop. For each card on the screen: the name size, the alpha, a cut with three dots, and a name box that goes out of the card less its inset.
+
+| Page | Name sizes at 17, 19, 24, 28 and 32 px | Smallest alpha at 19 px | Names out of the card | Names cut |
+|---|---|---|---|---|
+| M11 tree, top map | 7.5, 8.5, 9, 9, 9 | 1 | 0 | 0 |
+| M11 tree, P0/Q1 | 7.5, 8.5, 9 and 8.5, 9, 9 | 1 | 0 | 0 |
+| 400 cards | 7.5, 8.5, 9, 9, 9 | 1 | 0 | 0 |
+| self-map | 7 to 9 | 0.73 | 0 | 4, 4, 3, 1 and 0 |
+
+The self-map has cards of more than one height. Thus its smaller cards are lower in the fade. Its cut names are the long names (for example `FactsExtractor`) on the smallest cards.
+
+### K3: the alpha of the names in slow camera moves
+
+`fade.js`: moves of 200 frames, with the scale in log space and `systemapCanvas.view` in each frame, without reduced motion. A name is a text in the font weight 600 that is a card ID, and not the name of a portal in its box or a text of the path plate. The script matches a name with the same name of the last frame at the place that the camera change gives. A name that comes onto the screen or goes off it does not count. Acceptance for B: each name changes its alpha by 0.25 or less between two frames. A is information.
+
+| Page and screen | Move | A: largest step | B: largest step |
+|---|---|---|---|
+| M11 tree, 1440 x 900 | top fit to P0/Q1 fit | 0.206 | 0.189 |
+| M11 tree, 1440 x 900 | P0/Q1 fit to top fit | 0.206 | 0.189 |
+| M11 tree, 1440 x 900 | 0.5 to 3 times the fit of P0/Q1 | 0.063 | 0.057 |
+| M11 tree, 390 x 844 | top fit to P0/Q1 fit | 0.204 | 0.189 |
+| M11 tree, 390 x 844 | P0/Q1 fit to top fit | 0.204 | 0.189 |
+| M11 tree, 390 x 844 | 0.5 to 3 times the fit of P0/Q1 | 0 | 0.057 |
+
+The acceptance passes with the fade from 15 px to 19 px. With the first version (a fade from 16 px to 19 px), the move from the top fit to P0/Q1 at 390 x 844 had a step of 0.257. The first versions of `fade.js` also counted the texts of the portals and of the path, and names that a nested map moved in its card. These were faults of the probe, and A had them also. The acceptance value did not change. The 400-card map is not in K3: while the camera moves, its names are in the images of rule 3, and acceptance 13 of the browser tests measures the alphas of those images.
+
+### K4: C2 and C3, A/B, on a quiet host
+
+`run_ab.py`, from the script of J2. A is commit 895e8cd. B is the change. Each copy operated its own `bench/jev/canvas_frames.py` without changes. The order was A1, B1, B2, A2, A3, B3, with the quiet gate of J2 (30 s with no chrome, chromium, node or pytest process, and no zombie process counts).
+
+The acceptance values were in the docstring of `run_ab.py` before the first run:
+1. Each scenario of B passes its limit of `canvas_frames.py` in each quiet run.
+2. For each scenario, the median of B less the median of A is less than 16.1 ms.
+3. Information only: the 400-card dive at 4x. Its target is one tick (16.8 ms).
+4. Information only: C3 at 4x.
+
+Runs A2, A3 and B3 were not quiet in their first attempts (A2 also in its second attempt). In each, one sample had two zygote processes of chrome-headless that were not descendants of the run. The script made these runs again. The table has the quiet runs only: A1, A2 (attempt 3), A3 (attempt 2), B1, B2 and B3 (attempt 2). The load average (1 minute) was 0.34 to 1.30.
+
+| Data | Scenario | CPU | A: runs 1 to 3 | B: runs 1 to 3 | Median B minus median A | Result of B |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 273, 288, 281 ms | 264, 301, 274 ms | -7 ms | information |
+| M11 shape | C3 load | 4x | 258, 263, 273 ms | 235, 278, 271 ms | +8 ms | information |
+| M11 tree | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.7 | -0.1 | pass |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 tree | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| 400 cards | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 | pass |
+| 400 cards | dive | 4x | 33.4, 33.2, 16.8 | 33.3, 16.8, 33.3 | +0.1 | pass of the limit |
+| 1,500 cards | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | pan-fit | 4x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.8 | +0.1 | pass |
+| M11 shape | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | pass |
+| M11 shape | dive | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 tree | C3 load | 1x | 76, 71, 86 ms | 74, 88, 68 ms | -2 ms | pass |
+| M11 shape | C3 load | 1x | 71, 67, 70 ms | 80, 70, 69 ms | 0 ms | pass |
+| M11 tree | pan-fit | 1x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| M11 tree | all-open | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.8 | +0.1 | pass |
+| M11 tree | dive | 1x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | pass |
+| 400 cards | pan-fit | 1x | 16.7, 16.7, 16.8 | 16.7, 16.7, 16.7 | 0 | pass |
+| 400 cards | dive | 1x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.7, 16.7, 16.8 | 0 | pass |
+| M11 shape | all-open | 1x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.7 | -0.1 | pass |
+| M11 shape | dive | 1x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.7 | +0.1 | pass |
+
+Results:
+- Acceptance 1 passes: no scenario of B is above 35 ms at 4x or above 17.5 ms at 1x.
+- Acceptance 2 passes: the largest difference of the medians is +0.1 ms.
+- Item 3: the 400-card dive at 4x had a p95 of 33.3 ms in 2 of 3 runs for B, and of 33.2 or 33.4 ms in 2 of 3 runs for A. This is the same result as J2. The cause is not known. A measurement of the frames of this dive (as R1) is necessary to find it.
+
+### K5: the views
+
+`shots.js`, 2.5 s after the load: #P0, #P0/Q1 and #P0/Q1/Deep at 1440 x 900 and 390 x 844, light and dark, and the self-map at 1440 x 900, light and dark, for A and B.
+- At 1440 x 900, B shows the name of each card of the open map. A showed no name there. Most pixels that changed are in the box of the cards of the open map. In one view of each of two runs of B, 59 and 197 more pixels changed in the path plate and in the text "40 cards in this map", by 64 or less in a channel. In each run, it was a different view (#P0 in dark, then #P0/Q1/Deep in light). A view at 3 times the size shows the same text, with a small change at the edges of the letters. Two runs of A gave the same pixels. The cause is not known. The name rule does not draw these texts.
+- At 390 x 844, the views of A and B are the same. At these fits, the cards of the open map are marks.
+- The self-map views of A and B are the same. At its fit, the cards are 35.4 px to 45.1 px high, and the name rule above 32 px did not change.
+
+Not measured: a device with a GPU and a device pixel ratio of 2.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:

@@ -64,7 +64,7 @@ These are the rules for the renderer of step 2:
    - Do not draw text below 7 px.
    - Keep the wrapped text of each card for each count of columns. A column is half of the font size, so the lines do not change with the size.
    - After the font loads, set each font that the drawing uses and measure the words of each card. Do this in the idle time of the page.
-   - While the camera moves, a card with a name below 10 px shows only its name. While the name grows from 10 px to 12 px, the text under the name fades in. Text is the largest cost of a moving frame. This rule also fades in time (the decision of 2026-11-06). When the camera starts to move, the text under the name fades out. When the camera stops, it fades in.
+   - While the camera moves, a card with a name below 10 px shows only its name. While the name grows from 10 px to 12 px, the text under the name fades in. With the name size of 2026-11-06, this occurs from 83 px to 100 px of card height, as before that decision. Text is the largest cost of a moving frame. This rule also fades in time (the decision of 2026-11-06). When the camera starts to move, the text under the name fades out. When the camera stops, it fades in.
    - Each of these fades changes an alpha by 1 in 160 ms or more, and by 0.2 or less in one frame. The fade of the image layer of rule 3 changes an alpha by 1 in 80 ms or more. With reduced motion, each alpha changes at one time, as each camera move does. The browser test (acceptance 13 of `tests/test_canvas_browser.py`) records the alpha of each layer in each frame. The measurements of these fades are S1 to S4 in `bench/jev/README.md`. On a quiet host, commit 0b547b7 had a p95 of two ticks for the dive of the 400-card map at 4 times throttling in each run. The cause was the frames with the usual drawing and the images in the fade above the highest image step. With the shorter and faster fade of rule 3, the p95 was one tick in 4 of 4 runs (R1 and R2 in `bench/jev/README.md`).
    - Read the theme colors one time, and again only when the theme changes.
 5. **A performance test in CI.** A Playwright test uses the scenarios of `bench/jev` (the M11 tree, a 400-card map, and a 1,500-card map) with 4 times CPU throttling. It fails when a p95 value is more than its limit. A frame-rate display (`?hud`) lets a person measure on a real device.
@@ -95,8 +95,8 @@ The renderer is a script in the page (`page_canvas.py` gives it, under the curre
 
 | Screen size of a card | What it shows |
 |---|---|
-| very small | a mark in the layer color |
-| small | the name |
+| very small: less than 15 px high | a mark in the layer color |
+| small: 15 px high or more | the name. The name fades in from 15 px to 19 px of card height. |
 | medium | the description and the fact row |
 | large | the lists of flows and modules |
 | a card that opens a map | the preview of the nested map, from the same layout |
@@ -107,6 +107,18 @@ Each change of the level of detail follows the zoom continuously (`page_canvas_t
 - The count of columns of a text does not change while its font size follows the zoom. When the font size stays at a limit, the count of columns changes, and the lines of the two counts fade into each other.
 - The lists change from one column to two columns with a fade.
 - The description has 4 lines or less.
+
+**The size of the name.** The maintainer decided this on 2026-11-06: on each map, a card 20 px to 32 px high has a larger name, of about 9 px for a card 24 px high. The name size follows the card height continuously (`titleRaw` in `page_canvas_text.py`):
+
+| Card height | Name size |
+|---|---|
+| 15 px | 6.75 px. The name starts to fade in. |
+| 19 px | 8.5 px. The name has the full alpha. |
+| 24 px | 9 px |
+| 24 px to 75 px | 9 px |
+| more than 75 px | 0.12 times the card height, 26 px or less |
+
+Between two rows, the size changes at a constant rate. The fade from 15 px to 19 px of card height has the shape of the fade of the other texts (`sizeFade`). The name is not drawn below 7 px. The card changes from a mark into a card from 16 px to 28 px of height. Thus the name of a small card can be on the mark color. The name has the inset of the card at its left and its right. When a name is wider than that space, the page cuts it and adds three dots. The text under the name starts 1.4 times the name size below the top of the name. Thus the name and that text do not overlap. At the fit of each map of the M11 tree on a screen of 1440 x 900 pixels, the cards are 19.2 px and 24.5 px high. Their names have 8.5 px and 9 px, at the full alpha (K1 in `bench/jev/README.md`, and acceptance 17 of `tests/test_canvas_browser.py`).
 
 A text in more than one of these layouts, at the same place, is drawn one time. Thus the text that does not change keeps its alpha.
 

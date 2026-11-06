@@ -36,6 +36,8 @@ var OPEN0 = 0.21, OPEN1 = 0.39;
 var PREVIEW0 = 80, PREVIEW1 = 150;
 // Below this screen height a card is a mark in its layer color.
 var MARK_H = 22;
+// The name of a card fades in from this card height to NAME_H + 4 (`titleRaw`).
+var NAME_H = 15;
 // No text below this size, in CSS pixels.
 var MIN_TEXT = 7;
 // While the camera moves, a card with a name below this size shows only its name.

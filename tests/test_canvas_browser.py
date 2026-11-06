@@ -84,6 +84,12 @@ Acceptance values:
     fit of the top map and of one map on each level below it, to level 3. 2.5 s after the
     load, and 1 s after each fit, the alpha of each portal is 0 or 1, and no two portal
     boxes with an alpha above 0 overlap.
+17. At the fit of each map, the names of the cards are clear. The generated M11 tree, on a
+    screen of 1440 x 900 pixels without reduced motion, opens at the top map. Then the
+    camera goes to the fit of each of the 50 maps. 1 s after each fit, the page draws the
+    frame again. Each card of the open map has its name in its box, at 8.5 px or more and
+    with the alpha 1. The name can be cut with three dots. The box of a name does not
+    overlap the box of a different text by more than 0.5 pixels.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -384,4 +390,13 @@ def test_a_portal_at_rest_is_fully_shown_or_gone(tree: Path) -> None:
     assert len(fits) == 15
     assert sum(f["portals"] for f in fits) > 0
     for fit in fits:
+        assert fit["problems"] == [], fit
+
+
+def test_the_names_are_clear_at_the_fit(tree: Path) -> None:
+    """Acceptance 17."""
+    maps = drive(tree, "--names", ids=("", ""))["maps"]
+    assert len(maps) == 50
+    assert sum(m["cards"] for m in maps) == 2000
+    for fit in maps:
         assert fit["problems"] == [], fit

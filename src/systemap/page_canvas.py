@@ -396,6 +396,8 @@ window.systemapCanvas = {
   // frame) and the alphas of `layers`. `recorded` gives the record and stops it.
   record: function () { LOG = []; },
   recorded: function () { var l = LOG || []; LOG = null; return l; },
+  // Draw the frame again, and give each text that it draws (`drawnText`).
+  texts: function () { TLOG = []; draw(); var l = TLOG; TLOG = null; return l; },
   stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; }
 };
 """

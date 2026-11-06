@@ -96,7 +96,7 @@ function sizeFade(raw, from) { return smooth(from - 0.25, from + 1.5, raw); }
 function labelAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, 8); }
 function nameAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, MIN_TEXT); }
 // If a card of screen height h shows its text.
-function hasText(h) { return h >= MARK_H - 4; }
+function hasText(h) { return h >= NAME_H; }
 function near(u, v) { return Math.abs(u - v) < 0.5; }
 function colors(c) {
   if (c._c && c._c.e === EPOCH) return c._c;
@@ -112,7 +112,16 @@ function text(s, x, y, size, color, alpha, weight, mono, align) {
   if (size < MIN_TEXT || alpha <= 0.02 || !s) return;
   ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.font = font(weight || 400, size, mono);
   ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
+  if (TLOG) TLOG.push(drawnText(s, x, y, size, alpha, weight));
   if (NOTE) textBox(s, x, y, size, weight, mono, align, alpha);
+}
+// While TLOG is a list, each text adds its size, its alpha and its screen box x0, y0, x1, y1
+// to it (`systemapCanvas.texts`). The box comes from the font measurement of the browser.
+var TLOG = null;
+function drawnText(s, x, y, size, alpha, weight) {
+  var m = ctx.measureText(s);
+  return {s: s, size: size, alpha: alpha, weight: weight || 400,
+    box: [x - m.actualBoundingBoxLeft, y - m.actualBoundingBoxAscent, x + m.actualBoundingBoxRight, y + m.actualBoundingBoxDescent]};
 }
 // The box of a text, as a box that covers a boundary flow. It covers the flow with
 // the opacity `alpha` of the text.
