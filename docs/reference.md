@@ -1115,6 +1115,18 @@ Writes the page from the facts and model.
 Without facts and without package roots, `render`, `facts`, and `figure` give the package-root error of `extract` and exit 2.
 Thus they do not tell you to use `systemap extract` when `extract` cannot operate.
 
+With `[render] canvas = true`, the command writes the canvas page.
+The canvas page draws all maps of the tree on one `<canvas>` element.
+A card that opens a map shows a preview of that map. When the camera zooms in, the preview grows into the map.
+The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
+A double-click or a tap on a card goes into the card. Esc goes out one level, F fits the current map, and `+` and `-` zoom the camera.
+The canvas page does not show the Sequences view, the Changes view, or the layers yet. The design gives them in step 4.
+The path of the open maps is at the top left of the canvas. A click on a part of the path moves the camera to that map.
+When the frame of an open map is larger than the screen, a ring stays at the screen edge.
+When a neighbour of the open map is not on the screen, a portal at the screen edge gives it. A click on the portal moves the camera to the neighbour.
+The URL hash holds the ID of the open map, for example `index.html#Gateway/Routes`.
+With `?hud` after the page address, the page shows the frames in each second and the time of each frame.
+
 - `--check` exits 1 if the page is stale.
   It renders the page with the same options and compares the two pages.
   Thus a page that `render --base REF` wrote is stale for `render --check` without `--base REF`.
@@ -1973,6 +1985,7 @@ Unknown keys are rejected.
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, the comment of `systemap delta --comment FILE --pr N` also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value (`font_ui`, `font_mono`) can contain `"`. A `[theme.marks]` value must be `ring`, `notch`, or `dotted`. A key in a theme table, such as `[theme.delta]`, can contain only letters, digits, `_`, and `-`. The page uses these keys in CSS names. |
+| `[render]` | `canvas = false` | `canvas = true` makes `render`, `refresh`, and `live` write the canvas page in place of the linked pages: all maps of the tree on one canvas (`docs/design/nested-canvas.md`). The top page holds the canvas. The page of each nested map goes to the top page with the map ID in the URL hash, for example `../index.html#Gateway`. `check` and `render --check` compare the same pages. With `false`, the commands write the linked pages with no change. A different value or key gives a configuration error. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. An `out` that is not in `out_dir` gives exit code 2. |
 
 The environment of a command can set three values. A repository file cannot set them.

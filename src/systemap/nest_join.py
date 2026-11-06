@@ -115,7 +115,7 @@ def _ends(f: Flow) -> tuple[tuple[str, str, bool], ...]:
     return ((f.src, f.dst, True), (f.dst, f.src, False))
 
 
-def _crossing(model: Model, card: str, inner: str, other: str) -> bool:
+def crossing(model: Model, card: str, inner: str, other: str) -> bool:
     """Tell if a flow end pair goes from an internal component to an actor of the map."""
     return other != card and _is_actor(model, other) and not _is_actor(model, inner)
 
@@ -124,7 +124,7 @@ def _nested_flow(m: nest.Map, parent: nest.Map, end: tuple[str, str, bool]) -> F
     """Give the finding for one nested flow with an actor, or None if the parent map has
     the flow in the same direction."""
     inner, other, out = end
-    if not _crossing(m.model, m.card, inner, other):
+    if not crossing(m.model, m.card, inner, other):
         return None
     src, dst = (m.card, other) if out else (other, m.card)
     if _directed(parent.model, src, dst):

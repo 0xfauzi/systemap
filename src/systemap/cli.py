@@ -56,11 +56,11 @@ from systemap import (
     model_convert,
     nest,
     out_paths,
-    page,
     place,
     place_source,
     pr_summary,
     providers,
+    render_pages,
     review,
     review_upgrade,
     scaffold,
@@ -281,30 +281,6 @@ def _model_ok(p: Project, maps: list[nest.Map] | None = None) -> bool:
     return ok
 
 
-def _render_page(
-    p: Project,
-    m: nest.Map,
-    facts: dict[str, Any],
-    args: argparse.Namespace,
-    source: change.SourceChange | None = None,
-    pr: dict[str, Any] | None = None,
-) -> str:
-    ch: dict[str, Any] = {"has_change": False}
-    base = getattr(args, "base", "")
-    if base:
-        ch = change.for_page(p.cfg, m, base, facts, getattr(args, "head", "HEAD"), source)
-        ch["pr"] = pr or {}
-    return page.build(
-        p.cfg,
-        m.model,
-        m.meaning,
-        m.theme,
-        facts,
-        ch,
-        nesting=page.nesting_of(p.cfg, p.tree, m, facts),
-    )
-
-
 def cmd_render(args: argparse.Namespace) -> int:
     p = _project(args)
     facts = _facts_or_stale(p)
@@ -313,12 +289,14 @@ def cmd_render(args: argparse.Namespace) -> int:
     if not _model_ok(p):
         return STALE
     code = OK
-    # One source comparison for all maps: it does not use the model of a map.
-    source = change.source_change(p.cfg, args.base, facts, args.head) if args.base else None
-    # One gh request for all maps. The data gives the title of each change map.
-    pr = change.pr_meta(p.cfg.root, getattr(args, "pr", "")) if args.base else {}
-    for m in p.tree.maps:
-        html = _render_page(p, m, facts, args, source, pr)
+    change_of = None
+    if args.base:
+        # One source comparison for all maps: it does not use the model of a map.
+        source = change.source_change(p.cfg, args.base, facts, args.head)
+        # One gh request for all maps. The data gives the title of each change map.
+        pr = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
+        change_of = render_pages.page_change(p.cfg, facts, args.base, args.head, source, pr)
+    for m, html in render_pages.pages(p.cfg, p.tree, facts, change_of):
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             code = max(code, _checked_page(p, out, html))
@@ -559,8 +537,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
     """Write the page of each map and each configured figure. Give the written paths."""
     written: list[str] = []
-    for m in p.tree.maps:
-        html = _render_page(p, m, fresh, argparse.Namespace())
+    for m, html in render_pages.pages(p.cfg, p.tree, fresh):
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         file_write.write_atomic(p.cfg.root, out, html)
         written.append(p.cfg.rel(out))

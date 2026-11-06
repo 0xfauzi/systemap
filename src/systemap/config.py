@@ -17,6 +17,7 @@ from typing import Any
 
 from systemap import (
     config_decisions,
+    config_render,
     contract_file,
     decision_kinds,
     file_names,
@@ -73,6 +74,7 @@ KNOWN_KEYS = {
     "writing",
     "rules",
     "decisions",
+    "render",
 }
 FACTS_KEYS = {"model_sdks"}
 FLOWS_KEYS = {"observed_by"}
@@ -148,8 +150,7 @@ class Ignore:
 
 @dataclass(frozen=True)
 class Answer:
-    """This record gives a maintainer answer for exact diagnostic lines or a family of
-    lines.
+    """This record gives a maintainer answer for exact diagnostic lines or a line family.
 
     Exact items contain the full printed line without the two-space indent. Family
     selectors use component IDs, a diagnostic kind, or an SDK import. Evidence binds
@@ -228,6 +229,7 @@ class Config:
     rules_unknown: str = "warn"
     require_reviews: bool = False  # [judgement] require_reviews: a missing review is a finding
     max_contradicted: int = 3  # [decisions] max_contradicted: a loop bound, not a measurement
+    render_canvas: bool = False  # [render] canvas: write the canvas page (config_render)
     source: str = ""
 
     @property
@@ -455,6 +457,7 @@ def load(root: Path) -> Config:
         writing = writing_profile(raw.get("writing"), where)
         decided = {**config_decisions.read(raw, where), **written_names(raw, where)}
         decided["rules_unknown"] = config_decisions.rules_unknown(raw, where)
+        decided["render_canvas"] = config_render.canvas(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 
@@ -586,9 +589,7 @@ def _coverage_ignore(raw: dict[str, Any], where: str) -> tuple[Ignore, ...]:
 
 
 def _facts(raw: dict[str, Any], where: str) -> tuple[str, ...]:
-    """This function reads `[facts]`, including additions and removals for the model SDK
-    list.
-    """
+    """This function reads `[facts]`, including the model SDK additions and removals."""
     facts = raw.get("facts", {})
     if not isinstance(facts, dict):
         raise ConfigError(f"{where}: facts must be a table")
@@ -599,9 +600,7 @@ def _facts(raw: dict[str, Any], where: str) -> tuple[str, ...]:
 
 
 def _flows(raw: dict[str, Any], where: str) -> tuple[str, ...]:
-    """This function reads `[flows]`. The observed_by list specifies mechanisms other than
-    imports.
-    """
+    """This function reads `[flows]`. observed_by gives the mechanisms other than imports."""
     flows = raw.get("flows", {})
     if not isinstance(flows, dict):
         raise ConfigError(f"{where}: flows must be a table")
@@ -703,9 +702,7 @@ def _answer_crossing(value: Any, location: str) -> tuple[str, ...]:
 
 
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
-    """This function reads and validates `[judgement] answered`, including reasons and
-    evidence.
-    """
+    """This function reads and validates `[judgement] answered`, with reasons and evidence."""
     judgement = raw.get("judgement", {})
     if not isinstance(judgement, dict):
         raise ConfigError(f"{where}: judgement must be a table")

@@ -42,7 +42,12 @@ from systemap.model import (
     entry_module,
     reading,
 )
-from systemap.route import Placed, Route, path_d, routed
+from systemap.route import Box as Box
+from systemap.route import Placed as Placed
+from systemap.route import Point as Point
+from systemap.route import Route as Route
+from systemap.route import crosses as crosses
+from systemap.route import path_d, routed
 from systemap.schematic_cards import (
     CARD_W as CARD_W,
 )
@@ -261,8 +266,6 @@ def render(
     w: float
     h: float
     floor: list[str] = []
-    obstacles = geo.obstacles
-    blocks = geo.blocks
     headers = geo.headers
     collisions = list(geo.collisions)
     # The ground is neutral and has the same colors in every view: a container
@@ -308,26 +311,7 @@ def render(
     # against the card boxes, the headers and the region boxes; the drawing
     # here only paints what the router returns and reports what it could
     # not do.
-    actor_ids, region_of, region_boxes = geo.actors, geo.region_of, geo.region_boxes
-    edges = [(src, dst) for src, dst, _art, _k in FLOWS]
-    widths = {i: len(FLOWS[i][2]) * LABEL_CHAR_W + 6 for i in range(len(FLOWS))}
-    # A collision names both labels: the one that could not be seated and
-    # the one it landed on, each by its artifact and its edge.
-    label_names = {i: f"label '{f.artifact}' ({f.name})" for i, f in enumerate(model.flows)}
-    # One command renders the same geometry several times. routed() keeps the result.
-    routes, seats = routed(
-        edges,
-        boxes,
-        actor_ids,
-        blocks,
-        region_boxes,
-        region_of,
-        CANVAS,
-        widths,
-        LABEL_H,
-        obstacles,
-        label_names,
-    )
+    routes, seats = flow_routes(model, geo)
 
     flow_parts: list[str] = []
     label_parts: dict[int, str] = {}
@@ -702,6 +686,30 @@ def render(
     p.append(text_css())
     p.append("</svg>")
     return "".join(p), json.dumps({**detail, **meta}, ensure_ascii=False)
+
+
+def flow_routes(model: Model, geo: Geometry) -> tuple[dict[int, Route], dict[int, Placed]]:
+    """Give the path and the label seat of each flow, by flow index (`route.routed`).
+
+    The map page, each figure and the canvas data use these same values."""
+    widths = {i: len(f.artifact) * LABEL_CHAR_W + 6 for i, f in enumerate(model.flows)}
+    # A collision names both labels: the one that could not be seated and
+    # the one it landed on, each by its artifact and its edge.
+    label_names = {i: f"label '{f.artifact}' ({f.name})" for i, f in enumerate(model.flows)}
+    # One command renders the same geometry several times. routed() keeps the result.
+    return routed(
+        [f.edge for f in model.flows],
+        geo.boxes,
+        geo.actors,
+        geo.blocks,
+        geo.region_boxes,
+        geo.region_of,
+        model.canvas,
+        widths,
+        LABEL_H,
+        geo.obstacles,
+        label_names,
+    )
 
 
 def view_data(
