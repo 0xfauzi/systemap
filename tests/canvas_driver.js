@@ -1,7 +1,7 @@
 // Drives a canvas page (systemap.canvas_page) in the Chromium of Playwright and prints
 // one JSON object of what the page did. tests/test_canvas_browser.py reads it.
 //
-//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --empty | --keys [--light | --order]]
+//     node tests/canvas_driver.js PAGE.html CARD NEIGHBOUR [--light | --phone | --fits [--phone] | --links | --fade [--phone] | --layers | --portals [--phone] | --layout | --clear | --rest | --names | --input | --empty | --keys [--light | --order] | --tree]
 //     node tests/canvas_driver.js --probe
 //
 // CARD is a card of the top map that opens a map, and NEIGHBOUR is a card of the top
@@ -751,6 +751,7 @@ async function keys(file, card, neighbour, light, order) {
   const small = process.argv.includes('--phone');
   const out = process.argv.includes('--keys') ? await keys(file, card, neighbour, process.argv.includes('--light'), process.argv.includes('--order'))
     : process.argv.includes('--input') ? await input(file, card)
+    : process.argv.includes('--tree') ? await treeList(file, card, neighbour)
     : process.argv.includes('--empty') ? await empty(file, card)
     : process.argv.includes('--layout') ? await layout(file)
     : process.argv.includes('--clear') ? await clearFits(file)

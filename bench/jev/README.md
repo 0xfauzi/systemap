@@ -5584,6 +5584,37 @@ Results:
 - Information: the 400-card dive and the M11 tree dive at 4x had a p95 of 33.3 ms. This is the last value in the limit. K6 and K7 found the two values, 16.8 ms and 33.3 ms, in different runs on the same commit. One run cannot show a change from e3452ce.
 - The frame test in CI (tests/test_canvas_frames.py) now runs a scenario up to three times, and passes when two runs are in the limit. Its docstring has this acceptance value. A review found that one run fails on a busy host: a p95 of 49.9 ms for the 400-card dive at 4x with 4 busy processes.
 
+## T1: the list of the tree on the canvas page (2026-11-06)
+
+Scope: step 3 of `docs/design/nested-canvas.md`, the hidden list of the tree for screen readers (`page_canvas_tree`). The script writes the list from the canvas data after the first frame, before `systemapCanvas.ready`. Thus C3 includes the time to write the list.
+
+Script: `bench/jev/canvas_tree.py`. A is the canvas page of commit 1af75d2, from a copy of `src` (`git archive`). B is the page of the change. The two pages have the same canvas data of the real M11 tree (50 maps) and the same theme. The order was A1, B1, B2, A2, A3, B3. Each run had 5 loads at 1x and 5 loads at 4x, each in a new browser. The quiet gate: 30 s with no chrome, chromium, headless_shell, node or pytest process that is not a descendant of the script, and a sample each 2 s during the run.
+
+The acceptance values were in the docstring of the script before the first run:
+
+1. B is at most 12,000 bytes larger than A.
+2. The time to write the list (`systemapCanvas.treeMs`) at 1x is at most 100 ms in each load of each quiet run of B.
+3. C3 of B at 1x is at most 1,500 ms in each load of each quiet run.
+
+All 6 runs were quiet in their first attempt. The gate waited 254 s before A1 and 30 s before each other run. The load average (1 minute) was 0.51 to 0.85.
+
+| Item | A | B | B - A |
+|---|---|---|---|
+| Page bytes, raw | 869,078 | 875,368 | 6,290 |
+| Page bytes, gzip -6 | 84,501 | 86,734 | 2,233 |
+| C3 at 1x, median of 15 loads | 63.6 ms | 81.0 ms | 17.4 ms |
+| C3 at 1x, largest load | 68.7 ms | 90.2 ms | |
+| C3 at 4x, median of 15 loads | 235.0 ms | 304.1 ms | 69.1 ms |
+| Time to write the list at 1x (B, 15 loads) | | 14.5 to 19.0 ms, median 17.5 ms | |
+| Time to write the list at 4x (B, 15 loads) | | 63.0 to 86.2 ms, median 67.8 ms | |
+
+Result: pass for acceptance 1, 2 and 3.
+
+- The page bytes do not grow with the tree, because the script writes the list from the canvas data. The 6,290 bytes are the script, the style and the two empty elements.
+- In the page, the list of the M11 shape of `canvas_frames.py` (50 maps, 2,000 cards) has 3,951 links, 8,003 elements and 624,285 characters of HTML. This is from one exploration run, with no acceptance value.
+- The list adds no work to a frame. The label of the canvas and the live region change only when the camera stops, and only when their text changes.
+- C2 was not measured again for this change. A measurement is necessary to show C2 with the list.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:

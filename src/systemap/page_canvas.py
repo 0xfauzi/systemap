@@ -23,8 +23,10 @@ page canvas, and the last moving frame fades out over the full drawing (`stillSt
 asks for more frames (`fadeLater`).
 
 The URL hash holds the camera target: the ID of the open map, for example
-`#Gateway/Routes`. A link with a hash opens the canvas at that map. When the camera
-stops, the script writes the hash of the current map with `history.replaceState`.
+`#Gateway/Routes`, or the ID of a card in a map (`page_canvas_tree`). A link with a hash
+opens the canvas at that map or card. When the camera stops, the script writes the hash
+of the current map with `history.replaceState`. A hash that names a card of the current
+map stays.
 
 `?hud` shows a frame readout at the top right: the frames in the last second, the time
 of the last draw, the resolution, and the count of drawn cards and images. A person can
@@ -40,8 +42,11 @@ from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_keys import KEYS
 from systemap.page_canvas_scene import SCENE
 from systemap.page_canvas_text import TEXT
+from systemap.page_canvas_tree import CSS as TREE_CSS
+from systemap.page_canvas_tree import TREE
 
-CSS = """
+CSS = (
+    """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
 #canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
 outline:none;cursor:grab}
@@ -53,6 +58,8 @@ outline:none;cursor:grab}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
 white-space:nowrap}
 """
+    + TREE_CSS
+)
 
 _INPUT = r"""
 // ---- the camera ---------------------------------------------------------------
@@ -161,17 +168,14 @@ function fadeLater() {
   else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
-function hashMap() {
-  var id = '';
-  try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { id = ''; }
-  return id && MAPS[id] && MAPS[id].T ? MAPS[id] : null;
-}
 function currentMap() { return CHAIN.length ? CHAIN[CHAIN.length - 1].child : TOP; }
-// When the camera stops: the hash and the label of the canvas name the current map.
+// When the camera stops: the hash and the label of the canvas name the current map
+// (`tell`). A hash that names a card of the current map stays.
 function settled() {
-  var m = currentMap(), names = [DATA.name].concat(CHAIN.map(function (c) { return c.id; }));
-  cv.setAttribute('aria-label', 'System map: ' + names.join(' / ') + '. Level ' + CHAIN.length + '.');
-  var want = hashOf(m.id);
+  var m = currentMap(), want = hashOf(m.id), id = '';
+  tell(m);
+  try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { id = ''; }
+  if (id && hashCard(id) && hashCard(id).map === m) want = location.hash;
   if (want !== location.hash && (want || location.hash)) {
     try { history.replaceState(null, '', want || location.pathname + location.search); } catch (e) { /* a file page can refuse it */ }
   }
@@ -276,7 +280,7 @@ window.addEventListener('keydown', function (e) {
   if (!keys[e.key]) return;
   e.preventDefault(); keys[e.key]();
 });
-window.addEventListener('hashchange', function () { var m = hashMap(); flyTo(m ? frameOf(m) : topFrame(), FIT); });
+window.addEventListener('hashchange', function () { var g = hashGoal(); flyTo(g ? g.box : topFrame(), g ? g.pad : FIT); });
 function measure() { var r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height); }
 // After a change of the screen size (a phone that turns, for example), a camera at the fit
 // of the open map fits that map again. Each other camera keeps the world point at the middle
@@ -347,11 +351,13 @@ if (document.fonts && document.fonts.load) {
 
 // ---- start ----------------------------------------------------------------------------
 measure(); readColors();
-var start = hashMap();
-cam = fitBox(start ? frameOf(start) : topFrame(), FIT);
-draw(); settled();
+var start = hashGoal();
+cam = fitBox(start ? start.box : topFrame(), start ? start.pad : FIT);
+draw(); settled(); buildTree();
 window.systemapCanvas = {
   ready: performance.now(),
+  // The time in ms to write the list of the tree (`buildTree`).
+  treeMs: TREE_MS,
   camera: camCopy,
   // Set the camera as a move does, and draw the frame now.
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
@@ -417,7 +423,16 @@ window.systemapCanvas = {
 """
 
 SCRIPT = (
-    "(function(){\n'use strict';\n" + SCENE + DRAW + TEXT + IMAGE + FADE + KEYS + _INPUT + "})();\n"
+    "(function(){\n'use strict';\n"
+    + SCENE
+    + DRAW
+    + TEXT
+    + IMAGE
+    + FADE
+    + KEYS
+    + TREE
+    + _INPUT
+    + "})();\n"
 )
 
 # The page embeds the script in a script element. "</" would end the element.

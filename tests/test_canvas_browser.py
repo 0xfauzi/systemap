@@ -122,6 +122,17 @@ Acceptance values:
 25. When Tab focuses a card that is not fully in the free box of the screen, the camera
     moves. After the move, the box of the card is in the free box. When the card fits in the
     free box, the zoom does not change. Else the camera zooms out.
+26. The list of the tree gives each map, card and flow as a link, and a link moves the
+    camera. The list has one link for the top map, one link for each card of each map, and
+    one link for each flow. The item of a card gives its card text, its `does` text and its
+    facts. The item of the card Gateway holds the lists of the map Gateway. A link with the
+    focus is visible: it is the element at its middle, and it is 44 pixels high or more.
+    Enter on the link of Gateway goes into the map Gateway: the hash, the label of the canvas
+    and the live region name that map. Enter on the link of Auth puts the card Auth in the
+    middle of the screen, with the hash #Auth, and the live region names the top map. Enter
+    on the link of a flow puts its two cards on the screen. A click on the link of the top
+    map fits the top map. A link with the hash of a card in the map Gateway opens that map
+    with the card in the middle of the screen. The page has no script error.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -599,3 +610,49 @@ def test_tab_moves_the_camera_to_the_focused_card(keyed: dict[str, Any]) -> None
             assert found["zoom"] < 1, found
         else:
             assert found["zoom"] == pytest.approx(zoom), found
+
+
+def test_the_list_of_the_tree(canvas: Path) -> None:
+    """Acceptance 26."""
+    found = drive(canvas, "--tree")
+    assert found["errors"] == []
+    data = json.loads(
+        re.search(r'id="canvas-data">(.*?)</script>', canvas.read_text(), re.S).group(1)  # type: ignore[union-attr]
+    )
+    links = found["links"]
+    cards = sum(len(m["cards"]) for m in data["maps"])
+    flows = sum(len(m["flows"]) for m in data["maps"])
+    assert len(links) == 1 + cards + flows
+    assert links[0]["text"] == "Map: join"
+    hrefs = {link["href"] for link in links}
+    assert {"#Log", "#Auth", "#Gateway", "#Gateway/Routes"} <= hrefs
+    gateway = next(
+        link for link in links if link["href"] == "#Gateway" and link["text"] == "Gateway"
+    )
+    assert "the gateway. Takes the requests. Module: pkg.gateway.*." in gateway["item"]
+    assert (
+        "Flows in: 0. Flows out: 2. Assurance level: unknown. Freshness: missing."
+        in gateway["item"]
+    )
+    assert gateway["lists"] == ["Cards of join / Gateway", "Flows of join / Gateway"]
+    assert any(link["text"].startswith("Flow from Gateway to Auth: ") for link in links)
+    for step in ("card", "neighbour", "flow"):
+        shown = found[step]["shown"]
+        assert shown["top"] and shown["box"][3] >= 44, (step, shown)
+    assert found["card"]["chain"] == ["Gateway"] and found["card"]["hash"] == "#Gateway"
+    assert found["card"]["label"] == "System map: join / Gateway. Level 1."
+    assert found["card"]["said"] == "Open map: join / Gateway. 4 cards."
+    neighbour = found["neighbour"]
+    x, y, w, h = neighbour["box"]
+    assert neighbour["chain"] == [] and neighbour["hash"] == "#Auth"
+    assert abs(x + w / 2 - 640) < 2 and abs(y + h / 2 - 400 - 20) < 2
+    assert neighbour["said"] == "Open map: join. 4 cards."
+    for x, y, w, h in found["flow"]["ends"]:
+        assert x >= 0 and y >= 0 and x + w <= 1280 and y + h <= 800
+    top = found["top"]
+    assert top["chain"] == [] and top["hash"] == ""
+    assert top["camera"] == pytest.approx(top["fit"])
+    hashed = found["hashed"]
+    x, y, w, h = hashed["box"]
+    assert hashed["chain"] == ["Gateway"] and hashed["hash"] == "#Gateway/" + hashed["card"]
+    assert abs(x + w / 2 - 640) < 2 and abs(y + h / 2 - 400 - 20) < 2

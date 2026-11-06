@@ -9,6 +9,9 @@ The canvas page holds the canvas data (`canvas_data`) one time, in a script elem
 the type application/json, and the renderer script (`page_canvas`). The page CSP
 (`page_csp`) has the digest of each script element and style element. The page uses
 the theme tokens of the map page. Thus the light and the dark schemes both apply.
+
+The page also has an empty list of the tree and a live region (`page_canvas_tree`). The
+script writes the list from the canvas data after the first frame.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from systemap import theme as theme_mod
 from systemap.config import Config
 from systemap.model import all_layers
 from systemap.page_canvas import CSS, SCRIPT
+from systemap.page_canvas_tree import HTML as TREE_HTML
 
 
 def pages(
@@ -58,16 +62,19 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + theme_mod.root_css(t)
         + CSS
         + "</style></head><body>"
-        + '<canvas id="canvas" tabindex="0" role="img" '
+        + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
-        + '<p class="sr-only">The wheel and a pinch zoom the camera. A drag moves the map. '
+        + '<p id="canvas-help" class="sr-only">'
+        + "The wheel and a pinch zoom the camera. A drag moves the map. "
         "A double-click on a card goes into the card. "
         "Tab and Shift+Tab move the keyboard focus through the cards of the current map. "
         "Enter on a card that opens a map goes into that map. "
         "Enter on a different card selects it. Esc goes out one level. "
         "The arrow keys move the map. The keys + and - zoom. "
-        "F fits the current map.</p>"
+        "F fits the current map. The list after the canvas gives the maps, the cards "
+        "and the flows. Each link in the list moves the camera to its item.</p>"
         + '<p id="canvas-focus" class="sr-only" aria-live="polite"></p>'
+        + TREE_HTML
         + '<script type="application/json" id="canvas-data">'
         + body
         + "</script>\n<script>"

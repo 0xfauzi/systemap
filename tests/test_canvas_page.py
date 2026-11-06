@@ -12,6 +12,12 @@ Acceptance values:
 4. The CSP of the canvas page has the digest of each script element and each style
    element of the page, and no other script digest.
 5. A value of `[render]` that is not correct gives a configuration error.
+6. The canvas page has the parts for a screen reader: the canvas has the role img, a
+   label with the name of the map, and a description of the inputs. After the canvas, the
+   page has one empty `nav` element for the list of the tree and one polite live region.
+   The script writes the list from the canvas data (`buildTree`) and does not give the
+   card texts a second time. A link of the list with the focus has a box of 44 pixels high
+   or more. The tree part adds 12,000 bytes or less to the page.
 """
 
 from __future__ import annotations
@@ -27,7 +33,16 @@ import pytest
 from conftest import write_tree
 from test_nest_join import CONFIG, NESTED, SOURCE, TOP
 
-from systemap import canvas_data, canvas_page, config, facts_file, nest, page, page_csp
+from systemap import (
+    canvas_data,
+    canvas_page,
+    config,
+    facts_file,
+    nest,
+    page,
+    page_canvas_tree,
+    page_csp,
+)
 from systemap.cli import main
 
 DATA = re.compile(r'<script type="application/json" id="canvas-data">(.*?)</script>', re.S)
@@ -160,3 +175,22 @@ def test_a_wrong_render_value_is_a_configuration_error(
     )
     with pytest.raises(config.ConfigError, match=re.escape(error)):
         config.load(tmp_path)
+
+
+def test_the_page_has_the_parts_for_a_screen_reader(canvas_root: Path) -> None:
+    """Acceptance 6."""
+    top = _read(canvas_root, "index.html")
+    canvas = re.search(r"<canvas [^>]*>", top)
+    assert canvas is not None
+    assert 'role="img"' in canvas.group(0)
+    assert 'aria-label="System map: join"' in canvas.group(0)
+    assert 'aria-describedby="canvas-help"' in canvas.group(0)
+    assert '<p id="canvas-help" class="sr-only">' in top
+    after = top[top.index("</canvas>") :]
+    assert after.count('<nav id="canvas-tree" class="tree" aria-label="Map tree"></nav>') == 1
+    assert after.count('<p id="canvas-said" class="sr-only" aria-live="polite"></p>') == 1
+    assert "buildTree();" in top
+    assert top.count("Takes the requests.") == 1
+    assert re.search(r"\.tree a:focus\{[^}]*min-height:44px", top)
+    added = (page_canvas_tree.CSS + page_canvas_tree.HTML + page_canvas_tree.TREE).encode()
+    assert len(added) <= 12_000
