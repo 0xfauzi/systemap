@@ -133,8 +133,8 @@ def test_the_policy_has_the_digest_of_each_script_and_style(canvas_root: Path) -
     """Acceptance 4."""
     top = _read(canvas_root, "index.html")
     policy = page_csp.of_page(top)
-    scripts = re.findall(r"<script>(.*?)</script>", top, re.S)
-    styles = re.findall(r"<style>(.*?)</style>", top, re.S)
+    scripts = re.findall(r"<script>(.*?)</script>", top, re.S | re.I)
+    styles = re.findall(r"<style>(.*?)</style>", top, re.S | re.I)
     assert len(scripts) == 2 and len(styles) == 1
     directives = dict(part.split(" ", 1) for part in policy.split("; "))
     assert sorted(directives["script-src"].split()) == sorted(_digest(s) for s in scripts)
