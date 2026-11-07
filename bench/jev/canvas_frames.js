@@ -5,8 +5,9 @@
 //
 // MODE is load, pan-fit, all-open, dive, dive-stop or pan-stop. RATE is the CPU throttling rate of
 // Emulation.setCPUThrottlingRate. The script prints one JSON object:
-// - load: {ready}: the milliseconds from the start of the navigation to
-//   systemapCanvas.ready (the first frame is drawn and the input handlers are attached);
+// - load: {ready, treeMs}: the milliseconds from the start of the navigation to
+//   systemapCanvas.ready (the first frame is drawn and the input handlers are attached),
+//   and the milliseconds to write the list of the tree (null for a page without the list);
 // - a scenario: {frames, median, p95, max} of the intervals between animation frames, in
 //   milliseconds. Each frame sets the camera with systemapCanvas.view, as a move does.
 // - dive-stop and pan-stop: the same object for a move, and `stop`: {frames, max, over} of
@@ -34,9 +35,9 @@ async function load(file, rate) {
   const { browser, page } = await open(rate);
   await page.goto('file://' + file);
   await page.waitForFunction(() => window.systemapCanvas && window.systemapCanvas.ready);
-  const ready = await page.evaluate(() => window.systemapCanvas.ready);
+  const found = await page.evaluate(() => ({ ready: window.systemapCanvas.ready, treeMs: window.systemapCanvas.treeMs ?? null }));
   await browser.close();
-  return { ready };
+  return found;
 }
 
 // The scenario runs in the page. `at(t)` gives the camera for t from 0 to 1.

@@ -30,6 +30,8 @@ Each value comes from a script whose acceptance value was written before the run
 | C2: frame time of the canvas page of step 2, half resolution while the camera moves, 4 times CPU throttling: M11 tree (pan, all top cards with previews, dive), 400 cards (pan, dive), 1,500 cards (pan). No GPU: Chromium paints in software. | p95 at most 35 ms (two 60 Hz ticks, 33.3 ms, plus 5 percent) | PASS in run 2: p95 16.7 to 16.8 ms, and 33.3 ms for the dive of the 400-card map. Run 1 failed the dive (p95 550 ms): long dashed paths of the maps above the view. After the change for the deep zoom, the dive of the 400-card map has p95 of one tick (16.7 or 16.8 ms) in 17 of 17 runs. See `bench/jev/README.md`. |
 | C2 at normal CPU speed, same scenarios | p95 at most 17.5 ms | PASS in run 2: p95 16.7 to 16.8 ms. |
 | C3: load to an interactive map, M11 tree, 50 maps | at most 1.5 s at normal CPU speed | PASS: 76 ms (264 ms with 4 times throttling). The time of `canvas_data.build` is not included. |
+| C4: axe-core 4.14.0 on the canvas page: the M11 tree, the map of 400 cards, the self-map and the fixture of `tests/test_nest_join.py`, at 1440 x 900 and 390 x 844 pixels, light and dark, at the top map and in a nested map, with no focus, with the focus on a link of the list and on a card | 0 serious or critical issues | PASS (S4 in `bench/jev/README.md`): 0 violations in 96 runs. axe-core cannot measure the contrast of a focused link of the hidden list. By hand, the contrast ratio is 14.34 (light) and 14.21 (dark). The job canvas-browser runs `tests/test_canvas_access.py` with axe-core 4.14.0. |
+| C5: phone emulation in Playwright 1.63.0 Chromium, 390 x 844 pixels, `isMobile` and `hasTouch`, 3 device pixels for each pixel. The camera fit of each of the 50 maps of the M11 tree. | no horizontal scroll, and each target on the canvas 44 px or more in width and in height | PASS (acceptance 28 of `tests/test_canvas_browser.py`): at each of the 50 fits, the scroll width is 390 px and the scroll position is 0. The 294 targets at the fits (182 portals and 112 parts of the path) are 44 px or more in width and in height. The smallest is 44 x 44 px. The plate of the facts of a selected card is 44 px high. At the fits, no drawn portal covers a box of the maps, and the target of a portal goes into no card. |
 
 The frame time on a real slow device is not measured yet. The `?hud` readout of the canvas page shows it on a device.
 
@@ -125,7 +127,7 @@ A text in more than one of these layouts, at the same place, is drawn one time. 
 
 **Camera.**
 - The wheel and the pinch zoom at the pointer. A drag pans.
-- A double-click or a tap goes into a card. Esc goes out one level. F fits the current map.
+- A double-click with a mouse goes into a card. On a touch screen, a tap selects a card, and a second tap goes into it (see "Access"). Esc goes out one level. F fits the current map.
 - A camera move changes the scale in log space. It goes out and back in when the two views are far apart.
 - With `prefers-reduced-motion`, each camera move occurs at one time.
 
@@ -157,16 +159,35 @@ The fit has a margin of 4 % of the screen at each side. Thus the frame of a wide
 **Keyboard.**
 - Tab moves through the cards of the current map in reading order.
 - Enter goes into a card that opens a map.
-- Esc goes out one level.
+- Enter on a card that opens no map selects it. This is the same selection as a tap on a touch screen (`select` in `page_canvas_touch.py`). The focus ring is 7 px outside the card, so it does not cover the line of the selection.
+- Esc goes out one level. When the canvas has the keyboard focus, the focus then goes to the card that opens the map that the camera comes from. The live region gives the new map and that card in one text.
+- The focused card keeps the keyboard focus only while it is in the current map or it is open. Thus the card loses the keyboard focus when its map closes, for example after a zoom out, and when a zoom goes into the map of a different card. Tab, the ring and the live region use this one rule.
+- Tab during the flight that Enter starts does not stop the flight. When the open map changes, the live region gives the card only in the text of the new map.
 - The arrow keys pan, and + and - zoom.
 - Focus is visible on the canvas.
 
-**Screen readers.** A hidden list gives the tree: maps, cards, flows and the facts of each card. Each item is a link that moves the camera. The canvas has a label that gives the current path.
+**Screen readers.** A hidden list gives the tree: maps, cards, flows and the facts of each card. Each item is a link that moves the camera. The canvas has a label that gives the current path. The script writes the list after the first frame is on the screen, so the list does not make C3 longer. The canvas, its help text, the list and the live region are in one `main` landmark.
 
 **Phone.**
 - A pinch zooms, and a drag pans.
 - A tap selects a card. A second tap on a card that opens a map goes into it.
 - The current phone grid stays for the top map, until the canvas passes the phone measurements below.
+
+The touch part of the renderer (`page_canvas_touch.py`) does these steps:
+- A tap with a finger or a pen selects the card under it. The page draws a line around the selected card. When there is space above or below the card, it also draws a plate with the name and the facts of the card. A tap on that plate is a second tap on the card.
+- A second tap on the selected card goes into it when it opens a map. A second tap on a card that opens no map keeps the selection.
+- A tap on empty space removes the selection. A tap on an open card is a tap on empty space, because its map is on the screen.
+- The selection fades in and out. Its alpha changes by 1 in 160 ms or more, and by 0.2 or less in one frame. With reduced motion, it changes at one time. A frame draws only the selected card and the cards that fade out. Thus the work of a frame does not grow with the count of cards.
+- A double-click with a mouse goes into a card, as before. Two fast taps are not a double-click: the first tap selects the card, and the second tap goes into it.
+- A gesture with two fingers is not a tap. After a pinch, the finger that stays down moves the map.
+
+On a touch screen (`pointer: coarse`), each target on the canvas is 44 x 44 px or more:
+- A part of the path is 44 px high and 44 px wide or more. The top row of the portals is 8 px lower, below the larger path. The bottom band of the fit is also 8 px larger. Thus the fit puts the middle of a map at the same height as on a screen with no touch.
+- A portal has the drawing of 34 px height as before. Its target is 44 px high. In the top row and in the bottom row, the added 10 px are between the drawing and the screen edge. At the left and the right, the target has 5 px above and 5 px below the drawing. The gap between two portals is 10 px. Thus two targets do not overlap. In a trial with a drawing of 44 px height, each of the 182 portals at the fits of the M11 tree on the phone screen covered a card of the map above, because no open place was near.
+- The plate of the facts of a selected card is 44 px high.
+- The help line is not a target.
+
+**The decision for the phone grid.** C5 passes (see "What is measured"). Thus the canvas meets the phone measurements of this design, and the top map can use the canvas on a phone. The phone grid goes in step 5, when the canvas becomes the default. These items are not measured yet: the frame time on a real phone (the `?hud` readout), and a test with a person (the last open question).
 
 ## Steps
 
@@ -186,4 +207,4 @@ Each step is a pull request with the required checks of AGENTS.md, `/code-review
 
 - Text is drawn in SVG. Very long `does` texts need a line limit and an ellipsis. Is a limit of 4 lines correct?
 - Is a map with more than 400 cards possible? It can be too large for one page. Measurement C1 decides if the data must load in parts.
-- On a phone, is the canvas as good as the current grid for the top map? C5 and a test with a person decide.
+- On a phone, is the canvas as good as the current grid for the top map? C5 passes (see "The decision for the phone grid"). A test with a person is necessary.

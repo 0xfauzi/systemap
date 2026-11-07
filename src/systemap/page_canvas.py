@@ -3,14 +3,20 @@
 The canvas page (`canvas_page`) has one script element with `SCRIPT`. It joins the
 scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`), the text part
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
-(`page_canvas_fade`) and the part in this module. The page CSP (`page_csp`) gets the
-digest of that element.
+(`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
+(`page_canvas_keys`), the part of the tree list (`page_canvas_tree`) and the part in this
+module. The page CSP (`page_csp`) gets the digest of that element.
 
 Camera. The wheel and the pinch zoom at the pointer, and a drag moves the map. A
-double-click, or a tap, goes into the card under the pointer. Esc goes out one level, F
-fits the current map, and + and - zoom at the middle of the screen. The arrow keys move
-the map. A camera move changes the scale in log space, and it goes out and back in when
-the two views are far apart. With `prefers-reduced-motion`, or with the page setting
+double-click with a mouse goes into the card under the pointer. A tap with a finger or a
+pen selects the card, and a second tap on that card goes into it when it opens a map
+(`tapAt` in `page_canvas_touch`). A tap on empty space removes the selection. A gesture
+with two fingers is not a tap. Esc goes out one level, F fits the current map, and + and
+- zoom at the middle of the screen. The arrow keys move the map. Tab and Shift+Tab move
+the keyboard focus through the cards of the current map, and Enter goes into the focused
+card or selects it (`page_canvas_keys`). A camera move changes the scale in log space,
+and it goes out and back in when the two views are far apart. With
+`prefers-reduced-motion`, or with the page setting
 Reduce motion, each move occurs at one time.
 
 Frames. An input event asks for one frame (`requestAnimationFrame`). While the camera
@@ -21,8 +27,10 @@ page canvas, and the last moving frame fades out over the full drawing (`stillSt
 asks for more frames (`fadeLater`).
 
 The URL hash holds the camera target: the ID of the open map, for example
-`#Gateway/Routes`. A link with a hash opens the canvas at that map. When the camera
-stops, the script writes the hash of the current map with `history.replaceState`.
+`#Gateway/Routes`, or the ID of a card in a map (`page_canvas_tree`). A link with a hash
+opens the canvas at that map or card. When the camera stops, the script writes the hash
+of the current map with `history.replaceState`. A hash that names a card of the current
+map stays.
 
 `?hud` shows a frame readout at the top right: the frames in the last second, the time
 of the last draw, the resolution, and the count of drawn cards and images. A person can
@@ -35,10 +43,15 @@ from __future__ import annotations
 from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
 from systemap.page_canvas_image import IMAGE
+from systemap.page_canvas_keys import KEYS
 from systemap.page_canvas_scene import SCENE
 from systemap.page_canvas_text import TEXT
+from systemap.page_canvas_touch import TOUCH_PART
+from systemap.page_canvas_tree import CSS as TREE_CSS
+from systemap.page_canvas_tree import TREE
 
-CSS = """
+CSS = (
+    """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
 #canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
 outline:none;cursor:grab}
@@ -50,6 +63,8 @@ outline:none;cursor:grab}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
 white-space:nowrap}
 """
+    + TREE_CSS
+)
 
 _INPUT = r"""
 // ---- the camera ---------------------------------------------------------------
@@ -89,9 +104,11 @@ function fly(to, ms) {
   }
   flight = {raf: requestAnimationFrame(step)};
 }
-function zoomAt(px, py, f) {
+// A zoom by `f` at the screen point px, py. The world point at that point goes to the
+// screen point qx, qy (by default px, py).
+function zoomAt(px, py, f, qx, qy) {
   var wx = cam.x + px / cam.k, wy = cam.y + py / cam.k, k = clamp(cam.k * f, KMIN, KMAX);
-  cam = {x: wx - px / k, y: wy - py / k, k: k};
+  cam = {x: wx - (qx === undefined ? px : qx) / k, y: wy - (qy === undefined ? py : qy) / k, k: k};
   moved();
 }
 function topFrame() { return frameOf(TOP); }
@@ -126,28 +143,31 @@ function draw() {
   STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
-  fadeFrame();
+  fadeFrame(); selFrame();
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
+  drawSelected();
   // The portals keep off the boxes that the maps put in OBST (`dodge`).
   NMAP = NOBST;
   var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
   drawPortals(portals, path);
+  drawPlates(path);
   drawPath(path);
   drawHelp();
+  drawFocus();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
   frameShown();
   drawn++;
   if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS});
-  if (FADING || SPEED_FADING) fadeLater();
+  if (FADING || SPEED_FADING || SEL_FADING) fadeLater();
 }
 // A boundary flow that fades asks for more frames (`FADING`), and so does a fade of the image
-// layer or of the text that MOVE_TEXT hides (`SPEED_FADING`). While the camera moves, the
-// moves give the frames. Thus, in the FADE_WAIT ms after a camera change, the script asks for
-// a frame only when no frame comes in FADE_WAIT ms. Later, it asks for the next frame. A move
-// that draws in its own animation frame (a flight, or `view`) thus gets no second draw in
-// the same frame.
+// layer or of the text that MOVE_TEXT hides (`SPEED_FADING`), and so does the selection
+// (`SEL_FADING`). While the camera moves, the moves give the frames. Thus, in the FADE_WAIT
+// ms after a camera change, the script asks for a frame only when no frame comes in
+// FADE_WAIT ms. Later, it asks for the next frame. A move that draws in its own animation
+// frame (a flight, or `view`) thus gets no second draw in the same frame.
 var fadeTimer = 0, FADE_WAIT = 50;
 function fadeLater() {
   var n = drawn;
@@ -156,20 +176,14 @@ function fadeLater() {
   else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
-function hashMap() {
-  var id = '';
-  try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { id = ''; }
-  return id && MAPS[id] && MAPS[id].T ? MAPS[id] : null;
-}
 function currentMap() { return CHAIN.length ? CHAIN[CHAIN.length - 1].child : TOP; }
-// When the camera stops: the hash and the label of the canvas name the current map.
+// When the camera stops: the hash and the label of the canvas name the current map
+// (`tell`). A hash that names a card of the current map stays.
 function settled() {
-  var m = currentMap(), names = [DATA.name].concat(CHAIN.map(function (c) { return c.id; }));
-  cv.setAttribute('aria-label', 'System map: ' + names.join(' / ') + '. Level ' + CHAIN.length + '.');
-  var want = hashOf(m.id);
-  if (want !== location.hash && (want || location.hash)) {
-    try { history.replaceState(null, '', want || location.pathname + location.search); } catch (e) { /* a file page can refuse it */ }
-  }
+  var m = currentMap(), want = hashOf(m.id), hc = hashCard(hashId());
+  tell(m);
+  if (hc && hc.map === m) want = location.hash;
+  if (want !== location.hash && (want || location.hash)) setHash(want);
 }
 
 // ---- input --------------------------------------------------------------------------
@@ -190,14 +204,16 @@ function pick(px, py) {
   }
   return found;
 }
+// The card under a screen point, when it is not open. An open card is empty space: its map
+// is on the screen.
+function pickClosed(px, py) { var c = pick(px, py); return c && !(c.child && openness(c) >= 0.5) ? c : null; }
 function enter(px, py) {
-  var c = pick(px, py);
-  if (!c) return;
-  if (c.child && openness(c) < 0.5) flyTo(frameOf(c.child), FIT);
-  else if (!c.child) flyTo(worldBox(c), 0.2);
+  var c = pickClosed(px, py);
+  if (c) flyGoal(goalOf(c.map, c, null));
 }
 function goOut() {
   var n = CHAIN.length;
+  focusOut();
   flyTo(n > 1 ? frameOf(CHAIN[n - 2].child) : topFrame(), FIT);
 }
 function fitCurrent() { flyTo(frameOf(currentMap()), FIT); }
@@ -209,7 +225,8 @@ function hitAt(px, py) {
   return null;
 }
 // `multi` is true when the gesture has had two pointers. Such a gesture is not a tap.
-var pts = new Map(), drag = null, didMove = false, multi = false;
+// `kind` is the pointer type of the last pointer that went down.
+var pts = new Map(), drag = null, didMove = false, multi = false, kind = 'mouse';
 cv.addEventListener('wheel', function (e) {
   e.preventDefault(); stopFlight();
   var p = local(e), dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1);
@@ -218,7 +235,7 @@ cv.addEventListener('wheel', function (e) {
 cv.addEventListener('pointerdown', function (e) {
   stopFlight(); cv.focus({preventScroll: true});
   var p = local(e);
-  pts.set(e.pointerId, p); didMove = false; multi = multi || pts.size > 1;
+  pts.set(e.pointerId, p); didMove = false; multi = multi || pts.size > 1; kind = e.pointerType;
   drag = {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
 });
@@ -229,9 +246,12 @@ cv.addEventListener('pointermove', function (e) {
   if (pts.size === 2) {
     var other = null;
     pts.forEach(function (v, id) { if (id !== e.pointerId) other = v; });
+    // Each finger gives its own event. The world point at the middle of the old two points
+    // goes to the middle of the new two points. Thus the point between the fingers stays
+    // under the fingers.
     var f = Math.hypot(p[0] - other[0], p[1] - other[1]) / (Math.hypot(prev[0] - other[0], prev[1] - other[1]) || 1);
     didMove = true; drag = null;
-    zoomAt((p[0] + other[0]) / 2, (p[1] + other[1]) / 2, f);
+    zoomAt((prev[0] + other[0]) / 2, (prev[1] + other[1]) / 2, f, (p[0] + other[0]) / 2, (p[1] + other[1]) / 2);
     return;
   }
   if (!drag) return;
@@ -250,11 +270,12 @@ function up(e) {
   if (!was || didMove || e.type === 'pointercancel') return;
   var h = hitAt(p[0], p[1]);
   if (h) { h.go(); return; }
-  if (e.pointerType === 'touch') enter(p[0], p[1]);
+  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]);
 }
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
-cv.addEventListener('dblclick', function (e) { var p = local(e); if (!hitAt(p[0], p[1])) enter(p[0], p[1]); });
+// Two taps can also give a double-click. Only a double-click with a mouse goes in.
+cv.addEventListener('dblclick', function (e) { var p = local(e); if (kind === 'mouse' && !hitAt(p[0], p[1])) enter(p[0], p[1]); });
 window.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   var step = 80 / cam.k, keys = {
@@ -270,7 +291,7 @@ window.addEventListener('keydown', function (e) {
   if (!keys[e.key]) return;
   e.preventDefault(); keys[e.key]();
 });
-window.addEventListener('hashchange', function () { var m = hashMap(); flyTo(m ? frameOf(m) : topFrame(), FIT); });
+window.addEventListener('hashchange', function () { flyGoal(hashGoal()); });
 function measure() { var r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height); }
 // After a change of the screen size (a phone that turns, for example), a camera at the fit
 // of the open map fits that map again. Each other camera keeps the world point at the middle
@@ -341,11 +362,16 @@ if (document.fonts && document.fonts.load) {
 
 // ---- start ----------------------------------------------------------------------------
 measure(); readColors();
-var start = hashMap();
-cam = fitBox(start ? frameOf(start) : topFrame(), FIT);
+var start = hashGoal();
+cam = fitBox(start.box, start.pad);
 draw(); settled();
+// The list of the tree is written after the first frame is on the screen.
+requestAnimationFrame(function () { setTimeout(buildTree, 0); });
 window.systemapCanvas = {
   ready: performance.now(),
+  // The time in ms to write the list of the tree (`buildTree`), or null before the list is
+  // written.
+  get treeMs() { return TREE_MS; },
   camera: camCopy,
   // Set the camera as a move does, and draw the frame now.
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
@@ -354,7 +380,14 @@ window.systemapCanvas = {
   frame: function (id) { var b = frameOf(id ? MAPS[id] : TOP); return [(b[0] - cam.x) * cam.k, (b[1] - cam.y) * cam.k, b[2] * cam.k, b[3] * cam.k]; },
   box: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; return c ? screenBox(c) : null; },
   chain: function () { return CHAIN.map(function (c) { return c.child.id; }); },
-  hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, map: h.map, show: h.show, x: h.x, y: h.y, w: h.w, h: h.h}; }); },
+  // The selected card (`id` and `map`, or null), and each card that the frame draws as
+  // selected, with its alpha.
+  selected: function () {
+    return {id: SEL_C ? SEL_C.id : null, map: SEL_C ? SEL_C.map.id : null,
+      shown: SELS.map(function (e) { return {id: e.c.id, map: e.c.map.id, alpha: e.a}; })};
+  },
+  // The targets of the last frame. `box` is the drawn box of a portal when the target is larger.
+  hits: function () { return HITS.map(function (h) { return {kind: h.kind, id: h.id, map: h.map, show: h.show, x: h.x, y: h.y, w: h.w, h: h.h, box: h.box}; }); },
   // The boundary flows from the portals in the last frame: the screen points of each path.
   links: function () { return LINKS; },
   // The layer of the boundary flows of the last frame, and the screen box that it put on
@@ -402,11 +435,27 @@ window.systemapCanvas = {
   recorded: function () { var l = LOG || []; LOG = null; return l; },
   // Draw the frame again, and give each text that it draws (`drawnText`).
   texts: function () { TLOG = []; draw(); var l = TLOG; TLOG = null; return l; },
+  // The keyboard focus, the selected card and the ring (`keyState`), and the reading order
+  // of the cards of a map.
+  keys: keyState,
+  order: function (id) { return readingOrder(MAPS[id]).map(function (c) { return c.id; }); },
   stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; }
 };
 """
 
-SCRIPT = "(function(){\n'use strict';\n" + SCENE + DRAW + TEXT + IMAGE + FADE + _INPUT + "})();\n"
+SCRIPT = (
+    "(function(){\n'use strict';\n"
+    + SCENE
+    + DRAW
+    + TEXT
+    + IMAGE
+    + FADE
+    + TOUCH_PART
+    + KEYS
+    + TREE
+    + _INPUT
+    + "})();\n"
+)
 
 # The page embeds the script in a script element. "</" would end the element.
 if "</" in SCRIPT:  # pragma: no cover - a guard for a change of the script text

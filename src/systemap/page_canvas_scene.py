@@ -45,6 +45,10 @@ var MOVE_TEXT = 10;
 var BIG = 100;
 // The full resolution comes back this time after the camera stops.
 var STILL_MS = 150;
+// A touch screen: the primary pointer is a finger. Then each target on the canvas (a part
+// of the path, a portal, the plate of a selected card) is TARGET pixels or more in width
+// and in height.
+var TOUCH = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches), TARGET = TOUCH ? 44 : 0;
 var STATS = {cards: 0, image: 0};
 function reduced() {
   return (MOTION && MOTION.matches) || document.documentElement.getAttribute('data-reduce-motion') === 'true';
@@ -85,7 +89,8 @@ Index.prototype.query = function (x0, y0, x1, y1, out) {
 };
 
 // ---- placement ------------------------------------------------------------
-var MAPS = {}, ORDER = [];
+// MAPS and `byId` have no prototype. Thus a URL hash such as #constructor names no map.
+var MAPS = Object.create(null), ORDER = [];
 DATA.maps.forEach(function (m) { MAPS[m.id] = m; });
 var TOP = DATA.maps[0];
 function pointsBox(p) {
@@ -108,10 +113,10 @@ function layout(b, size) {
   return {s: s, at: [ax + fx / 2, ay + fy / 2], side: null};
 }
 function place(m, x, y, s, depth, owner) {
-  m.T = {x: x, y: y, s: s}; m.depth = depth; m.owner = owner; m.byId = {};
-  m.maxH = 0; m.maxW = 0; ORDER.push(m);
-  m.cards.forEach(function (c) {
-    c.map = m; c.ins = []; c.outs = []; m.byId[c.id] = c;
+  m.T = {x: x, y: y, s: s}; m.depth = depth; m.owner = owner; m.byId = Object.create(null);
+  m.maxH = 0; m.maxW = 0; m.oi = ORDER.length; ORDER.push(m);
+  m.cards.forEach(function (c, i) {
+    c.i = i; c.map = m; c.ins = []; c.outs = []; m.byId[c.id] = c;
     m.maxH = Math.max(m.maxH, c.b[3]); m.maxW = Math.max(m.maxW, c.b[2]);
   });
   m.flows.forEach(function (f, i) {

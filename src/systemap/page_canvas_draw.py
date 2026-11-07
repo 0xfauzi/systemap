@@ -222,9 +222,11 @@ function plates(list, a, ox, oy, fs, each) {
 }
 
 // ---- cards ------------------------------------------------------------------------
+// The corner radius of a card of the screen size w x h. A small card has square corners.
+function cardCorner(w, h) { return w > 60 ? clamp(h * 0.1, 2, 8) : 0; }
 function cardBox(c, x, y, w, h, alpha) {
   STATS.cards++;
-  var t = cardShow(h), k = colors(c), r = w > 60 ? clamp(h * 0.1, 2, 8) : 0;
+  var t = cardShow(h), k = colors(c), r = cardCorner(w, h);
   if (t < 1) FILL.rect(k.mark, alpha * (1 - t), x, y, w, h, 0);
   if (t <= 0) return;
   if (c.child) BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r);
@@ -244,7 +246,7 @@ function drawOpening(c, a, ox, oy, alpha) {
   if (o < 1) { g.globalAlpha = alpha * (1 - o); g.fillStyle = k.fill; g.fill(); }
   g.globalAlpha = alpha; g.strokeStyle = o > 0.5 ? C['--ink-3'] : k.line; g.lineWidth = 1 + 0.4 * o; g.stroke();
   var u = titleSize(h), pad = inset(h), n = c.child.cards.length;
-  var more = {s: n + (n === 1 ? ' card' : ' cards') + ' in this map', alpha: o};
+  var more = {s: counted(n, 'card') + ' in this map', alpha: o};
   // A boundary flow can go through an open card, but not through its text.
   NOTE = CHAIN.indexOf(c) >= 0;
   if (!NOTE) obstacle(x, y, w, h, 1, alpha);
@@ -398,12 +400,23 @@ function whereOf(m) { return 'in ' + (m.id ? m.id.split('/').pop() : DATA.name);
 // open map. P_TOP and P_BOTTOM are the middle of a portal at the top and at the bottom,
 // from the screen edge. The top row is below the path, and the bottom row is above the
 // help line (`drawHelp`).
-var P_H = 34, P_EDGE = 20, P_GAP = 6, P_TOP = 84, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
+// On a touch screen, the target of a portal is TARGET pixels high: 2 times P_PAD pixels
+// more than its drawing (`drawPortals`). In the top row and in the bottom row, the added
+// part is between the drawing and the screen edge. Thus the target does not go into the
+// cards of the maps at the fit. At the left and the right, the target has P_PAD pixels
+// above and below the drawing. The gap between two portals is 2 times P_PAD, thus the
+// targets do not overlap. The top row is P_LOW pixels lower,
+// below the larger path, and the bottom band of the fit is P_LOW pixels larger. Thus the
+// fit puts the middle of a map at the same height as on a screen with no touch. The drawing
+// of a portal does not become larger. A larger drawing in the bottom row covers cards of
+// the map above at the fit (C5 in docs/design/nested-canvas.md).
+var P_H = 34, P_EDGE = 20, P_PAD = Math.max(0, (TARGET - P_H) / 2), P_GAP = Math.max(6, 2 * P_PAD), P_LOW = TOUCH ? 8 : 0;
+var P_TOP = 84 + P_LOW, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
 // The middle of a portal in the bottom row, and the range of the middle of portal `t` along
 // the top or the bottom edge.
 function bottomRow() { return Math.max(P_TOP, H - P_BOTTOM); }
 function rowRange(t) { return [P_EDGE + t.w / 2, W - P_EDGE - t.w / 2]; }
-function portalSpan(idUnit, whereUnit) { return Math.min(Math.max(idUnit * 12, whereUnit * 10.5) + 30, P_MAX); }
+function portalSpan(idUnit, whereUnit) { return Math.max(TARGET, Math.min(Math.max(idUnit * 12, whereUnit * 10.5) + 30, P_MAX)); }
 function portalWidth(id, where) { return portalSpan(unitWidth(id, 600), unitWidth(where, 400)); }
 // The largest portal width of the data. It is the width of the bands at the left and the
 // right. A portal width increases with the two texts, thus the widest texts give it.
@@ -424,7 +437,7 @@ function portalWidest() {
 // open map can use all the width (`fitBox` keeps a small margin).
 function gutters() {
   var side = P_EDGE + portalWidest() + P_GAP;
-  return {x: side <= 0.12 * W ? side : 0, top: P_TOP + P_H / 2 + P_GAP, bottom: P_BOTTOM + P_H / 2 + P_GAP};
+  return {x: side <= 0.12 * W ? side : 0, top: P_TOP + P_H / 2 + P_GAP, bottom: P_BOTTOM + P_H / 2 + P_GAP + P_LOW};
 }
 // The place of a portal: the middle of its neighbour, moved into the screen. A portal that
 // touches the left or the right band is on that side (`side` -1 or 1). Else it is at the
@@ -662,10 +675,11 @@ function drawPortals(list, path) {
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(sc, sc); ctx.translate(-t.x, -t.y);
     ctx.globalAlpha = t.show; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--ink-3']; ctx.lineWidth = 1.2;
     ctx.beginPath(); rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.stroke();
-    text(fit(t.nb.id, 12, w - 20, 600), t.x, y + 15, 12, C['--ink'], t.show, 600, false, 'center');
-    text(fit(t.where, 10.5, w - 20, 400), t.x, y + 28, 10.5, C['--ink-3'], t.show, 400, false, 'center');
+    text(fit(t.nb.id, 12, w - 20, 600), t.x, y + h / 2 - 2, 12, C['--ink'], t.show, 600, false, 'center');
+    text(fit(t.where, 10.5, w - 20, 400), t.x, y + h / 2 + 11, 10.5, C['--ink-3'], t.show, 400, false, 'center');
     ctx.restore();
-    HITS.push({x: x, y: y, w: w, h: h, kind: 'portal', id: t.nb.id, map: t.nb.map.id, show: t.show, go: function () { flyTo(worldBox(t.nb), 0.3); }});
+    var out = t.side ? P_PAD : t.y < H / 2 ? 2 * P_PAD : 0;
+    HITS.push({x: x, y: y - out, w: w, h: h + 2 * P_PAD, box: [x, y, w, h], kind: 'portal', id: t.nb.id, map: t.nb.map.id, show: t.show, go: function () { flyTo(worldBox(t.nb), 0.3); }});
   });
 }
 function flowLayer(l) {
@@ -681,7 +695,7 @@ function pathParts(chain) {
   var parts = [{label: DATA.name || 'map', m: TOP}].concat(chain.map(function (c) { return {label: c.id, m: c.child}; }));
   var level = 'level ' + chain.length, total = 12 + 32 * parts.length - 16 + unitWidth(level, 400) * 11.5 + 20;
   var ws = parts.map(function (p) { return Math.min(unitWidth(p.label, 600) * 12.5, 220); }), c = cap(ws, W - 24 - total);
-  parts.forEach(function (p, i) { p.w = Math.min(ws[i], c) + 16; total += p.w - 16; });
+  parts.forEach(function (p, i) { p.w = Math.max(TARGET, Math.min(ws[i], c) + 16); total += p.w - 16; });
   return {parts: parts, level: level, total: total};
 }
 // The largest width c, 40 or more, so that the widths, each made c or less, fit in `room`.
@@ -694,34 +708,35 @@ function cap(widths, room) {
   }
   return Infinity;
 }
-// The screen box x, y, w, h of the plate of the path.
-function pathPlate(path) { return [12, 10, path.total, 38]; }
+// The screen box x, y, w, h of the plate of the path. A part of the path is PATH_H high.
+var PATH_H = Math.max(30, TARGET);
+function pathPlate(path) { return [12, 10, path.total, PATH_H + 8]; }
 // A plate with round ends, under the path or the help line.
 function plate(b, alpha) {
   ctx.globalAlpha = alpha; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--line-2']; ctx.lineWidth = 1; ctx.setLineDash([]);
   ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], b[3] / 2); ctx.fill(); ctx.stroke();
 }
 function drawPath(path) {
-  var parts = path.parts, level = path.level, x = 22, y = 14, h = 30, fs = 12.5, gap = 10;
+  var parts = path.parts, level = path.level, x = 22, y = 14, h = PATH_H, fs = 12.5, gap = 10, base = y + h / 2 + 4.5;
   plate(pathPlate(path), 0.96);
   parts.forEach(function (p, i) {
     var last = i === parts.length - 1;
-    if (i) { text('/', x + 1, y + 20, 13, C['--ink-3'], 1); x += gap + 6; }
+    if (i) { text('/', x + 1, base + 0.5, 13, C['--ink-3'], 1); x += gap + 6; }
     if (last) { ctx.globalAlpha = 1; ctx.fillStyle = C['--ink']; ctx.beginPath(); rr(ctx, x, y + 2, p.w, h - 4, (h - 4) / 2); ctx.fill(); }
-    text(fit(p.label, fs, p.w - 16, 600), x + p.w / 2, y + 19.5, fs, last ? C['--raised'] : C['--ink'], 1, 600, false, 'center');
+    text(fit(p.label, fs, p.w - 16, 600), x + p.w / 2, base, fs, last ? C['--raised'] : C['--ink'], 1, 600, false, 'center');
     if (!last) HITS.push({x: x, y: y, w: p.w, h: h, kind: 'path', id: p.m.id, go: function () { flyTo(frameOf(p.m), FIT); }});
     x += p.w;
   });
-  text(level, x + 12, y + 19.5, 11.5, C['--ink-3'], 1);
+  text(level, x + 12, base, 11.5, C['--ink-3'], 1);
 }
 // The help line has one line on a plate at the bottom left of the screen, below the bottom
 // row of the portals. On a touch screen, it gives the touch inputs. Else it is the first
 // text of HELP that fits the screen width. A text that does not fit becomes shorter with
 // '...'. The line changes only when the screen width or the fonts change (`HELP_MEMO`).
-var HELP = ['Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit',
+var HELP = ['Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit · Tab: next card',
+  'Wheel or pinch: zoom · drag: move · double-click a card: go in · Esc: go out · F: fit',
   'Wheel: zoom · drag: move · double-click a card: go in · Esc: go out', 'Wheel: zoom · drag: move · double-click: go in'];
-var HELP_TOUCH = 'Pinch: zoom · drag: move · tap a card: go in', HELP_FS = 11.5, HELP_MEMO = null;
-var TOUCH = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+var HELP_TOUCH = 'Pinch: zoom · drag: move · tap: select · tap again: go in', HELP_FS = 11.5, HELP_MEMO = null;
 function helpLine() {
   if (HELP_MEMO && HELP_MEMO.w === W && HELP_MEMO.t === TEXTS) return HELP_MEMO.line;
   var room = W - 48, line = TOUCH ? HELP_TOUCH : HELP.filter(function (s) { return unitWidth(s, 400) * HELP_FS <= room; })[0];

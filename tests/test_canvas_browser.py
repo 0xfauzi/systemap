@@ -103,6 +103,59 @@ Acceptance values:
     values. The page has no script error.
 21. The fade of the count of text columns of a card starts again when the frame before did
     not draw the card. The test runs the function `colFade` of the page script in Node.
+22. Tab and Shift+Tab move the keyboard focus through the cards of the current map in
+    reading order, and then out of the canvas. Tab from the page goes to the canvas. Each
+    card gets the focus one time. A card never comes after a card that is fully below it,
+    and in a row (each card has its vertical middle in the box of the other) the cards go
+    from left to right. Shift+Tab gives the reverse order. After the last card, Tab moves
+    the keyboard focus out of the canvas, and so does Shift+Tab before the first card. The
+    test uses the top map of the fixture and the map P0 of the generated M11 tree.
+23. The focused card has a ring that is 2 px wide or more. At the middle of each side of the
+    ring, the pixel of the page canvas with the ring and the pixel without the keyboard
+    focus on the canvas have a contrast ratio of 3 or more. The test uses the dark scheme
+    and the light scheme.
+24. Enter on Gateway goes into its map, with no focused card. Then Tab focuses the first
+    card of that map. Esc goes out one level, and the keyboard focus is on Gateway. Enter on
+    Auth selects it, and the camera stays in the top map. The arrow keys move the map by 80
+    pixels, + and - zoom by 1.6, and F fits the current map. A pointer input removes the
+    focus from the card.
+25. When Tab focuses a card that is not fully in the free box of the screen, the camera
+    moves. After the move, the box of the card is in the free box. When the card fits in the
+    free box, the zoom does not change. Else the camera zooms out.
+26. The list of the tree gives each map, card and flow as a link, and a link moves the
+    camera. The list has one link for the top map, one link for each card of each map, and
+    one link for each flow. The item of a card gives its card text, its `does` text and its
+    facts. The item of the card Gateway holds the lists of the map Gateway. A link with the
+    focus is visible: it is the element at its middle, and it is 44 pixels high or more.
+    Enter on the link of Gateway goes into the map Gateway: the hash, the label of the canvas
+    and the live region name that map. Enter on the link of Auth puts the card Auth in the
+    middle of the screen, with the hash #Auth, and the live region names the top map. Enter
+    on the link of a flow puts its two cards on the screen. A click on the link of the top
+    map fits the top map. A link with the hash of a card in the map Gateway opens that map
+    with the card in the middle of the screen. The page has no script error.
+27. A tap selects a card, and a second tap on a card that opens a map goes into it. The test
+    uses a phone screen of 390 x 844 pixels with a touch screen and reduced motion. A tap
+    on Gateway selects Gateway and does not go into it. The plate of its facts is a target
+    of 44 x 44 pixels or more. A second tap on Gateway goes into the map Gateway and
+    removes the selection. After Esc, a tap on Auth selects Auth. A second tap on Auth
+    does not change the chain, and Auth stays selected. A tap on empty space removes the
+    selection. Two fast taps on Gateway go into the map Gateway. The page has no script
+    error. Without reduced motion, the alpha of the selection changes by 0.25 or less
+    between two frames. It gets to 1 after the tap on Gateway and to 0 after the tap on
+    empty space.
+28. C5: the canvas on a phone. The generated M11 tree is on a phone screen of 390 x 844
+    pixels with a touch screen (Playwright `isMobile` and `hasTouch`, 3 device pixels for
+    each pixel) and reduced motion. At the camera fit of each of the 50 maps, the page has
+    no horizontal scroll: its scroll width is 390 pixels and its scroll position is 0. Each
+    target on the canvas, a part of the path or a portal with an alpha above 0.5, is 44
+    pixels or more in width and in height. The fits have 100 or more portals and 50 or
+    more parts of the path. No drawn portal covers a box of the maps, as in acceptance 10.
+    The target of a portal goes into no card by more than 0.5 pixels. The neighbour of the
+    portal and an open card do not count.
+    No card of the open map is in the band of a portal, the screen edge cuts no card of the
+    open map, and the plates of the path and the help line and the portals do not cover each
+    other. At the fit of the top map and of one map on each level below it, to level 3, a
+    tap on a card selects it and gives the plate of its facts, 44 x 44 pixels or more.
 
 Acceptance 6 also applies on a screen of 390 x 844 pixels.
 """
@@ -123,6 +176,7 @@ from typing import Any
 import pytest
 from test_canvas_frames import _bench
 from test_canvas_page import _made
+from test_theme import contrast
 
 from systemap import page_canvas_text
 
@@ -481,3 +535,187 @@ def test_the_column_fade_starts_again_after_a_gap() -> None:
     back, changed = json.loads(proc.stdout)
     assert (back["k"], back["from"], back["f"]) == (14, 14, 1)
     assert (changed["k"], changed["from"], changed["f"]) == (20, 14, 0.2)
+
+
+@pytest.fixture(scope="module")
+def keyed(canvas: Path) -> dict[str, Any]:
+    return drive(canvas, "--keys")
+
+
+def _reading_problems(order: list[str], boxes: list[dict[str, Any]]) -> list[str]:
+    """Give each pair of cards that is not in reading order."""
+    box = {c["id"]: c["b"] for c in boxes}
+    problems = [] if sorted(order) == sorted(box) else ["the order does not have each card"]
+    for i, a in enumerate(order):
+        ax, ay, aw, ah = box[a]
+        for b in order[i + 1 :]:
+            bx, by, bw, bh = box[b]
+            if by + bh <= ay:
+                problems.append(f"{b} is above {a}")
+            row = ay <= by + bh / 2 <= ay + ah and by <= ay + ah / 2 <= by + bh
+            if row and bx < ax:
+                problems.append(f"{b} is at the left of {a}")
+    return problems
+
+
+def _tabbed(found: dict[str, Any]) -> None:
+    order = found["order"]
+    assert _reading_problems(order, found["boxes"]) == []
+    assert found["entered"]["active"] == "canvas" and found["entered"]["focus"] is None
+    assert found["tabs"] == order
+    assert found["backs"] == order[::-1]
+    for out in (found["tabbedOut"], found["backedOut"]):
+        assert out["active"] != "canvas" and out["focus"] is None, out
+
+
+def test_tab_goes_through_the_cards_in_reading_order(keyed: dict[str, Any], tree: Path) -> None:
+    """Acceptance 22."""
+    assert keyed["errors"] == []
+    _tabbed(keyed)
+    found = drive(tree, "--keys", "--order", ids=("P0", ""))
+    assert found["errors"] == []
+    assert len(found["order"]) >= 20
+    _tabbed(found)
+
+
+def _hex(rgb: list[int]) -> str:
+    return "#" + "".join(f"{v:02x}" for v in rgb)
+
+
+def test_the_focus_ring_is_visible(keyed: dict[str, Any], canvas: Path) -> None:
+    """Acceptance 23."""
+    for found in (keyed, drive(canvas, "--keys", "--light")):
+        ring = found["ring"]
+        assert ring["width"] >= 2
+        for on, off in zip(ring["on"], ring["without"], strict=True):
+            assert contrast(_hex(on), _hex(off)) >= 3, ring
+
+
+def test_enter_esc_and_the_camera_keys(keyed: dict[str, Any]) -> None:
+    """Acceptance 24."""
+    entry, inner, escaped = keyed["entry"], keyed["inner"], keyed["escaped"]
+    assert entry["chain"] == ["Gateway"] and entry["focus"] is None
+    assert inner["focus"] == {"map": "Gateway", "id": keyed["entryOrder"][0]}
+    assert escaped["chain"] == [] and escaped["focus"] == {"map": "", "id": "Gateway"}
+    assert escaped["active"] == "canvas" and escaped["ring"] is not None
+    selected = keyed["selected"]
+    assert selected["selected"]["map"] == "" and selected["selected"]["id"] == "Auth"
+    assert selected["chain"] == []
+    assert keyed["arrows"] == {
+        "ArrowRight": pytest.approx([80, 0]),
+        "ArrowDown": pytest.approx([0, 80]),
+        "ArrowLeft": pytest.approx([-80, 0]),
+        "ArrowUp": pytest.approx([0, -80]),
+    }
+    assert keyed["zoomIn"] == pytest.approx(1.6)
+    assert keyed["zoomOut"] == pytest.approx(1)
+    for key in ("x", "y", "k"):
+        assert keyed["fit"]["camera"][key] == pytest.approx(keyed["fit"]["want"][key])
+    assert keyed["clicked"]["focus"] is None
+
+
+def test_tab_moves_the_camera_to_the_focused_card(keyed: dict[str, Any]) -> None:
+    """Acceptance 25."""
+    for name, zoom in (("far", 1), ("large", None)):
+        found = keyed[name]
+        assert found["focus"] == {"map": "", "id": keyed["order"][1]}
+        g = found["gutters"]
+        x, y, w, h = found["before"]
+        assert x < g["x"] or y < g["top"] or x + w > 1280 - g["x"] or y + h > 800 - g["bottom"]
+        x, y, w, h = found["after"]
+        assert g["x"] - 1 <= x and x + w <= 1280 - g["x"] + 1, found
+        assert g["top"] - 1 <= y and y + h <= 800 - g["bottom"] + 1, found
+        if zoom is None:
+            assert found["zoom"] < 1, found
+        else:
+            assert found["zoom"] == pytest.approx(zoom), found
+
+
+def test_the_list_of_the_tree(canvas: Path) -> None:
+    """Acceptance 26."""
+    found = drive(canvas, "--tree")
+    assert found["errors"] == []
+    data = json.loads(
+        re.search(r'id="canvas-data">(.*?)</script>', canvas.read_text(), re.S).group(1)  # type: ignore[union-attr]
+    )
+    links = found["links"]
+    cards = sum(len(m["cards"]) for m in data["maps"])
+    flows = sum(len(m["flows"]) for m in data["maps"])
+    assert len(links) == 1 + cards + flows
+    assert links[0]["text"] == "Map: join"
+    hrefs = {link["href"] for link in links}
+    assert {"#Log", "#Auth", "#Gateway", "#Gateway/Routes"} <= hrefs
+    gateway = next(
+        link for link in links if link["href"] == "#Gateway" and link["text"] == "Gateway"
+    )
+    assert "the gateway. Takes the requests. Module: pkg.gateway.*." in gateway["item"]
+    assert (
+        "Flows in: 0. Flows out: 2. Assurance level: unknown. Freshness: missing."
+        in gateway["item"]
+    )
+    assert gateway["lists"] == ["Cards of join / Gateway", "Flows of join / Gateway"]
+    assert any(link["text"].startswith("Flow from Gateway to Auth: ") for link in links)
+    for step in ("card", "neighbour", "flow"):
+        shown = found[step]["shown"]
+        assert shown["top"] and shown["box"][3] >= 44, (step, shown)
+    assert found["card"]["chain"] == ["Gateway"] and found["card"]["hash"] == "#Gateway"
+    assert found["card"]["label"] == "System map: join / Gateway. Level 1."
+    assert found["card"]["said"] == "Open map: join / Gateway. 4 cards."
+    neighbour = found["neighbour"]
+    x, y, w, h = neighbour["box"]
+    assert neighbour["chain"] == [] and neighbour["hash"] == "#Auth"
+    assert abs(x + w / 2 - 640) < 2 and abs(y + h / 2 - 400 - 20) < 2
+    assert neighbour["said"] == "Open map: join. 4 cards."
+    for x, y, w, h in found["flow"]["ends"]:
+        assert x >= 0 and y >= 0 and x + w <= 1280 and y + h <= 800
+    top = found["top"]
+    assert top["chain"] == [] and top["hash"] == ""
+    assert top["camera"] == pytest.approx(top["fit"])
+    hashed = found["hashed"]
+    x, y, w, h = hashed["box"]
+    assert hashed["chain"] == ["Gateway"] and hashed["hash"] == "#Gateway/" + hashed["card"]
+    assert abs(x + w / 2 - 640) < 2 and abs(y + h / 2 - 400 - 20) < 2
+
+
+def test_a_tap_selects_and_a_second_tap_goes_in(canvas: Path) -> None:
+    """Acceptance 27."""
+    found = drive(canvas, "--taps")
+    assert found["errors"] == []
+    steps = {s["name"]: s for s in found["steps"]}
+    seen = {n: (s["chain"], s["selected"]["id"]) for n, s in steps.items()}
+    assert seen == {
+        "card": ([], "Gateway"),
+        "card again": (["Gateway"], None),
+        "neighbour": ([], "Auth"),
+        "neighbour again": ([], "Auth"),
+        "empty": ([], None),
+        "card after empty": ([], "Gateway"),
+        "double tap": (["Gateway"], None),
+    }
+    for name in ("card", "neighbour"):
+        (plate,) = steps[name]["facts"]
+        assert plate["w"] >= 44 and plate["h"] >= 44, plate
+    alphas = [f.get("/Gateway", 0.0) for f in found["fade"]]
+    assert max(abs(a - b) for a, b in itertools.pairwise(alphas)) <= 0.25, alphas
+    top = alphas.index(1)
+    assert alphas[0] == 0 and 0 in alphas[top:], alphas
+
+
+def test_the_canvas_on_a_phone(tree: Path) -> None:
+    """Acceptance 28."""
+    found = drive(tree, "--targets", ids=("", ""))
+    assert found["errors"] == []
+    assert len(found["fits"]) == 50
+    for fit in found["fits"]:
+        assert fit["coarse"] and fit["W"] == 390, fit
+        assert fit["scroll"] == 390 and fit["x"] == 0, fit
+        assert fit["problems"] == [] and fit["into"] == [], fit
+        small = [h for h in fit["hits"] if h["w"] < 44 or h["h"] < 44]
+        assert small == [], (fit["id"], small)
+    kinds = [h["kind"] for fit in found["fits"] for h in fit["hits"]]
+    assert kinds.count("portal") >= 100 and kinds.count("path") >= 50
+    assert len(found["plates"]) == 4
+    for tapped in found["plates"]:
+        assert tapped["selected"]["id"] == tapped["card"], tapped
+        (plate,) = tapped["facts"]
+        assert plate["w"] >= 44 and plate["h"] >= 44, tapped
