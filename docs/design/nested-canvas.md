@@ -161,7 +161,8 @@ The fit has a margin of 4 % of the screen at each side. Thus the frame of a wide
 - Enter goes into a card that opens a map.
 - Enter on a card that opens no map selects it. This is the same selection as a tap on a touch screen (`select` in `page_canvas_touch.py`). The focus ring is 7 px outside the card, so it does not cover the line of the selection.
 - Esc goes out one level. When the canvas has the keyboard focus, the focus then goes to the card that opens the map that the camera comes from. The live region gives the new map and that card in one text.
-- When the map of the focused card closes, for example after a zoom out, the card loses the keyboard focus.
+- The focused card keeps the keyboard focus only while it is in the current map or it is open. Thus the card loses the keyboard focus when its map closes, for example after a zoom out, and when a zoom goes into the map of a different card. Tab, the ring and the live region use this one rule.
+- Tab during the flight that Enter starts does not stop the flight. When the open map changes, the live region gives the card only in the text of the new map.
 - The arrow keys pan, and + and - zoom.
 - Focus is visible on the canvas.
 

@@ -89,9 +89,6 @@ function tapCard(c) {
   if (c && c === SEL_C && c.child && openness(c) < 0.5) { select(null); flyGoal(goalOf(c.map, c, null)); return; }
   select(c);
 }
-// A tap at a screen point. An open card is empty space: its map is on the screen.
-function tapAt(px, py) {
-  var c = pick(px, py);
-  tapCard(c && !(c.child && openness(c) >= 0.5) ? c : null);
-}
+// A tap at a screen point. An open card is empty space (`pickClosed`).
+function tapAt(px, py) { tapCard(pickClosed(px, py)); }
 """

@@ -5863,6 +5863,47 @@ Items with no acceptance value in this check, the same items as in S3:
 
 `s4-verify/shots/` has the fixture and the M11 tree on a desktop (1440 x 900) and on a phone (390 x 844, touch): the keyboard focus on a card, a selected card and a link of the list with the focus. The pages had no script error.
 
+## S5: the fixes after the review of PR #154 (2026-11-07)
+
+Scope: the fixes of the review of PR #154 on the branch claude/canvas-access (HEAD 3e4c054 and the changes that are not committed, before a commit). The changes of the renderer:
+
+- The card keeps the keyboard focus only while it is in the current map or it is open (`focusHeld`). Tab, the ring and the live region use this one rule. Before the fix, after a wheel zoom into the map of a different card, the ring and the live region gave a card of the parent map, but the next Tab went to the first card of the new map.
+- After Esc, and after Tab during a flight to a different map, the live region changes one time, when the camera stops. Before the fix, it gave the card words two times: one time at once, and one time with the new map.
+- Tab during the flight that Enter starts does not stop that flight (`flight.into`). Before the fix, on the generated M11 tree, the camera stopped between the two maps, and the card lost the keyboard focus.
+- `systemapCanvas.keys()` gives only `focus` and `ring` (with `box` and `width`).
+- Cleanups with the same output: `pickClosed`, `hashCard` with an empty ID, `counted` in `facts`.
+
+### C2 and C3, one run
+
+Acceptance: each scenario passes its limit of `canvas_frames.py` (35.0 ms at 4x, 17.5 ms at 1x). C3 at 1x is at most 1,500 ms. C3 at 4x is information only. Before the run, `ps` showed no other heavy process for 30 s, and the load average was 0.40. After the run, it was 0.71. This is one run, with no A/B comparison.
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 273 ms | | | information |
+| M11 shape | C3 load | 4x | 236 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 tree | dive | 4x | 16.7 | 16.7 | 33.3 | pass |
+| 400 cards | pan-fit | 4x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 4x | 16.7 | 16.8 | 33.4 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.7 | 50.0 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 tree | C3 load | 1x | 68 ms | | | pass |
+| M11 shape | C3 load | 1x | 54 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+
+Result: PASS. The largest p95 is 16.8 ms. C3 at 1x is at most 68 ms. C3 at 4x is 273 ms for the M11 tree and 236 ms for the M11 shape. In S4, the medians of B at 4x were 216 ms and 201 ms. One run does not show if this difference is from the change or from noise. A measurement with more runs is necessary to give a value.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:

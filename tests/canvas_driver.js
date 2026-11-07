@@ -618,24 +618,31 @@ async function input(file, card) {
 const PHONE = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 };
 const tapped = (page) => page.evaluate(() => ({ chain: window.systemapCanvas.chain(), selected: window.systemapCanvas.selected(),
   facts: window.systemapCanvas.hits().filter((h) => h.kind === 'facts') }));
-// The alpha of each selected card in each frame for `ms` milliseconds.
-const selAlphas = (page, ms) => page.evaluate((ms) => new Promise((done) => {
-  const out = [], t0 = performance.now();
+// Record the alpha of each selected card in each frame, until `selStop`.
+const selRecord = (page) => page.evaluate(() => {
+  window.__sel = []; window.__selOn = true;
   const step = () => {
     const a = {};
     window.systemapCanvas.selected().shown.forEach((e) => { a[e.map + '/' + e.id] = e.alpha; });
-    out.push(a);
-    if (performance.now() - t0 < ms) requestAnimationFrame(step); else done(out);
+    window.__sel.push(a);
+    if (window.__selOn) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
-}), ms);
+});
+// Wait until the last recorded frame gives the alpha `alpha` to the card `key`.
+const selAt = (page, key, alpha) => page.waitForFunction(([key, alpha]) => {
+  const s = window.__sel;
+  return s.length > 0 && (s[s.length - 1][key] || 0) === alpha;
+}, [key, alpha], { timeout: 30000 });
+const selStop = (page) => page.evaluate(() => { window.__selOn = false; return window.__sel; });
 
 // --taps: the taps on a phone screen with reduced motion. CARD opens a map, and NEIGHBOUR
 // does not. Each item of `steps` gives the chain, the selected card and the plates of
 // facts after a tap: on CARD, on CARD again, then Esc, on NEIGHBOUR, on NEIGHBOUR again, on
 // empty space, on CARD, and a double tap on CARD. `fade`: without reduced motion, the alpha
-// of the selection in each frame for 1.2 s. A tap on CARD occurs after 0.1 s, and a tap on
-// empty space after 0.6 s.
+// of the selection in each frame. A tap on CARD occurs after 0.1 s. When the alpha is 1, a
+// tap on empty space occurs. The record stops when the alpha is 0. Thus the result depends
+// on the count of frames, not on the frame time.
 async function taps(file, card, neighbour) {
   const browser = await chromium.launch(), out = { steps: [], errors: [] };
   let context = await browser.newContext({ ...PHONE, reducedMotion: 'reduce' });
@@ -677,12 +684,13 @@ async function taps(file, card, neighbour) {
   await page.goto('file://' + file);
   await settle(page);
   const q = await at(card), e = await empty();
-  const shown = selAlphas(page, 1200);
+  await selRecord(page);
   await page.waitForTimeout(100);
   await page.touchscreen.tap(q[0], q[1]);
-  await page.waitForTimeout(500);
+  await selAt(page, '/' + card, 1);
   await page.touchscreen.tap(e[0], e[1]);
-  out.fade = await shown;
+  await selAt(page, '/' + card, 0);
+  out.fade = await selStop(page);
   await browser.close();
   return out;
 }
@@ -755,10 +763,11 @@ async function empty(file, card) {
 
 // --keys: the keyboard focus on a screen of 1280 x 800 pixels with reduced motion. CARD is
 // a card of the top map that opens a map, and NEIGHBOUR is a card of the top map that does
-// not open a map. With --light, the page has the light scheme. With --order, the page
-// opens the map CARD, and the record has only the Tab steps through that map.
+// not open a map. With --light, the page has the light scheme, and the record stops after
+// the ring. With --order, the page opens the map CARD, and the record has only the Tab
+// steps through that map.
 const keyState = (page) => page.evaluate(() => ({
-  ...window.systemapCanvas.keys(), active: document.activeElement ? document.activeElement.id || document.activeElement.tagName : null,
+  ...window.systemapCanvas.keys(), selected: window.systemapCanvas.selected(), active: document.activeElement ? document.activeElement.id || document.activeElement.tagName : null,
   chain: window.systemapCanvas.chain(), camera: window.systemapCanvas.camera(),
 }));
 // The colors of the page canvas at the middle of each side of the ring box `b`. The ring
@@ -801,11 +810,12 @@ async function keys(file, card, neighbour, light, order) {
   await page.keyboard.press('Tab');
   await settle(page);
   const ring = (await keyState(page)).ring;
-  out.ring = { width: ring.width, off: ring.off, on: await ringPixels(page, ring.box) };
+  out.ring = { width: ring.width, on: await ringPixels(page, ring.box) };
   await page.evaluate(() => document.getElementById('canvas').blur());
   await settle(page);
   out.ring.without = await ringPixels(page, ring.box);
   out.ring.colors = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return [s.getPropertyValue('--ink').trim(), s.getPropertyValue('--map').trim()]; });
+  if (light) { await browser.close(); return out; }
   // Enter on CARD goes into its map, Tab goes to its first card, and Esc goes out to CARD.
   await page.evaluate(() => document.getElementById('canvas').focus());
   for (let i = 0; i < n && ((await keyState(page)).focus || {}).id !== card; i++) await page.keyboard.press('Tab');

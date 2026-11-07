@@ -14,19 +14,29 @@ Acceptance values:
    pixels and 390 x 844 pixels (a phone with a touch screen), in the light and the dark
    scheme, with reduced motion. Each run is at the top map and in a nested map (#Gateway for
    the fixture, #P0/A0 for the M11 tree), with no focus, with the focus on a link of the
-   list of the tree, and with the focus on a card after Tab. The page has no script error.
+   list of the tree, and with the focus on a card after Tab. Each place has a new load of
+   the page. In the run with no focus, no card has the keyboard focus and the canvas does
+   not have the focus. The page has no script error.
 2. A URL hash that names a property of all objects (for example #constructor or
    #Gateway/__proto__) names no map: the canvas opens at the top map, with no script error,
    and the list of the tree has all its links. A change of the hash to such a name after
    the load gives no script error.
 3. After Esc from the map Gateway, the live region gives the top map and the focused card
-   Gateway, in one text.
+   Gateway, in one text. The live region changes one time after Esc.
 4. When a zoom out closes the map of the focused card, the card loses the keyboard focus:
    the page draws no ring. Then Enter selects no card and does not change the live region.
 5. Esc on a link of the list of the tree does not put the keyboard focus on a card.
 6. A pinch with two fingers zooms by the ratio of the finger distances. The world point at
    the middle of the fingers at the start is at the middle of the fingers at the end, in
    0.5 pixels.
+7. When the keyboard focus is on a card of the top map and a wheel zoom goes into the map
+   of Gateway, the card loses the keyboard focus: the page draws no ring, and the live
+   region gives only the map Gateway. The next Tab focuses the first card of the map
+   Gateway.
+8. In the generated M11 tree, without reduced motion, Enter on P0 and Tab 400 ms later
+   during the flight do not stop the flight. When the camera stops, the map P0 is open and
+   its first card has the keyboard focus. The live region gives the words of that card in
+   one text only.
 """
 
 from __future__ import annotations
@@ -92,6 +102,9 @@ def test_axe_core_finds_no_issue(
         assert run["violations"] == [], run
     assert {run["hash"] for run in runs} == {"", "#" + nested}
     assert all(run["focus"] for run in runs if run["state"] == "card")
+    for run in runs:
+        if run["state"] == "no focus":
+            assert run["before"]["focus"] is None and run["before"]["active"] != "canvas", run
 
 
 @pytest.fixture(scope="module")
@@ -116,6 +129,7 @@ def test_the_live_region_after_esc_and_the_closed_focus(held: dict[str, Any]) ->
     assert escaped["live"] == (
         "Open map: join. 4 cards. Card Gateway, 3 of 4. This card opens a map."
     )
+    assert held["escapedSaid"] == [escaped["live"]]
     assert held["inner"]["focus"]["map"] == "Gateway"
     closed, after = held["closed"], held["closedEnter"]
     assert closed["chain"] == [] and closed["focus"] is None and closed["ring"] is None
@@ -123,6 +137,31 @@ def test_the_live_region_after_esc_and_the_closed_focus(held: dict[str, Any]) ->
     assert after["live"] == closed["live"]
     linked = held["linkEscaped"]
     assert linked["active"] == "A" and linked["focus"] is None and linked["chain"] == []
+
+
+def test_a_zoom_into_a_different_card_removes_the_focus(held: dict[str, Any]) -> None:
+    """Acceptance 7."""
+    assert held["other"]["map"] == "" and held["other"]["id"] != "Gateway"
+    zoomed = held["zoomedIn"]
+    assert zoomed["chain"] == ["Gateway"]
+    assert zoomed["focus"] is None and zoomed["ring"] is None, zoomed
+    assert zoomed["live"] == "Open map: join / Gateway. 4 cards.", zoomed
+    after = held["zoomedTab"]
+    assert after["focus"] == {"map": "Gateway", "id": held["innerOrder"][0]}, after
+
+
+def test_tab_in_the_flight_of_enter_keeps_the_flight(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """Acceptance 8."""
+    found = _access("--dive", str(_tree_page(tmp_path_factory, "dive")), "P0")
+    assert found["errors"] == []
+    state, first = found["state"], found["order"][0]
+    assert state["chain"] == ["P0"], state
+    assert state["focus"] == {"map": "P0", "id": first}, state
+    words = f"Card {first}, 1 of {len(found['order'])}."
+    assert sum(words in said for said in found["said"]) == 1, found["said"]
+    assert state["live"].endswith(words + " This card opens a map."), state
 
 
 def test_a_pinch_keeps_the_point_between_the_fingers(held: dict[str, Any]) -> None:

@@ -119,12 +119,14 @@ function setHash(h) {
 // The goal that the URL hash gives: a map, or a card of a map. When the hash names no map
 // and no card, it is the top map.
 function hashGoal() {
-  var id = hashId(), c = id ? hashCard(id) : null;
+  var id = hashId(), c = hashCard(id);
   if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
   return c ? goalOf(c.map, c, null) : goalOf(TOP, null, null);
 }
-// The card that the ID `id` of a URL hash names, when it is a card that opens no map.
+// The card that the ID `id` of a URL hash names, when it is a card that opens no map. An
+// empty ID names no card.
 function hashCard(id) {
+  if (!id) return null;
   var cut = id.lastIndexOf('/'), m = MAPS[cut < 0 ? '' : id.slice(0, cut)];
   var c = m && m.T ? m.byId[id.slice(cut + 1)] : null;
   return c && !c.child ? c : null;
@@ -142,7 +144,7 @@ if (TREE_EL) {
 }
 // The words for the focused card and the selected card, after the words of a new map.
 function heldWords() {
-  var f = FOCUS && document.activeElement === cv && mapOpen(FOCUS) ? FOCUS : null, out = f ? ' ' + cardWords(f) : '';
+  var f = FOCUS && document.activeElement === cv && focusHeld(FOCUS) ? FOCUS : null, out = f ? ' ' + cardWords(f) : '';
   if (SEL_C) out += SEL_C === f ? ' Selected.' : ' Selected: card ' + SEL_C.id + '.';
   return out;
 }

@@ -176,6 +176,7 @@ from typing import Any
 import pytest
 from test_canvas_frames import _bench
 from test_canvas_page import _made
+from test_theme import contrast
 
 from systemap import page_canvas_text
 
@@ -577,14 +578,8 @@ def test_tab_goes_through_the_cards_in_reading_order(keyed: dict[str, Any], tree
     _tabbed(found)
 
 
-def _contrast(a: list[int], b: list[int]) -> float:
-    def lum(rgb: list[int]) -> float:
-        c = [v / 255 for v in rgb]
-        c = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
-        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
-
-    hi, lo = sorted((lum(a), lum(b)), reverse=True)
-    return (hi + 0.05) / (lo + 0.05)
+def _hex(rgb: list[int]) -> str:
+    return "#" + "".join(f"{v:02x}" for v in rgb)
 
 
 def test_the_focus_ring_is_visible(keyed: dict[str, Any], canvas: Path) -> None:
@@ -593,7 +588,7 @@ def test_the_focus_ring_is_visible(keyed: dict[str, Any], canvas: Path) -> None:
         ring = found["ring"]
         assert ring["width"] >= 2
         for on, off in zip(ring["on"], ring["without"], strict=True):
-            assert _contrast(on, off) >= 3, ring
+            assert contrast(_hex(on), _hex(off)) >= 3, ring
 
 
 def test_enter_esc_and_the_camera_keys(keyed: dict[str, Any]) -> None:
@@ -604,7 +599,8 @@ def test_enter_esc_and_the_camera_keys(keyed: dict[str, Any]) -> None:
     assert escaped["chain"] == [] and escaped["focus"] == {"map": "", "id": "Gateway"}
     assert escaped["active"] == "canvas" and escaped["ring"] is not None
     selected = keyed["selected"]
-    assert selected["selected"] == {"map": "", "id": "Auth"} and selected["chain"] == []
+    assert selected["selected"]["map"] == "" and selected["selected"]["id"] == "Auth"
+    assert selected["chain"] == []
     assert keyed["arrows"] == {
         "ArrowRight": pytest.approx([80, 0]),
         "ArrowDown": pytest.approx([0, 80]),

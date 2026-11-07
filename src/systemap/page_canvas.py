@@ -180,7 +180,7 @@ function currentMap() { return CHAIN.length ? CHAIN[CHAIN.length - 1].child : TO
 // When the camera stops: the hash and the label of the canvas name the current map
 // (`tell`). A hash that names a card of the current map stays.
 function settled() {
-  var m = currentMap(), want = hashOf(m.id), id = hashId(), hc = id ? hashCard(id) : null;
+  var m = currentMap(), want = hashOf(m.id), hc = hashCard(hashId());
   tell(m);
   if (hc && hc.map === m) want = location.hash;
   if (want !== location.hash && (want || location.hash)) setHash(want);
@@ -204,9 +204,12 @@ function pick(px, py) {
   }
   return found;
 }
+// The card under a screen point, when it is not open. An open card is empty space: its map
+// is on the screen.
+function pickClosed(px, py) { var c = pick(px, py); return c && !(c.child && openness(c) >= 0.5) ? c : null; }
 function enter(px, py) {
-  var c = pick(px, py);
-  if (c && !(c.child && openness(c) >= 0.5)) flyGoal(goalOf(c.map, c, null));
+  var c = pickClosed(px, py);
+  if (c) flyGoal(goalOf(c.map, c, null));
 }
 function goOut() {
   var n = CHAIN.length;

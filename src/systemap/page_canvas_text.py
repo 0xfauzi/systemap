@@ -56,7 +56,7 @@ function cardText(c, x, y, w, h, alpha) {
 }
 function facts(c) {
   var n = (c.m || []).length, parts = [];
-  parts.push(c.k === 'actor' ? 'actor' : n + (n === 1 ? ' module' : ' modules'));
+  parts.push(c.k === 'actor' ? 'actor' : counted(n, 'module'));
   parts.push(c.ins.length + ' in · ' + c.outs.length + ' out');
   if (c.as) parts.push(c.as[0] + ' · ' + c.as[1]);
   return parts.join('  ·  ');

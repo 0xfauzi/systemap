@@ -19,8 +19,16 @@ it, with the selection of the touch part (`select` in `page_canvas_touch`). Esc 
 one level (`goOut`). When the canvas has the keyboard focus, the keyboard focus then goes
 to the card that opens the map that the camera comes from. A pointer input on the canvas
 removes the keyboard focus from the card. When the map of the focused card closes (for
-example after a zoom out), the card loses the keyboard focus (`liveFocus`), as the
-selected card loses the selection. Then the page draws no ring, and Enter does nothing.
+example after a zoom out, or after a zoom into the map of a different card), the card
+loses the keyboard focus (`liveFocus`). The card keeps the keyboard focus only while it is
+in the current map or it is open around the middle of the screen (`focusHeld`). Tab, the
+ring and the live region use this one rule. Then the page draws no ring, and Enter does
+nothing.
+
+When the open map changes, the live region gives the new map and the focused card in one
+text (`tell` in `page_canvas_tree`). Thus Esc, and Tab during a flight to a different map,
+do not write the card words before the camera stops. A Tab during the flight that Enter
+starts into a map does not stop that flight.
 
 The focused card has a ring 7 px outside its box. The ring is 3 px wide, in the color of
 the text (`--ink`). Thus the contrast ratio of the ring with the page color (`--map`) is 3
@@ -64,23 +72,31 @@ function tabMap() {
   return m;
 }
 function say(s) { if (LIVE) LIVE.textContent = s; }
+// True when the card keeps the keyboard focus: it is in the current map, or it is open
+// around the middle of the screen.
+function focusHeld(c) { return c.map === currentMap() || CHAIN.indexOf(c) >= 0; }
+// True when the live region tells the map of card c later, with the card (`tell`).
+function toldLater(c) { return !!SAID_MAP && c.map !== SAID_MAP; }
 function cardWords(c) {
   var list = readingOrder(c.map), n = list.indexOf(c) + 1;
   return 'Card ' + c.id + ', ' + n + ' of ' + list.length + '.' + (c.child ? ' This card opens a map.' : '');
 }
-function setFocus(c) {
+// `quiet` is true when the live region gives the card later, with its map.
+function setFocus(c, quiet) {
   FOCUS = c;
-  if (c) { FOCUS_MAP = c.map; say(cardWords(c)); }
+  if (c) { FOCUS_MAP = c.map; if (!quiet) say(cardWords(c)); }
   request();
 }
-// The focused card, while its map is open or a flight goes. Else no card has the keyboard
-// focus.
+// The focused card, while it keeps the keyboard focus (`focusHeld`) or a flight goes. Else
+// no card has the keyboard focus.
 function liveFocus() {
-  if (FOCUS && !flight && !mapOpen(FOCUS)) { FOCUS = null; FOCUS_MAP = null; }
+  if (FOCUS && !flight && !focusHeld(FOCUS)) { FOCUS = null; FOCUS_MAP = null; }
   return FOCUS;
 }
-// Move the camera when the box of the focused card is not fully in the free box.
+// Move the camera when the box of the focused card is not fully in the free box. A
+// flight into the map of the card (`enterKey`) continues: it shows the map of the card.
 function showFocus(c) {
+  if (flight && flight.into === c.map) return;
   var r = screenBox(c), g = gutters(), x0 = g.x, y0 = g.top, x1 = W - g.x, y1 = H - g.bottom;
   if (r[0] >= x0 && r[1] >= y0 && r[0] + r[2] <= x1 && r[1] + r[3] <= y1) return;
   if (r[2] > x1 - x0 || r[3] > y1 - y0) { flyTo(worldBox(c), 0.2); return; }
@@ -91,18 +107,25 @@ function showFocus(c) {
 function tabStep(back) {
   var list = readingOrder(tabMap()), i = FOCUS ? list.indexOf(FOCUS) : back ? list.length : -1, j = i + (back ? -1 : 1);
   if (j < 0 || j >= list.length) { setFocus(null); return false; }
-  setFocus(list[j]); showFocus(list[j]);
+  setFocus(list[j], !!flight && toldLater(list[j])); showFocus(list[j]);
   return true;
 }
 function enterKey() {
   var c = liveFocus();
   if (!c) return;
-  if (c.child) { FOCUS = null; FOCUS_MAP = c.child; request(); flyGoal(goalOf(c.map, c, null)); return; }
+  if (c.child) {
+    FOCUS = null; FOCUS_MAP = c.child; request(); flyGoal(goalOf(c.map, c, null));
+    if (flight) flight.into = c.child;
+    return;
+  }
   select(c);
 }
 // Esc on the canvas: the keyboard focus goes to the card that opens the map that the camera
-// leaves.
-function focusOut() { var n = CHAIN.length; if (n && document.activeElement === cv) setFocus(CHAIN[n - 1]); }
+// leaves. The live region gives that card with the new map, when the camera stops.
+function focusOut() {
+  var n = CHAIN.length, c = n ? CHAIN[n - 1] : null;
+  if (c && document.activeElement === cv) setFocus(c, toldLater(c));
+}
 cv.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === 'Tab' && tabStep(e.shiftKey)) e.preventDefault();
@@ -126,9 +149,7 @@ function drawFocus() {
 }
 // The state of the keyboard focus for the tests.
 function keyState() {
-  var f = liveFocus(), s = SEL_C;
-  return {focus: f ? {map: f.map.id, id: f.id} : null, selected: s ? {map: s.map.id, id: s.id} : null,
-    tabMap: FOCUS_MAP ? FOCUS_MAP.id : null, ring: f ? {box: ringBox(f), width: RING_W, off: RING_OFF} : null,
-    live: LIVE ? LIVE.textContent : ''};
+  var f = liveFocus();
+  return {focus: f ? {map: f.map.id, id: f.id} : null, ring: f ? {box: ringBox(f), width: RING_W} : null};
 }
 """

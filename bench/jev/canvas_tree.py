@@ -148,16 +148,14 @@ def _pages(tmp: Path) -> dict[str, Path]:
         "json.loads((t / 'theme.json').read_text()), json.loads((t / 'data.json').read_text())),"
         " encoding='utf-8')"
     )
-    pages = {}
-    for name, src in (("A", old / "src"), ("B", ROOT / "src")):
-        pages[name] = tmp / f"{name}.html"
-        env = {**os.environ, "PYTHONPATH": str(src)}
-        subprocess.run(
-            [sys.executable, "-c", write, str(tmp), name, str(pages[name])],
-            env=env,
-            check=True,
-            cwd=str(tmp),
-        )
+    pages = {"A": tmp / "A.html"}
+    subprocess.run(
+        [sys.executable, "-c", write, str(tmp), "A", str(pages["A"])],
+        env={**os.environ, "PYTHONPATH": str(old / "src")},
+        check=True,
+        cwd=str(tmp),
+    )
+    pages["B"] = frames.write_page(data, tmp / "B.html")
     return pages
 
 
