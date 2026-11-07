@@ -794,8 +794,10 @@ async function keys(file, card, neighbour, light, order) {
   out.boxes = await page.evaluate((id) => JSON.parse(document.getElementById('canvas-data').textContent).maps.find((m) => m.id === id).cards.map((c) => ({ id: c.id, b: c.b })), map);
   out.order = await page.evaluate((id) => window.systemapCanvas.order(id), map);
   const n = out.order.length;
-  // Tab from the page goes to the canvas. Then Tab goes through the cards and out.
+  // Tab from the page goes through the controls of the header to the canvas. Then Tab goes
+  // through the cards and out.
   await page.keyboard.press('Tab');
+  for (let i = 0; i < 20 && await page.evaluate(() => !!document.activeElement.closest('#canvas-head')); i++) await page.keyboard.press('Tab');
   out.entered = await keyState(page);
   out.tabs = await presses(page, 'Tab', n);
   await page.keyboard.press('Tab');

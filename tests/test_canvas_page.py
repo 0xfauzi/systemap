@@ -191,7 +191,11 @@ def test_the_page_has_the_parts_for_a_screen_reader(canvas_root: Path) -> None:
     assert after.count('<nav id="canvas-tree" class="tree" aria-label="Map tree"></nav>') == 1
     assert after.count('<p id="canvas-said" class="sr-only" aria-live="polite"></p>') == 1
     assert "setTimeout(buildTree, 0)" in top
-    assert re.search(r"<body><main><canvas .*</nav><p id=\"canvas-said\"[^>]*></p></main>", top)
+    assert re.search(
+        r"<body><header class=\"cbar\" [^>]*>.*</header><main><canvas .*</nav>"
+        r"<p id=\"canvas-said\"[^>]*></p></main>",
+        top,
+    )
     assert top.count("Takes the requests.") == 1
     assert re.search(r"\.tree a:focus\{[^}]*min-height:44px", top)
     added = (page_canvas_tree.CSS + page_canvas_tree.HTML + page_canvas_tree.TREE).encode()

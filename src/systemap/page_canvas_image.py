@@ -19,26 +19,35 @@ IMAGE = r"""
 // ---- the image of the marks of a large map -------------------------------------------
 // One image for each half step of zoom (a factor of 1.41). A pan uses the same image.
 // The key has the device pixel ratio, so a change of the ratio makes the image again. The
+// key also has the epoch of the view (`page_canvas_view`): the image has the alpha of each
+// card and flow of the view, and the ring of each card. After a view change, the image of
+// the old view that the last frame drew stays for the fade (`viewKeep`, `viewMarks`). The
 // images of the maps that the last frame did not draw are removed first when all the images
 // have more than MARKS_PX pixels.
 var MARKS_PX = 16e6, MARKS = [];
 function marksImage(m, a) {
-  var z = Math.round(Math.log2(a) * 2) / 2, s = Math.pow(2, z) * dpr(), key = EPOCH + '|' + z + '|' + dpr();
+  var z = Math.round(Math.log2(a) * 2) / 2, s = Math.pow(2, z) * dpr(), key = EPOCH + '|' + VIEW.epoch + '|' + z + '|' + dpr();
   if (m.img && m.img.key === key) { m.img.used = drawn; return m.img; }
   var w = Math.ceil(m.size[0] * s), h = Math.ceil(m.size[1] * s);
   if (w < 1 || h < 1 || w > IMG_MAX || h > IMG_MAX) return null;
+  var old = m.img && m.img.view !== VIEW.epoch && m.img.used >= drawn - 1 ? m.img : null;
+  if (old) viewKeep(m, old); else if (!m.img || m.img.view !== VIEW.epoch) m.img0 = null;
   marksRoom(m, w * h);
-  var c = m.img ? m.img.canvas : document.createElement('canvas'), g;
+  var c = m.img && !old ? m.img.canvas : document.createElement('canvas'), g;
   c.width = w; c.height = h; g = c.getContext('2d');
   g.fillStyle = C['--map']; g.fillRect(0, 0, w, h);
-  drawBoxes(g, m, s, 0, 0, 1, false);
-  drawFlows(g, m.flows, s, 0, 0, 0.7, false);
-  var marks = new Batch(true);
-  m.cards.forEach(function (card) {
-    marks.rect(colors(card).mark, 1, s * card.b[0], s * card.b[1], s * card.b[2], s * card.b[3], 0);
+  viewAim(function () {
+    drawBoxes(g, m, s, 0, 0, 1, false);
+    drawFlows(g, m.flows, s, 0, 0, 0.7, false);
+    var marks = new Batch(true), rings = new Batch(false);
+    m.cards.forEach(function (card) {
+      var v = cardAim(card), x = s * card.b[0], y = s * card.b[1], cw = s * card.b[2], ch = s * card.b[3];
+      marks.rect(colors(card).mark, v.a, x, y, cw, ch, 0);
+      if (v.ring) rings.rect(markColor(v.ring), 1, x - 3, y - 3, cw + 6, ch + 6, 3, v.ring.w || 2, v.ring.d);
+    });
+    marks.flush(g); rings.flush(g);
   });
-  marks.flush(g);
-  m.img = {canvas: c, key: key, used: drawn, px: w * h};
+  m.img = {canvas: c, key: key, view: VIEW.epoch, used: drawn, px: w * h};
   if (MARKS.indexOf(m) < 0) MARKS.push(m);
   return m.img;
 }
@@ -50,7 +59,7 @@ function marksRoom(m, px) {
   MARKS.sort(function (u, v) { return u.img.used - v.img.used; });
   MARKS = MARKS.filter(function (o) {
     if (o === m || total <= MARKS_PX || o.img.used >= drawn - 1) return true;
-    total -= o.img.px; o.img = null;
+    total -= o.img.px; o.img = null; o.img0 = null;
     return false;
   });
 }
@@ -73,7 +82,7 @@ function isLeaf(m) {
 }
 function imageSize(m, z) {
   var d = dpr() * 0.5 * Math.pow(2, MAP_STEP), s = Math.pow(2, z);
-  return {w: Math.ceil(m.size[0] * s * d), h: Math.ceil(m.size[1] * s * d), d: d, s: s, key: TEXTS + '|' + z + '|' + d};
+  return {w: Math.ceil(m.size[0] * s * d), h: Math.ceil(m.size[1] * s * d), d: d, s: s, key: TEXTS + '|' + VIEW.epoch + '|' + z + '|' + d};
 }
 function readyImage(m, key) {
   var list = m._imgs || [];
@@ -134,17 +143,24 @@ function imageParts(m, s) {
   });
   parts.push(function () { drawLabels(m.flows, s, 0, 0, 1); });
   slices(m.cards, function (part) {
-    part.forEach(function (c) { if (hasText(s * c.b[3])) cardText(c, s * c.b[0], s * c.b[1], s * c.b[2], s * c.b[3], 1); });
+    part.forEach(function (c) {
+      var v = viewCard(c), x = s * c.b[0], y = s * c.b[1], w = s * c.b[2], h = s * c.b[3];
+      if (!hasText(h)) return;
+      cardText(c, x, y, w, h, v.a);
+      if (v.tag || v.note) drawTag(v, x, y, w, h, 1);
+    });
   });
   return parts;
 }
 // Draw the next part of the job into its image, in the coordinates of the image. An image
-// has the text of a moving frame (HIDE is 1), as the normal drawing of a moving frame.
+// has the text of a moving frame (HIDE is 1), as the normal drawing of a moving frame, and
+// the values of the view with no fade (`viewAim`). The key of the job has the epoch of the
+// view. Thus a view change starts the job again (`makeImages`).
 function drawSlice(job) {
   var m = job.m, keep = [ctx, W, H, STATS.cards, NOBST, HIDE];
   ctx = job.g; W = m.size[0] * job.s; H = m.size[1] * job.s; HIDE = 1;
   ctx.setTransform(job.d, 0, 0, job.d, 0, 0); ctx.globalAlpha = 1;
-  try { job.parts[job.i++](); } finally { ctx = keep[0]; W = keep[1]; H = keep[2]; STATS.cards = keep[3]; NOBST = keep[4]; HIDE = keep[5]; }
+  try { viewAim(job.parts[job.i++]); } finally { ctx = keep[0]; W = keep[1]; H = keep[2]; STATS.cards = keep[3]; NOBST = keep[4]; HIDE = keep[5]; }
   job.done = job.i >= job.parts.length;
   // Paint the part in this frame, and not in the first frame that uses the image.
   job.g.getImageData(0, 0, 1, 1);
@@ -300,7 +316,7 @@ function stillStart() {
   HIDE = 0; LOG = null;
   draw();
   LOG = log; clearTimeout(fadeTimer);
-  STILL.want = FADING || SEL_FADING;
+  STILL.want = FADING || SEL_FADING || VIEW_FADING;
   stillFrame(STILL);
 }
 // The layers of the moving frame, with the part `keep` of the result.

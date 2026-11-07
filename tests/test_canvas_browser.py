@@ -104,8 +104,8 @@ Acceptance values:
 21. The fade of the count of text columns of a card starts again when the frame before did
     not draw the card. The test runs the function `colFade` of the page script in Node.
 22. Tab and Shift+Tab move the keyboard focus through the cards of the current map in
-    reading order, and then out of the canvas. Tab from the page goes to the canvas. Each
-    card gets the focus one time. A card never comes after a card that is fully below it,
+    reading order, and then out of the canvas. Tab from the page goes through the header
+    to the canvas. Each card gets the focus one time. A card never comes after a card that is fully below it,
     and in a row (each card has its vertical middle in the box of the other) the cards go
     from left to right. Shift+Tab gives the reverse order. After the last card, Tab moves
     the keyboard focus out of the canvas, and so does Shift+Tab before the first card. The

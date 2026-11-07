@@ -54,7 +54,10 @@ The keys of a map:
   `n` gives the `boundary flow` and `boundary import` lines of the port. A line that has
   no nested flow gives a port without `f`.
 - `ch`: the revision comparison of the map (`page_data.comparison`), if `build`
-  received changes for the map.
+  received changes for the map. Such a map also has the change keys `cm`, `cl`, `cr`
+  and `ci` (`canvas_changes`): the change marks of the cards, the lost flows, and the
+  roll-up of the map changes.
+- `sq`: the sequences of the map (`canvas_sequences`), only in a map that has sequences.
 
 An example from the fixture of tests/test_nest_join.py, after `place`: the card Gateway
 and its flow to Auth in the top map, and a port of the map inside Gateway.
@@ -75,7 +78,16 @@ import json
 from collections.abc import Collection, Mapping
 from typing import Any
 
-from systemap import assurance, evidence, nest, nest_join, page_data, source_facts
+from systemap import (
+    assurance,
+    canvas_changes,
+    canvas_sequences,
+    evidence,
+    nest,
+    nest_join,
+    page_data,
+    source_facts,
+)
 from systemap.config import Config
 from systemap.model import (
     DERIVED_LAYERS,
@@ -290,6 +302,7 @@ def _map(
     facts: dict[str, Any],
     open_lines: Collection[str] | None,
     change: Mapping[str, Any],
+    found: canvas_changes.Rollups,
 ) -> dict[str, Any]:
     model = m.model
     geo = geometry(model)
@@ -301,6 +314,7 @@ def _map(
     opens = {child.card: child.id for child in tree.children(m)}
     cards_found = assurance.by_type(claims, assurance.COMPONENT)
     order = sorted(model.components, key=lambda c: (geo.boxes[c.id][1], geo.boxes[c.id][0], c.id))
+    backed = evidence.of_model(model, m.meaning, facts, cfg.observed_by, owned)
     out: dict[str, Any] = {
         "id": m.id,
         **({} if m.parent is None else {"up": m.parent, "card": m.card}),
@@ -331,7 +345,7 @@ def _map(
             m.meaning,
             routes,
             seats,
-            evidence.of_model(model, m.meaning, facts, cfg.observed_by, owned),
+            backed,
             assurance.by_type(claims, assurance.FLOW),
         ),
     }
@@ -340,6 +354,8 @@ def _map(
     comparison = page_data.comparison(dict(change))
     if comparison:
         out["ch"] = comparison
+        out |= canvas_changes.keys(tree, m, backed, change, found)
+    out.update(canvas_sequences.of_map(m, facts))
     return out
 
 
@@ -357,13 +373,16 @@ def build(
     map by map ID (`change.for_page`). A map without change data has no `ch`."""
     changes = changes or {}
     chosen = None if open_lines is None else frozenset(open_lines)
+    found = canvas_changes.rollups(tree, changes)
     return {
         "v": VERSION,
         "name": cfg.name,
         "rev": facts.get("built_at_commit", ""),
         "unknown": source_facts.unknown_fact_lines(facts),
         "judged": chosen is not None,
-        "maps": [_map(cfg, tree, m, facts, chosen, changes.get(m.id, {})) for m in tree.maps],
+        "maps": [
+            _map(cfg, tree, m, facts, chosen, changes.get(m.id, {}), found) for m in tree.maps
+        ],
     }
 
 

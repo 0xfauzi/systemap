@@ -5904,6 +5904,72 @@ Acceptance: each scenario passes its limit of `canvas_frames.py` (35.0 ms at 4x,
 
 Result: PASS. The largest p95 is 16.8 ms. C3 at 1x is at most 68 ms. C3 at 4x is 273 ms for the M11 tree and 236 ms for the M11 shape. In S4, the medians of B at 4x were 216 ms and 201 ms. One run does not show if this difference is from the change or from noise. A measurement with more runs is necessary to give a value.
 
+## W1 and W2: the Changes view of the canvas, step 4 (2026-11-07)
+
+Scope: the change marks and the roll-up of the canvas page (`canvas_changes`, `page_canvas_changes`) on the commit d8ac070 with the changes that are not committed. The acceptance values are in the docstrings of the two scripts, written before the first run.
+
+### W1: the canvas data with the change keys (`canvas_changes_size.py`)
+
+| Item | Acceptance | Result |
+|---|---|---|
+| M11 tree, no change data: the text is equal to the text of d8ac070 | equal | PASS: 731,865 bytes, equal |
+| three-level tree of tests/three_levels.py, no change data | equal | PASS: 19,671 bytes, equal |
+| C1 of the M11 tree with a large change: 819 changed modules on level 3 and a changed `does` text in each of the 21 maps on level 3 | at most 2,097,152 bytes raw | PASS: 1,127,222 bytes raw, 67,307 bytes after gzip -6 |
+
+Information only: the change keys (`ch`, `cm`, `cl`, `cr`, `ci`) of all maps have about 393,817 bytes. Most of them are in `ch.parts`, the full record of each changed component that `page_data.comparison` gives. The data has 897 marked cards and 49 cards that are "changed inside". The change data of the 50 maps took 2.7 s, and one build took 1.5 s. One run.
+
+### W2: C2 with the Changes view on (`canvas_changes_frames.py`)
+
+A is the page of d8ac070 in the Map view. B is the page of the working tree in the Changes view (the driver gave the view "changes" at the end of each scenario of B). The data is generated, with generated change keys. The values are the p95 frame interval in ms at 4 times CPU throttling, from the last attempt of each run.
+
+| Data | Scenario | A1 | B1 | B2 (not quiet) | A2 | A3 | B3 |
+|---|---|---|---|---|---|---|---|
+| M11 shape | pan-fit | 16.7 | 16.8 | 16.8 | 16.8 | 16.8 | 16.8 |
+| M11 shape | all-open | 16.8 | 16.8 | 16.8 | 16.8 | 16.8 | 16.8 |
+| M11 shape | dive | 16.8 | 16.8 | 16.8 | 16.7 | 16.8 | 16.8 |
+| 400 cards | pan-fit | 16.8 | 16.7 | 16.8 | 16.7 | 16.8 | 16.7 |
+| 400 cards | dive | 16.8 | 16.8 | 16.8 | 16.8 | 16.8 | 16.8 |
+| 1,500 cards | pan-fit | 16.8 | 16.8 | 16.8 | 16.7 | 16.8 | 16.8 |
+
+Result: PASS. The quiet runs are A1, B1, A2, A3 and B3. B2 was not quiet in its 3 attempts: other Node and Chromium processes operated on the host. A1 and A2 were quiet in their second attempt. The largest p95 of a quiet run of B is 16.8 ms.
+
+Information only: the largest single interval of the 1,500-card pan in B was 83.4 ms (B1 and B3), and 16.8 ms to 33.3 ms in A. The cause is not measured. A possible cause is the first marks image with the key of the Changes view. A measurement is necessary to give the cause.
+
+## Q: the Sequences view of the canvas page (step 4, part sequences, 2026-11-07)
+
+Scope: the part sequences of step 4 of `docs/design/nested-canvas.md`, on the work tree of the part header-layers (the base tree 023115be, not committed). The data module `canvas_sequences.py` adds the key `sq` to each map with sequences. The script part `page_canvas_sequences.py` adds the Sequences view to the seam of `page_canvas_view.py`.
+
+### Q1: the bytes of the sequence data
+
+Script: `bench/jev/canvas_sequences_size.py`. The acceptance values are in its docstring, written before the first run. The data of d8ac070 comes from the archive of `src` at d8ac070. The table gives the second run. The first run also passed, and its third row had the same bytes. The output of its other rows was not kept. The M11 tree in a temporary folder has no commit, so its `rev` is empty. Thus its raw bytes are 637 bytes less than the C1 value of PR #152.
+
+| Tree | Maps | Sequences / steps | d8ac070 raw | Work tree raw | Increase | gzip -6 | Result |
+|---|---|---|---|---|---|---|---|
+| M11 tree | 50 | 0 / 0 | 731,865 | 731,865 | +0 | 30,239 | pass (same bytes) |
+| self-map | 1 | 16 / 69 | 42,772 | 55,326 | +12,554 | 14,915 | pass (same bytes less `sq`) |
+| M11 tree with a sequence in each map | 50 | 50 / 1,000 | 731,865 (no sequence) | 796,797 | +64,932 | 36,167 | pass |
+
+Result: PASS. A tree without sequences has the same canvas data as d8ac070. The self-map grows by 12,554 bytes (acceptance: 20,000 or less). C1 of the M11 tree stays at 731,865 bytes, and is 796,797 bytes with 1,000 steps (limit: 2,097,152).
+
+### Q2: C2 with a sequence shown, A/B
+
+Script: `bench/jev/canvas_sequences_frames.py` (browser part `canvas_sequences_frames.js`). The acceptance values are in its docstring, written before the first run. A is the page of the base tree 023115be (the work tree of the part header-layers, no Sequences view). B is the page of the work tree with the Sequences view. The two pages have the same data. The cases run at 4 times CPU throttling, 180 frames each.
+
+Runs and the quiet gate: A1 quiet. B1 was not quiet in attempts 1 and 2 (node, pytest), and quiet in attempt 3. B2 quiet. A2 was not quiet in attempt 1 (node, chrome-headless-shell), and quiet in attempt 2. A3 and B3 were not quiet in each of their 3 attempts (a node process and 6 chrome-headless-shell processes that the script did not start). Thus the quiet runs are A1, B1, B2 and A2. The load average at the end of the quiet runs was 0.72 to 1.20.
+
+| Data | Scenario | Variant | A p95 (ms) | B p95 (ms) | Median B - A | B over | Route shown | Result |
+|---|---|---|---|---|---|---|---|---|
+| self-map | pan-fit | whole | 16.8, 16.8 | 16.8, 16.7 | -0.1 | 0 | yes | pass |
+| self-map | pan-fit | steps | 16.7, 16.7 | 16.8, 16.8 | +0.1 | 0 | yes | pass |
+| self-map | dive | whole | 16.8, 16.8 | 16.7, 16.8 | -0.1 | 0 | yes | pass |
+| self-map | dive | steps | 16.8, 16.8 | 16.7, 16.8 | -0.1 | 0 | yes | pass |
+| 400 cards | pan-fit | whole | 16.8, 16.7 | 16.7, 16.8 | +0.0 | -400 | yes | pass |
+| 400 cards | pan-fit | steps | 16.8, 16.7 | 16.7, 16.8 | +0.0 | -400 | yes | pass |
+| 400 cards | dive | whole | 16.8, 16.8 | 16.7, 16.8 | -0.1 | 0 | yes | pass |
+| 400 cards | dive | steps | 16.8, 16.8 | 16.8, 16.8 | +0.0 | 0 | yes | pass |
+
+Result: PASS. The largest p95 of B is 16.8 ms (limit: 35.0 ms), and the largest difference of the medians is +0.1 ms (limit: one tick). The seam calls of a frame are not more than the drawn cards and flows. At the fit of the map of 400 cards, the cards are marks, so the page draws the marks image and no step number: the pan-fit of that map does not draw the route. The dive goes into the map, where the route and the numbers show. The largest single frame interval in the quiet runs of B was 33.4 ms. The values at normal CPU speed are not measured.
+
 ## Claimed modules and judgement evidence on a tree of 50 maps (2026-11-05)
 
 `bench/jev/claim_speed.py` gives the acceptance values in its docstring. They were written before the first run:
@@ -5959,3 +6025,171 @@ The review changes:
 | `judgement` | 571.9 s (run 1) | 6.0 s | 0.011 | yes | PASS |
 
 Most of the 19 s of `check` in run 3 was `schematic_cards._claimed_files`, which scanned each module for each module claim of each card.
+
+## V1: the header and the layers of the canvas page (2026-11-07)
+
+Scope: the part header-layers of step 4 of `docs/design/nested-canvas.md`: the `header` element over the canvas (`canvas_header.py`), the view state and the seam of the views, and the layer filter of the Map view (`page_canvas_view.py`). B is the work tree of this part on d8ac070 (not committed). A is d8ac070. The host is a 4-core Xeon at 2.1 GHz with no GPU. Other agents ran Chromium on the host at the same time. The acceptance values were in the docstring of `canvas_views.py` and in the docstrings of the tests before the first run.
+
+### V1a: C2 and C3, A/B (`canvas_views.py`)
+
+Attempt 1 is not a result. The quiet gate found 6 node processes and 36 Chromium processes of the measurement script of a different agent in each of the 3 attempts of run A1. Thus no run was quiet, and the script was stopped by hand.
+
+Attempt 2: the order was A1, B1, B2, A2, A3, B3. Each run was quiet, except the first attempt of A3 (a pytest process of a different agent). The second attempt of A3 was quiet. The load average after the runs was 0.61 to 1.73.
+
+| Data | Scenario | Variant | CPU | A p95 (ms) | B p95 (ms) | Median B - A | Largest `over` of B | Result |
+|---|---|---|---|---|---|---|---|---|
+| M11 shape | pan-fit | data | 4x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | pass |
+| M11 shape | pan-fit | switch | 4x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.8 | +0.0 | 0 | pass |
+| M11 shape | all-open | data | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | pass |
+| M11 shape | dive | data | 4x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | pass |
+| 400 cards | pan-fit | data | 4x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.1 | -400 | pass |
+| 400 cards | pan-fit | switch | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | -400 | pass |
+| 400 cards | dive | data | 4x | 16.8, 16.7, 16.8 | 16.8, 16.7, 16.8 | +0.0 | 0 | pass |
+| 1,500 cards | pan-fit | data | 4x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.8 | +0.1 | -1500 | pass |
+| 1,500 cards | pan-fit | switch | 4x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | -1500 | pass |
+| M11 shape | pan-fit | data | 1x | 16.7, 16.8, 16.7 | 16.8, 16.7, 16.7 | +0.0 | 0 | pass |
+| M11 shape | pan-fit | switch | 1x | 16.7, 16.8, 16.7 | 16.8, 16.7, 16.8 | +0.1 | 0 | pass |
+| M11 shape | all-open | data | 1x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.8 | +0.0 | 0 | pass |
+| M11 shape | dive | data | 1x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.7 | +0.0 | 0 | pass |
+| 400 cards | pan-fit | data | 1x | 16.7, 16.7, 16.8 | 16.7, 16.7, 16.8 | +0.0 | -400 | pass |
+| 400 cards | pan-fit | switch | 1x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.7 | +0.0 | -400 | pass |
+| 400 cards | dive | data | 1x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | 0 | pass |
+| 1,500 cards | pan-fit | data | 1x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | +0.0 | -1500 | pass |
+| 1,500 cards | pan-fit | switch | 1x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.7 | -0.1 | -1500 | pass |
+
+`over` is the largest count of seam calls of a frame less the count of the cards and the flows that the frame draws. A value of -400 or -1500 is a frame of the marks image: the frame counts the cards of the map and makes no seam call.
+
+C3 of the real M11 tree, 5 loads in each run, the median and the largest value of the quiet runs: at 1x, A 65.7 ms and 86.3 ms, B 73.8 ms and 93.8 ms. At 4x (information), A 257.1 ms and 333.7 ms, B 251.1 ms and 284.9 ms.
+
+Result: PASS for acceptance 1 to 4. The largest p95 of B is 16.8 ms. The largest difference of the medians is +0.1 ms. No frame of B has more seam calls than drawn cards and flows. The largest C3 load of B at 1x is 93.8 ms. The median of C3 at 1x of B is 8.1 ms (12 percent) more than that of A. This acceptance has no limit for that difference, and this run does not show if it is from the change or from noise.
+
+### V1b: the browser tests
+
+`tests/test_canvas_header_browser.py` (with `tests/canvas_header.js`) and `tests/test_canvas_header.py`. All acceptance values pass:
+
+- The linked pages of the fixture of `tests/test_nest_join.py` without `[render] canvas` have the SHA-256 digests of the pages of d8ac070. `systemap refresh` then `systemap check` give no page drift.
+- For each map and each layer of the self-map (1 map, 5 layers and All) and of the fixture (2 maps), the flows that the frame draws with an alpha above 0 are the flows of `model.reading`, and the cards with an alpha below 1 are the quiet cards of `paint`. Each quiet card has the alpha 0.32.
+- A layer change and a view change on the generated M11 shape and on the map of 1,500 cards (its marks image): the largest change of an alpha between two frames is 0.25 or less, and each change takes 160 ms or more from the input, in 5 frames or more. With the reduced motion of the system or of the page, each change is in one frame.
+- In each frame of a pan with two layer changes on the maps of 400 and 1,500 cards, the seam calls are not more than the drawn cards and flows.
+- A letter, +, -, =, an arrow key or Escape in a header control, in the select and in a text field does not change the camera.
+- C4: each header control has a name and a visible focus outline (2 px, contrast ratio 3 or more against the header). Tab goes through the header, the canvas, the list of the tree, and then out of the page. axe-core 4.14.0 finds no violation with the focus on each header control, at 1440 x 900 and 390 x 844 px, light and dark.
+- C5: at 390 x 844 px with touch, the scroll width is 390 px, the scroll position is 0, the header is 56 px high, and each header target is 44 x 44 px or more.
+
+The current canvas tests (`test_canvas_page.py`, `test_canvas_browser.py`, `test_canvas_frames.py`, `test_canvas_data.py`, `test_canvas_access.py`) pass with SYSTEMAP_BROWSER_TESTS=required: 69 tests, and 83 tests with the new tests. Acceptance 17 (the names at the fit, K1) and 28 (C5) pass with the new top band, with no new values. The reason: the fit keeps the middle of a box at the height that it had without the header, when the box fits there. A first version put the middle of the fit at the middle of the smaller free box, half of the header height (24 px) lower. Then acceptance 10 and 28 failed: at the fit of P0 on a screen of 390 x 844 px, the side column of the open card went into the bottom row of the portals. Acceptance 22 changed: Tab from the page goes through the header to the canvas (a change of `canvas_driver.js` for that step only).
+
+### V1c: C4 again, the 96 runs of A1
+
+The script `s3-verify-c4-axe/axe_run.js` of A1, axe-core 4.14.0, on the B pages of the real M11 tree (also at #P0/A0), the map of 400 cards, the self-map and the fixture (also at #Gateway). Result: PASS. 0 violations of each impact in 96 runs, and no script error. The incomplete `color-contrast` item of a focused link of the hidden list stays in the 48 runs with the focus on a link, as in A1.
+
+### Screenshots
+
+The scratchpad folder `s4-header-layers/shots` has the self-map, the fixture and the generated M11 shape at 1440 x 900 and 390 x 844 px, light and dark: All, the layers data and control, and the keyboard focus on a layer button.
+
+## S8: the Find dialog of the canvas page (2026-11-07)
+
+Scope: step 4 of docs/design/nested-canvas.md, the part "Search" (`page_canvas_find`), on a working tree from commit d8ac070 with the changes that are not committed. The script is `bench/jev/canvas_find.py`. Its docstring has the acceptance values, written before the first run. A is the canvas page of commit d8ac070, and B is the page of the working tree. The data is the M11 shape (`canvas_frames.nested_tree`: 50 maps, 2,000 cards). The host is a 4-core Xeon with no GPU, headless Chromium of Playwright 1.63.0, Python 3.11.15. Other agents ran Chromium on the same host at the same time.
+
+Order of the runs: A1, B1, B2, A2, A3, B3, with the quiet gate of `canvas_tree.py`. A1 and B1 were not quiet in 3 attempts each: in each attempt, the samples found a node process and chrome-headless processes that were not descendants of the script. Their values do not count. The quiet runs are B2, A2, A3 and B3. The gate waited 780 s before A2.
+
+| Item | Acceptance | Result |
+|---|---|---|
+| Page bytes, B - A | at most 32,000 raw; same data element | PASS: 22,317 raw (891,451 to 913,768) and 6,773 after gzip -6 (78,905 to 85,678). The data element is the same text: 0 more bytes of data. |
+| `find.build` at 1x, 20 calls in each quiet run of B, 3,952 results | at most 50 ms for each call | PASS: B2 1.6 to 3.8 ms, B3 0.9 to 2.3 ms. Median of the 40 calls: 1.75 ms. |
+| Make and rank the results for a text, at 1x (information) | none | B2: "c5" 9.3 ms, "record" 6.2 ms, "p1 a0" 5.2 ms. B3: 5.3, 3.2 and 2.8 ms. |
+| C2 pan-fit at 4x: p95 of B after the dialog opens and closes | at most 35 ms | PASS: 16.8 ms in B2 and B3 (max 16.8 ms). |
+| C2 pan-fit at 4x: median p95 of B against A | at most 1 ms more | PASS: A 16.8 ms (A2, A3), B 16.8 ms (B2, B3). The max interval was 33.4 ms in A2 and 16.8 ms in A3, B2 and B3. |
+
+Result: PASS. The values of the runs that were not quiet were in the same range: pan-fit p95 16.7 to 16.8 ms in A and B, `find.build` 0.7 to 2.9 ms.
+
+The browser tests of the dialog (`tests/test_canvas_find_browser.py`) also ran axe-core 4.14.0 with the dialog open, with a result selected and after Enter, at 1440 x 900 and 390 x 844 pixels, light and dark: 0 violations in 12 runs. The first run found one serious issue, `label-content-name-mismatch` on the Close button: its name is "Close", but its visible text was the key "Esc". The canvas CSS now shows the word "Close" in the button. The map page has the same button text and CSS, and the step does not change its bytes. Thus the map page can have the same issue. A measurement of the map page with the dialog open is necessary.
+
+A second failure of the first version: the screenshots showed the dialog on the screen after it closed. The CSS of the dialog gives `.pal` the value `display:flex`, and the map page has the rule `[hidden]{display:none!important}`, but the canvas page did not. The canvas CSS now has `.pal[hidden]{display:none}`, and acceptance 5 of the browser test examines the computed display of the dialog in each state.
+
+## U1: step 4 after the merge of the four parts of the canvas (2026-11-07)
+
+Scope: the merge of the parts header-layers, changes-rollup, sequences and search of step 4 of `docs/design/nested-canvas.md` on the branch `claude/canvas-views`, from the commit d8ac070, not committed at the time of the runs. The parts were made in parallel. The Changes part had a stand-in seam. At the merge, its marks became values of the seam of the header part. Thus the values of W2 were measured on a different drawing code, and C2 is measured again here. The scripts are the scripts of the parts, with no change of their acceptance values (written before their first runs), and one new script for the dive of the map of 400 cards. Each run was quiet in its first attempt.
+
+### U1a: C2 and C3 with the layers (`canvas_views.py`, A is d8ac070)
+
+| Data | Scenario | Variant | CPU | A p95 (ms) | B p95 (ms) | Median B - A | Largest `over` of B | Result |
+|---|---|---|---|---|---|---|---|---|
+| M11 shape | pan-fit | data | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | pass |
+| M11 shape | pan-fit | switch | 4x | 16.7, 16.7, 16.8 | 16.7, 16.7, 16.8 | +0.0 | 0 | pass |
+| M11 shape | all-open | data | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | pass |
+| M11 shape | dive | data | 4x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.7 | +0.1 | 0 | pass |
+| 400 cards | pan-fit | data | 4x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 | -400 | pass |
+| 400 cards | pan-fit | switch | 4x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.1 | -400 | pass |
+| 400 cards | dive | data | 4x | 16.8, 16.8, 16.8 | 33.3, 16.8, 33.3 | +16.5 | 0 | pass |
+| 1,500 cards | pan-fit | data | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | -1500 | pass |
+| 1,500 cards | pan-fit | switch | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.0 | -1500 | pass |
+| M11 shape | pan-fit | data | 1x | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.7 | +0.0 | 0 | pass |
+| M11 shape | pan-fit | switch | 1x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 | 0 | pass |
+| M11 shape | all-open | data | 1x | 16.7, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 | 0 | pass |
+| M11 shape | dive | data | 1x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.8 | +0.0 | 0 | pass |
+| 400 cards | pan-fit | data | 1x | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.8 | +0.0 | -400 | pass |
+| 400 cards | pan-fit | switch | 1x | 16.7, 16.8, 16.8 | 16.7, 16.7, 16.8 | -0.1 | -400 | pass |
+| 400 cards | dive | data | 1x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.8 | +0.1 | 0 | pass |
+| 1,500 cards | pan-fit | data | 1x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.8 | +0.0 | -1500 | pass |
+| 1,500 cards | pan-fit | switch | 1x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.7 | -0.1 | -1500 | pass |
+
+C3 of the real M11 tree, 5 loads in each run: at 1x, A median 67.8 ms and largest 90.2 ms, B median 83.6 ms and largest 98.0 ms. At 4x (information), A median 253.5 ms and largest 293.7 ms, B median 339.9 ms and largest 433.6 ms.
+
+Result: PASS for acceptance 1 to 4. The largest p95 of B is 33.3 ms (limit 35.0 ms). The dive of the map of 400 cards at 4x had 33.3 ms in 2 of the 3 runs of B, and the median difference +16.5 ms is less than one tick (16.7 ms). In V1a, the part header-layers alone had 16.8 ms in each run of this case. U1d examines this difference.
+
+### U1b: C2 in the Changes view (`canvas_changes_frames.py`, A is d8ac070 in the Map view)
+
+| Data | Scenario | A1 | B1 | B2 | A2 | A3 | B3 |
+|---|---|---|---|---|---|---|---|
+| M11 shape | pan-fit | 16.7 | 16.8 | 16.7 | 16.7 | 16.8 | 16.8 |
+| M11 shape | all-open | 16.7 | 16.8 | 33.3 | 16.8 | 16.7 | 16.8 |
+| M11 shape | dive | 16.8 | 16.8 | 16.8 | 16.8 | 16.7 | 16.8 |
+| 400 cards | pan-fit | 16.8 | 16.7 | 16.7 | 16.8 | 16.8 | 16.8 |
+| 400 cards | dive | 16.8 | 33.3 | 33.3 | 16.8 | 16.8 | 16.8 |
+| 1,500 cards | pan-fit | 16.8 | 16.8 | 16.7 | 16.7 | 16.8 | 16.8 |
+
+Result: PASS. Each p95 of B is 33.3 ms or less (limit 35.0 ms), and each run of B was in the Changes view.
+
+### U1c: C2 with a sequence shown (`canvas_sequences_frames.py`, A is the part header-layers alone, the tree 023115be)
+
+| Data | Scenario | Variant | A p95 (ms) | B p95 (ms) | Median B - A | B over | Route shown | Result |
+|---|---|---|---|---|---|---|---|---|
+| self-map | pan-fit | whole | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.0 | 0 | yes | pass |
+| self-map | pan-fit | steps | 16.8, 16.7, 16.7 | 16.8, 16.7, 16.7 | +0.0 | 0 | yes | pass |
+| self-map | dive | whole | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | yes | pass |
+| self-map | dive | steps | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | yes | pass |
+| 400 cards | pan-fit | whole | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | -400 | yes | pass |
+| 400 cards | pan-fit | steps | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.8 | +0.1 | -400 | yes | pass |
+| 400 cards | dive | whole | 16.8, 33.3, 16.8 | 16.7, 16.8, 16.8 | +0.0 | 0 | yes | pass |
+| 400 cards | dive | steps | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.0 | 0 | yes | pass |
+
+Result: PASS. Here the base A had the p95 33.3 ms in one run of the dive of the map of 400 cards.
+
+### U1d: the dive of the map of 400 cards, tree by tree (`canvas_merge_dive.py`)
+
+The acceptance values are in the docstring of the script, written before the run. H is the part header-layers alone (tree 905a6499), C is H with the Changes part (88678416), S is C with the Sequences part (2ec9f8ed), F is S with the search part (fd64e43b), and M is the work tree at the start of the run (3626d2ec). 5 rounds, each with each tree one time, in an order that turns by one in each round. Each run was quiet in its first attempt. The load average was 0.24 to 0.63.
+
+| Tree | Variant | p95 of each quiet run at 4x (ms) | Median p95 | Largest interval |
+|---|---|---|---|---|
+| H | data | 16.8, 16.8, 33.2, 16.8, 16.8 | 16.8 | 66.7 |
+| H | - | 16.8, 16.8, 16.8, 16.8, 16.8 | 16.8 | 83.3 |
+| C | data | 16.8, 16.8, 33.3, 16.8, 16.8 | 16.8 | 66.7 |
+| C | - | 16.8, 16.8, 33.3, 33.3, 33.3 | 33.3 | 66.7 |
+| S | data | 16.8, 16.8, 16.8, 16.8, 16.8 | 16.8 | 66.7 |
+| S | - | 16.8, 16.8, 16.8, 16.8, 16.8 | 16.8 | 66.7 |
+| F | data | 16.8, 16.8, 16.8, 16.8, 16.8 | 16.8 | 83.4 |
+| F | - | 16.8, 16.8, 16.7, 16.8, 16.8 | 16.8 | 66.7 |
+| M | data | 16.8, 16.8, 16.8, 33.3, 16.8 | 16.8 | 66.7 |
+| M | - | 16.8, 16.8, 16.7, 16.8, 16.8 | 16.8 | 66.6 |
+
+Result: PASS for acceptance 1 and 2. The largest p95 of M is 33.3 ms, and the median of M is 16.8 ms, as for H. Each tree, H included, has runs with a p95 of two ticks (33.3 ms) for this dive. The trees S, F and M have the code of C, but they do not have the values of C without a layer. Thus these runs do not show a cost of a part. The p95 of this dive is near the limit between one tick and two ticks on this host. The cause of the change from one run to the next is not measured.
+
+After the run, `_verdict` of the script was divided into two functions for the complexity limit of pre-commit. On the recorded runs, it prints the same table and gives the same result.
+
+### U1e: the browser tests after the merge
+
+With SYSTEMAP_BROWSER_TESTS=required and axe-core 4.14.0, the browser tests of each part pass after these changes for the merge:
+
+- The tests of the Changes view: the header gives the words of the view ("View: Changes."), the ring is 3 px outside the card, and the steps of the zoom start at the alpha of the first frame. The changes are in the docstring of `tests/test_canvas_changes_browser.py`.
+- axe-core found the critical issue `select-name` on the layer select at 390 x 844 pixels: with three view buttons, the header had `display:none` on the label of the select. Now the label is only visually hidden there, so it still gives the name "Layer" to the select.
+- A tag of a view now fades in with the width of the card, from the width of its plate. Before, it came at one time when the card became wider than the tag.
+- In the Sequences test, Tab after the toolbar goes to the Find button of the header, and not to the canvas.

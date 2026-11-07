@@ -1,11 +1,13 @@
 """The renderer script of the canvas page: the camera, the frames and the input.
 
 The canvas page (`canvas_page`) has one script element with `SCRIPT`. It joins the
-scene part (`page_canvas_scene`), the drawing part (`page_canvas_draw`), the text part
+scene part (`page_canvas_scene`), the view part (`page_canvas_view`), the drawing part (`page_canvas_draw`), the text part
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
 (`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
-(`page_canvas_keys`), the part of the tree list (`page_canvas_tree`) and the part in this
-module. The page CSP (`page_csp`) gets the digest of that element.
+(`page_canvas_keys`), the part of the tree list (`page_canvas_tree`), the Sequences view
+(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the part in this
+module and the Find dialog (`page_canvas_find`). The page CSP (`page_csp`) gets the digest
+of that element.
 
 Camera. The wheel and the pinch zoom at the pointer, and a drag moves the map. A
 double-click with a mouse goes into the card under the pointer. A tap with a finger or a
@@ -40,15 +42,19 @@ state to the tests and the measurement scripts. It changes nothing on the page.
 
 from __future__ import annotations
 
+from systemap.page_canvas_changes import PART as CHANGES_PART
 from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
+from systemap.page_canvas_find import FIND
 from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_keys import KEYS
 from systemap.page_canvas_scene import SCENE
+from systemap.page_canvas_sequences import SEQ_PART
 from systemap.page_canvas_text import TEXT
 from systemap.page_canvas_touch import TOUCH_PART
 from systemap.page_canvas_tree import CSS as TREE_CSS
 from systemap.page_canvas_tree import TREE
+from systemap.page_canvas_view import VIEW_PART
 
 CSS = (
     """
@@ -68,16 +74,22 @@ white-space:nowrap}
 
 _INPUT = r"""
 // ---- the camera ---------------------------------------------------------------
-// The camera that fits a world box in the screen. It keeps the bands of the path, the
-// portals and the help line free (`gutters`).
-// `pad` is the margin at each side, as a part of the screen size. The fit of a map has the
-// margin FIT. Thus a wide map fills 92 % of the width of a phone screen.
+// The camera that fits a world box in the screen. It keeps the bands of the header, the
+// path, the portals and the help line free (`gutters`).
+// `pad` is the margin at each side, as a part of the screen size below the header. The fit
+// of a map has the margin FIT. Thus a wide map fills 92 % of the width of a phone screen.
+// The middle of the box goes to the middle of the free box without the header band, and
+// lower only as far as necessary to keep the box in the free box. Thus the header does not
+// move the fit of a box that is not as high as the free box.
 var FIT = 0.04;
 function fitBox(b, pad) {
   pad = pad === undefined ? FIT : pad;
-  var g = gutters(), sx = Math.max(W * pad, g.x), top = Math.max(48 + (H - 56) * pad, g.top), bottom = Math.max(8 + (H - 56) * pad, g.bottom);
+  var g = gutters(), sx = Math.max(W * pad, g.x), free = H - HEAD_H - 56;
+  var top = Math.max(HEAD_H + 48 + free * pad, g.top), bottom = Math.max(8 + free * pad, g.bottom);
   var k = clamp(Math.min(Math.max(1, W - 2 * sx) / b[2], Math.max(1, H - top - bottom) / b[3]), KMIN, KMAX);
-  return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - (top + H - bottom) / 2 / k, k: k};
+  var half = b[3] * k / 2, lo = top + half, hi = H - bottom - half, mid = (top - HEAD_H + H - bottom) / 2;
+  mid = lo <= hi ? clamp(mid, lo, hi) : (top + H - bottom) / 2;
+  return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - mid / k, k: k};
 }
 var flight = null;
 function stopFlight() { if (flight) { cancelAnimationFrame(flight.raf); flight = null; } }
@@ -135,7 +147,7 @@ function request() {
   requestAnimationFrame(function () { pending = false; if (STILL) STILL.want = true; else draw(); });
 }
 function draw() {
-  speedFrame();
+  speedFrame(); viewFrame();
   var began = performance.now(), d = dpr() * (sharp ? 1 : 0.5);
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
   if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
@@ -160,11 +172,11 @@ function draw() {
   frameShown();
   drawn++;
   if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS});
-  if (FADING || SPEED_FADING || SEL_FADING) fadeLater();
+  if (FADING || SPEED_FADING || SEL_FADING || VIEW_FADING) fadeLater();
 }
 // A boundary flow that fades asks for more frames (`FADING`), and so does a fade of the image
 // layer or of the text that MOVE_TEXT hides (`SPEED_FADING`), and so does the selection
-// (`SEL_FADING`). While the camera moves, the moves give the frames. Thus, in the FADE_WAIT
+// (`SEL_FADING`), and so does a change of the view (`VIEW_FADING`). While the camera moves, the moves give the frames. Thus, in the FADE_WAIT
 // ms after a camera change, the script asks for a frame only when no frame comes in
 // FADE_WAIT ms. Later, it asks for the next frame. A move that draws in its own animation
 // frame (a flight, or `view`) thus gets no second draw in the same frame.
@@ -276,8 +288,9 @@ cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
 // Two taps can also give a double-click. Only a double-click with a mouse goes in.
 cv.addEventListener('dblclick', function (e) { var p = local(e); if (kind === 'mouse' && !hitAt(p[0], p[1])) enter(p[0], p[1]); });
+// The camera keys do not operate in a control of the header, a text field or a dialog (`ownKeys`).
 window.addEventListener('keydown', function (e) {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e)) return;
   var step = 80 / cam.k, keys = {
     Escape: goOut, f: fitCurrent, F: fitCurrent,
     '+': function () { fly(zoomed(1.6), 260); },
@@ -292,7 +305,7 @@ window.addEventListener('keydown', function (e) {
   e.preventDefault(); keys[e.key]();
 });
 window.addEventListener('hashchange', function () { flyGoal(hashGoal()); });
-function measure() { var r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height); }
+function measure() { var r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height); headMeasure(); }
 // After a change of the screen size (a phone that turns, for example), a camera at the fit
 // of the open map fits that map again. Each other camera keeps the world point at the middle
 // of the screen, and it shows all of the world box that was on the screen before.
@@ -322,7 +335,7 @@ if (window.matchMedia) {
 // The page font is in the page as data. The canvas starts its load at the first text. When
 // it is loaded, the measured word widths and the wrapped lines are not correct.
 function fontLoaded() {
-  textChanged(); ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request();
+  headMeasure(); textChanged(); ORDER.forEach(function (m) { m.cards.forEach(function (c) { c._wrap = null; }); }); request();
   var list = warmList();
   idle(function () { warm(list, 0); });
 }
@@ -361,7 +374,7 @@ if (document.fonts && document.fonts.load) {
 }
 
 // ---- start ----------------------------------------------------------------------------
-measure(); readColors();
+measure(); readColors(); headSync();
 var start = hashGoal();
 cam = fitBox(start.box, start.pad);
 draw(); settled();
@@ -439,13 +452,35 @@ window.systemapCanvas = {
   // of the cards of a map.
   keys: keyState,
   order: function (id) { return readingOrder(MAPS[id]).map(function (c) { return c.id; }); },
-  stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; }
+  stats: function () { return {cards: STATS.cards, image: STATS.image, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; },
+  // The view: `viewState` gives the mode, the layer, the epoch, the fade of each mode, the
+  // height of the header and the count of seam calls of the last frame (`page_canvas_view`).
+  // `setView` sets the mode and the layer as the header does, and gives true for a change.
+  // `viewLog` starts a record of the values of the cards and the flows in each frame, and
+  // `viewLogged` gives it and stops it.
+  viewState: viewState,
+  setView: setView,
+  viewLog: function () { VIEW_LOG = {frames: []}; },
+  viewLogged: function () { var l = VIEW_LOG ? VIEW_LOG.frames : []; VIEW_LOG = null; return l; },
+  // The Changes view (`page_canvas_changes`): `changes` gives the fade of the view, and the
+  // mark and the alpha of each card of a map. `changeRecord` starts a record of the fade of
+  // the view in each frame, and `changeRecorded` gives the record and stops it.
+  changes: changeState,
+  changeRecord: function () { CHG.log = []; },
+  changeRecorded: function () { var l = CHG.log || []; CHG.log = null; return l; },
+  // The Sequences view (`page_canvas_sequences`): `seqState` gives the sequence, the mode,
+  // the step and the flows and the cards of the route. `seqLog` starts a record of the
+  // marks of the route in each frame, and `seqLogged` gives it and stops it.
+  seqState: seqState,
+  seqLog: function () { SEQ_LOG = []; },
+  seqLogged: function () { var l = SEQ_LOG || []; SEQ_LOG = null; return l; }
 };
 """
 
 SCRIPT = (
     "(function(){\n'use strict';\n"
     + SCENE
+    + VIEW_PART
     + DRAW
     + TEXT
     + IMAGE
@@ -453,7 +488,10 @@ SCRIPT = (
     + TOUCH_PART
     + KEYS
     + TREE
+    + SEQ_PART
+    + CHANGES_PART
     + _INPUT
+    + FIND
     + "})();\n"
 )
 

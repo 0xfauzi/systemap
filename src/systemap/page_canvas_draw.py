@@ -14,6 +14,11 @@ then the lists of flows and modules. Each step fades in as the card grows. A car
 opens a map shows the preview of that map in the same positions. Between OPEN0 and
 OPEN1 of the screen width, the card changes into the frame of the map.
 
+Views. The view part (`page_canvas_view`) gives the alpha and the marks of each card and
+the alpha and the color of each flow that a frame draws (`viewCard`, `viewFlow`), and it
+draws its parts after the cards of a map (`viewOver`). The header band is at the top of the
+screen (`HEAD_H`): the path, the portals, the rings and the boundary flows are below it.
+
 Rings and portals. They come from the camera at each frame. A ring is the frame of an
 open map that is larger than the screen. A portal is a neighbour of an open map that is
 not on the screen. Each neighbour has one portal. For each direction, the deepest map
@@ -83,8 +88,8 @@ function arrowHead(g, x2, y2, x1, y1, size) {
   g.lineTo(x2 - size * Math.cos(an - 0.45), y2 - size * Math.sin(an - 0.45));
   g.lineTo(x2 - size * Math.cos(an + 0.45), y2 - size * Math.sin(an + 0.45));
 }
-var BACK = new Batch(true), FILL = new Batch(true), LINE = new Batch(false);
-function flushCards(g) { BACK.flush(g); FILL.flush(g); LINE.flush(g); }
+var BACK = new Batch(true), BACK_LINE = new Batch(false), FILL = new Batch(true), LINE = new Batch(false);
+function flushCards(g) { BACK.flush(g); BACK_LINE.flush(g); FILL.flush(g); LINE.flush(g); }
 function q(size) { return Math.round(size * 2) / 2; }
 // The font size of the box names and the flow labels, and if the labels show.
 function labelSize(a) { return q(clamp(10.5 * a, 0, 13)); }
@@ -168,18 +173,26 @@ function boxNames(m, a, ox, oy, each) {
   m.boxes.forEach(function (b) { each(b.n, at(b.n, b.b), oy + a * (b.b[1] + 19), C['--ink-3']); });
   m.regions.forEach(function (b, i) { var s = (i + 1) + '  ' + b.n; each(s, at(s, b.b), oy + a * (b.b[1] + 20), C['--ink-2']); });
 }
+// The view gives the alpha and the color of each flow (`viewFlow`). A group has one color,
+// one evidence state and one alpha, in steps of 1/16.
 function drawFlows(g, list, a, ox, oy, alpha, arrows) {
   if (alpha <= 0.02 || !list.length) return;
   var groups = new Map(), width = clamp(1.3 * a, 0.6, 2), head = clamp(7 * a, 3, 8);
+  function add(f, color, al) {
+    var q = Math.round(al * 16) / 16, key = color + '|' + f.ev + '|' + q, e = groups.get(key);
+    if (q <= 0) return;
+    if (!e) { e = {color: color, ev: f.ev, alpha: q, list: []}; groups.set(key, e); }
+    e.list.push(f);
+  }
   list.forEach(function (f) {
     if (!f.p.length) return;
-    var key = f.l + '|' + f.ev, e = groups.get(key);
-    if (!e) { e = {color: C['--l-' + f.l] || C['--flow'], ev: f.ev, list: []}; groups.set(key, e); }
-    e.list.push(f);
+    var v = viewFlow(f);
+    if (!VIEW_AIM) STATS.flows++;
+    add(f, flowColor(f, v.color), v.a * v.u);
+    if (v.u < 1) add(f, flowColor(f, v.from), v.a * (1 - v.u));
   });
-  g.globalAlpha = alpha;
   groups.forEach(function (e) {
-    g.strokeStyle = e.color; g.lineWidth = width;
+    g.globalAlpha = alpha * e.alpha; g.strokeStyle = e.color; g.lineWidth = width;
     g.setLineDash(e.ev === 'structural' ? DASH.s : e.ev === 'declared' ? DASH.d : DASH['']);
     g.beginPath();
     e.list.forEach(function (f) { cutLine(g, f.p, ox, oy, a); });
@@ -200,14 +213,16 @@ function drawLabels(list, a, ox, oy, alpha) {
   // The plate fits the text. The text stops at 13 px, so a plate of the label box would
   // grow past the text and cover the routes.
   var bg = new Batch(true);
-  plates(list, a, ox, oy, fs, function (px, py, pw, ph) {
-    bg.rect(C['--map'], alpha * 0.9, px, py, pw, ph, 3);
-    obstacle(px, py, pw, ph, 1, alpha);
+  plates(list, a, ox, oy, fs, function (px, py, pw, ph, f) {
+    var fa = alpha * flowShown(f);
+    if (fa <= 0.02) return;
+    bg.rect(C['--map'], fa * 0.9, px, py, pw, ph, 3);
+    obstacle(px, py, pw, ph, 1, fa);
   });
   bg.flush(ctx);
   list.forEach(function (f) {
     if (!f.lb) return;
-    text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], alpha, 500, false, 'center');
+    text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], alpha * flowShown(f), 500, false, 'center');
   });
 }
 
@@ -217,19 +232,22 @@ function plates(list, a, ox, oy, fs, each) {
   list.forEach(function (f) {
     if (!f.lb) return;
     var pw = unitWidth(f.a, 500) * fs + 6;
-    each(ox + a * (f.lb[0] + f.lb[2] / 2) - pw / 2, oy + a * (f.lb[1] + f.lb[3] / 2) - ph / 2, pw, ph);
+    each(ox + a * (f.lb[0] + f.lb[2] / 2) - pw / 2, oy + a * (f.lb[1] + f.lb[3] / 2) - ph / 2, pw, ph, f);
   });
 }
 
 // ---- cards ------------------------------------------------------------------------
 // The corner radius of a card of the screen size w x h. A small card has square corners.
 function cardCorner(w, h) { return w > 60 ? clamp(h * 0.1, 2, 8) : 0; }
+// The view gives the alpha and the marks of the card (`viewCard`).
 function cardBox(c, x, y, w, h, alpha) {
   STATS.cards++;
-  var t = cardShow(h), k = colors(c), r = cardCorner(w, h);
+  var v = viewCard(c), t = cardShow(h), k = colors(c), r = cardCorner(w, h);
+  alpha *= v.a;
   if (t < 1) FILL.rect(k.mark, alpha * (1 - t), x, y, w, h, 0);
+  viewMarksAt(v, x, y, w, h, alpha);
   if (t <= 0) return;
-  if (c.child) BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r);
+  if (c.child) { BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r); viewBack(v, x, y, w, h, r, alpha * t); }
   FILL.rect(k.fill, alpha * t, x, y, w, h, r);
   LINE.rect(k.line, alpha * t, x, y, w, h, r, 1, c.k === 'actor' ? 'a' : '');
 }
@@ -238,7 +256,9 @@ function drawOpening(c, a, ox, oy, alpha) {
   var x = ox + a * c.b[0], y = oy + a * c.b[1], w = a * c.b[2], h = a * c.b[3];
   if (x > W || y > H || x + w < 0 || y + h < 0) return;
   STATS.cards++;
-  var o = openness(c), pv = smooth(PREVIEW0, PREVIEW1, w), k = colors(c), r = clamp(h * 0.06, 2, 10), g = ctx;
+  var o = openness(c), pv = smooth(PREVIEW0, PREVIEW1, w), k = colors(c), r = clamp(h * 0.06, 2, 10), g = ctx, v = viewCard(c), va = v.a;
+  // A quiet card is quiet also in its preview. The nested map has its own view when it is open.
+  alpha *= va + (1 - va) * o;
   g.setLineDash([]);
   if (o < 1) { g.globalAlpha = alpha * (1 - o); g.fillStyle = C['--line-2']; g.beginPath(); rr(g, x + 4, y + 4, w, h, r); g.fill(); }
   g.beginPath(); rr(g, x, y, w, h, r);
@@ -256,6 +276,7 @@ function drawOpening(c, a, ox, oy, alpha) {
     details(c, ox + a * s[0], oy + a * s[1], a * s[2], a * s[3], alpha * (1 - 0.4 * o), titleRaw(h));
   }
   NOTE = false;
+  viewOpening(v, x, y, w, h, r, alpha, o);
   drawMap(c.child, alpha * pv, o);
 }
 
@@ -276,9 +297,10 @@ function drawMap(m, alpha, open) {
     var img = marksImage(m, a);
     if (full) img = null;
     if (img || full) {
-      if (img) { ctx.globalAlpha = alpha; ctx.drawImage(img.canvas, ox, oy, mw, mh); STATS.image++; }
+      if (img) { ctx.globalAlpha = alpha; ctx.drawImage(img.canvas, ox, oy, mw, mh); STATS.image++; viewMarks(m, ox, oy, mw, mh, alpha); }
       if (whole) drawLayer(whole, ox, oy, mw, mh, alpha);
       STATS.cards += m.cards.length; obstacle(ox, oy, mw, mh, 1, alpha);
+      viewOver(m, a, ox, oy, alpha);
       return;
     }
   }
@@ -287,7 +309,7 @@ function drawMap(m, alpha, open) {
   // draws the normal drawing and the images over it.
   if (full) {
     drawLayer(whole, ox, oy, mw, mh, alpha);
-    STATS.cards += mapObstacles(m, a, ox, oy, [x0, y0, x1, y1], alpha); return;
+    STATS.cards += mapObstacles(m, a, ox, oy, [x0, y0, x1, y1], alpha); viewOver(m, a, ox, oy, alpha); return;
   }
   drawBoxes(ctx, m, a, ox, oy, alpha * (0.4 + 0.6 * open), open > 0.5);
   var flows = m.flowIndex.query(x0, y0, x1, y1, []);
@@ -298,14 +320,16 @@ function drawMap(m, alpha, open) {
     if (x > W || y > H || x + w < 0 || y + h < 0) continue;
     if (c.child && w >= PREVIEW0) { opening.push(c); continue; }
     cardBox(c, x, y, w, h, alpha);
-    obstacle(x, y, w, h, 1, alpha);
+    obstacle(x, y, w, h, 1, alpha * c._v.a);
     if (hasText(h)) texts.push(c);
   }
   flushCards(ctx);
   if (open > 0.3) drawLabels(flows, a, ox, oy, alpha * smooth(0.3, 0.8, open));
-  texts.forEach(function (c) { cardText(c, ox + a * c.b[0], oy + a * c.b[1], a * c.b[2], a * c.b[3], alpha); });
+  texts.forEach(function (c) { cardText(c, ox + a * c.b[0], oy + a * c.b[1], a * c.b[2], a * c.b[3], alpha * c._v.a); });
+  drawTags();
   opening.forEach(function (c) { drawOpening(c, a, ox, oy, alpha); });
   if (whole) drawLayer(whole, ox, oy, mw, mh, alpha);
+  viewOver(m, a, ox, oy, alpha);
 }
 
 // ---- depth: the chain, rings and portals --------------------------------------
@@ -325,7 +349,7 @@ function focusChain() {
 }
 // The edges x0, y0, x1, y1 of the screen box r, cut to `inset` pixels from the screen edge.
 function onScreenEdges(r, inset) {
-  return [Math.max(r[0], inset), Math.max(r[1], inset), Math.min(r[0] + r[2], W - inset), Math.min(r[1] + r[3], H - inset)];
+  return [Math.max(r[0], inset), Math.max(r[1], HEAD_H + inset), Math.min(r[0] + r[2], W - inset), Math.min(r[1] + r[3], H - inset)];
 }
 function drawRings(chain) {
   ctx.setLineDash([]);
@@ -387,7 +411,7 @@ function portalsOf(chain) {
 // portal that is not in the list fades out (`portalFades`). The `show` changes by time
 // only. When the camera stops, each portal is fully shown or it fades out fully. It does
 // not stay partly shown. `onScreen` below is a different test, for a point.
-function boxOnScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > 0 && r[0] < W && r[1] < H; }
+function boxOnScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > HEAD_H && r[0] < W && r[1] < H; }
 // The open card in the map of a neighbour.
 function sibling(chain, nb) {
   for (var j = 0; j < chain.length; j++) if (chain[j].map === nb.map) return chain[j];
@@ -411,7 +435,7 @@ function whereOf(m) { return 'in ' + (m.id ? m.id.split('/').pop() : DATA.name);
 // of a portal does not become larger. A larger drawing in the bottom row covers cards of
 // the map above at the fit (C5 in docs/design/nested-canvas.md).
 var P_H = 34, P_EDGE = 20, P_PAD = Math.max(0, (TARGET - P_H) / 2), P_GAP = Math.max(6, 2 * P_PAD), P_LOW = TOUCH ? 8 : 0;
-var P_TOP = 84 + P_LOW, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
+var P_TOP0 = 84 + P_LOW, P_TOP = P_TOP0, P_BOTTOM = 52, P_MAX = 150, P_WIDEST = 0;
 // The middle of a portal in the bottom row, and the range of the middle of portal `t` along
 // the top or the bottom edge.
 function bottomRow() { return Math.max(P_TOP, H - P_BOTTOM); }
@@ -542,7 +566,7 @@ function into(p, q, b, i) {
   return Math.min(p[0], q[0]) < b[i + 2] - 1 && Math.max(p[0], q[0]) > b[i] + 1 &&
     Math.min(p[1], q[1]) < b[i + 3] - 1 && Math.max(p[1], q[1]) > b[i + 1] + 1;
 }
-function onScreen(p) { return p[0] >= 1 && p[0] <= W - 1 && p[1] >= 1 && p[1] <= H - 1; }
+function onScreen(p) { return p[0] >= 1 && p[0] <= W - 1 && p[1] >= HEAD_H + 1 && p[1] <= H - 1; }
 // The sides of a box x0, y0, x1, y1 in clockwise order: 0 top, 1 right, 2 bottom, 3 left.
 // A point on side `side`, as near to (x, y) as possible.
 function onSide(e, side, x, y) {
@@ -654,6 +678,7 @@ var HITS = [], LINKS = [];
 function drawPortals(list, path) {
   obstacle.apply(null, pathPlate(path));
   obstacle.apply(null, helpPlate());
+  obstacle(0, 0, W, HEAD_H, 1, 1);
   list.forEach(function (t) {
     t.box = [t.x - t.w / 2, t.y - t.h / 2, t.x + t.w / 2, t.y + t.h / 2];
     obstacle(t.box[0], t.box[1], t.w, t.h, t.show, t.show);
@@ -710,14 +735,14 @@ function cap(widths, room) {
 }
 // The screen box x, y, w, h of the plate of the path. A part of the path is PATH_H high.
 var PATH_H = Math.max(30, TARGET);
-function pathPlate(path) { return [12, 10, path.total, PATH_H + 8]; }
+function pathPlate(path) { return [12, HEAD_H + 10, path.total, PATH_H + 8]; }
 // A plate with round ends, under the path or the help line.
 function plate(b, alpha) {
   ctx.globalAlpha = alpha; ctx.fillStyle = C['--raised']; ctx.strokeStyle = C['--line-2']; ctx.lineWidth = 1; ctx.setLineDash([]);
   ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], b[3] / 2); ctx.fill(); ctx.stroke();
 }
 function drawPath(path) {
-  var parts = path.parts, level = path.level, x = 22, y = 14, h = PATH_H, fs = 12.5, gap = 10, base = y + h / 2 + 4.5;
+  var parts = path.parts, level = path.level, x = 22, y = HEAD_H + 14, h = PATH_H, fs = 12.5, gap = 10, base = y + h / 2 + 4.5;
   plate(pathPlate(path), 0.96);
   parts.forEach(function (p, i) {
     var last = i === parts.length - 1;
@@ -758,7 +783,7 @@ function drawHud(began, half) {
   while (FRAMES.length && now - FRAMES[0] > 1000) FRAMES.shift();
   var s = FRAMES.length + ' fps · draw ' + (now - began).toFixed(1) + ' ms · ' + (half ? 'half' : 'full') +
     ' · ' + STATS.cards + ' cards · ' + STATS.image + ' images';
-  ctx.globalAlpha = 0.95; ctx.fillStyle = C['--raised']; ctx.fillRect(W - 330, 10, 320, 26);
-  text(s, W - 320, 27, 12, C['--ink'], 1, 400, true);
+  ctx.globalAlpha = 0.95; ctx.fillStyle = C['--raised']; ctx.fillRect(W - 330, HEAD_H + 10, 320, 26);
+  text(s, W - 320, HEAD_H + 27, 12, C['--ink'], 1, 400, true);
 }
 """
