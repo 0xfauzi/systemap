@@ -2,12 +2,15 @@
 
 The design is the section "Search" of docs/design/nested-canvas.md: Ctrl K stays, and a
 result in a different map moves the camera to that card. The dialog is the dialog of the
-map page (`page_palette.html` and `page_palette.CSS`, with no change). The match code and
-the code of the list and of the dialog are the same text as on the map page
-(`page_palette.MATCH` and `page_palette.LIST`). The ranking is the ranking of step 8 of
-docs/design/nested-parts.md (`RANK`): the group "Other maps" comes after the groups of the
-current map, it shows 8 rows or fewer, and its rows give the actors and the flows after
-the internal components. The name of that group does not show all its rows.
+map page (`page_palette.html` and `page_palette.CSS`). The canvas page adds CSS to it
+(`CSS`): on a touch screen, the Close button and the rows are 44 x 44 px or more. The match
+code and the code of the list and of the dialog are the same text as on the map page
+(`page_palette.MATCH` and `page_palette.LIST`), with one change (`LIST`): the text for no
+result is an option that is not available, because the list has the role listbox. The
+ranking is the ranking of step 8 of docs/design/nested-parts.md (`RANK`): the group "Other
+maps" comes after the groups of the current map, it shows 8 rows or fewer, and its rows
+give the actors and the flows after the internal components. The name of that group does
+not show all its rows.
 
 The results come from the canvas data (`DATA.maps`) when the dialog opens. Thus the page
 has no other data for the search. These are the groups:
@@ -53,12 +56,16 @@ HTML = page_palette.html()
 # canvas page has no rule for `hidden`, no page font rule and no button rule. The Close button shows its word
 # "Close" on each screen, not the key Esc. Thus its visible text is its name (the rule
 # label-content-name-mismatch of axe-core). The foot of the dialog gives the key Esc.
+# On a touch screen and on a narrow screen, the Close button and each row are 44 x 44 px or
+# more (C5 of docs/design/nested-canvas.md).
 CSS = (
     page_icons.CSS
     + page_palette.CSS
     + ".pal[hidden]{display:none}.pal{font-family:var(--fs);color:var(--ink)}"
     ".pal button{font:inherit;color:var(--ink-2);cursor:pointer}"
     ".pal .pal__x kbd{display:none}.pal .pal__x span{display:inline;font-size:13px}"
+    "@media (pointer:coarse),(max-width:640px){.pal .pal__x{min-width:44px;min-height:44px;"
+    "padding:0 4px}.pal .pal__o{height:44px}}"
 )
 
 _GLYPHS = ("map", "route", "change", "fit", "zoom-out")
@@ -105,7 +112,8 @@ var FIND = null;
   var ORDER = ['Views', 'Layers', 'Components', 'Flows', 'Sequences', 'Steps', 'Actions',
     'Other maps'];
   var LIMIT = {Components:8, Flows:8, Steps:6, 'Other maps':8};
-  function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
+  // The list code of the map page (`page_palette.LIST`) calls `plural`.
+  var plural = counted;
   function add(g, t, s, run, o){
     o = o || {};
     items.push({g:g, t:t, s:s || '', run:run, keys:o.keys || [], words:o.words || '',
@@ -120,6 +128,7 @@ var FIND = null;
   function badge(n){ return '<b class="pal__n">' + esc(n) + '</b>'; }
   function where(m){ return 'in ' + (m.id || DATA.name || 'the top map'); }
   function layerColour(id){ return 'var(--l-' + id + ')'; }
+  function flowGlyph(f){ return line(layerColour(f.l), f.ev === 'structural' || f.ev === 'declared'); }
 
   // ---- the camera of a result ------------------------------------------------------
   // The live region gives the words when the camera stops: after the flight, and after the
@@ -147,7 +156,7 @@ var FIND = null;
     land(function(){
       if(c.child){
         SAID_MAP = c.child;
-        say('Open map: ' + mapName(c.child) + '. ' + counted(c.child.cards.length, 'card') + '.');
+        say(openWords(c.child));
         return;
       }
       if(mapOpen(c)){ select(c); }
@@ -166,16 +175,18 @@ var FIND = null;
   }
 
   // ---- the results -----------------------------------------------------------------
+  // The Find part also operates without the view part (`page_canvas_view`): then it has no
+  // Views, Layers, Sequences or Steps group.
   function views(){
     if(typeof setView !== 'function' || typeof VIEW !== 'object'){ return; }
-    [['map', 'Map', 'map', 'What are the components and their connections?'],
-      ['sequences', 'Sequences', 'route', 'Which steps make one operation?'],
-      ['changes', 'Changes', 'change', 'What did this change touch?']].forEach(function(v){
+    [['map', 'map', 'What are the components and their connections?'],
+      ['sequences', 'route', 'Which steps make one operation?'],
+      ['changes', 'change', 'What did this change touch?']].forEach(function(v){
       if(v[0] !== 'map' && !VIEWS[v[0]]){ return; }
-      add('Views', v[1], v[3], function(){ setView(v[0]); },
-        {glyph:ICONS[v[2]], now:VIEW.mode === v[0]});
+      add('Views', MODE_NAMES[v[0]], v[2], function(){ setView(v[0]); },
+        {glyph:ICONS[v[1]], now:VIEW.mode === v[0]});
     });
-    add('Layers', 'All', 'Which flows connect the components?', function(){ setView('map', 'all'); },
+    add('Layers', 'All', layerQuestion('all'), function(){ setView('map', 'all'); },
       {glyph:line(''), now:VIEW.mode === 'map' && VIEW.layer === 'all'});
     Object.keys(LAYER_OF).forEach(function(id){
       var l = LAYER_OF[id];
@@ -197,9 +208,9 @@ var FIND = null;
         {quiet:true, words:(c.d || '') + ' ' + (c.p || ''), more:c.m || [], glyph:glyphOf(c)});
     });
     m.flows.forEach(function(f){
-      var l = lay[f.l], dash = f.ev === 'structural' || f.ev === 'declared';
+      var l = lay[f.l];
       add('Flows', f.a, f.s + ' → ' + f.t + (l ? ' · ' + l.n : ''), function(){ goFlow(m, f); },
-        {quiet:true, words:f.s + ' ' + f.t, glyph:line(layerColour(f.l), dash)});
+        {quiet:true, words:f.s + ' ' + f.t, glyph:flowGlyph(f)});
     });
   }
   function other(m){
@@ -211,8 +222,7 @@ var FIND = null;
     });
     m.flows.forEach(function(f){
       add('Other maps', f.a, f.s + ' → ' + f.t, function(){ goFlow(m, f); },
-        {quiet:true, late:true, hint:hint, words:f.s + ' ' + f.t + ' ' + m.id,
-          glyph:line(layerColour(f.l), f.ev === 'structural' || f.ev === 'declared')});
+        {quiet:true, late:true, hint:hint, words:f.s + ' ' + f.t + ' ' + m.id, glyph:flowGlyph(f)});
     });
   }
   function sequences(maps){
@@ -226,7 +236,7 @@ var FIND = null;
           seqChoose(m, k, !steps);
           if(steps){ seqMode(true, s, true); }
         }
-        add('Sequences', j.n, plural(j.s.length, 'step') + (j.en ? ' · ' + j.en : ''),
+        add('Sequences', j.n, counted(j.s.length, 'step') + (j.en ? ' · ' + j.en : ''),
           function(){ show(false, 0); }, {glyph:ICONS.route, hint:hint});
         j.s.forEach(function(st, s){
           var f = st.f >= 0 ? m.flows[st.f] : null;
@@ -282,8 +292,18 @@ _TAIL = r"""
 if (window.systemapCanvas) window.systemapCanvas.find = FIND;
 """
 
+# The list of the results has the role listbox. A listbox has only options and groups, thus
+# the text for no result is an option that is not available (the rule aria-required-children
+# of axe-core). The map page keeps its bytes: this change is only in the canvas page.
+_NONE = 'list.innerHTML = h || \'<p class="pal__none">'
+LIST = page_palette.LIST.replace(
+    _NONE, 'list.innerHTML = h || \'<p class="pal__none" role="option" aria-disabled="true">'
+)
+if LIST == page_palette.LIST:  # pragma: no cover - a guard for a change of the list code
+    raise ValueError("The list code of the map page has no text for no result.")
+
 FIND = (
-    (_HEAD + page_palette.MATCH + RANK + page_palette.LIST + _TAIL)
+    (_HEAD + page_palette.MATCH + RANK + LIST + _TAIL)
     .replace("ICONS_JSON", json.dumps({name: icon(name) for name in _GLYPHS}))
     .replace("TEXT_CHARACTERS", str(TEXT_CHARACTERS))
 )

@@ -65,7 +65,8 @@ async function sets(file) {
         const flows = [], quiet = [], drawnFlows = new Set(), drawnCards = new Set(), alphas = new Set();
         last.flows.forEach((f) => { if (f[0] === oi) { drawnFlows.add(f[1]); if (f[2] > 0) flows.push(f[1]); } });
         last.cards.forEach((c) => { if (c[0] === oi) { drawnCards.add(c[1]); if (c[2] < 1) { quiet.push(m.cards[c[1]].id); alphas.add(c[2]); } } });
-        found[id][layer] = { flows: flows.sort((a, b) => a - b), quiet: quiet.sort(), drawnFlows: drawnFlows.size, drawnCards: drawnCards.size, alphas: [...alphas], state: S.viewState() };
+        found[id][layer] = { flows: flows.sort((a, b) => a - b), quiet: quiet.sort(), drawnFlows: drawnFlows.size, drawnCards: drawnCards.size, alphas: [...alphas], state: S.viewState(),
+          links: S.links().map((l) => [l.id, l.d]), chain: S.chain() };
       }
     }
     return found;

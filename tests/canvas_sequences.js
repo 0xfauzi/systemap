@@ -258,6 +258,18 @@ async function keysRun(file, mapId) {
   await settle(page, 200);
   out.list.right = await S();
   out.list.before = before;
+  // The keyboard focus after Enter on a button that goes or becomes disabled: Start at step
+  // 1, Next to the last step, and End sequence.
+  const at = () => page.evaluate(() => document.activeElement.id || document.activeElement.tagName);
+  const enter = async (sel) => { await page.focus(sel); await page.keyboard.press('Enter'); await settle(page, 400); };
+  out.focus = {};
+  await enter('#cseq-end');
+  await enter('#cseq-start');
+  out.focus.start = await at();
+  for (let i = 0; i < 10 && !(await page.evaluate(() => document.getElementById('cseq-next').disabled)); i++) await enter('#cseq-next');
+  out.focus.last = await at();
+  await enter('#cseq-end');
+  out.focus.end = await at();
   // On the canvas, an arrow key still moves the camera.
   await page.focus('#canvas');
   await page.keyboard.press('ArrowRight');

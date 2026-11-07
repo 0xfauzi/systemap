@@ -24,7 +24,8 @@ Acceptance values:
    the generated M11 tree (bench/jev/canvas_frames.py), at the fit and at 17 other camera
    positions near it, each boundary flow has right angles, stays on the screen, goes into
    no card that is not open, and ends at the edge of its portal. At the fit of each map,
-   there is a boundary flow.
+   there is a boundary flow. Added on 2026-11-07 (U4 in bench/jev/README.md): no two drawn
+   paths of one frame have the same key.
 10. A portal does not cover a card of the open map. After the camera fit of a map, no card
     of that map is in the band of a portal at its screen edge. The test uses the map Gateway
     and two maps of the generated M11 tree, on a screen of 1440 x 900 pixels and on a

@@ -39,6 +39,7 @@ Run from the repository root (Node and the Playwright package must be installed)
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import subprocess
@@ -194,20 +195,6 @@ def _run(pages: dict[str, Path], which: str) -> dict[str, Any]:
     return out
 
 
-def _attempts(page: Path, which: str, n: int) -> dict[str, Any]:
-    """Make run `which` n, again until it is quiet, in gate.ATTEMPTS attempts or fewer."""
-    found: dict[str, Any] = {}
-    for attempt in range(1, gate.ATTEMPTS + 1):
-        waited = gate._gate()
-        found = _run(page, which)
-        found |= {"run": f"{which}{n}", "attempt": attempt, "waited": round(waited)}
-        found["quiet"] = not found["foreign"]
-        print(json.dumps(found), flush=True)
-        if found["quiet"]:
-            break
-    return found
-
-
 def _table(runs: list[dict[str, Any]]) -> None:
     print(
         "| Data | Scenario | "
@@ -230,7 +217,11 @@ def main() -> int:
         count = {"A": 0, "B": 0}
         for which in ORDER:
             count[which] += 1
-            runs.append(_attempts(pages[which], which, count[which]))
+            runs.append(
+                gate.attempts(
+                    functools.partial(_run, pages[which], which), f"{which}{count[which]}"
+                )
+            )
     quiet = [r for r in runs if r["quiet"]]
     _table(runs)
     b_quiet = [r for r in quiet if r["run"][0] == "B"]

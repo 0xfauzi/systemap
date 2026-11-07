@@ -25,35 +25,25 @@ The header holds these controls, from left to right:
 
 from __future__ import annotations
 
-import html
 from collections.abc import Mapping
 from typing import Any
 
+from systemap.page import esc
 from systemap.page_icons import icon
 
-ALL_QUESTION = "Which flows connect the components?"
 ALL_TITLE = "All flows of all layers"
-
-
-def esc(value: object) -> str:
-    return html.escape(str(value), quote=True)
 
 
 def layers(data: Mapping[str, Any]) -> list[dict[str, str]]:
     """Give the union of the layers of all maps of the canvas data: `id`, `n` and `q`.
 
-    The layers of the top map come first. System context comes first when its layer
-    has flows in the top map, as `page.tab_layers` does. Each other layer comes after
-    them, in tree order. A layer that two maps have keeps the name and the question of
-    the first map."""
-    maps = list(data.get("maps") or [])
+    The layers of the top map come first, in the order of the canvas data: the tab order of
+    the linked page (`page.tab_layers`). Each other layer comes after them, in tree order. A
+    layer that two maps have keeps the name and the question of the first map. The Find
+    dialog lists the layers in the same order (`LAYER_OF`)."""
     out: dict[str, dict[str, str]] = {}
-    for i, m in enumerate(maps):
-        found = list(m.get("layers") or [])
-        if i == 0:
-            system = [lay for lay in found if lay["id"] == "system" and lay.get("e")]
-            found = system + [lay for lay in found if lay not in system]
-        for lay in found:
+    for m in data.get("maps") or []:
+        for lay in m.get("layers") or []:
             out.setdefault(lay["id"], {"id": lay["id"], "n": lay["n"], "q": lay.get("q", "")})
     return list(out.values())
 
@@ -112,7 +102,9 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
     )
 
 
-# The header is over the canvas, so it has an opaque background. `data-fit` is set by the
+# The header is over the canvas, so it has an opaque background. A link of the list of the
+# tree with the keyboard focus is over the bars of the views (z-index 5). Thus the bar of a
+# view, also with two rows on a phone, does not cover it. `data-fit` is set by the
 # script: 1 when the layer buttons do not fit (the select shows), 2 when the name and the
 # label of Find also do not fit (they go, and a screen reader still reads the name and the
 # label of the select).
@@ -161,6 +153,6 @@ overflow:hidden;clip-path:inset(50%)}
 @media (pointer:coarse){.cbar{height:56px}
 .cbar button,.cbar select{height:44px;min-width:44px}
 .cbar .cbar__pick select{min-width:88px}}
-.tree a:focus{top:104px}
+.tree a:focus{top:104px;z-index:5}
 @media (pointer:coarse){.tree a:focus{top:120px}}
 """

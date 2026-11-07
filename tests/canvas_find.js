@@ -61,12 +61,14 @@ function stubMode() {
     requestAnimationFrame: () => 0, DATA: input.data, drawn: 0, flight: null, SAID_MAP: null, SEL_C: null,
     currentMap: () => maps[input.current || 0], esc: (s) => String(s), counted: (n, w) => n + ' ' + w + (n === 1 ? '' : 's'),
     say: (s) => calls.push(['say', s]), setHash: (h) => calls.push(['hash', h]), hashOf: (id) => '#' + id, cardId: (c) => (c.map.id ? c.map.id + '/' + c.id : c.id),
-    mapName: (m) => m.id || input.data.name, goalOf: () => ({}), flyGoal: () => calls.push(['fly']), flyTo: () => calls.push(['fly']),
+    mapName: (m) => m.id || input.data.name, openWords: (m) => 'Open map: ' + (m.id || input.data.name) + '.', goalOf: () => ({}), flyGoal: () => calls.push(['fly']), flyTo: () => calls.push(['fly']),
     topFrame: () => [], FIT: 0.04, fitCurrent: () => calls.push(['fit']), select: () => {}, mapOpen: () => true,
   };
   if (input.view) {
     Object.assign(ctx, {
       VIEW: { mode: 'map', layer: 'all' }, VIEWS: { map: {}, sequences: {} },
+      MODE_NAMES: { map: 'Map', sequences: 'Sequences', changes: 'Changes' },
+      layerQuestion: (id) => (id === 'all' ? 'Which flows connect the components?' : ''),
       LAYER_OF: { data: { n: 'Data', q: 'Which data moves?' }, control: { n: 'Control', q: 'Which calls control?' } },
       setView: (mode, layer) => calls.push(['view', mode, layer === undefined ? null : layer]),
       seqChoose: (m, k, camera) => calls.push(['seq', m.id, k, camera]),
@@ -179,6 +181,18 @@ async function keys(file) {
   await page.keyboard.press('Escape');
   await settle(page, 400);
   out.closed = await state(page);
+  // A result that changes the view to Changes and back writes the list of the tree again.
+  // The link of the list that opened the dialog keeps the keyboard focus.
+  const link = () => api(page, () => { const a = document.activeElement; return a.tagName === 'A' ? a.getAttribute('data-m') + ':' + a.getAttribute('data-c') : a.id || a.tagName; });
+  await page.focus('#canvas-tree a[data-c]');
+  out.link = { before: await link(), views: [] };
+  for (const text of ['Changes', 'Map']) {
+    await page.keyboard.press('Control+k');
+    await page.keyboard.type(text);
+    await page.keyboard.press('Enter');
+    await settle(page, 400);
+    out.link.views.push({ active: await link(), mode: await api(page, () => window.systemapCanvas.viewState().mode) });
+  }
   await browser.close();
   return out;
 }

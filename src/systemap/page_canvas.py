@@ -456,18 +456,16 @@ window.systemapCanvas = {
   // The view: `viewState` gives the mode, the layer, the epoch, the fade of each mode, the
   // height of the header and the count of seam calls of the last frame (`page_canvas_view`).
   // `setView` sets the mode and the layer as the header does, and gives true for a change.
-  // `viewLog` starts a record of the values of the cards and the flows in each frame, and
-  // `viewLogged` gives it and stops it.
+  // `viewLog` starts a record of the fade of each mode and the values of the cards and the
+  // flows in each frame, and `viewLogged` gives it and stops it.
   viewState: viewState,
   setView: setView,
   viewLog: function () { VIEW_LOG = {frames: []}; },
   viewLogged: function () { var l = VIEW_LOG ? VIEW_LOG.frames : []; VIEW_LOG = null; return l; },
-  // The Changes view (`page_canvas_changes`): `changes` gives the fade of the view, and the
-  // mark and the alpha of each card of a map. `changeRecord` starts a record of the fade of
-  // the view in each frame, and `changeRecorded` gives the record and stops it.
+  // The Changes view (`page_canvas_changes`): `changes` gives the fade of the view, the text
+  // of its bar, and the mark and the alpha of each card of a map. `viewLog` records the fade
+  // of each view in each frame (`show`).
   changes: changeState,
-  changeRecord: function () { CHG.log = []; },
-  changeRecorded: function () { var l = CHG.log || []; CHG.log = null; return l; },
   // The Sequences view (`page_canvas_sequences`): `seqState` gives the sequence, the mode,
   // the step and the flows and the cards of the route. `seqLog` starts a record of the
   // marks of the route in each frame, and `seqLogged` gives it and stops it.

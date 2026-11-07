@@ -6193,3 +6193,264 @@ With SYSTEMAP_BROWSER_TESTS=required and axe-core 4.14.0, the browser tests of e
 - axe-core found the critical issue `select-name` on the layer select at 390 x 844 pixels: with three view buttons, the header had `display:none` on the label of the select. Now the label is only visually hidden there, so it still gives the name "Layer" to the select.
 - A tag of a view now fades in with the width of the card, from the width of its plate. Before, it came at one time when the card became wider than the tag.
 - In the Sequences test, Tab after the toolbar goes to the Find button of the header, and not to the canvas.
+
+## U2: C4, C5 and the keyboard paths of step 4 again (2026-11-07)
+
+Scope: the commit 8afaba8 on the branch `claude/canvas-views`, with no change. The script is the scratchpad file `s4-verify-access/access4.js`. Its header has the acceptance values, written before the first run. axe-core 4.14.0 and Playwright 1.63.0 Chromium. The pages are the canvas pages of the fixture with sequences (`tests/canvas_sequenced.py`, also at #Gateway), the three-level tree with a revision comparison and without one (also at #P0/Q0/Deep), the self-map, and the generated M11 tree (also at #P0/A0). The phone is the Playwright device "iPhone 13" in Chromium: 390 x 664 CSS pixels, a touch screen, and 3 device pixels for each pixel. These checks are not timings. Thus the quiet gate was not used.
+
+The places of C4: the places of `tests/canvas_access.js`, Find open with no text, Find with results, a result selected, after Enter, Find with a text that has no result, each view, the list of sequences open, the Steps mode, each layer, the Changes view and the Sequences view in the nested map, and the keyboard focus on each header control. Each place is on the two screens, in the light and the dark scheme, with reduced motion.
+
+| Item | Acceptance | Result |
+|---|---|---|
+| C4: axe-core in 510 runs on the 5 pages | 0 serious or critical issues in each run | FAIL: 20 runs have the critical issue `aria-required-children` on `#pal-list`. These are the runs of each page with a Find text that has no result. Then the listbox has only the paragraph "No result has this text." and no option. The other 490 runs have 0 violations of each impact. The pages had no script error and no request to a different host. |
+| C5: no horizontal scroll on the iPhone 13, in each place of C4 | scroll width at most 390 px, scroll position 0 | PASS: in each of the 119 places of the 5 pages. The sequence toolbar goes on two lines in the width of the screen. |
+| C5: the targets of 44 x 44 px | the header controls, the sequence toolbar, the options of the list of sequences, the Find rows, the Close button of Find and the Copy button: each 44 x 44 px or more | FAIL: the Close button of Find is 42.9 x 44 px on each page. Each other target is 44 x 44 px or more. The smallest is the Find button of the header, 44 x 44 px. |
+| C5: Find by touch | a tap on the Find button opens Find with the focus in the field; a tap on a row of a card in a different map moves the camera to the card; the live region gives the card and its map; a tap on Close closes Find | PASS on the 5 pages. For example, on the fixture: "Selected: card Routes. Map: join / Gateway.", the card box is on the screen, and the dialog is 374 x 650 px in the screen. |
+| Keys: the order of Tab | the view buttons, one stop for the layer toolbar, the Find button, the canvas and the list of the tree; Tab goes out of the page; Shift+Tab goes back in the reverse order | PASS on the 5 pages. On the M11 tree, Tab from the last of its 3,951 links of the list goes out of the page. |
+| Keys: the focus outline | each header control and each control of the sequence toolbar: `:focus-visible`, 2 px or more, contrast 3 or more to the background | PASS: a solid outline of 2 px with a contrast of 16.5 in the light scheme. |
+| Keys: Find | Ctrl+K, Meta+K, / and Enter on the Find button open Find; Esc closes it, and the focus goes back to the element that opened it; Esc in a nested map does not go out of the map | PASS on the 5 pages. The status gives the count of results, for example "3 results". The Find button has `aria-expanded` "true" while Find is open. |
+| Keys: a result in a different map | Enter moves the camera to the card, and the live region gives the card and its map | PASS, for example "Selected: card D1. Map: three levels / P0 / Q0 / Deep.". |
+| Keys: the views and the layers | Enter on a view button changes the view, the focus stays on the button, and the live region gives the view; the arrow keys, Home and End change the layer, and the live region gives the layer | PASS. |
+| Keys: the Sequences view | the controls are reachable with Tab; ArrowDown opens the list; Esc closes it and gives the focus to the chooser; Enter chooses a sequence; the live region gives the step words | PASS for the list and the live region, for example "Step 1 of 2: The routes get a token from the auth.". |
+| Keys: the focus after a toolbar button | the focus stays on a control | FAIL: after Enter or Space on "Start at step 1", on "End sequence", and on "Next" to the last step, the focused button becomes hidden or disabled. Then the focus is on the body of the page, on the fixture and on the self-map. |
+
+Result: FAIL. These items are necessary:
+
+- The empty listbox of Find. The paragraph of no result is in an element with the role `listbox`. The map page has the same issue, because it uses the same list code (`page_palette.LIST`). axe-core 4.14.0 on the map page of the commit (`docs/map/index.html`) with Find open and a text with no result also gives `aria-required-children` (critical). The map page also gives `aria-allowed-attr` (critical) on its layer buttons and `label-content-name-mismatch` (serious) on its cards and its Close button. This measurement is an answer to the open item of S8. A fix in the canvas page only must keep the bytes of the pages without `[render] canvas`.
+- The Close button of Find on a touch screen is 1.1 px too narrow.
+- The focus after Start, End sequence and Next to the last step. Chromium keeps the start point of Tab, so the next Tab goes to the next control. But a screen reader has no focused control.
+
+A note that is not a failure: in Find, Tab and Shift+Tab keep the focus in the field. Thus the Close button is not reachable with the keyboard. Esc closes Find, and the foot of the dialog gives the key Esc.
+
+## U3: C2, C3 and the motion of step 4 again (2026-11-07)
+
+Scope: the commit 8afaba8 on the branch `claude/canvas-views`, with no change. A is d8ac070 (main after PR #154). B is 8afaba8. The scripts and the outputs are in the scratchpad folder `s4-verify-regress`.
+
+### U3a: C2 and C3, A/B (`canvas_frames.py`)
+
+The acceptance values were in the docstring of `s4-verify-regress/run_ab.py` before the first run:
+
+1. Each scenario of B passes its limit of `canvas_frames.py` (35.0 ms at 4x, 17.5 ms at 1x) in each quiet run.
+2. For each scenario, the median of the p95 values of B is less than the median of A plus one tick: a difference of 16.1 ms or more fails.
+3. C3 at 1x of B: the median of each data set is at most 1,500 ms. It fails if it is more than 10 percent above the median of A on both data sets.
+4. Information only: C3 at 4x.
+
+Each copy (`git archive` of the commit) operates its own `bench/jev/canvas_frames.py`, with the Python of the worktree and the `src` of the copy first on the path. The page of B opens in the Map view. The order was A1, B1, B2, A2, A3, B3. Before each run, the script waited until no chrome, chromium, node, headless_shell or pytest process operated for 30 s. During each run, a sampler recorded these processes each 2 s. The attempts 1 and 2 of A2 were not quiet: the browser tests of a different agent (pytest, node and Chromium) operated during them. These two attempts are not in the table. The attempt 3 of A2 and the other 5 runs were quiet. The load average was 0.30 to 1.43.
+
+| Data | Scenario | CPU | A p95 (3 runs) | B p95 (3 runs) | Median B - A | Result for B |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 324, 230, 244 ms | 386, 341, 327 ms | +97 ms | information |
+| M11 shape | C3 load | 4x | 229, 220, 210 ms | 316, 336, 292 ms | +96 ms | information |
+| M11 tree | pan-fit | 4x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.7 | 0 | pass |
+| M11 tree | all-open | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 tree | dive | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.7 | 0 | pass |
+| 400 cards | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | pass |
+| 400 cards | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 33.2, 33.3 | +16.4 | FAIL (acceptance 2) |
+| 1,500 cards | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.8 | 0 | pass |
+| M11 shape | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 | pass |
+| M11 shape | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | dive | 4x | 16.8, 16.8, 16.7 | 16.8, 33.3, 16.8 | 0 | pass |
+| M11 tree | C3 load | 1x | 76, 68, 68 ms | 79, 91, 76 ms | +11 ms | FAIL (acceptance 3) |
+| M11 shape | C3 load | 1x | 64, 68, 66 ms | 83, 81, 91 ms | +17 ms | FAIL (acceptance 3) |
+| M11 tree | pan-fit | 1x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| M11 tree | all-open | 1x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.8 | +0.1 | pass |
+| M11 tree | dive | 1x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.8 | -0.1 | pass |
+| 400 cards | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 | pass |
+| 400 cards | dive | 1x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 | pass |
+| 1,500 cards | pan-fit | 1x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | pan-fit | 1x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.1 | pass |
+| M11 shape | all-open | 1x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 | pass |
+| M11 shape | dive | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.7 | 0 | pass |
+
+For the C3 rows, the values are the median load of each run, not a p95.
+
+Result: FAIL.
+
+- Acceptance 1: PASS. The largest p95 of B is 33.3 ms (limit 35.0 ms at 4x). The largest p95 of B at 1x is 16.8 ms.
+- Acceptance 2: FAIL for the dive of the map of 400 cards at 4x. The p95 of B was 33.2 ms and 33.3 ms (two ticks) in 2 of the 3 runs, and 16.8 ms in each run of A. The difference of the medians is +16.4 ms. In U1a, the same case was 33.3 ms in 2 of the 3 runs of B and 16.8 ms in each run of A. Thus the two A/B runs together give two ticks in 4 of the 6 runs of B and in 0 of the 6 runs of A. U1d found two ticks in some runs of each tree of the merge, also of the part header-layers alone. The cause is not measured.
+- Acceptance 3: FAIL. C3 of B is at most 91 ms, thus much less than 1,500 ms. But it is more than 10 percent above A on both data sets: the M11 tree 79 ms against 68 ms (+16.2 percent), the M11 shape 83 ms against 66 ms (+25.8 percent). U1a gave a similar difference for the M11 tree: 83.6 ms against 67.8 ms.
+- Information: C3 at 4x of B is +97 ms (+40 percent) for the M11 tree and +96 ms (+44 percent) for the M11 shape against A.
+
+### U3b: the motion probes in each view
+
+The probe is `s4-verify-regress/views/motion_views.js`, from `verify4-views/motion.js`. The checks of motion.js are the same. The additions are in its header, written before the first run:
+
+- The page goes to the view (`setView`) before the fits and the moves.
+- The alpha step check (0.25 or less between two frames) also has the fade of each mode (`viewState().show`), the view alpha of each card on the screen in the maps of the chain and the top map (`changes(map).cards`), and the alpha of each mark of the route of a sequence (`seqLog`).
+- The plan starts with a view change: Map, then the view (in the Map view: a layer, then All, then Changes, then Map). In the Sequences view, the plan ends with "Start at step 1", "Next" and "End sequence". The flight of these buttons is the flight of the page.
+- The stop pixel check counts only the frames of kind stop.
+
+After the first trial run, one rule was added: the card alpha of a card is compared only when both frames have it. Without this rule, a card that comes into the screen, or the cards of a map that comes into the chain, gave a false step from 0.
+
+The pages (`views/build_pages.py`, the code of 8afaba8): the real M11 tree (m11), 400 cards with two layers and a sequence of 20 steps (g400seq), the map of this repository (self), the three-level tree with a revision comparison (changed), and the Gateway fixture with sequences (seq). Each page in the Map, Sequences and Changes views, on 1440 x 900 light, 390 x 844 light, 844 x 390 light and 1440 x 900 dark: 60 runs. Each run has 1,411 to 2,239 frames. These checks are not timings. Thus the quiet gate was not used.
+
+| Item | Acceptance | Result |
+|---|---|---|
+| Errors | no script error | PASS: 0 in the 60 runs. |
+| Portals at a fit | no portal with show above 0.02 on a card of the open map, at each fit | PASS: 0 in the 144 fits. |
+| Line pixels in a card | no line pixel in a box of OBST above (1 - box alpha) x 255 + 16, and no line pixel in a card that is not open above the same value | PASS. The check of the boxes of OBST found 0. The second check found 6 frames on changed, 390 x 844, Changes view, card P0/Glue: largest pixel alpha 94. The probe used the cover 1 of a different box at the middle of the card. The Changes view draws this card with the alpha 0.6, and its own box in OBST has 0.6. Thus the limit is 118, and 94 is less. |
+| Alpha steps | 0.25 or less between two frames | FAIL. See the list below. |
+| Stop pixels (motion.js) | fewer than 50 pixels change by more than 64 in a frame of a stop | 5 frames of 55,637 frames in stops have more. Three are on m11 at 1440 x 900 (55 to 77 pixels). A (motion.js on the A page of m11 at 1440 x 900) also has 1. Two are on changed at 844 x 390 (67 and 101 pixels): the text of the cards R0 and Deep is not complete in the first frame of the stop. A had 0 on that page and screen. |
+
+The alpha steps above 0.25:
+
+- The marks of the route of a sequence, in the flight of the page after "Start at step 1", "Next" or "End sequence": g400seq, up to 0.61 at 844 x 390, 0.55 at 390 x 844 and 0.48 at 1440 x 900; self at 844 x 390, 0.27. The numbers and the wide line of the step show with `cardShow`, the height of the cards between NAME_H and NAME_H + 4 px, and they have no time fade for the zoom. The flight changes the zoom by 5 to 10 percent in each frame. For example, on self at 844 x 390 the alpha of the marks was 0.19, 0.46, 0.72, 0.90, 0.99 in five frames. In the moves of the probe (slower), the largest step of a mark was 0.23. These marks are new in step 4.
+- A part of a map image in the same flights on g400seq: 0.33 at 390 x 844 and 0.34 at 844 x 390. A has the same: the probe `views/flight.js` makes the flight of the URL hash to a card and back on the map of 400 cards. Its largest step of an image part was 0.29 to 0.34 on A and 0.30 to 0.31 on B, at 390 x 844 and 844 x 390. At 1440 x 900 it was 0.20 on A and B.
+- A boundary line on changed, in 12 of the 12 runs of that page: 0.251 to 0.258. A path of a line goes at one time when the next path starts. A has the same: motion.js on the A page of the same tree gave 0.251 to 0.259 at 1440 x 900, and 0 at 390 x 844 and 844 x 390 in one run. The number of such steps changes from one run to the next.
+
+In the view changes, the largest step of the fade of a mode was 0.2 and the largest step of the view alpha of a card was 0.2. On the map of 400 cards the cards are in the image of the map. There the view change is the fade of the old image (`m._mt`), at most 0.107 in a frame (`viewLog`).
+
+Result: FAIL for the alpha steps. The new item of step 4 is the marks of the route in the flight of a sequence step. The image parts and the boundary line are also in A.
+
+## U4: the problems of U2, U3 and the reviews of step 4, and their fixes (2026-11-07)
+
+Scope: the branch `claude/canvas-views` after 8afaba8, with the changes below. The scripts and the outputs are in the scratchpad folder `s5`. A is d8ac070 (main after PR #154), B is 8afaba8, and C is the working tree with the changes.
+
+### U4a: the changes
+
+| Problem | Change |
+|---|---|
+| A layer and the Changes view did not apply to the boundary flows from the portals. | A boundary flow stands for the nested flow of its port and for the flows of the map above that the port continues. It has the values of the one of these flows that shows the most (`boundaryView`). With the layer Control flow at the fit of Gateway, the frame draws no boundary flow. In the Changes view, the boundary flows of the lost flows Gateway->Auth and Gateway->Store have the change color, as their routes in the top map do. |
+| A roll-up that is not known showed no text on the screen. At the fit of the M11 tree, "changed inside" was too small to show. | The Changes view has a bar under the header (`cchg`). It gives the comparison and the roll-up of the current map: the map changes and the cards that are "changed inside", or the reason that the map changes are not known. It has one line, and two lines on a screen of 820 px or less, and the same height for each text. |
+| The reason of a roll-up that is not known ended with two periods. | The words remove the period at the end of the reason (`chgReason`). |
+| The tag CHANGED covered the name of a narrow card. | When the name and the tag do not fit side by side, the tag goes up onto the top edge of the card. The move follows the width of the card. |
+| The axe tests of the Changes view and the Sequences view skipped when axe-core was not there and SYSTEMAP_BROWSER_TESTS was "required". | They fail in that case (`no_axe` in tests/test_canvas_access.py). |
+| C4: the list of Find with no result had a paragraph in a listbox (aria-required-children, critical). | In the canvas page only, the text for no result is an option with `aria-disabled="true"`. The map page has the same bytes. |
+| C5: the Close button of Find was 42.9 px wide on a phone. | On a touch screen and on a screen of 640 px or less, the Close button and each row are 44 x 44 px or more. |
+| The keyboard focus went to the body after Start at step 1, Next to the last step and End sequence. | The focus goes to Next, Previous and Start at step 1 (`seqFocus`). |
+| The focus went to the body when a result of Find changed the view to or from Changes and a link of the list of the tree had opened Find. | When the list is written again, the same link of the new list gets the focus. |
+| On a phone, the toolbar of the Sequences view covered a focused link of the list of the tree. | A focused link of the list is over the bars of the views (z-index 5). |
+| The text for a page without a comparison came at one time. | It fades in and out in 160 ms, as the toolbar of the Sequences view. |
+| The route marks of a sequence appeared at one time in the flight of a step (alpha steps up to 0.61). | The part of the marks that the zoom shows changes by 0.2 or less in one frame (`seqZoom`). |
+| After a jump of the camera on the M11 tree, the portals Q2 and Q0 had one place (also on A). | A portal that covers a different portal goes back to its place (`dodgeTo`). |
+| On the three-level tree, a boundary flow had the alpha 0.25 and went at one time when its path changed (also on A). | A map with two ports to one neighbour in one direction gave a second, spare line with the same key. That line faded out the first line in each frame. Now the second port gives no line (`portalsOf`). The line has the alpha 1. |
+
+The cleanups of the review are in the commit: one function for each copy (`page_sequences.entry`, `flow_ids.step_index`, `page_changes.has_comparison`, `page_changes.empty`, `page.esc`, `counted`, `openWords`, `ringRect`, `backRect`, `drawLabels`, the view log, `FLOW_OFF`, `QUIET`, `attempts` in bench/jev/canvas_tree.py), and the layers of the canvas data in the tab order of the linked page. The bench scripts give the same values.
+
+### U4b: the causes of the C2 and C3 differences of U3a (diagnostic, no acceptance)
+
+These are diagnostics with 2 to 11 runs, interleaved, with no other browser process. They give causes, not acceptance values.
+
+- C3. A trace of the load of the M11 tree at 1x: the time to `ready` was about 15 ms longer on B and C than on A. The style and the layout of the page took about 6 ms and 10 ms more. The first forced layout of the script (`measure`) took 8 to 16 ms on C and about 2 ms on A. With the header text in a system font, that layout took 3 to 7 ms. With no header, it took about 2 ms. Thus the cause is the header: its text is the first text in the page font, and the browser decodes the font in that layout (about 6 ms), and the header layout is about 2 ms. A decodes the font later, after `ready`. B and C have the same load time (B 66.3 ms and C 65.5 ms, the medians of 11 runs each).
+- C2, the dive of the map of 400 cards at 4x. A trace of the dive: the main thread had 7 to 13 percent more work on C (before the change below) than on A. Most of it was the script of the frames (`FireAnimationFrame`, 731 ms against 627 ms in the dive). The calls of the seam for each card and each flow and the key text of each group of flows gave that work. In the Map view with all layers, a card or a flow with the plain value now keeps it with no call of the view part (`VIEW_IDLE`), and a flow with the plain value goes into the group of its layer with no new key text. After that change, the draw time of the dive was the same as on A (`systemapCanvas.record`: 638 ms and 665 ms on C against 658 ms and 660 ms on A).
+
+### U4c: C2 and C3, A/B/C (`canvas_frames.py`)
+
+The script is `s5/ab/run_ab.py`, with the acceptance values of U3a, written in its docstring before the first run:
+
+1. Each scenario of C passes its limit of `canvas_frames.py` (35.0 ms at 4x, 17.5 ms at 1x) in each quiet run.
+2. For each scenario, the median of the p95 values of C is less than the median of A plus one tick: a difference of 16.1 ms or more fails.
+3. C3 at 1x of C: the median of each data set is at most 1,500 ms. It fails if it is more than 10 percent above the median of A on both data sets.
+4. Information: C3 at 4x, and each value of B.
+
+The order was A1, C1, B1, C2, A2, B2, C3, A3, B3, with the quiet gate of 30 s and the process sampler of U3a. Run 1 used C with the fixes of U4a and without the change to the seam of U4b. Run 2 used C with that change too (a new copy, `s5/ab2`). In each run, some attempts were not quiet: the sampler found two zygote processes of Chromium, with no parent, in the last sample. These are the processes of the browser of the run itself, after it stops. These attempts are not in the tables. Each value in the tables is from a quiet attempt. The load average was 0.22 to 1.49.
+
+Run 1 (C without the change to the seam):
+
+| Data | Scenario | CPU | A | B | C | Median C - A |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 351, 256, 293 | 310, 287, 290 | 314, 296, 365 | +21.0 |
+| M11 shape | C3 load | 4x | 318, 287, 271 | 300, 345, 302 | 348, 337, 269 | +50.0 |
+| M11 tree | pan-fit | 4x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.7 | +0.1 |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.8 | 0 |
+| M11 tree | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | 0 |
+| 400 cards | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 |
+| 400 cards | dive | 4x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | 33.3, 33.4, 16.8 | +16.5 |
+| 1,500 cards | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.8 | -0.1 |
+| M11 shape | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.8 | -0.1 |
+| M11 shape | all-open | 4x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | 0 |
+| M11 shape | dive | 4x | 16.7, 16.7, 16.8 | 33.2, 16.8, 16.7 | 16.7, 16.7, 16.7 | 0 |
+| M11 tree | C3 load | 1x | 74, 72, 63 | 79, 78, 111 | 88, 108, 94 | +22.0 |
+| M11 shape | C3 load | 1x | 76, 64, 77 | 94, 76, 103 | 78, 92, 86 | +10.0 |
+| M11 tree | pan-fit | 1x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 0 |
+| M11 tree | all-open | 1x | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.7 | 0 |
+| M11 tree | dive | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.8 | 16.7, 16.8, 16.8 | +0.1 |
+| 400 cards | pan-fit | 1x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.7 | 16.8, 16.7, 16.8 | 0 |
+| 400 cards | dive | 1x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.8 | -0.1 |
+| 1,500 cards | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.8 | 0 |
+| M11 shape | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.7 | 16.8, 16.7, 16.7 | 0 |
+| M11 shape | all-open | 1x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | +0.1 |
+| M11 shape | dive | 1x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.8 | +0.1 |
+
+Run 2 (C with the change to the seam, as in the commit):
+
+| Data | Scenario | CPU | A | B | C | Median C - A |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 261, 243, 274 | 328, 332, 352 | 281, 288, 312 | +27.0 |
+| M11 shape | C3 load | 4x | 249, 247, 207 | 336, 300, 264 | 305, 288, 288 | +41.0 |
+| M11 tree | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | 16.8, 16.7, 16.7 | -0.1 |
+| M11 tree | all-open | 4x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.8 | 0 |
+| M11 tree | dive | 4x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.8 | +0.1 |
+| 400 cards | pan-fit | 4x | 16.7, 16.8, 16.8 | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 |
+| 400 cards | dive | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | 16.8, 16.8, 33.3 | 0 |
+| 1,500 cards | pan-fit | 4x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.8 | -0.1 |
+| M11 shape | pan-fit | 4x | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.7 | 16.7, 16.7, 16.8 | 0 |
+| M11 shape | all-open | 4x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | +0.1 |
+| M11 shape | dive | 4x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | 0 |
+| M11 tree | C3 load | 1x | 78, 64, 61 | 77, 86, 73 | 90, 87, 82 | +23.0 |
+| M11 shape | C3 load | 1x | 68, 63, 62 | 79, 97, 69 | 88, 91, 75 | +25.0 |
+| M11 tree | pan-fit | 1x | 16.8, 16.7, 16.8 | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.8 | 0 |
+| M11 tree | all-open | 1x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.8 | -0.1 |
+| M11 tree | dive | 1x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | +0.1 |
+| 400 cards | pan-fit | 1x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.7 | 0 |
+| 400 cards | dive | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 |
+| 1,500 cards | pan-fit | 1x | 16.8, 16.7, 16.8 | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 |
+| M11 shape | pan-fit | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.8 | 16.7, 16.7, 16.8 | 0 |
+| M11 shape | all-open | 1x | 16.8, 16.7, 16.8 | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.7 | 0 |
+| M11 shape | dive | 1x | 16.8, 16.7, 16.8 | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.7 | 0 |
+
+For the C3 rows, the values are the median load of each run, not a p95.
+
+Result of run 1: FAIL. Acceptance 1: PASS (the largest p95 of C is 33.4 ms). Acceptance 2: FAIL for the dive of the map of 400 cards at 4x (33.3 ms and 33.4 ms in 2 of the 3 runs of C). Acceptance 3: FAIL (C 94 ms against A 72 ms on the M11 tree, +31 percent; 86 ms against 76 ms on the M11 shape, +13 percent).
+
+Result of run 2: FAIL for acceptance 3 only.
+
+- Acceptance 1: PASS. The largest p95 of C is 33.3 ms at 4x and 16.8 ms at 1x.
+- Acceptance 2: PASS. The dive of the map of 400 cards at 4x had two ticks in 1 of the 3 runs of C (16.8, 16.8, 33.3). In U1a, U3a and the two runs of U4c together, that case had two ticks in 4 of the 12 runs of B and in 0 of the 12 runs of A. C had two ticks in 2 of the 3 runs without the change to the seam, and in 1 of the 3 runs with it.
+- Acceptance 3: FAIL. C3 of C is 87 ms against 64 ms on the M11 tree (+36 percent) and 88 ms against 63 ms on the M11 shape (+40 percent). It is much less than 1,500 ms. U4b gives the cause: the header and the decode of the page font for its text. B had 77 ms and 79 ms in the same run. A change that keeps the header and its font cannot remove this time. A layout after `ready` would only move the time out of the measurement.
+
+### U4d: C4, C5 and the keyboard paths again
+
+The script `s4-verify-access/access4.js` of U2, with no change, on the canvas pages of C (`s5/access/make_pages.py`): the fixture with sequences, the three-level tree with and without a comparison, the self-map and the M11 shape. axe-core 4.14.0 and Playwright 1.63.0 Chromium. These checks are not timings.
+
+| Item | Acceptance (U2) | Result |
+|---|---|---|
+| C4: axe-core in 510 runs on the 5 pages | 0 serious or critical issues in each run | PASS: 0 violations of each impact in each run, also with a Find text that has no result. No script error, and no request to a different host. |
+| C5: no horizontal scroll on the iPhone 13 | scroll width at most 390 px, scroll position 0 | PASS in each of the 119 places. |
+| C5: the targets of 44 x 44 px | the controls of the header, the sequence toolbar, the options, the Find rows, the Close button of Find and the Copy button | PASS: no target is smaller. The Close button of Find is 44 x 44 px. |
+| C5: Find by touch | as in U2 | PASS on the 5 pages. |
+| Keys: Tab, Shift+Tab, the focus outline, Find, the views, the layers and the Sequences view | as in U2 | PASS, with the same results as U2. |
+| Keys: the focus after a toolbar button | the focus stays on a control | PASS (`lost.js`): after Start at step 1, the focus is on Next. After Next to the last step, it is on Previous. After End sequence, it is on Start at step 1. This is the same with Enter and with Space, on the fixture and on the self-map. |
+
+### U4e: the behaviour of the fixes in a browser
+
+The script is `s5/probe.js`, on the pages of U3 made again with C (`systemap render --base` on the same Git histories), at 1440 x 900 and at 390 x 844 with touch. The screenshots are in `s5/shots`.
+
+- At the fit of Gateway, the frame draws 2 boundary flows with All and with the layer Data flow, and none with the layer Control flow. The live region gives "The current map shows 0 of 2 flows." In the Changes view, the 2 boundary flows have the change color, as the lost flows Gateway->Auth and Gateway->Store in the top map.
+- The three-level tree with a base revision that does not load: the bar gives "Compare 6661027 to HEAD. The map changes are not known, because the model at 6661027 does not load: map/p1.py:29: Python syntax error: '(' was never closed." with one period at the end. On the phone, the bar has two lines, and the second line ends with three dots. The live region gives all of the text.
+- The M11 tree at the top fit in the Changes view: the bar gives "Changed inside: P3." on the two screens. The tag CHANGED is above the name of P3 on the top edge of the card. In P3, the bar gives "Changed inside: Q1.".
+- A page without a comparison: the text fades in, with the opacity 0, 0.17, 0.32 and up to 1 in 160 ms.
+- Find from a link of the list of the tree to Changes and back to Map: the same link has the focus after each change.
+- On the phone, in the Sequences view, a focused link of the list is over the toolbar (`elementFromPoint` gives the link).
+- Find with no result: the text is an option with `aria-disabled`, and the status gives "0 results". The Close button is 44 x 44 px on the phone.
+- The portals after the jump of the camera to #P3/Q1/Deep/C5, #P3/Q1/Deep/C6 and #P3/Q1/Deep on the M11 tree (`s5/ab.js`): no two portals overlap on C. A and B have Q2 and Q0 at one place after the first two jumps.
+- No page error, and no request to a different host.
+
+### U4f: the motion probes again
+
+The probe `s4-verify-regress/views/motion_views.js` of U3b, with no change, on the pages of U3b made with C (`s5/motion/build_pages.py` and `inst.py`): m11, g400seq, self, changed and seq, in the Map, Sequences and Changes views, on 1440 x 900 light, 390 x 844 light, 844 x 390 light and 1440 x 900 dark: 60 runs of 1,411 to 2,239 frames. The alpha steps use the rule of U3b (`rejump.py`): a key of a card or of a route mark counts only when both frames have it. These checks are not timings.
+
+| Item | Acceptance (U3b) | Result |
+|---|---|---|
+| Errors | no script error | PASS: 0 in the 60 runs. |
+| Portals at a fit | no portal with show above 0.02 on a card of the open map | PASS: 0 in the 144 fits. |
+| Line pixels in a card | as in U3b | PASS: 0 in each run. |
+| Alpha steps | 0.25 or less between two frames | PASS for the route marks, the boundary lines, the portals, the text, the modes and the cards, with the two items below. |
+| Stop pixels | information | 4 frames with 50 pixels or more that change by more than 64 (55 to 68 pixels): 1 on m11 at 1440 x 900 in the Map view and 1 in the Sequences view, and 1 on changed at 844 x 390 in the Map view and 1 in the Sequences view. U3b had 5. |
+
+- The route marks of a sequence: the largest step is 0.2 (U3b: up to 0.61). On g400seq it is 0.13 to 0.18, and on self 0.11 to 0.2.
+- The boundary lines: the largest step is 0.21 (U3b: 0.251 to 0.258 on changed in 12 of 12 runs). On changed, no line step is above 0.25 in the 12 runs. The line to Base at the fit of P0 has the alpha 1 (it had about 0.25).
+- Not changed: a part of a map image in the step flights of g400seq at 390 x 844 and at 844 x 390 has a step of 0.336 (U3b: 0.33 to 0.34). A has the same (U3b, `flight.js`). This is the cross-fade of the images of step 2 in a fast flight. It is an open item for that code.
+- On g400seq in the Sequences view, the probe gives a step of 0.68 for the cards at the view change. The cards of that map are in its image, and `changes(map).cards` gives the target alpha of such a card. The image fades from the old view (`m._mt`), as in U3b. The probe also gave this value on B (U3b).
+
+Result of U4: the changes of U4a fix the problems of U2, U3 and the reviews, except acceptance 3 of U4c (C3 more than 10 percent above A, with the cause in U4b) and the image part of step 2 above. The required checks of AGENTS.md pass.

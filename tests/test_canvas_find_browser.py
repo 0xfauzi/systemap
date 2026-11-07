@@ -29,7 +29,10 @@ Acceptance values, written before the first run on 2026-11-07:
    dialog: the camera and the chain do not change, and the keyboard focus goes back to
    the canvas. / opens the dialog, Ctrl+K closes it, and Meta+K opens it. The dialog is
    on the screen only while it is open (added after the first run: in that run, the
-   dialog stayed on the screen when it was closed, and no test found it).
+   dialog stayed on the screen when it was closed, and no test found it). Added on
+   2026-11-07 (U4 in bench/jev/README.md): when a link of the list of the tree opens the
+   dialog, and a result changes the view to Changes and back to Map, that link keeps the
+   keyboard focus.
 6. axe-core AXE_VERSION finds no violation with the dialog open and results, with a result
    selected, and after Enter, at 1440 x 900 and 390 x 844 pixels (a phone with a touch
    screen), in the light and the dark scheme. On the phone, each row of the results and
@@ -170,6 +173,12 @@ def test_no_key_goes_to_the_camera_while_the_dialog_is_open(canvas: Path) -> Non
     assert out["closed"]["open"] is False and out["closed"]["camera"] == before["camera"]
     for name in ("before", "opened", "typed", "escaped", "slash", "toggled", "meta", "closed"):
         assert out[name]["shown"] is out[name]["open"], name
+    link = out["link"]
+    assert link["before"].startswith("0:")
+    assert link["views"] == [
+        {"active": link["before"], "mode": "changes"},
+        {"active": link["before"], "mode": "map"},
+    ]
 
 
 def test_axe_core_finds_no_issue_with_the_dialog(tree: Path) -> None:

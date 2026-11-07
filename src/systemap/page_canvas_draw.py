@@ -174,7 +174,8 @@ function boxNames(m, a, ox, oy, each) {
   m.regions.forEach(function (b, i) { var s = (i + 1) + '  ' + b.n; each(s, at(s, b.b), oy + a * (b.b[1] + 20), C['--ink-2']); });
 }
 // The view gives the alpha and the color of each flow (`viewFlow`). A group has one color,
-// one evidence state and one alpha, in steps of 1/16.
+// one evidence state and one alpha, in steps of 1/16. A flow with the plain value goes into
+// the group of its layer and its evidence (`_pk`), with no new key text.
 function drawFlows(g, list, a, ox, oy, alpha, arrows) {
   if (alpha <= 0.02 || !list.length) return;
   var groups = new Map(), width = clamp(1.3 * a, 0.6, 2), head = clamp(7 * a, 3, 8);
@@ -188,6 +189,12 @@ function drawFlows(g, list, a, ox, oy, alpha, arrows) {
     if (!f.p.length) return;
     var v = viewFlow(f);
     if (!VIEW_AIM) STATS.flows++;
+    if (v.a === 1 && v.u === 1 && v.color === null) {
+      var key = f._pk || (f._pk = f.l + '|' + f.ev), e = groups.get(key);
+      if (!e) { e = {color: flowColor(f, null), ev: f.ev, alpha: 1, list: []}; groups.set(key, e); }
+      e.list.push(f);
+      return;
+    }
     add(f, flowColor(f, v.color), v.a * v.u);
     if (v.u < 1) add(f, flowColor(f, v.from), v.a * (1 - v.u));
   });
@@ -245,7 +252,7 @@ function cardBox(c, x, y, w, h, alpha) {
   var v = viewCard(c), t = cardShow(h), k = colors(c), r = cardCorner(w, h);
   alpha *= v.a;
   if (t < 1) FILL.rect(k.mark, alpha * (1 - t), x, y, w, h, 0);
-  viewMarksAt(v, x, y, w, h, alpha);
+  viewMarksAt(c, v, x, y, w, h, alpha);
   if (t <= 0) return;
   if (c.child) { BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r); viewBack(v, x, y, w, h, r, alpha * t); }
   FILL.rect(k.fill, alpha * t, x, y, w, h, r);
@@ -276,7 +283,7 @@ function drawOpening(c, a, ox, oy, alpha) {
     details(c, ox + a * s[0], oy + a * s[1], a * s[2], a * s[3], alpha * (1 - 0.4 * o), titleRaw(h));
   }
   NOTE = false;
-  viewOpening(v, x, y, w, h, r, alpha, o);
+  viewOpening(c, v, x, y, w, h, r, alpha, o);
   drawMap(c.child, alpha * pv, o);
 }
 
@@ -377,14 +384,16 @@ function neighbour(chain, i, id) {
 // One portal for each neighbour card. A portal has one boundary flow for each direction
 // of a port to that neighbour. The deepest map that has a port in that direction gives it.
 // A port of a map above that gave a visible flow in the last frames stays as a `spare`
-// line of its portal, so that its flow fades out (`fadeOf`).
+// line of its portal, so that its flow fades out (`fadeOf`). A second port of the same map
+// in the same direction gives no line: its line has the same key, and a spare line with that
+// key would fade out the line of the first port in the same frame.
 function portalsOf(chain) {
   var out = [], seen = {}, at = new Map();
   for (var i = chain.length - 1; i >= 0; i--) {
     var m = chain[i].child;
     (m.ports || []).forEach(function (p) {
       var key = p.x + '|' + p.d;
-      if (seen[key] && !FADE.size) return;
+      if (seen[key] && (!FADE.size || seen[key] === m)) return;
       var nb = neighbour(chain, i, p.x);
       if (!nb) return;
       if (seen[key]) {
@@ -392,7 +401,7 @@ function portalsOf(chain) {
         if (s && FADE.has(lineKey(nb, p, m))) s.lines.push({p: p, m: m, open: chain[i], spare: true});
         return;
       }
-      seen[key] = true;
+      seen[key] = m;
       var t = at.get(nb);
       if (!t) {
         var r = screenBox(nb);
@@ -657,17 +666,18 @@ function boundaryPath(t, l) {
 function drawBoundary(t, l) {
   var key = lineKey(t.nb, l.p, l.m), b = boundaryPath(t, l), paths = fadeOf(key, b, t, l);
   if (!paths.length) return;
-  var color = C['--l-' + flowLayer(l)] || C['--flow'], most = 0;
+  var v = boundaryView(l), most = 0;
   paths.forEach(function (one) {
-    var p = one.pts.slice(), n = p.length, alpha = t.show * one.v;
+    var p = one.pts.slice(), alpha = t.show * one.v * v.a;
+    if (alpha <= 0.01) return;
     if (l.p.d === 'in') p.reverse();
     layerHold(p, 10);
     most = Math.max(most, alpha);
     LINKS.push({id: t.nb.id, d: l.p.d, points: p, key: key + '#' + one.i, alpha: alpha});
-    ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
-    ctx.beginPath(); cutLine(ctx, p, 0, 0, 1); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = color; ctx.beginPath(); arrowHead(ctx, p[n - 1][0], p[n - 1][1], p[n - 2][0], p[n - 2][1], 8); ctx.fill();
+    boundaryLine(p, v.color, alpha * v.u);
+    if (v.from) boundaryLine(p, v.from, alpha * (1 - v.u));
   });
+  if (most <= 0) return;
   // The port: a small circle on the frame of the open card.
   layerHold([b.port], 6);
   ctx.globalAlpha = most * 0.9; ctx.fillStyle = C['--map']; ctx.beginPath(); ctx.arc(b.port[0], b.port[1], 3.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
@@ -706,11 +716,6 @@ function drawPortals(list, path) {
     var out = t.side ? P_PAD : t.y < H / 2 ? 2 * P_PAD : 0;
     HITS.push({x: x, y: y - out, w: w, h: h + 2 * P_PAD, box: [x, y, w, h], kind: 'portal', id: t.nb.id, map: t.nb.map.id, show: t.show, go: function () { flyTo(worldBox(t.nb), 0.3); }});
   });
-}
-function flowLayer(l) {
-  if (l.p.f !== undefined && l.m.flows[l.p.f]) return l.m.flows[l.p.f].l;
-  var up = l.m.owner && l.m.owner.map, f = up && (l.p.pf || []).length ? up.flows[l.p.pf[0]] : null;
-  return f ? f.l : '';
 }
 
 // ---- the path, the help line and the frame readout ---------------------------

@@ -34,6 +34,7 @@ import pytest
 from test_canvas_page import DATA, _loaded, _made, _read
 
 from systemap import canvas_data, canvas_header, canvas_page, page, page_canvas
+from systemap.model import all_layers
 
 # The pages that d8ac070 writes for the fixture without `[render] canvas`.
 MAIN_PAGES = {
@@ -96,7 +97,9 @@ def test_the_header_has_the_views_the_layers_and_find(canvas_root: Path) -> None
     assert '<h1 class="cbar__name">join</h1>' in text
 
 
-def test_the_layers_of_the_top_map_come_first(canvas_root: Path) -> None:
+def test_the_layers_of_the_top_map_come_first(
+    canvas_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Acceptance 3."""
     data = _data(canvas_root)
     cfg, tree, facts = _loaded(canvas_root)
@@ -119,26 +122,22 @@ def test_the_layers_of_the_top_map_come_first(canvas_root: Path) -> None:
         {"id": "data", "n": "Data", "q": "Q1"},
         {"id": "agents", "n": "Agents", "q": "Q2"},
     ]
-    system_first = {
-        "maps": [
-            {
-                "layers": [
-                    {"id": "structure", "n": "Structure", "q": "", "e": []},
-                    {"id": "system", "n": "System context", "q": "", "e": [1]},
-                ]
-            }
-        ]
-    }
-    assert [lay["id"] for lay in canvas_header.layers(system_first)] == ["system", "structure"]
-    system_empty = {
-        "maps": [
-            {
-                "layers": system_first["maps"][0]["layers"][:1]
-                + [{"id": "system", "n": "System context", "q": "", "e": []}]
-            }
-        ]
-    }
-    assert [lay["id"] for lay in canvas_header.layers(system_empty)] == ["structure", "system"]
+    # The canvas data gives the layers of each map in the tab order of the linked page.
+    # The header keeps that order.
+    by_id = {m["id"]: m for m in data["maps"]}
+    for m in tree.maps:
+        tab = [lay.id for lay in page.tab_layers(m.model, m.meaning)]
+        assert [lay["id"] for lay in by_id[m.id]["layers"]] == tab, m.id
+    # System context comes first when its layer has flows, also when the model gives it
+    # later (`page.tab_layers`).
+    given = [lay.id for lay in all_layers(tree.top.model, tree.top.meaning)]
+    assert given.index("system") > 0
+    monkeypatch.setattr(
+        canvas_data, "reading", lambda model, meaning, lid: ([0] if lid == "system" else [], [])
+    )
+    assert [lay["id"] for lay in canvas_data._layers(tree.top)[0]] == ["system"] + [
+        lid for lid in given if lid != "system"
+    ]
 
 
 def test_the_slots_of_the_view_parts(canvas_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:

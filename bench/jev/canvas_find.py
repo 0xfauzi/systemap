@@ -33,6 +33,7 @@ Run from the repository root (Node and the Playwright package must be installed)
 
 from __future__ import annotations
 
+import functools
 import gzip
 import json
 import os
@@ -142,20 +143,6 @@ def _bytes(pages: dict[str, Path]) -> bool:
     return same and size["B"][0] - size["A"][0] <= BYTES_LIMIT
 
 
-def _attempts(which: str, page: Path, n: int) -> dict[str, Any]:
-    """Make run `which` n, again until it is quiet, in ATTEMPTS attempts or fewer."""
-    found: dict[str, Any] = {}
-    for attempt in range(1, ATTEMPTS + 1):
-        waited = gate._gate()
-        found = _run(which, page)
-        found |= {"run": f"{which}{n}", "attempt": attempt, "waited": round(waited)}
-        found["quiet"] = not found["foreign"]
-        print(json.dumps(found), flush=True)
-        if found["quiet"]:
-            break
-    return found
-
-
 def _verdict(quiet: list[dict[str, Any]]) -> bool:
     """Print the values of the quiet runs and give the result of acceptance 2 to 4."""
     b = [r for r in quiet if r["run"][0] == "B"]
@@ -188,7 +175,11 @@ def main() -> int:
         count = {"A": 0, "B": 0}
         for which in ORDER:
             count[which] += 1
-            runs.append(_attempts(which, pages[which], count[which]))
+            runs.append(
+                gate.attempts(
+                    functools.partial(_run, which, pages[which]), f"{which}{count[which]}", ATTEMPTS
+                )
+            )
         quiet = [r for r in runs if r["quiet"]]
         ok &= _verdict(quiet)
         print("quiet runs:", ", ".join(r["run"] for r in quiet) or "none")

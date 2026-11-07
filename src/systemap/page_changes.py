@@ -12,6 +12,7 @@ claim more than these records show."""
 from __future__ import annotations
 
 import html
+from collections.abc import Mapping
 from typing import Any
 
 from systemap import page_changes_map
@@ -24,7 +25,7 @@ def esc(text: object) -> str:
     return html.escape(str(text), quote=True)
 
 
-def has_comparison(ch: dict[str, Any]) -> bool:
+def has_comparison(ch: Mapping[str, Any]) -> bool:
     """Tell if the page was made with a base revision."""
     return bool(ch.get("has_change") or ch.get("comparison_requested"))
 

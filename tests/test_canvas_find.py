@@ -6,6 +6,9 @@ Acceptance values, written before the first run on 2026-11-07:
    `page_palette.CSS` have the SHA-256 digests of commit d8ac070. The canvas part has the
    match code and the code of the list and of the dialog of the map page as the same text
    (`page_palette.MATCH` and `page_palette.LIST`).
+   Change on 2026-11-07, after the C4 check U2 in bench/jev/README.md: in the canvas part,
+   the text for no result in the list code has the role option and `aria-disabled`. The
+   map page does not change.
 2. The canvas data does not change: the data element of the canvas page is the text of
    `canvas_data.text`. The page has the dialog one time. The Find part (script, CSS and
    dialog) adds 32,000 bytes or less to the canvas page.
@@ -67,7 +70,14 @@ def test_the_map_page_does_not_change() -> None:
     assert found == DIGESTS
     for shared in (page_palette.MATCH, page_palette.LIST):
         assert shared in page_palette.SCRIPT
-        assert shared.replace("</", "<\\/") in page_canvas_find.FIND
+    assert page_palette.MATCH.replace("</", "<\\/") in page_canvas_find.FIND
+    assert page_canvas_find.LIST.replace("</", "<\\/") in page_canvas_find.FIND
+    # The one change of the list code: the text for no result is an option that is not
+    # available, because a listbox has only options and groups.
+    none = '<p class="pal__none"'
+    assert page_canvas_find.LIST == page_palette.LIST.replace(
+        none, none + ' role="option" aria-disabled="true"'
+    )
     assert page_canvas_find.FIND in page_canvas.SCRIPT
 
 

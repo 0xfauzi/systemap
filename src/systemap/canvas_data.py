@@ -124,7 +124,10 @@ def _some(**fields: Any) -> dict[str, Any]:
 
 
 def _layers(m: nest.Map) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
-    """Give the layers of the map, and the subject layers of each card."""
+    """Give the layers of the map, and the subject layers of each card.
+
+    The layers are in the tab order of the linked page (`page.tab_layers`): System context
+    comes first when its layer has flows."""
     out: list[dict[str, Any]] = []
     subject_of: dict[str, list[str]] = {}
     for layer in all_layers(m.model, m.meaning):
@@ -136,7 +139,8 @@ def _layers(m: nest.Map) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
         if layer.id != "structure":
             for cid in subjects:
                 subject_of.setdefault(cid, []).append(layer.id)
-    return out, subject_of
+    system = [one for one in out if one["id"] == "system" and one["e"]]
+    return system + [one for one in out if one not in system], subject_of
 
 
 def _card(

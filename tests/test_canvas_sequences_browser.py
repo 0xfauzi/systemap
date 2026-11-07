@@ -3,9 +3,9 @@
 The test drives real canvas pages in the Chromium of Playwright (tests/canvas_sequences.js):
 the fixture of tests/canvas_sequenced.py (a top map and the nested map Gateway, each with
 sequences), the same fixture with a step that names no flow (`_minus_page`), and the
-self-map of this repository (16 sequences and 69 steps). The test skips when Node or the
-Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is "required" (the CI
-job canvas-browser).
+self-map of this repository (16 sequences and 69 steps). The test skips when Node, the
+Playwright package or axe-core is not there, except when SYSTEMAP_BROWSER_TESTS is
+"required" (the CI job canvas-browser). Then it fails.
 
 Acceptance values, written before the first run:
 
@@ -32,6 +32,9 @@ Acceptance values, written before the first run:
    arrow keys, Home, End, +, - and F move the keyboard focus between the options and do not
    move the camera. Escape closes the list, gives the focus to the chooser, and does not go
    out of the map (`goOut`). On the canvas, an arrow key still moves the camera.
+   Added on 2026-11-07 (U4 in bench/jev/README.md): after Enter on Start at step 1, on Next
+   to the last step and on End sequence, the keyboard focus is on Next, Previous and Start
+   at step 1. It does not go to the body of the page.
 6. axe-core 4.14.0 finds no serious or critical violation with the toolbar shown in the
    Whole route, in the Steps mode and with the list open, at 1440 x 900 and 390 x 844
    pixels, in the light and the dark scheme. At 390 x 844 with a touch screen, each control
@@ -51,7 +54,7 @@ from typing import Any
 import canvas_sequenced
 import pytest
 from conftest import write_tree
-from test_canvas_access import AXE_VERSION
+from test_canvas_access import AXE_VERSION, no_axe
 from test_canvas_browser import browser
 
 from systemap import canvas_data, canvas_page, config, facts_file, nest
@@ -276,6 +279,7 @@ def test_the_keys_of_the_toolbar_and_the_listbox(fixture_page: Path) -> None:
     assert not keys["escaped"]["list"] and keys["escaped"]["at"] == "cseq-pick"
     assert keys["right"]["at"] == "cseq-whole"
     assert not _close(found["canvas"]["cam"], before)
+    assert found["focus"] == {"start": "cseq-next", "last": "cseq-prev", "end": "cseq-start"}
 
 
 def test_access_and_the_phone(fixture_page: Path) -> None:
@@ -291,7 +295,7 @@ def test_access_and_the_phone(fixture_page: Path) -> None:
 def _check_axe(run: dict[str, Any]) -> None:
     for name, axe in run["axe"].items():
         if axe is None:
-            pytest.skip(f"the access test needs axe-core {AXE_VERSION} for Node")
+            no_axe(f"the access test needs axe-core {AXE_VERSION} for Node")
         assert axe["version"] == AXE_VERSION, name
         bad = [v for v in axe["violations"] if v["impact"] in ("serious", "critical")]
         assert bad == [], (run["screen"], run["scheme"], name, bad)

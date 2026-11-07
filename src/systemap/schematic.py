@@ -36,7 +36,6 @@ from systemap.model import (
     DERIVED_LAYERS,
     Meaning,
     Model,
-    Step,
     all_layers,
     build_state,
     entry_module,
@@ -578,7 +577,7 @@ def render(
                 {
                     "acts": list(s.acts),
                     "measures": list(s.measures),
-                    "edge": _step_index(s, model, edge_index),
+                    "edge": flow_ids.step_index(s, model, edge_index),
                     "say": s.say,
                 }
                 for s in j.steps
@@ -745,9 +744,3 @@ def view_data(
         f'data-fit="{x0:g} {y0:g} {round(x1 - x0, 1):g} {round(y1 - y0, 1):g}" '
         f'data-grow="{grow:.3f}" data-read="{read:.3f}" '
     )
-
-
-def _step_index(step: Step, model: Model, edge_index: dict[str, int]) -> int:
-    """Give the index of the flow of a sequence step, or -1 if the step names no one flow."""
-    found = flow_ids.step_flow(step, model.flows)[0]
-    return -1 if found is None else edge_index[found.key]

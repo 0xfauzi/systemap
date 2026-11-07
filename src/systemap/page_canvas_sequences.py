@@ -33,10 +33,16 @@ names show. It moves at the same zoom when that is sufficient. The live region g
 
 Each change fades. The seam fades the values of the cards and the flows. The step numbers
 and the wide line fade in this part, with the step of the view (VIEW_STEP): 0.2 or less in
-one frame, and 1 in 160 ms or more. With reduced motion, each change and each camera move
-occur at one time. A frame draws the route only for the map of the sequence, when that
+one frame, and 1 in 160 ms or more. They show when the cards of the map show names. That
+part follows the zoom, also with the step of the view (`seqZoom`). Thus the flight of a step
+does not make a mark appear at one time. With reduced motion, each change and each camera
+move occur at one time. A frame draws the route only for the map of the sequence, when that
 map is on the screen. The work of a frame for this part is one table read for each drawn
 card and flow, and the steps of the route.
+
+The keyboard focus. When the focused button of the toolbar becomes hidden or disabled (Start
+at step 1, End sequence, or Next at the last step), the focus goes to the button of the next
+action (`seqFocus`). It does not go to the body of the page.
 """
 
 from __future__ import annotations
@@ -119,11 +125,13 @@ SEQ_PART = r"""
 // ---- the Sequences view ------------------------------------------------------------
 var SEQ_MAPS = ORDER.filter(function (m) { return m.sq && m.sq.length; });
 var SEQ = {m: null, j: null, k: -1, steps: false, s: 0}, SEQ_CARDS = Object.create(null), SEQ_FLOWS = Object.create(null);
-var SEQ_CARD_DIM = 0.32, SEQ_FLOW_DIM = 0.16, SEQ_LATER = 0.4;
+var SEQ_CARD_DIM = QUIET, SEQ_FLOW_DIM = 0.16, SEQ_LATER = 0.4;
 var SEQ_DIM = {a: SEQ_CARD_DIM, ring: null, tag: null, back: null}, SEQ_FLOW_OFF = {a: SEQ_FLOW_DIM, color: null}, SEQ_FLOW_LATER = {a: SEQ_LATER, color: null};
 // The marks of the route that this part draws: the step numbers and the wide line of the
 // step. Each has its map, its flow, its alpha `a` and its target `to`.
 var SEQ_MARKS = [], SEQ_AT = -1, SEQ_BAR = document.getElementById('cseq'), SEQ_BAR_H = 0, SEQ_LOG = null;
+// The part of the route marks that the zoom shows (`seqZoom`), for each map.
+var SEQ_ZOOM = new Map();
 function seqEl(id) { return document.getElementById('cseq-' + id); }
 var SEQ_PICK = seqEl('pick'), SEQ_LIST = seqEl('list'), SEQ_NAME = SEQ_PICK ? SEQ_PICK.querySelector('.cseq__name') : null;
 function seqStart(j) {
@@ -186,6 +194,18 @@ function seqAdvance() {
     return e.a > 0 || e.to > 0;
   });
 }
+// The marks show when the cards of the map show names (`cardShow`). That part follows the
+// zoom, but it changes by VIEW_STEP or less in one frame. Thus a fast camera move, for
+// example the flight to a step, does not make a mark appear at one time. A map that the
+// frame before did not draw starts at the value of its zoom.
+function seqZoom(m, a) {
+  var to = cardShow(m.maxH * a), z = SEQ_ZOOM.get(m);
+  if (!z || z.at < drawn - 1) z = {v: to, at: drawn};
+  else if (z.at !== drawn) z = {v: approach(z.v, to, VIEW_STEP), at: drawn};
+  SEQ_ZOOM.set(m, z);
+  if (z.v !== to) VIEW_FADING = true;
+  return z.v;
+}
 function seqCircle(x, y, r, fill, line, al) {
   ctx.globalAlpha = al; ctx.setLineDash([]); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fillStyle = fill; ctx.fill();
@@ -196,7 +216,7 @@ var SEQ_PILL = {route: ['--accent', null, '--map'], now: ['--accent', null, '--m
 function seqDraw(m, a, ox, oy, alpha) {
   // `alpha` has the fade of the view. A mark shows with the smaller of that fade and its own
   // fade, so that two fades at one time do not make a larger step.
-  var vs = VIEW_SHOW.sequences, show = (vs > 0 ? alpha / vs : 0) * cardShow(m.maxH * a), fs = labelSize(a), r = clamp(fs * 0.8, 7, 10), labels = hasLabels(fs, labelAlpha(a, 1));
+  var vs = VIEW_SHOW.sequences, show = (vs > 0 ? alpha / vs : 0) * seqZoom(m, a), fs = labelSize(a), r = clamp(fs * 0.8, 7, 10), labels = hasLabels(fs, labelAlpha(a, 1));
   var log = SEQ_LOG ? {at: performance.now(), map: m.id, marks: []} : null;
   if (show > 0.02) {
     SEQ_MARKS.forEach(function (e) {
@@ -206,11 +226,7 @@ function seqDraw(m, a, ox, oy, alpha) {
       ctx.globalAlpha = al; ctx.strokeStyle = flowColor(f, null); ctx.lineWidth = clamp(2.6 * a, 1.6, 3.2); ctx.setLineDash([]);
       ctx.beginPath(); cutLine(ctx, f.p, ox, oy, a); ctx.stroke();
       // The label of the flow stays over the wide line, as it is over the usual line.
-      var la = labelAlpha(a, al);
-      if (f.lb && hasLabels(fs, la)) {
-        plates([f], a, ox, oy, fs, function (px, py, pw, ph) { ctx.globalAlpha = la * 0.9; ctx.fillStyle = C['--map']; ctx.beginPath(); rr(ctx, px, py, pw, ph, 3); ctx.fill(); });
-        text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], la, 500, false, 'center');
-      }
+      drawLabels([f], a, ox, oy, al);
       if (log) log.marks.push({kind: 'wide', f: f.i, a: al});
     });
     SEQ_MARKS.forEach(function (e) {
@@ -286,8 +302,18 @@ function seqMode(steps, s, camera) {
   say(seqWords());
 }
 function seqStep(d) { if (SEQ.j && SEQ.steps) { var s = SEQ.s + d; if (s >= 0 && s < SEQ.j.s.length) seqMode(true, s, true); } }
+// When the focused control of the toolbar becomes hidden or disabled, the keyboard focus
+// goes to the control that does the next action: Next after Start at step 1, Start at step 1
+// after End sequence, Previous after the last step, and Next after the first step.
+var SEQ_NEXT_FOCUS = {start: 'next', end: 'start', next: 'prev', prev: 'next'};
+function seqFocus(was) {
+  if (!was || !SEQ_BAR.contains(was) || (!was.disabled && was.offsetParent)) return;
+  var to = seqEl(SEQ_NEXT_FOCUS[(was.id || '').replace('cseq-', '')] || 'steps');
+  if (to && (to.disabled || !to.offsetParent)) to = seqEl('end');
+  if (to && !to.disabled && to.offsetParent) to.focus();
+}
 function seqSync() {
-  var j = SEQ.j, n = j ? j.s.length : 0, steps = !!j && SEQ.steps;
+  var j = SEQ.j, n = j ? j.s.length : 0, steps = !!j && SEQ.steps, was = document.activeElement;
   if (SEQ_NAME) SEQ_NAME.textContent = j ? j.n : 'No sequence';
   seqEl('whole').setAttribute('aria-pressed', steps ? 'false' : 'true');
   seqEl('steps').setAttribute('aria-pressed', steps ? 'true' : 'false');
@@ -295,6 +321,7 @@ function seqSync() {
   seqEl('whole').disabled = !j; seqEl('steps').disabled = !n; seqEl('start').disabled = !n;
   seqEl('count').textContent = steps ? 'Step ' + (SEQ.s + 1) + ' of ' + n : '';
   seqEl('prev').disabled = !steps || SEQ.s <= 0; seqEl('next').disabled = !steps || SEQ.s >= n - 1;
+  seqFocus(was);
 }
 
 // ---- the chooser: a button that opens the listbox of the sequences ---------------------
@@ -402,10 +429,9 @@ if (SEQ_MAPS.length && SEQ_BAR && SEQ_PICK && SEQ_LIST) {
       // The bar comes into the page, and its height is measured before the fade starts.
       SEQ_BAR.hidden = false; VIEWS.sequences.band(true);
       SEQ_BAR.classList.add('on');
-      // The header gives the words of the view after this call. The words of the sequence
-      // come after them, in one text.
-      setTimeout(function () { if (VIEW.mode === 'sequences' && SEQ.j) say('View: Sequences. ' + seqWords()); }, 0);
     },
+    // The words of the view for the live region: the words of the sequence (`viewWords`).
+    words: function () { return SEQ.j ? seqWords() : ''; },
     leave: function () {
       seqShut(false); SEQ_BAR.classList.remove('on');
       // The bar goes out of the page after its fade (the CSS transition of 160 ms).

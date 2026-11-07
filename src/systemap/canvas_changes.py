@@ -35,7 +35,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import delta_model, evidence, nest, schematic_change
+from systemap import delta_model, evidence, nest, page_changes, schematic_change
 from systemap.delta_model import MapChange
 
 # The groups of a roll-up count, with the noun of one item.
@@ -131,17 +131,12 @@ def rollups(tree: nest.Tree, changes: Mapping[str, Mapping[str, Any]]) -> Rollup
     errors = []
     for m in tree.maps:
         ch = changes.get(m.id) or {}
-        if not compared(ch):
+        if not page_changes.has_comparison(ch):
             continue
         one = ch.get("map")
         found[m.id] = one if isinstance(one, MapChange) else None
         errors.append(one.error if isinstance(one, MapChange) else NO_MAP_CHANGES)
     return Rollups(records(tree, found), next((e for e in errors if e), ""))
-
-
-def compared(ch: Mapping[str, Any]) -> bool:
-    """Tell if the change data has a revision comparison (`page_changes.has_comparison`)."""
-    return bool(ch.get("has_change") or ch.get("comparison_requested"))
 
 
 def marks(
@@ -166,10 +161,8 @@ def keys(
     ch: Mapping[str, Any],
     found: Rollups,
 ) -> dict[str, Any]:
-    """Give the change keys of one map (see the module docstring), or no key for a map
-    without a revision comparison."""
-    if not compared(ch):
-        return {}
+    """Give the change keys of one map (see the module docstring). The caller calls it only
+    for a map with a revision comparison (`page_data.comparison`)."""
     got = marks(m, backed, ch)
     out: dict[str, Any] = {
         "cm": {cid: mark for cid, mark in got.cards.items() if mark != "none"},

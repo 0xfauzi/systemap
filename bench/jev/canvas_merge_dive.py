@@ -38,6 +38,7 @@ Run from the repository root, with the five tree objects given in the order H C 
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import statistics
@@ -121,18 +122,9 @@ def _measure(page: Path) -> dict[str, Any]:
     return out
 
 
-def _attempts(page: Path, name: str, n: int) -> dict[str, Any]:
-    found: dict[str, Any] = {}
-    for attempt in range(1, gate.ATTEMPTS + 1):
-        waited = gate._gate()
-        found = _measure(page)
-        found |= {"run": f"{name}{n}", "attempt": attempt, "waited": round(waited)}
-        found["quiet"] = not found["foreign"]
-        found["loadavg"] = os.getloadavg()[0]
-        print(json.dumps(found), flush=True)
-        if found["quiet"]:
-            break
-    return found
+def _loaded(page: Path) -> dict[str, Any]:
+    """Give the values of one run and the load average after it."""
+    return _measure(page) | {"loadavg": os.getloadavg()[0]}
 
 
 def _row(quiet: list[dict[str, Any]], name: str, v: str) -> float:
@@ -170,7 +162,9 @@ def main() -> int:
         runs: list[dict[str, Any]] = []
         for k in range(ROUNDS):
             for name in NAMES[k % len(NAMES) :] + NAMES[: k % len(NAMES)]:
-                runs.append(_attempts(pages[name], name, k + 1))
+                runs.append(
+                    gate.attempts(functools.partial(_loaded, pages[name]), f"{name}{k + 1}")
+                )
     ok = _verdict(runs)
     print("result:", "pass" if ok else "fail")
     return 0 if ok else 1

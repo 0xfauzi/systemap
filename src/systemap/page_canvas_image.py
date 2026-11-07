@@ -43,7 +43,7 @@ function marksImage(m, a) {
     m.cards.forEach(function (card) {
       var v = cardAim(card), x = s * card.b[0], y = s * card.b[1], cw = s * card.b[2], ch = s * card.b[3];
       marks.rect(colors(card).mark, v.a, x, y, cw, ch, 0);
-      if (v.ring) rings.rect(markColor(v.ring), 1, x - 3, y - 3, cw + 6, ch + 6, 3, v.ring.w || 2, v.ring.d);
+      if (v.ring) ringRect(rings, v.ring, 1, x, y, cw, ch, 0);
     });
     marks.flush(g); rings.flush(g);
   });
@@ -147,7 +147,7 @@ function imageParts(m, s) {
       var v = viewCard(c), x = s * c.b[0], y = s * c.b[1], w = s * c.b[2], h = s * c.b[3];
       if (!hasText(h)) return;
       cardText(c, x, y, w, h, v.a);
-      if (v.tag || v.note) drawTag(v, x, y, w, h, 1);
+      if (v.tag || v.note) drawTag(v, x, y, w, h, 1, c);
     });
   });
   return parts;

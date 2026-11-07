@@ -86,6 +86,14 @@ async function marks(file, nested, light) {
   out.escaped = { said: await page.evaluate(() => document.getElementById('canvas-said').textContent), chain: await page.evaluate(() => window.systemapCanvas.chain()), errors };
   out.bad = await page.evaluate(() => window.systemapCanvas.setView('nothing'));
   await context.close();
+  // The boundary flows at the fit of P0 in the Map view, on a narrow screen (Base is then
+  // not on the screen). P0 has two ports to Base in the same direction: one line.
+  {
+    const { context, page, errors } = await opened(browser, { viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' }, file, '#P0');
+    await settle(page, 600);
+    out.p0 = { links: await page.evaluate(() => window.systemapCanvas.links().map((l) => [l.key, l.alpha])), errors };
+    await context.close();
+  }
   await browser.close();
   return out;
 }
@@ -94,12 +102,12 @@ async function marks(file, nested, light) {
 // call to the first frame with the target alpha.
 const fadeTo = (page, view) => page.evaluate((view) => new Promise((done) => {
   const S = window.systemapCanvas;
-  S.changeRecord();
+  S.viewLog();
   const t0 = performance.now();
   S.setView(view);
   setTimeout(() => {
-    const log = S.changeRecorded(), to = view === 'changes' ? 1 : 0, at = log.find((e) => e.t === to);
-    done({ t: log.map((e) => e.t), ms: at ? at.at - t0 : null });
+    const log = S.viewLogged(), to = view === 'changes' ? 1 : 0, at = log.find((e) => e.show.changes === to);
+    done({ t: log.map((e) => e.show.changes), ms: at ? at.at - t0 : null });
   }, 700);
 }), view);
 

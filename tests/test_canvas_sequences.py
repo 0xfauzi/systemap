@@ -4,9 +4,10 @@
 Acceptance values, written before the first run:
 
 1. For each sequence and each step of the self-map (16 sequences and 69 steps), the flow
-   index `f` in the canvas data is equal to `schematic._step_index` for that step. The
-   acts, the measures, the sentence, the label, the start, the draft flag and the short
-   entry point name are those of the model and of `page_sequences.data`.
+   index `f` in the canvas data is equal to `flow_ids.step_index` for that step (the rule
+   of the linked page, `schematic`). The acts, the measures, the sentence, the label, the
+   start, the draft flag and the short entry point name are those of the model and of
+   `page_sequences.data`.
 2. The canvas data of a tree without sequences has no key `sq` and the same bytes as
    without the sequence part. In a tree with sequences, only a map with sequences has
    the key `sq`.
@@ -35,10 +36,10 @@ from systemap import (
     canvas_sequences,
     config,
     facts_file,
+    flow_ids,
     nest,
     page_csp,
     page_sequences,
-    schematic,
 )
 from systemap.cli import main
 from systemap.model import Step
@@ -78,7 +79,7 @@ def test_the_flow_of_each_step_is_the_flow_of_the_linked_page(self_tree: Any) ->
         )
         assert one.get("en", "") == meta["entry"]
         for step, s in zip(one["s"], j.steps, strict=True):
-            assert step["f"] == schematic._step_index(s, top.model, edge_index)
+            assert step["f"] == flow_ids.step_index(s, top.model, edge_index)
             assert (step.get("a", []), step.get("me", []), step.get("y", "")) == (
                 list(s.acts),
                 list(s.measures),
@@ -88,7 +89,7 @@ def test_the_flow_of_each_step_is_the_flow_of_the_linked_page(self_tree: Any) ->
 
 
 def test_a_step_that_names_no_one_flow_has_the_index_minus_one(tmp_path: Path) -> None:
-    """Acceptance 1: the rule of `schematic._step_index` for a step with no one flow.
+    """Acceptance 1: the rule of `flow_ids.step_index` for a step with no one flow.
 
     A model check refuses such a step, so the step is made here and not in a map file."""
     cfg, tree, facts = _made(tmp_path, canvas_sequenced.files())
@@ -100,12 +101,13 @@ def test_a_step_that_names_no_one_flow_has_the_index_minus_one(tmp_path: Path) -
         Step(acts=("Views",), measures=(), edge=("Views", "Auth")),
         *nested.meaning.journeys[0].steps,
     ):
-        found = canvas_sequences.flow_index(step, model, edge_index)
-        assert found == schematic._step_index(step, model, edge_index)
+        flow = flow_ids.step_flow(step, model.flows)[0]
+        found = flow_ids.step_index(step, model, edge_index)
+        assert found == (-1 if flow is None else model.flows.index(flow))
     serve, keep = canvas_data.build(cfg, tree, facts)["maps"][1]["sq"]
     assert [s["f"] for s in serve["s"]] == [0, 1]
     assert keep["dr"] == 1 and "dr" not in serve
-    assert canvas_sequences.flow_index(Step(acts=(), measures=()), model, edge_index) == -1
+    assert flow_ids.step_index(Step(acts=(), measures=()), model, edge_index) == -1
 
 
 def test_a_tree_without_sequences_has_the_same_bytes(

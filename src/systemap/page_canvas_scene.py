@@ -120,7 +120,7 @@ function place(m, x, y, s, depth, owner) {
     m.maxH = Math.max(m.maxH, c.b[3]); m.maxW = Math.max(m.maxW, c.b[2]);
   });
   m.flows.forEach(function (f, i) {
-    f.i = i; f.bb = pointsBox(f.p);
+    f.i = i; f.map = m; f.bb = pointsBox(f.p);
     if (m.byId[f.s]) m.byId[f.s].outs.push(f);
     if (m.byId[f.t]) m.byId[f.t].ins.push(f);
   });

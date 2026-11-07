@@ -41,6 +41,13 @@ Acceptance values (written before the first run, step 4 of docs/design/nested-ca
    44 x 44 pixels or more, it has a visible focus outline, and Enter on it changes the
    live region.
 
+5. Added on 2026-11-07, after the checks U2 and U3 of bench/jev/README.md (U4): in the
+   Changes view, the bar under the header gives the roll-up of the current map in words. At
+   the top map it ends with "Changed inside: P0.", and in P0/Q0/Deep it gives "Map
+   changes:". No text of the bar has two periods at one place. In the Map view, the bar is
+   not there. At the fit of P0 (two ports to Base in the same direction) on a screen of 390 x
+   844 pixels, the frame draws one boundary flow to Base, with the alpha 1.
+
 Changes at the merge with the header part (step 4): the header gives the words of the view
 ("View: Changes." in place of "Changes view."). The ring is 3 px outside the card, so the
 pixels of acceptance 1 are on that line. In acceptance 3, the steps of the zoom start at the
@@ -60,7 +67,7 @@ from typing import Any
 
 import pytest
 import test_canvas_changes as fixture
-from test_canvas_access import AXE_VERSION, _axe
+from test_canvas_access import AXE_VERSION, _axe, no_axe
 from test_canvas_browser import browser
 
 from systemap import canvas_data, canvas_page
@@ -185,6 +192,22 @@ def test_the_live_region_and_the_list_give_the_change_words() -> None:
     assert found["bad"] is False
 
 
+def test_the_bar_gives_the_roll_up_of_the_current_map() -> None:
+    """Acceptance 5."""
+    found = _marks("light")
+    top, deep = found["places"][""], found["places"][NESTED]
+    assert top["during"]["state"]["bar"].endswith("Changed inside: P0.")
+    assert "Map changes: " in deep["during"]["state"]["bar"]
+    for place in (top, deep):
+        assert ".." not in place["during"]["state"]["bar"]
+        assert place["before"]["state"]["bar"] is None
+        assert place["after"]["state"]["bar"] is None
+    links = found["p0"]["links"]
+    assert found["p0"]["errors"] == []
+    assert [key.split("#")[0] for key, _alpha in links] == ["P0>/Base|out"]
+    assert [alpha for _key, alpha in links] == [pytest.approx(1)]
+
+
 def _steps(values: list[float], start: float) -> list[float]:
     out, last = [], start
     for v in values:
@@ -216,8 +239,7 @@ def test_each_change_mark_fades() -> None:
 def test_axe_finds_no_violation_in_the_changes_view(which: str) -> None:
     """Acceptance 4."""
     if _axe() != AXE_VERSION:
-        browser()
-        pytest.skip(f"the access test needs axe-core {AXE_VERSION} for Node")
+        no_axe(f"the access test needs axe-core {AXE_VERSION} for Node")
     page = _pages()[0 if which == "compared" else 1]
     runs = drive("--axe", str(page), NESTED)["runs"]
     assert len(runs) == 8

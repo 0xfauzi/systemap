@@ -24,9 +24,15 @@ says: "Each change follows the zoom continuously. Nothing appears at one time."
 - A portal moves off the cards, the flow label plates and the texts of the maps on the
   screen (`dodge`). It uses the boxes that the frame records in OBST before the portals.
   It moves along its edge, or a short distance into the screen. This move changes by
-  DODGE_PX pixels for each millisecond or less, thus the portal does not jump.
+  DODGE_PX pixels for each millisecond or less, thus the portal does not jump. A portal
+  that covers a different portal goes back to its place (`dodgeTo`).
 - With reduced motion, a line or a portal shows or goes at one time, as each camera move
   does. A portal also goes off the boxes at one time.
+- A boundary flow stands for the nested flow of its port and for the flows of the map above
+  that the port continues. The view applies to the line as to these flows (`boundaryView`):
+  the line has the alpha and the color of the one that shows the most. Thus a layer that
+  does not have these flows, or the Changes view when none of them is a lost flow, does
+  not show the line. The line fades with the values of its flows (`viewFlow`).
 """
 
 from __future__ import annotations
@@ -292,15 +298,54 @@ function dodgePath(t, m, boxes, at) {
 // The target move dx, dy of portal `t` from its place. `apart` keeps the portals apart at
 // their places, thus only the boxes of the maps can close the place. A move goes to no box.
 // When no move is possible, the portal goes back to its place, or it stays where it is if
-// a different portal is on the way.
+// a different portal is on the way. But a portal that covers a different portal now goes
+// back to its place: the places of two portals do not overlap, and their moves can bring
+// them to one point when the places move.
 function dodgeTo(t, list, at) {
   var boxes = dodgeBoxes(t, list), back = [0, 0], here = [t.dx || 0, t.dy || 0];
-  if (dodgeOpen(t, t.x0, t.y0, t.x0, t.y0, boxes, 0, boxes.n)) return dodgePath(t, back, boxes, at) ? back : here;
-  var best = dodgePath(t, back, boxes, at) ? back : here, far = Infinity;
+  var x = t.x0 + here[0], y = t.y0 + here[1], stay = dodgeOpen(t, x, y, x, y, boxes, boxes.n, boxes.length) ? here : back;
+  if (dodgeOpen(t, t.x0, t.y0, t.x0, t.y0, boxes, 0, boxes.n)) return dodgePath(t, back, boxes, at) ? back : stay;
+  var best = dodgePath(t, back, boxes, at) ? back : stay, far = Infinity;
   dodgeMoves(t, boxes).forEach(function (m) {
     var d = Math.abs(m[0] - here[0]) + Math.abs(m[1] - here[1]);
     if (d < far && dodgeOpen(t, t.x0 + m[0], t.y0 + m[1], t.x0 + m[0], t.y0 + m[1], boxes, 0, boxes.length) && dodgePath(t, m, boxes, at)) { far = d; best = m; }
   });
   return best;
+}
+
+// ---- the view of a boundary flow -----------------------------------------------
+// The flows that a boundary flow stands for: the nested flow of its port (`f`), and the
+// flows of the map above that the port continues (`pf`).
+function boundaryFlows(l) {
+  var p = l.p, up = l.m.owner && l.m.owner.map;
+  if (!p._bf) {
+    p._bf = [];
+    if (p.f !== undefined && l.m.flows[p.f]) p._bf.push(l.m.flows[p.f]);
+    (p.pf || []).forEach(function (i) { if (up && up.flows[i]) p._bf.push(up.flows[i]); });
+  }
+  return p._bf;
+}
+// The view of a boundary flow: the values of the one of its flows that shows the most
+// (`viewFlow`). Thus a layer and the Changes view apply to the line as to its flows. A line
+// with no flow shows in its layer color.
+function boundaryView(l) {
+  var best = null, flow = null;
+  boundaryFlows(l).forEach(function (f) { var v = viewFlow(f); if (!best || v.a > best.a) { best = v; flow = f; } });
+  return best ? {a: best.a, u: best.u, color: flowColor(flow, best.color), from: best.u < 1 ? flowColor(flow, best.from) : null}
+    : {a: 1, u: 1, color: C['--l-' + flowLayer(l)] || C['--flow'], from: null};
+}
+// One path of a boundary flow, with its arrowhead at the end.
+function boundaryLine(p, color, alpha) {
+  var n = p.length;
+  if (alpha <= 0.01) return;
+  ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
+  ctx.beginPath(); cutLine(ctx, p, 0, 0, 1); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = color; ctx.beginPath(); arrowHead(ctx, p[n - 1][0], p[n - 1][1], p[n - 2][0], p[n - 2][1], 8); ctx.fill();
+}
+// The layer of a boundary flow: the layer of its nested flow, or of the flow of the map above.
+function flowLayer(l) {
+  if (l.p.f !== undefined && l.m.flows[l.p.f]) return l.m.flows[l.p.f].l;
+  var up = l.m.owner && l.m.owner.map, f = up && (l.p.pf || []).length ? up.flows[l.p.pf[0]] : null;
+  return f ? f.l : '';
 }
 """

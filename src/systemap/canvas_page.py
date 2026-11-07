@@ -73,7 +73,7 @@ def tree_theme(cfg: Config, tree: nest.Tree) -> dict[str, Any]:
 # in one line for each slot.
 SLOTS: dict[str, tuple[str, ...]] = {
     "css": (page_canvas_changes.CSS, page_canvas_sequences.CSS, page_canvas_find.CSS),
-    "head": (page_canvas_sequences.HTML,),
+    "head": (page_canvas_sequences.HTML, page_canvas_changes.HTML),
     "main": (),
     "after": (page_canvas_find.HTML,),
 }

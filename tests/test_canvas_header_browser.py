@@ -16,6 +16,9 @@ Acceptance values:
    `schematic_relations.py`: no flow of the layer touches the card, and the card is not a
    subject of the layer. A quiet card has the alpha 0.32. A map that does not have the
    layer shows no flow, and each of its cards is quiet.
+   Added on 2026-11-07 (U4 in bench/jev/README.md): a boundary flow from a portal shows only
+   when the layer has its nested flow (`f` of its port) or a flow of the map above that the
+   port continues (`pf`).
 2. A layer change and a view change fade. On the generated M11 shape and the generated map
    of 1,500 cards (its marks image), without reduced motion, at rest and during a pan, each
    alpha of a card, a flow, a mark of a view and the marks image of the old view changes
@@ -144,8 +147,31 @@ def _expected(tree: nest.Tree) -> dict[str, dict[str, tuple[list[int], list[str]
     return out
 
 
-def _check_sets(found: dict[str, Any], tree: nest.Tree) -> None:
+def _ports_in_layer(data: dict[str, Any], chain: list[str], lay: str) -> set[tuple[str, str]]:
+    """Give the neighbour and the direction of each port of the open maps that layer `lay`
+    shows: its nested flow or a flow of the map above that it continues is in the layer."""
+    maps = {m["id"]: m for m in data["maps"]}
+
+    def edges(map_id: str) -> set[int]:
+        m = maps[map_id]
+        if lay == "all":
+            return set(range(len(m["flows"])))
+        return {i for one in m.get("layers") or [] if one["id"] == lay for i in one["e"]}
+
+    out = set()
+    for map_id in chain:
+        up = map_id.rsplit("/", 1)[0] if "/" in map_id else ""
+        for p in maps[map_id].get("ports") or []:
+            if p.get("f") in edges(map_id) or set(p.get("pf") or ()) & edges(up):
+                out.add((p["x"], p["d"]))
+    return out
+
+
+def _check_sets(found: dict[str, Any], tree: nest.Tree, page: Path) -> None:
     assert found["errors"] == []
+    text = page.read_text(encoding="utf-8")
+    start = text.index('id="canvas-data">') + len('id="canvas-data">')
+    data = json.loads(text[start : text.index("</script>", start)])
     want = _expected(tree)
     assert set(found["maps"]) == set(want)
     for map_id, layers in want.items():
@@ -156,17 +182,23 @@ def _check_sets(found: dict[str, Any], tree: nest.Tree) -> None:
             assert got["alphas"] in ([], [0.32]), (map_id, lay, got["alphas"])
             assert got["drawnFlows"] == len(tree.get(map_id).model.flows), (map_id, lay)
             assert got["state"]["layer"] == lay and got["state"]["mode"] == "map"
+            shown = {(x, d) for x, d in got["links"]}
+            assert shown <= _ports_in_layer(data, got["chain"], lay), (map_id, lay, shown)
 
 
 def test_the_layer_filter_of_the_self_map(self_page: Path) -> None:
     """Acceptance 1."""
-    _check_sets(_drive("--sets", str(self_page)), _self_tree()[1])
+    _check_sets(_drive("--sets", str(self_page)), _self_tree()[1], self_page)
 
 
 def test_the_layer_filter_of_the_fixture(fixture_page: Path) -> None:
     """Acceptance 1."""
     _cfg, tree, _facts = _loaded(fixture_page.parent.parent.parent)
-    _check_sets(_drive("--sets", str(fixture_page)), tree)
+    found = _drive("--sets", str(fixture_page))
+    _check_sets(found, tree, fixture_page)
+    gateway = found["maps"]["Gateway"]
+    assert gateway["all"]["links"]
+    assert any(not got["links"] for got in gateway.values())
 
 
 def _check_fade(found: dict[str, Any], marks: bool) -> None:

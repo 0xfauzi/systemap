@@ -46,7 +46,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import pytest
 from test_canvas_browser import _tree_page, browser
@@ -63,6 +63,14 @@ def _axe() -> str:
         [browser(), str(DRIVER), "--probe"], capture_output=True, text=True, timeout=120
     )
     return probe.stdout.strip() if probe.returncode == 0 else ""
+
+
+def no_axe(why: str) -> NoReturn:
+    """Stop a test that needs axe-core: it fails when SYSTEMAP_BROWSER_TESTS is "required"
+    (the CI job canvas-browser), and it skips in the other cases."""
+    if os.environ.get("SYSTEMAP_BROWSER_TESTS") == "required":
+        pytest.fail(why)
+    pytest.skip(why)
 
 
 def _access(*args: str) -> dict[str, Any]:
@@ -86,10 +94,7 @@ def test_axe_core_finds_no_issue(
     """Acceptance 1 (C4)."""
     version = _axe()
     if version != AXE_VERSION:
-        why = f"the C4 test needs axe-core {AXE_VERSION} for Node, found {version or 'none'}"
-        if os.environ.get("SYSTEMAP_BROWSER_TESTS") == "required":
-            pytest.fail(why)
-        pytest.skip(why)
+        no_axe(f"the C4 test needs axe-core {AXE_VERSION} for Node, found {version or 'none'}")
     page, nested = (
         (canvas, "Gateway")
         if which == "fixture"

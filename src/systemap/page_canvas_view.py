@@ -10,8 +10,8 @@ images of a large map have the epoch in their key (`page_canvas_image`). Thus a 
 never shows an image of a different view.
 
 The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f)`,
-`over(m, a, ox, oy, alpha)`, `enter(from)`, `leave(to)`, `frame()`, `facts(c)` and
-`say(m)`. All of them are optional.
+`over(m, a, ox, oy, alpha)`, `enter(from)`, `leave(to)`, `frame()`, `band(fresh)`,
+`facts(c)`, `say(m)`, `words()` and `here(m)`. All of them are optional.
 
 - `card(c)` gives null for the usual card, or `{a, ring, tag, back, note}`: the alpha of
   the card (0 to 1), and four marks, each null or an object. `ring` is
@@ -23,7 +23,9 @@ The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f
   the right. It shows only when the card is wider than the plate. A part must not change an
   object after it gives it.
 - `flow(f)` gives null for the usual flow, or `{a, color}`. A color of null is the layer
-  color of the flow. `f.map` is the map of the flow.
+  color of the flow. `f.map` is the map of the flow. `FLOW_OFF` is a flow that the view
+  does not show. A boundary flow from a portal has the values of the flows that it stands
+  for (`boundaryView` in `page_canvas_fade`).
 - `over(m, a, ox, oy, alpha)` draws after the cards of map m, for example a route. `a`,
   `ox` and `oy` are the `view(m)` of the map, and `alpha` includes the fade of the view.
 - `enter(from)` and `leave(to)` occur at a change of the mode.
@@ -31,6 +33,10 @@ The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f
 - `facts(c)` and `say(m)` give the words of the current view for a card in the list of the
   tree and for a map in the live region (`viewFacts`, `viewSay`). After a change of the
   mode, the list of the tree is written again when one of the two modes has `facts`.
+- `words()` gives the words of the view for the live region after a change to the view,
+  in place of the name and the `say` of the current map. Empty words keep those.
+- `here(m)` occurs when the label of the canvas gives the current map m (`relabel`): when
+  the camera stops, and at a change of the view.
 - `band(fresh)` gives the height of a bar of the view under the header, for example the
   toolbar of the Sequences view. With `fresh`, the part measures the bar again. The top
   band of the screen (`HEAD_H`) is the header and the bar of each view, multiplied by the
@@ -43,9 +49,15 @@ of a card or a flow changes, it fades: it changes by VIEW_MAX or less in one fra
 mark fades in. A card or a flow that the frame before did not draw starts at its value.
 With reduced motion, a value changes in one frame. The values of a card are kept on the
 card, so a frame calls the part of the view one time for each card and each flow that it
-draws (`STATS.hooks`). The marks image of a large map has the values of the view. After a
+draws (`STATS.hooks`). In the Map view with all layers, a card or a flow that has the plain
+value keeps it with no call (`VIEW_IDLE`). Thus the seam adds almost no work to a frame of
+the default view. The marks image of a large map has the values of the view. After a
 view change, the frame draws the new image, and the old image over it with an opacity that
-goes from 1 to 0 (`viewMarks`).
+goes from 1 to 0 (`viewMarks`). An image gets the values with no fade (`viewAim`), in one
+object for each card and flow, so that an image makes no new objects.
+
+A tag goes up when the name of its card and the tag do not fit side by side. Thus a tag
+does not cover the name of a narrow card (`drawTag`).
 
 The Map view. A layer shows only its flows (`e` of the layer in the canvas data). A card
 that no flow of the layer touches and that is not a subject of the layer (`l` of the card)
@@ -70,10 +82,9 @@ VIEW_PART = r"""
 var VIEW = {mode: 'map', layer: 'all', epoch: 0}, VIEWS = Object.create(null), MODES = ['map', 'sequences', 'changes'];
 var MODE_NAMES = {map: 'Map', sequences: 'Sequences', changes: 'Changes'};
 var VIEW_MS = 160, VIEW_MAX = 0.2, VIEW_STEP = 1, VIEW_LAST = 0, VIEW_AT = 0, VIEW_FADING = false, VIEW_AIM = 0, VIEW_LOG = null;
-var VIEW_SHOW = {map: 1, sequences: 0, changes: 0}, QUIET = 0.32;
+var VIEW_SHOW = {map: 1, sequences: 0, changes: 0}, QUIET = 0.32, VIEW_IDLE = true;
 var PLAIN = {a: 1, ring: null, tag: null, back: null, note: null}, PLAIN_FLOW = {a: 1, color: null};
 var HEAD_EL = document.getElementById('canvas-head'), HEAD_H = 0, HEAD_BASE = 0;
-ORDER.forEach(function (m) { m.flows.forEach(function (f) { f.map = m; }); });
 // The layers of all maps: the name and the question of each layer ID.
 var LAYER_OF = Object.create(null);
 ORDER.forEach(function (m) { (m.layers || []).forEach(function (l) { if (!LAYER_OF[l.id]) LAYER_OF[l.id] = l; }); });
@@ -91,10 +102,12 @@ function layerFlags(m, id) {
   memo[id] = {flow: flow, quiet: quiet};
   return memo[id];
 }
-var MAP_QUIET = {a: QUIET, ring: null, tag: null, back: null, note: null}, MAP_OFF = {a: 0, color: null};
+// A quiet card of a layer, and a flow that a view does not show (`FLOW_OFF`, also for the
+// other views).
+var MAP_QUIET = {a: QUIET, ring: null, tag: null, back: null, note: null}, FLOW_OFF = {a: 0, color: null};
 VIEWS.map = {
   card: function (c) { return VIEW.layer !== 'all' && layerFlags(c.map, VIEW.layer).quiet[c.i] ? MAP_QUIET : null; },
-  flow: function (f) { return VIEW.layer !== 'all' && !layerFlags(f.map, VIEW.layer).flow[f.i] ? MAP_OFF : null; }
+  flow: function (f) { return VIEW.layer !== 'all' && !layerFlags(f.map, VIEW.layer).flow[f.i] ? FLOW_OFF : null; }
 };
 
 // ---- the seam --------------------------------------------------------------------
@@ -108,12 +121,24 @@ function markKey(t) {
 }
 // The values of card c that the screen shows in this frame: `a`, the marks `ring`, `tag`,
 // `back` and `note`, and the alpha `d` of the marks. While an image is drawn (VIEW_AIM), the
-// values of the view, with no fade.
+// values of the view, with no fade, in one object for each card (`_va`).
 function viewCard(c) {
-  if (VIEW_AIM) { var aim = cardAim(c); return {a: aim.a, ring: aim.ring, tag: aim.tag, back: aim.back, note: aim.note, d: 1}; }
+  if (VIEW_AIM) {
+    var aim = cardAim(c), o = c._va || (c._va = {d: 1});
+    o.a = aim.a; o.ring = aim.ring; o.tag = aim.tag; o.back = aim.back; o.note = aim.note || null;
+    return o;
+  }
   if (c._vAt === drawn) return c._v;
+  // In the Map view with all layers, the value of each card is the plain value. A card that
+  // has the plain value keeps it, with no call of the view part (`VIEW_IDLE`).
+  var v = c._v;
+  if (VIEW_IDLE && v && v.a === 1 && v.d === 0 && v.key === '') {
+    c._vAt = drawn;
+    if (VIEW_LOG && VIEW_LOG.cur) VIEW_LOG.cur.cards.push([c.map.oi, c.i, 1, 0]);
+    return v;
+  }
   STATS.hooks++;
-  var t = cardAim(c), v = c._v, fresh = !v || c._vAt !== drawn - 1, key = markKey(t);
+  var t = cardAim(c), fresh = !v || c._vAt !== drawn - 1, key = markKey(t);
   if (!v) v = c._v = {a: 1, ring: null, tag: null, back: null, note: null, d: 0, key: ''};
   c._vAt = drawn;
   if (fresh || (key !== v.key && v.d <= 0)) { v.key = key; v.ring = t.ring; v.tag = t.tag; v.back = t.back; v.note = t.note || null; if (!fresh) v.d = 0; }
@@ -127,10 +152,16 @@ function viewCard(c) {
 // The values of flow f that the screen shows: `a`, `color` (null for the layer color),
 // and while the color changes (`u` below 1), the old color `from` with the part 1 - `u`.
 function viewFlow(f) {
-  if (VIEW_AIM) { var aim = flowAim(f); return {a: aim.a, color: aim.color || null, from: null, u: 1}; }
+  if (VIEW_AIM) { var aim = flowAim(f), o = f._va || (f._va = {from: null, u: 1}); o.a = aim.a; o.color = aim.color || null; return o; }
   if (f._vAt === drawn) return f._v;
+  var v = f._v;
+  if (VIEW_IDLE && v && v.a === 1 && v.u === 1 && v.color === null) {
+    f._vAt = drawn;
+    if (VIEW_LOG && VIEW_LOG.cur) VIEW_LOG.cur.flows.push([f.map.oi, f.i, 1]);
+    return v;
+  }
   STATS.hooks++;
-  var t = flowAim(f), v = f._v, fresh = !v || f._vAt !== drawn - 1, color = t.color || null;
+  var t = flowAim(f), fresh = !v || f._vAt !== drawn - 1, color = t.color || null;
   if (!v) v = f._v = {a: 1, color: null, from: null, u: 1};
   f._vAt = drawn;
   if (fresh) { v.a = t.a; v.color = color; v.from = null; v.u = 1; }
@@ -166,6 +197,7 @@ function viewOver(m, a, ox, oy, alpha) {
 function viewFrame() {
   var now = performance.now(), dt = VIEW_LAST ? now - Math.max(VIEW_LAST, VIEW_AT) : Infinity;
   VIEW_LAST = now; VIEW_FADING = false; STATS.hooks = 0; STATS.flows = 0;
+  VIEW_IDLE = VIEW.mode === 'map' && VIEW.layer === 'all';
   VIEW_STEP = reduced() ? 1 : Math.min(VIEW_MAX, dt / VIEW_MS);
   MODES.forEach(function (mode) {
     var to = mode === VIEW.mode ? 1 : 0;
@@ -174,7 +206,10 @@ function viewFrame() {
   });
   MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.frame) v.frame(); });
   headBand(false);
-  if (VIEW_LOG) { VIEW_LOG.cur = {at: now, cards: [], flows: [], marks: []}; VIEW_LOG.frames.push(VIEW_LOG.cur); }
+  if (VIEW_LOG) {
+    VIEW_LOG.cur = {at: now, show: {map: VIEW_SHOW.map, sequences: VIEW_SHOW.sequences, changes: VIEW_SHOW.changes}, cards: [], flows: [], marks: []};
+    VIEW_LOG.frames.push(VIEW_LOG.cur);
+  }
 }
 // A view part calls this when its values change without `setView`, for example at a new
 // step of a sequence. It also asks for a frame.
@@ -189,23 +224,32 @@ function viewAim(f) { VIEW_AIM++; try { return f(); } finally { VIEW_AIM--; } }
 // cards (`imageParts`).
 var MARKS_OF = [];
 function markColor(m) { return C[m.c] || m.c; }
-function viewBack(v, x, y, w, h, r, alpha) {
-  if (v.back && v.d > 0) BACK_LINE.rect(markColor(v.back), alpha * v.d, x + 4, y + 4, w, h, r, v.back.w || 1.5);
-}
-function viewMarksAt(v, x, y, w, h, alpha) {
+// The ring of a card: a line 3 px outside the card. The back line: a line around the back
+// card of a card that opens a map.
+function ringRect(b, ring, al, x, y, w, h, r) { b.rect(markColor(ring), al, x - 3, y - 3, w + 6, h + 6, r + 3, ring.w || 2, ring.d); }
+function backRect(b, back, al, x, y, w, h, r) { b.rect(markColor(back), al, x + 4, y + 4, w, h, r, back.w || 1.5); }
+function viewBack(v, x, y, w, h, r, alpha) { if (v.back && v.d > 0) backRect(BACK_LINE, v.back, alpha * v.d, x, y, w, h, r); }
+function viewMarksAt(c, v, x, y, w, h, alpha) {
   if (v.d <= 0) return;
-  if (v.ring) LINE.rect(markColor(v.ring), alpha * v.d, x - 3, y - 3, w + 6, h + 6, cardCorner(w, h) + 3, v.ring.w || 2, v.ring.d);
-  if ((v.tag || v.note) && !VIEW_AIM && hasText(h)) MARKS_OF.push([v, x, y, w, h, alpha]);
+  if (v.ring) ringRect(LINE, v.ring, alpha * v.d, x, y, w, h, cardCorner(w, h));
+  if ((v.tag || v.note) && !VIEW_AIM && hasText(h)) MARKS_OF.push([v, x, y, w, h, alpha, c]);
 }
 // The tag at the top right of the card and the note on the lower edge of its back card.
-// Each one fades in with the width of the card, from the width of its plate.
-function drawTag(v, x, y, w, h, alpha) {
+// Each one fades in with the width of the card, from the width of its plate. When the name
+// of card c and the tag do not fit side by side, the tag goes up, until its lower edge is on
+// the top edge of the card. Thus the tag does not cover the name. The move follows the
+// width of the card.
+function drawTag(v, x, y, w, h, alpha, c) {
   var fs = clamp(h * 0.16, 8, 11), al = alpha * v.d * cardShow(h), th = fs * 1.6;
   if (al <= 0.02) return;
-  [[v.tag, y - th / 2], [v.note, y + h + 4 - th / 2]].forEach(function (e) {
+  [[v.tag, y - th / 2], [v.note, y + h + 4 - th / 2]].forEach(function (e, i) {
     if (!e[0]) return;
-    var pw = unitWidth(e[0].s, 600) * fs + 10, room = smooth(pw, pw + 2 * fs, w);
-    if (room > 0.02) markPlate(e[0], x + w - pw - 4, e[1], pw, th, fs, al * room);
+    var pw = unitWidth(e[0].s, 600) * fs + 10, room = smooth(pw, pw + 2 * fs, w), top = e[1];
+    if (!i && c) {
+      var need = 2 * inset(h) + unitWidth(c.id, 600) * titleSize(h) + pw + 8;
+      top -= (1 - smooth(need, need + 2 * fs, w)) * th / 2;
+    }
+    if (room > 0.02) markPlate(e[0], x + w - pw - 4, top, pw, th, fs, al * room);
   });
 }
 function markPlate(t, x, y, w, h, fs, al) {
@@ -215,17 +259,19 @@ function markPlate(t, x, y, w, h, fs, al) {
   obstacle(x, y, w, h, 1, al);
 }
 function drawTags() {
-  MARKS_OF.forEach(function (e) { drawTag(e[0], e[1], e[2], e[3], e[4], e[5]); });
+  MARKS_OF.forEach(function (e) { drawTag(e[0], e[1], e[2], e[3], e[4], e[5], e[6]); });
   MARKS_OF = [];
 }
-// The marks of a card that opens a map, drawn at once: the back line while the card is
+// The marks of a card c that opens a map, drawn at once: the back line while the card is
 // closed, the ring and the tag.
-function viewOpening(v, x, y, w, h, r, alpha, o) {
+var OPEN_MARKS = null;
+function viewOpening(c, v, x, y, w, h, r, alpha, o) {
   if (v.d <= 0 || !(v.ring || v.tag || v.back || v.note)) return;
-  ctx.setLineDash([]);
-  if (v.back && o < 1) { ctx.globalAlpha = alpha * v.d * (1 - o); ctx.strokeStyle = markColor(v.back); ctx.lineWidth = v.back.w || 1.5; ctx.beginPath(); rr(ctx, x + 4, y + 4, w, h, r); ctx.stroke(); }
-  if (v.ring) { ctx.globalAlpha = alpha * v.d; ctx.strokeStyle = markColor(v.ring); ctx.lineWidth = v.ring.w || 2; ctx.setLineDash(DASH[v.ring.d || '']); ctx.beginPath(); rr(ctx, x - 3, y - 3, w + 6, h + 6, r + 3); ctx.stroke(); ctx.setLineDash([]); }
-  if (v.tag || v.note) drawTag(v, x, y, w, h, alpha);
+  var b = OPEN_MARKS || (OPEN_MARKS = new Batch(false));
+  if (v.back && o < 1) backRect(b, v.back, alpha * v.d * (1 - o), x, y, w, h, r);
+  if (v.ring) ringRect(b, v.ring, alpha * v.d, x, y, w, h, r);
+  b.flush(ctx); ctx.setLineDash([]);
+  if (v.tag || v.note) drawTag(v, x, y, w, h, alpha, c);
 }
 // The marks image of a large map after a view change: the new image, and the old image
 // over it, with an opacity that goes from 1 to 0. The images are opaque. Thus the two give
@@ -277,7 +323,10 @@ function viewLabel() {
 // The words for the live region after a change of the view or the layer.
 function viewWords(modeChanged) {
   var m = currentMap(), n = 0;
-  if (VIEW.mode !== 'map') return 'View: ' + MODE_NAMES[VIEW.mode] + '. Map: ' + mapName(m) + '.' + viewSay(m);
+  if (VIEW.mode !== 'map') {
+    var v = VIEWS[VIEW.mode], own = v && v.words ? v.words() : '';
+    return 'View: ' + MODE_NAMES[VIEW.mode] + '. ' + (own || 'Map: ' + mapName(m) + '.' + viewSay(m));
+  }
   if (VIEW.layer === 'all') n = m.flows.length;
   else { var fl = layerFlags(m, VIEW.layer).flow; for (var i = 0; i < fl.length; i++) n += fl[i]; }
   return (modeChanged ? 'View: Map. ' : '') + (VIEW.layer === 'all' ? 'All layers. ' : 'Layer: ' + layerName(VIEW.layer) + '. ') +
@@ -287,6 +336,8 @@ function viewWords(modeChanged) {
 // live region (`facts` and `say` of the view part).
 function viewFacts(c) { var v = VIEWS[VIEW.mode]; return v && v.facts ? v.facts(c) : ''; }
 function viewSay(m) { var v = VIEWS[VIEW.mode]; return v && v.say ? v.say(m) : ''; }
+// The current map is m (`relabel`): each view part with `here` gets it.
+function viewHere(m) { MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.here) v.here(m); }); }
 function headSync() {
   VIEW_BTNS.forEach(function (b) {
     var mode = b.getAttribute('data-view');

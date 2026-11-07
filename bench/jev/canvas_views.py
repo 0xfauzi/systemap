@@ -39,6 +39,7 @@ Run from the repository root (Node and the Playwright package must be installed)
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import statistics
@@ -252,19 +253,9 @@ def main() -> int:
         count = {"A": 0, "B": 0}
         for which in ORDER:
             count[which] += 1
-            for attempt in range(1, tree.ATTEMPTS + 1):
-                waited = tree._gate()
-                found = _measure(pages[which])
-                found |= {
-                    "run": f"{which}{count[which]}",
-                    "attempt": attempt,
-                    "waited": round(waited),
-                }
-                found["quiet"] = not found["foreign"]
-                print(json.dumps(found), flush=True)
-                if found["quiet"]:
-                    break
-            runs.append(found)
+            runs.append(
+                tree.attempts(functools.partial(_measure, pages[which]), f"{which}{count[which]}")
+            )
         print("quiet runs:", ", ".join(r["run"] for r in runs if r["quiet"]) or "none")
         ok = _verdict(runs)
         print("result:", "pass" if ok else "fail")

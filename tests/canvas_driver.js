@@ -224,9 +224,12 @@ async function links(file, ids) {
           const child = (m.id ? m.id + '/' : '') + c.id;
           if (!open.has(child) && c.b[0] < W && c.b[1] < H && c.b[0] + c.b[2] > 0 && c.b[1] + c.b[3] > 0) cards.push([m.id + ':' + c.id, c.b]);
         }));
+        const keys = new Set();
         S.links().forEach((l) => {
           r.links++;
           const p = l.points, tag = id + ' x' + z + ' ' + d + ' ' + l.id + ' ';
+          if (keys.has(l.key)) r.problems.push(tag + 'two paths with one key');
+          keys.add(l.key);
           p.forEach((q) => { if (q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H) r.problems.push(tag + 'off the screen'); });
           for (let i = 1; i < p.length; i++) {
             if (Math.abs(p[i][0] - p[i - 1][0]) > 0.5 && Math.abs(p[i][1] - p[i - 1][1]) > 0.5) r.problems.push(tag + 'not a right angle');
