@@ -8,6 +8,8 @@
 //     node tests/canvas_details.js --phone PAGE.html
 //     node tests/canvas_details.js --shots PAGE.html FOLDER
 //     node tests/canvas_details.js --rest PAGE.html CARD
+//     node tests/canvas_details.js --focus PAGE.html
+//     node tests/canvas_details.js --rewrite PAGE.html
 //
 // --tools: the theme button, the reads of the theme colors, the Reduce motion button with
 // the alpha of the selection in each frame, the keys sheet, the F key and the source
@@ -15,7 +17,11 @@
 // panel in a pan, and its text. MOTION is "none", "system" or "page". --access: axe-core
 // (from NODE_PATH; null when it is not there) with the panel, the keys sheet, the source
 // records and the Tools menu open. --phone: the scroll and the target boxes on a phone.
-// --rest: the alpha of the list texts of a card at rest, at many zooms.
+// --rest: the alpha of the list texts of a card at rest, at many zooms. --focus: a letter
+// key in the list of the sequences, the focus after the D key two times, the Tab focus
+// with the panel open, a right click and a middle click on a card, and the Tools menu
+// after two changes of the screen width. --rewrite: the focus in the panel when the map of
+// the selected card closes (a page with a nested map).
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -74,13 +80,14 @@ async function pan(page, frames) {
   }), frames);
 }
 
-// The value of `f` in each frame for `ms` after the start, as [time, value].
+// The value of `f` in each frame for `ms` after the start, as [time, value]. The time is
+// the time of the document timeline, which a CSS transition also uses.
 function framesOf(page, f, ms) {
   return page.evaluate(({ f, ms }) => new Promise((done) => {
     const get = new Function('return (' + f + ')();'), out = [], t0 = performance.now();
     // The value is read after the callbacks of the frame, so after the draw of the canvas.
     const step = () => setTimeout(() => {
-      out.push([performance.now() - t0, get()]);
+      out.push([document.timeline.currentTime - t0, get()]);
       if (performance.now() - t0 < ms) requestAnimationFrame(step); else done(out);
     }, 0);
     requestAnimationFrame(step);
@@ -218,21 +225,21 @@ async function panel(file, motion) {
   return out;
 }
 
-// The texts of the card `id` of the top map at rest, at 48 zooms from a card height of 60
+// The texts of the card `id` of the top map at rest, at 32 zooms from a card height of 60
 // px to 600 px: each list row, list name and fact row, with its alpha. A text at rest
 // with an alpha between 0.02 and 0.98 is partial.
 async function rest(file, id) {
   const { browser, page, errors } = await open(file, {});
   const out = { checked: 0, partial: [], errors };
-  for (let i = 0; i < 48; i++) {
-    const h = 60 * Math.pow(10, i / 47);
+  for (let i = 0; i < 32; i++) {
+    const h = 60 * Math.pow(10, i / 31);
     await page.evaluate(([id, h]) => {
       const S = window.systemapCanvas, c = S.camera(), b = S.box('', id);
       const wx = c.x + b[0] / c.k, wy = c.y + b[1] / c.k, ww = b[2] / c.k, wh = b[3] / c.k, k = h / wh;
       S.view({ x: wx + ww / 2 - innerWidth / 2 / k, y: wy + wh / 2 - innerHeight / 2 / k, k });
     }, [id, h]);
     await page.waitForFunction(() => window.systemapCanvas.stats().sharp);
-    await page.waitForTimeout(450);
+    await page.waitForTimeout(250);
     const found = await page.evaluate((id) => {
       const S = window.systemapCanvas, b = S.box('', id), texts = S.texts();
       const inside = (t) => t.box[0] >= b[0] - 1 && t.box[2] <= b[0] + b[2] + 1 && t.box[1] >= b[1] - 1 && t.box[3] <= b[1] + b[3] + 1;
@@ -242,6 +249,112 @@ async function rest(file, id) {
     out.checked += found.length;
     found.filter((t) => t.alpha > 0.02 && t.alpha < 0.98).forEach((t) => out.partial.push({ h, ...t }));
   }
+  await browser.close();
+  return out;
+}
+
+async function focusRules(file) {
+  const { browser, page, errors } = await open(file, { reducedMotion: 'reduce' });
+  const out = { errors };
+  const state = () => page.evaluate(() => ({ focus: document.activeElement.id, text: document.activeElement.textContent,
+    panel: !document.getElementById('cdetails').hidden, sheet: !document.getElementById('keys').hidden,
+    list: !document.getElementById('cseq-list').hidden, card: window.systemapCanvas.keys().focus }));
+  // A letter in the list of the sequences: the first letter of a sequence that does not
+  // have the focus, D when a sequence starts with it.
+  await page.click('[data-view="sequences"]');
+  await page.focus('#cseq-pick');
+  await page.keyboard.press('ArrowDown');
+  const names = await page.evaluate(() => [...document.querySelectorAll('#cseq-list [role=option] .cseq__opt-name')].map((x) => x.textContent));
+  const letter = (names.slice(1).find((n) => /^d/i.test(n)) || names[1] || 'x').charAt(0).toLowerCase();
+  await page.keyboard.press(letter);
+  out.letter = { letter, names, ...(await state()) };
+  await page.keyboard.press('?');
+  out.question = await state();
+  await page.keyboard.press('Escape');
+  await page.click('[data-view="map"]');
+  await page.waitForTimeout(200);
+  // The D key two times on a focused card.
+  await page.focus('#canvas');
+  await page.keyboard.press('Tab');
+  const first = (await state()).card;
+  await page.keyboard.press('d');
+  await page.keyboard.press('d');
+  out.twice = { first, ...(await state()) };
+  await page.keyboard.press('Tab');
+  out.twice.next = (await state()).card;
+  out.twice.order = await page.evaluate(() => window.systemapCanvas.order(''));
+  // Tab through the cards of the top map with the panel open. A focused card must not be
+  // under the panel.
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => { const S = window.systemapCanvas; S.view(S.fit('')); });
+  await page.waitForTimeout(300);
+  await page.keyboard.press('d');
+  await page.focus('#canvas');
+  await page.waitForTimeout(100);
+  const under = () => page.evaluate(() => {
+    const S = window.systemapCanvas, p = document.getElementById('cdetails').getBoundingClientRect();
+    return S.boxes('').filter((x) => x.b[0] + x.b[2] > p.left && x.b[0] < p.right && x.b[1] + x.b[3] > p.top && x.b[1] < p.bottom).map((x) => x.id);
+  });
+  out.cover = { before: await under(), hidden: [], tabbed: 0 };
+  for (let i = 0; i < out.twice.order.length; i++) {
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(60);
+    const f = (await state()).card;
+    if (!f) break;
+    out.cover.tabbed++;
+    if ((await under()).includes(f.id)) out.cover.hidden.push(f.id);
+  }
+  await page.keyboard.press('d');
+  // A right click and a middle click on a card do not select it. A left click selects it.
+  await page.evaluate(() => { const S = window.systemapCanvas; S.view(S.fit('')); });
+  await page.waitForTimeout(300);
+  const a = await cardPoint(page, 0);
+  out.clicks = { id: a.id };
+  for (const button of ['right', 'middle', 'left']) {
+    await page.mouse.click(a.x, a.y, { button });
+    await page.waitForTimeout(100);
+    out.clicks[button] = await page.evaluate(() => window.systemapCanvas.selected().id);
+  }
+  // The Tools menu: open on a narrow screen, then a wide screen, then a narrow screen.
+  const menu = () => page.evaluate(() => ({ menu: document.getElementById('canvas-head').hasAttribute('data-menu'),
+    open: document.getElementById('canvas-tools').hasAttribute('data-open'), expanded: document.getElementById('tools-open').getAttribute('aria-expanded') }));
+  await page.setViewportSize({ width: 380, height: 844 });
+  await page.waitForTimeout(200);
+  await page.click('#tools-open');
+  out.menu = [await menu()];
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.waitForTimeout(200);
+  out.menu.push(await menu());
+  await page.setViewportSize({ width: 380, height: 844 });
+  await page.waitForTimeout(200);
+  out.menu.push(await menu());
+  await browser.close();
+  return out;
+}
+
+// The focus in the panel when the map of the selected card closes after a zoom out.
+async function rewrite(file) {
+  const { browser, page, errors } = await open(file, { reducedMotion: 'reduce' });
+  const out = { errors };
+  const child = (await page.evaluate(() => window.systemapCanvas.maps())).find((m) => m.depth >= 1).id;
+  await page.evaluate((id) => { const S = window.systemapCanvas; S.view(S.fit(id)); }, child);
+  await page.waitForTimeout(400);
+  await page.focus('#canvas');
+  await page.keyboard.press('d');
+  const points = await page.evaluate((id) => window.systemapCanvas.boxes(id).filter((x) => x.b[0] > 10 && x.b[0] + x.b[2] < 900 && x.b[1] > 120 && x.b[1] + x.b[3] < 880)
+    .map((x) => ({ id: x.id, x: x.b[0] + x.b[2] / 2, y: x.b[1] + x.b[3] / 2 })), child);
+  for (const c of points) {
+    await page.mouse.click(c.x, c.y);
+    await page.waitForTimeout(150);
+    if (await page.$('#cdet-body button[data-f]')) { out.card = c.id; break; }
+  }
+  await page.focus('#cdet-body button[data-f]');
+  await page.mouse.move(400, 500);
+  for (let i = 0; i < 40; i++) { await page.mouse.wheel(0, 400); await page.waitForTimeout(30); }
+  await page.waitForTimeout(500);
+  out.after = await page.evaluate(() => ({ chain: window.systemapCanvas.chain(), selected: window.systemapCanvas.selected().id,
+    tag: document.activeElement.tagName, inPanel: document.getElementById('cdetails').contains(document.activeElement),
+    heading: document.querySelector('#cdet-body h3').textContent }));
   await browser.close();
   return out;
 }
@@ -347,6 +460,7 @@ async function shots(file, dir) {
 (async () => {
   const [mode, file, arg] = process.argv.slice(2);
   const run = { '--tools': () => tools(file), '--panel': () => panel(file, arg), '--access': () => access(file),
-    '--phone': () => phone(file), '--shots': () => shots(file, arg), '--rest': () => rest(file, arg) }[mode];
+    '--phone': () => phone(file), '--shots': () => shots(file, arg), '--rest': () => rest(file, arg),
+    '--focus': () => focusRules(file), '--rewrite': () => rewrite(file) }[mode];
   process.stdout.write(JSON.stringify(await run()));
 })().catch((e) => { console.error(e); process.exit(1); });

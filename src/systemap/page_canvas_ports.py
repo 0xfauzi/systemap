@@ -75,16 +75,19 @@ VIEWS.map.card = function (c) {
   var v = PORT_MAP_CARD(c), e = c._pm;
   return e ? (v ? e.quiet : e.full) : v;
 };
-VIEWS.map.facts = function (c) { return c._pm ? c._pm.say : ''; };
-VIEWS.map.say = function (m) { return m._ps || ''; };
-// The state of the open ports for the tests: the words of the map, and the words, the
-// tag and the alpha of the mark (`d` of `viewCard`) of each marked card of a map.
+// Only a page with an open line gives words to the Map view. Thus on a different page, a
+// change between the Map view and a view with no words does not write the list again.
+if (ORDER.some(function (m) { return m._ps; })) {
+  VIEWS.map.facts = function (c) { return c._pm ? c._pm.say : ''; };
+  VIEWS.map.say = function (m) { return m._ps || ''; };
+}
+// The state of the open ports for the tests: the words, the tag and the alpha of the mark
+// (`d` of `viewCard`) of each marked card of a map.
 function portState(mapId) {
   var m = MAPS[mapId || ''];
-  return {judged: !!DATA.judged, say: m ? m._ps || '' : '',
-    cards: m ? m.cards.filter(function (c) { return c._pm; }).map(function (c) {
-      return {id: c.id, words: c._pm.w.slice(), tag: c._pm.full.tag.s, mark: c._v && c._vAt >= drawn - 1 ? c._v.d : null};
-    }) : []};
+  return m ? m.cards.filter(function (c) { return c._pm; }).map(function (c) {
+    return {id: c.id, words: c._pm.w.slice(), tag: c._pm.full.tag.s, mark: c._v && c._vAt >= drawn - 1 ? c._v.d : null};
+  }) : [];
 }
 """
 

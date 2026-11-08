@@ -117,22 +117,16 @@ def _tools(data: Mapping[str, Any]) -> str:
     return (
         '<div class="cbar__tools" id="canvas-tools" role="group" aria-label="Tools">'
         + _snap(data)
-        + page.scheme_buttons("")
-        + page.tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"', "")
+        + page.scheme_buttons()
+        + page.tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
         + page.tool(
-            "keys-open",
-            "Keyboard keys",
-            "help",
-            ' aria-haspopup="dialog" aria-keyshortcuts="?"',
-            "",
+            "keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"'
         )
         + page.tool(
             "details-toggle",
             "Details",
             "panel",
-            ' class="cbar__det" aria-pressed="false" aria-controls="cdetails"'
-            ' aria-keyshortcuts="D"',
-            "",
+            ' aria-pressed="false" aria-controls="cdetails" aria-keyshortcuts="D"',
         )
         + "</div>"
         '<button type="button" class="cbar__more" id="tools-open" aria-expanded="false" '

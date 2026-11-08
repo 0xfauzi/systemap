@@ -29,6 +29,12 @@ step 5):
    (a card that the map Gateway does not have) goes to `index.html#Gateway/Nothing`. The
    canvas stays in the map Gateway, and the live region tells that no map and no card has
    the link.
+9. Added after the second verification of step 5, before the run: at the card Routes of
+   item 2, the large card shows its lists: the canvas draws the names FLOWS and MODULES
+   in the box of the card at rest, with an alpha of 0.98 or more.
+10. Added after the second verification of step 5, before the run: when the map Gateway
+    is open and the hash changes to `#Nothing`, the live region keeps the words "No map
+    and no card has the link #Nothing" after the camera stops.
 """
 
 from __future__ import annotations
@@ -94,6 +100,8 @@ def test_the_small_page_keeps_the_hash_of_the_link(origin: str) -> None:
     assert out["url"] == origin + "/index.html#Gateway/Routes"
     assert out["hash"] == "#Gateway/Routes"
     assert out["chain"] == ["Gateway"]
+    # Acceptance 9.
+    assert sorted(out["lists"]) == ["FLOWS", "MODULES"], out["card"]
 
 
 def test_without_a_script_the_refresh_goes_to_the_map(origin: str) -> None:
@@ -136,3 +144,10 @@ def test_a_link_to_a_lost_card_stays_in_its_map(origin: str) -> None:
     said = out["said"]
     assert said.startswith("No map and no card has the link #Gateway/Nothing. Open map: "), said
     assert said.endswith(" / Gateway."), said
+
+
+def test_a_hash_change_to_a_lost_card_keeps_its_words(origin: str) -> None:
+    """Acceptance 10 and 6."""
+    out = _go(origin + "/index.html#Gateway", "--then=Nothing")
+    said = out["said"]
+    assert said.startswith("No map and no card has the link #Nothing. Open map: "), said

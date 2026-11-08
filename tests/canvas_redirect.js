@@ -1,14 +1,16 @@
 // Opens the small page of a nested map (systemap.canvas_redirect) in the Chromium of
 // Playwright, and prints one JSON object. tests/test_canvas_redirect_browser.py reads it.
 //
-//     node tests/canvas_redirect.js --go URL [--no-script] [--phone] [--light]
+//     node tests/canvas_redirect.js --go URL [--no-script] [--phone] [--light] [--then=HASH]
 //     node tests/canvas_redirect.js --shots URL FOLDER NAME
 //     node tests/canvas_redirect.js --probe
 //
 // --go opens URL and waits until the page is at its last address. It gives that address,
 // the open chain of maps of the canvas, the view, each policy violation (the event
 // securitypolicyviolation of each page on the way), each request outside the origin of
-// URL, and the script errors. With --no-script, the browser runs no script. Then the page
+// URL, and the script errors. It also gives the list names (FLOWS and MODULES) that the
+// canvas draws in the card that the hash names. With --then=HASH, the page then goes to
+// HASH in the same document, and the result is after that move. With --no-script, the browser runs no script. Then the page
 // at the last address is the small page or the canvas page without its renderer.
 // --shots writes screenshots of the small page without a script (the move to the top page
 // stops) and of the canvas page at the end of the move, at 1440 x 900 and 390 x 844
@@ -67,10 +69,19 @@ async function go(url, flags) {
   if (options.javaScriptEnabled) {
     await page.waitForFunction(() => window.systemapCanvas && window.systemapCanvas.ready, null, { timeout: 15000 });
     await page.waitForTimeout(400);
+    const then = flags.find((f) => f.startsWith('--then='));
+    if (then) {
+      await page.evaluate((h) => { location.hash = h; }, then.slice(7));
+      await page.waitForTimeout(1000);
+    }
     Object.assign(out, await page.evaluate(() => {
       const S = window.systemapCanvas, c = S.camera(), m = S.chain();
       const fit = S.fit(m.length ? m[m.length - 1] : '');
-      return { chain: m, view: S.viewState().mode, atFit: Math.abs(c.k - fit.k) < 1e-6 * fit.k,
+      const id = decodeURIComponent(location.hash.slice(1)), cut = id.lastIndexOf('/');
+      const b = cut > 0 ? S.box(id.slice(0, cut), id.slice(cut + 1)) : null;
+      const inside = (t) => t.box[0] >= b[0] - 1 && t.box[2] <= b[0] + b[2] + 1 && t.box[1] >= b[1] - 1 && t.box[3] <= b[1] + b[3] + 1;
+      const lists = b ? S.texts().filter((t) => /^(FLOWS|MODULES)$/.test(t.s) && t.alpha >= 0.98 && inside(t)).map((t) => t.s) : [];
+      return { chain: m, lists, card: b, view: S.viewState().mode, atFit: Math.abs(c.k - fit.k) < 1e-6 * fit.k,
         hash: location.hash, selected: S.selected().id, said: document.getElementById('canvas-said').textContent,
         scroll: document.documentElement.scrollWidth, width: window.innerWidth, scrollX: window.scrollX };
     }));

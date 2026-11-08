@@ -44,7 +44,8 @@ const place = (page, id) => page.evaluate((id) => {
     list[a.getAttribute('href')] = a.nextSibling ? a.nextSibling.textContent : '';
   });
   const top = document.querySelector('#canvas-tree > ul > li');
-  return { state: S.ports(id), texts: S.texts().filter((t) => /^(No flow inside|Import with no flow|No flow in the parent map|\d+ open lines)$/.test(t.s)),
+  const judged = JSON.parse(document.getElementById('canvas-data').textContent).judged;
+  return { state: { judged, cards: S.ports(id) }, texts: S.texts().filter((t) => /^(No flow inside|Import with no flow|No flow in the parent map|\d+ open lines)$/.test(t.s)),
     list, top: top && top.childNodes[1] ? top.childNodes[1].textContent : '', view: S.viewState().mode };
 }, id);
 
@@ -137,7 +138,7 @@ async function axe(file, nested, shots) {
         const { context, page, errors } = await opened(browser, { ...screen, colorScheme: scheme, reducedMotion: 'reduce' }, file, id ? '#' + id : '');
         await settle(page, 600);
         if (shots) await page.screenshot({ path: path.join(shots, (id ? 'ports-' : 'top-') + tag + '-' + scheme + '.png') });
-        const state = await page.evaluate((id) => window.systemapCanvas.ports(id), id);
+        const state = { cards: await page.evaluate((id) => window.systemapCanvas.ports(id), id) };
         const hits = await page.evaluate(() => window.systemapCanvas.hits().filter((h) => h.show === undefined || h.show > 0.5).map((h) => [h.kind, h.w, h.h]));
         await page.evaluate(source);
         const found = await page.evaluate(async () => {

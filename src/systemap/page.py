@@ -175,17 +175,15 @@ def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
 SCHEME_ICONS = {"dark": "moon", "light": "sun"}
 
 
-def tool(id_: str, name: str, glyph: str, extra: str = "", cls: str = "tool") -> str:
-    """Give one icon button of the header, with its name and its tooltip. An empty `cls`
-    gives a button with no class attribute."""
-    attr = f' class="{cls}"' if cls else ""
+def tool(id_: str, name: str, glyph: str, extra: str = "") -> str:
+    """Give one icon button of the header, with its name and its tooltip."""
     return (
-        f'<button type="button"{attr} id="{id_}" aria-label="{esc(name)}" '
+        f'<button type="button" class="tool" id="{id_}" aria-label="{esc(name)}" '
         f'title="{esc(name)}"{extra}>{icon(glyph)}</button>'
     )
 
 
-def scheme_buttons(cls: str = "tool") -> str:
+def scheme_buttons() -> str:
     """Give one button for each scheme. The page shows only the button of the scheme that
     is not in use, so the buttons are one toggle."""
     labels: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
@@ -195,7 +193,6 @@ def scheme_buttons(cls: str = "tool") -> str:
             f"{labels.get(name, name.title())} theme",
             SCHEME_ICONS.get(name, "sun"),
             f' data-scheme="{esc(name)}" aria-pressed="false"',
-            cls,
         )
         for name in theme_mod.SCHEMES
     )

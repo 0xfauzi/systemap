@@ -44,11 +44,13 @@ from systemap.config import Config
 
 
 def _some(**fields: Any) -> dict[str, Any]:
-    """Give the fields that have a value. An empty list, a zero or a text is not a value."""
+    """Give the fields that have a value. An empty list, an empty text or a zero is not a
+    value. Thus this function also drops 0, and `canvas_data._some` keeps it."""
     return {key: value for key, value in fields.items() if value not in ("", [], None, 0)}
 
 
-def _level(claim: assurance.Claim | None) -> dict[str, list[str]]:
+def level(claim: assurance.Claim | None) -> dict[str, list[str]]:
+    """Give the assurance level and the freshness of a claim as the key `as`, or no key."""
     return {"as": [claim.level, claim.freshness]} if claim is not None else {}
 
 
@@ -76,7 +78,7 @@ def _rules(m: nest.Map, claims: list[assurance.Claim]) -> dict[str, Any]:
     imp = assurance.by_type(claims, assurance.IMPORT_RULE)
     return _some(
         iv=[
-            {"n": i.n, "t": i.text, **_some(g=list(i.governs)), **_level(inv.get(str(i.n)))}
+            {"n": i.n, "t": i.text, **_some(g=list(i.governs)), **level(inv.get(str(i.n)))}
             for i in sorted(model.invariants, key=lambda i: i.n)
         ],
         ir=[
@@ -84,7 +86,7 @@ def _rules(m: nest.Map, claims: list[assurance.Claim]) -> dict[str, Any]:
                 "id": r.id,
                 "k": r.kind,
                 **_some(s=list(r.src), t=list(r.dst), iv=r.invariant),
-                **_level(imp.get(r.id)),
+                **level(imp.get(r.id)),
             }
             for r in model.import_rules
         ],

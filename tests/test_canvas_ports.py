@@ -46,6 +46,7 @@ from systemap import (
     canvas_page,
     config,
     extraction,
+    judgement,
     judgement_json,
     nest,
     nest_join,
@@ -142,9 +143,13 @@ def test_an_exact_answer_closes_only_its_line(tmp_path: Path) -> None:
     assert still == _boundary_open(tree, facts, one)
     # An answer that names the boundary line and a line that is not a boundary line.
     other = next(line for line in full.result.open if not nest_join.is_line(tree, line))
-    group = Answer(items=(flow_line, other), reason="A test.", evidence="no digest")
+    # The digest is correct for the full evidence. Thus only the path of `open_boundary` for
+    # an answer that names other lines closes the boundary line.
+    both = judgement.answer_digest([flow_line, other], full.evidence)
+    group = Answer(items=(flow_line, other), reason="A test.", evidence=both)
     two = dataclasses.replace(cfg, judgement_answered=(group,))
-    assert judgement_json.open_boundary(tree, facts, two) == _boundary_open(tree, facts, two)
+    shut = judgement_json.open_boundary(tree, facts, two)
+    assert flow_line not in shut and shut == _boundary_open(tree, facts, two)
 
 
 def _boundary_open(tree: nest.Tree, facts: dict[str, Any], cfg: config.Config) -> frozenset[str]:

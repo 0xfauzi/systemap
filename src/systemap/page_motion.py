@@ -5,6 +5,8 @@ the glow of a selection. Each motion runs one time and shows direction or
 order. With Reduce motion on, the page shows the final state at once. The page
 setting alone controls the motion: the system setting does not change it."""
 
+from collections.abc import Sequence
+
 # A fine grain of light specks on the Ink map surface. Paper has no grain.
 # The noise is static. Its alpha comes from the red channel of the noise.
 _GRAIN = (
@@ -288,6 +290,13 @@ def _key(key: str) -> str:
             '<kbd><span aria-hidden="true">← →</span>'
             '<span class="sr-only">Left arrow and right arrow</span></kbd>'
         )
+    if key == "← ↑ → ↓":
+        return (
+            '<kbd><span aria-hidden="true">← ↑ → ↓</span>'
+            '<span class="sr-only">Arrow keys</span></kbd>'
+        )
+    if key == "+ -":
+        return "<kbd>+</kbd> <kbd>-</kbd>"
     if key == "1 to 6":
         return f"<kbd data-keys-layers>{key}</kbd>"
     if key == "Ctrl K":
@@ -296,15 +305,14 @@ def _key(key: str) -> str:
     return f"<kbd>{key}</kbd>"
 
 
-def keys_sheet(rows: str | None = None) -> str:
+def keys_sheet(keys: Sequence[tuple[str, str]] = _KEYS) -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
     The sheet is a modal dialog. The ? key and the Keyboard keys button in the
     header open it, but not while another dialog is open. Escape and its Close button
-    close it and return the focus. `rows` gives the rows of the list in place of the keys
-    of the linked page."""
-    if rows is None:
-        rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
+    close it and return the focus. `keys` gives the key names and their texts. The
+    default is the keys of the linked page."""
+    rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in keys)
     return (
         '<div class="keys" id="keys" hidden>'
         '<div class="keys__box" role="dialog" aria-modal="true" aria-labelledby="keys-title">'

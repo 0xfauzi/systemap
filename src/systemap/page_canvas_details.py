@@ -20,7 +20,9 @@ lose information when it becomes the default page:
   selected card: its kind and text, its note, the map that it opens, the flows in and out with their
   evidence state and assurance, the sequences, the invariants and the import rules with
   their assurance, and the source records (`canvas_details`). A flow of the lists gives
-  the flow. Without a selection, the panel gives the rules of the current map.
+  the flow. Without a selection, the panel gives the rules of the current map. When the
+  panel closes, the focus goes back to the element that had it before the panel opened.
+  A letter in the list of the sequences stays in that list.
 
 The panel is over the canvas. It does not change the bands of the fit. Thus the fit of a
 map is the same with the panel open or closed. The panel fades in and out in 160 ms, and
@@ -43,21 +45,18 @@ from systemap.evidence import READER_TEXT
 # The keys of the canvas page. The F key fits the current map: the canvas page has no full
 # screen.
 KEYS: tuple[tuple[str, str], ...] = (
-    ("<kbd data-mod-key>Ctrl K</kbd> <kbd>/</kbd>", "Find a component, flow, layer or action"),
-    ("<kbd>Tab</kbd>", "Move the keyboard focus through the cards of the current map"),
-    ("<kbd>Enter</kbd>", "Go into the card, or select it"),
-    ("<kbd>Esc</kbd>", "Go out one level, or close"),
-    (
-        '<kbd><span aria-hidden="true">← ↑ → ↓</span><span class="sr-only">Arrow keys</span></kbd>',
-        "Move the map",
-    ),
-    ("<kbd>+</kbd> <kbd>-</kbd>", "Zoom in or out"),
-    ("<kbd>F</kbd>", "Fit the current map"),
-    ("<kbd>D</kbd>", "Open or close the Details panel"),
-    ("<kbd>?</kbd>", "Keyboard keys"),
+    ("Ctrl K", "Find a component, flow, layer or action"),
+    ("Tab", "Move the keyboard focus through the cards of the current map"),
+    ("Enter", "Go into the card, or select it"),
+    ("Esc", "Go out one level, or close"),
+    ("← ↑ → ↓", "Move the map"),
+    ("+ -", "Zoom in or out"),
+    ("F", "Fit the current map"),
+    ("D", "Open or close the Details panel"),
+    ("?", "Keyboard keys"),
 )
 
-KEYS_HTML = page_motion.keys_sheet("".join(f"<dt>{key}</dt><dd>{text}</dd>" for key, text in KEYS))
+KEYS_HTML = page_motion.keys_sheet(KEYS)
 
 PANEL_HTML = (
     '<aside class="cdet cpop cview" id="cdetails" aria-labelledby="cdet-title" data-own-keys hidden>'
@@ -81,7 +80,7 @@ CSS = (
 .cbar__snap code{font:inherit;color:var(--ink)}
 .cbar [data-scheme][aria-pressed="true"],.cbar .cbar__more,.cbar[data-menu] .cbar__tools{
 display:none}
-.cbar__tools .cbar__det{margin-left:6px}
+.cbar__tools [aria-controls="cdetails"]{margin-left:6px}
 .cbar[data-menu] .cbar__more{display:flex;align-items:center;justify-content:center;flex:none}
 .cbar[data-menu] .cbar__views button{padding:0 6px}
 .cbar[data-menu] .cbar__pick select{min-width:64px}
@@ -183,6 +182,8 @@ DETAILS = r"""
     if (on) tools.setAttribute('data-open', ''); else { tools.removeAttribute('data-open'); snapShow(false); }
     more.setAttribute('aria-expanded', String(on));
   }
+  // A change of the header into the Tools menu or out of it closes the menu.
+  MENU_SHUT = function () { menuShow(false); };
   popup(more, tools, function () { menuShow(true); var b = tools.querySelector('button:not([aria-pressed="true"][data-scheme])'); if (b) b.focus(); }, function () { menuShow(false); });
   // ---- the keyboard sheet: ? opens it, Escape closes it ----------------------------
   var sheet = byId('keys'), closer = sheet && sheet.querySelector('[data-keys-close]'), opener = null;
@@ -215,12 +216,14 @@ DETAILS = r"""
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target) || modal()) return;
+    // A letter in a listbox (the list of the sequences) moves the focus in that list.
+    if (e.target && e.target.closest && e.target.closest('[role="listbox"]')) return;
     if (e.key === '?') { e.preventDefault(); e.stopImmediatePropagation(); keysOpen(); }
     else if (e.key === 'd' || e.key === 'D') { e.preventDefault(); e.stopImmediatePropagation(); detToggle(); }
   }, true);
   // ---- the Details panel -----------------------------------------------------------
   var panel = byId('cdetails'), body = byId('cdet-body'), title = byId('cdet-title'), toggle = byId('details-toggle');
-  var ON = false, SHOWN = null, FLOW = null, BACK = null, EV = EVIDENCE_JSON, FF = DATA.maps[0].ff || 'the facts file';
+  var ON = false, SHOWN = null, FLOW = null, BACK = null, FROM = null, EV = EVIDENCE_JSON, FF = DATA.maps[0].ff || 'the facts file';
   function list(xs) { return xs.length ? xs.map(function (x) { return '<code>' + esc(x) + '<\/code>'; }).join(', ') : 'none recorded'; }
   function level(o) { return o.as ? ' <span class="cdet__as">' + esc(o.as[0] + ' · ' + o.as[1]) + '<\/span>' : ''; }
   // The steps of the sequences of map m that `has` takes, as one line for each sequence.
@@ -310,6 +313,9 @@ DETAILS = r"""
     var m = currentMap(), key = FLOW ? 'f' + FLOW.map.oi + ':' + FLOW.i : SEL_C ? 'c' + SEL_C.map.oi + ':' + SEL_C.i : 'm' + m.oi;
     if (key === SHOWN) return;
     SHOWN = key;
+    // When the old text has the keyboard focus, the new heading gets it. Thus the focus
+    // does not go to the body of the page.
+    focus = focus || body.contains(document.activeElement);
     body.innerHTML = FLOW ? flowHtml(FLOW) : SEL_C ? cardHtml(SEL_C) : mapHtml(m);
     if (focus) { var h = body.querySelector('h3'); if (h) h.focus({preventScroll: true}); }
   }
@@ -319,7 +325,7 @@ DETAILS = r"""
     if (toggle) toggle.setAttribute('aria-pressed', String(on));
     clearTimeout(panel._dt);
     if (on) {
-      FLOW = null; detSync();
+      FLOW = null; detSync(); FROM = document.activeElement;
       panel.hidden = false; panel.getBoundingClientRect(); panel.classList.add('on');
       if (focus) title.focus({preventScroll: true});
       return;
@@ -327,7 +333,12 @@ DETAILS = r"""
     panel.classList.remove('on');
     if (reduced()) panel.hidden = true;
     else panel._dt = setTimeout(function () { if (!ON) panel.hidden = true; }, VIEW_MS + 10);
-    if (focus && toggle) (toggle.offsetParent ? toggle : more && more.offsetParent ? more : cv).focus();
+    // The focus goes back to the element that had it before the panel opened, when that
+    // element is on the page. Else it goes to the Details button.
+    var back = FROM; FROM = null;
+    if (!focus) return;
+    if (back && back.focus && back.isConnected && !panel.contains(back) && back.getClientRects().length) back.focus({preventScroll: true});
+    else if (toggle) (toggle.offsetParent ? toggle : more && more.offsetParent ? more : cv).focus();
   }
   function detToggle() { menuShow(false); detShow(!ON, true); say('Details: ' + (ON ? 'open' : 'closed') + '.'); }
   if (toggle) toggle.addEventListener('click', detToggle);

@@ -71,15 +71,19 @@ function facts(c) {
 // before the rounding. The line height and the count of columns come from it, the count
 // with a margin of 4 percent for the rounding of the font size. Thus the space of a part
 // changes continuously, and the count does not change while the font size follows the
-// zoom. The description has 4 lines or less.
+// zoom. The description has 4 lines or less. The lists come after the description, when
+// 3 lines or more stay under it.
 function details(c, x, y, w, h, alpha, ur) {
   var u = q(ur), raw = clamp(ur * 0.78, MIN_TEXT, 19), fs = q(raw), lh = raw * 1.38, small = q(clamp(u * 0.66, MIN_TEXT, 15));
   if (h < lh * 0.9 || w < 30 || alpha <= 0.02) return;
   var fact = rest(smooth(3, 3.5, h / lh) * smooth(90, 110, w)), bottom = y + h - small * 1.7 * fact;
   var cols = 2 * w / (raw * 1.04), at = block(c, 'p', c.p, x, y, (bottom - y) / lh, 2, fs, cols, lh, C['--ink-2'], alpha);
-  var room = (bottom - at) / lh, shown = alpha * rest(smooth(7, 9, room) * smooth(150, 170, w));
+  var room = (bottom - at) / lh;
   if (c.d) at = block(c, 'd', c.d, x, at + lh * 0.3, room - 1, 4, fs, cols, lh, C['--ink-3'], alpha);
-  if (shown > 0.02) lists(c, x, at + lh * 0.5, w, bottom - at - lh * 0.5, fs, small, lh, shown);
+  // The lists fade in with the room under the description. Thus a large card with a short
+  // text shows its lists and not empty space.
+  var left = (bottom - at) / lh - 0.5, shown = alpha * rest(smooth(3, 4, left) * smooth(150, 170, w));
+  if (shown > 0.02) lists(c, x, at + lh * 0.5, w, left * lh, fs, small, lh, shown);
   if (fact > 0) text(fit(facts(c), small, w, 400), x, y + h - small * 0.3, small, C['--ink-3'], alpha * fact);
 }
 // A weight of a fade that follows the zoom: the value while the camera moves, and 0 or 1

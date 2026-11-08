@@ -35,6 +35,11 @@ tests/test_canvas_details.py.
    changes only at a change of the selection: 0 DOM changes in a pan of 90 frames, and a
    change after a new selection. Escape in the panel closes it, does not move the camera
    out, and the focus goes back to the Details button.
+   Changed after the second verification of step 5, before the run: the focus goes back to
+   the element that had it before the panel opened (here the canvas). A CSS transition
+   follows the time, so the test gives the change of the opacity for each frame as a rate:
+   1.8 / 160 per ms or less (the start of the ease-out curve has the rate 1.72 / 160).
+   The time of each frame is the time of the document timeline, as for the transition.
    Added after the verification of step 5, before the run: the panel of the card Scaffold
    gives its `note` text. With reduced motion (the system setting or the page setting), the
    keys sheet opens with no animation. Without it, the sheet has the animation `keys-in`.
@@ -52,6 +57,26 @@ tests/test_canvas_details.py.
     row, list name and fact row of the card is 0.02 or less, or 0.98 or more. The test
     examines 100 or more texts. Without the rule `rest` of `page_canvas_text`, this test
     found 39 partly transparent texts.
+    Changed after the second verification of step 5: 32 zooms, and a wait of 250 ms at
+    rest. The longest fade of a text (`colFade`) takes 160 ms. A first run with 24 zooms
+    examined 81 texts, which is less than 100.
+12. Added after the second verification of step 5, before the run (the items 12 to 16
+    have one run of the driver, `--focus`): in the open list of the sequences, the letter
+    d moves the focus to the next sequence whose name starts with d. The Details panel
+    stays closed, and the list stays open. The ? key in the list does not open the keys
+    sheet.
+13. The D key two times on a focused card: the panel opens and closes, and the focus goes
+    back to the canvas. The card keeps the focus, and the next Tab gives the next card in
+    reading order.
+14. With the Details panel open at 1440 x 900, Tab through the cards of the top map: no
+    focused card is under the panel. At the fit, 1 card or more is under the panel.
+15. A right click and a middle click on a card do not select it. A left click selects it.
+16. The Tools menu is open at a width of 380 px. At a width of 1600 px the header has no
+    menu, and the menu is closed (no `data-open`, `aria-expanded` is "false"). At 380 px
+    again the menu stays closed.
+17. On the page of the fixture of tests/test_canvas_page.py (a nested map), a button of the
+    Details panel has the focus, and a zoom out closes the map of the selected card. Then
+    the focus is on the heading of the new text of the panel, not on the body of the page.
 """
 
 from __future__ import annotations
@@ -65,6 +90,7 @@ from typing import Any
 import pytest
 from test_canvas_access import AXE_VERSION, no_axe
 from test_canvas_browser import browser
+from test_canvas_page import _made
 
 from systemap import canvas_data, canvas_page, config, facts_file, nest, page_canvas_details
 
@@ -98,12 +124,18 @@ def self_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return out
 
 
-def _steps(frames: list[list[float]]) -> tuple[float, float, int]:
+def _steps(frames: list[list[float]], rate: bool = False) -> tuple[float, float, int]:
     """Give the largest change between two frames, the time from the first frame with a
-    change to the last frame with a change, and the count of frames with a change."""
+    change to the last frame with a change, and the count of frames with a change. With
+    `rate`, the largest change is for each ms."""
     values = [v for _t, v in frames]
     moved = [i for i in range(1, len(values)) if values[i] != values[i - 1]]
-    most = max((abs(values[i] - values[i - 1]) for i in moved), default=0.0)
+
+    def change(i: int) -> float:
+        step = abs(values[i] - values[i - 1])
+        return step / max(frames[i][0] - frames[i - 1][0], 1e-3) if rate else step
+
+    most = max((change(i) for i in moved), default=0.0)
     span = frames[moved[-1]][0] - frames[moved[0] - 1][0] if moved else 0.0
     return most, span, len(moved)
 
@@ -163,9 +195,9 @@ def test_the_details_panel(self_page: Path, motion: str) -> None:
     opening, closing = ([[t, max(v, 0.0)] for t, v in found[k]] for k in ("opening", "closing"))
     for record, start, end in ((opening, 0, 1), (closing, 1, 0)):
         assert record[0][1] == start and record[-1][1] == end, record
-        most, span, frames = _steps(record)
+        most, span, frames = _steps(record, rate=True)
         if motion == "none":
-            assert most <= 0.25 + 1e-9 and span >= 160 - 17 and frames >= 5, (most, span)
+            assert most <= 1.8 / 160 and span >= 160 - 17 and frames >= 5, (most, span)
         else:
             assert frames == 1, record
     assert found["keysAnimation"] == ("keys-in" if motion == "none" else "none")
@@ -191,7 +223,7 @@ def test_the_details_panel(self_page: Path, motion: str) -> None:
     assert found["back"] == found["secondId"]
     assert found["closed"] == {
         "hidden": True,
-        "focus": "details-toggle",
+        "focus": "canvas",
         "pressed": "false",
         "chain": [],
     }
@@ -233,3 +265,61 @@ def test_the_tools_and_the_panel_on_a_phone(self_page: Path) -> None:
         for t in found[group]:
             assert t["w"] >= 44 and t["h"] >= 44, (group, t)
             assert t["x"] >= 0 and t["x"] + t["w"] <= 390, (group, t)
+
+
+@pytest.fixture(scope="module")
+def focused(self_page: Path) -> dict[str, Any]:
+    found = _drive("--focus", str(self_page))
+    assert found["errors"] == []
+    return found
+
+
+def test_a_letter_in_the_list_of_the_sequences_moves_in_the_list(focused: dict[str, Any]) -> None:
+    """Acceptance 12."""
+    letter = focused["letter"]
+    assert letter["letter"] == "d" and letter["text"].lower().startswith("d"), letter
+    assert letter["list"] and not letter["panel"]
+    assert focused["question"]["list"] and not focused["question"]["sheet"]
+
+
+def test_the_d_key_two_times_keeps_the_place_on_the_canvas(focused: dict[str, Any]) -> None:
+    """Acceptance 13."""
+    twice = focused["twice"]
+    assert twice["focus"] == "canvas" and not twice["panel"]
+    assert twice["card"] == twice["first"]
+    order = twice["order"]
+    assert twice["next"]["id"] == order[order.index(twice["first"]["id"]) + 1]
+
+
+def test_the_panel_does_not_cover_the_focused_card(focused: dict[str, Any]) -> None:
+    """Acceptance 14."""
+    cover = focused["cover"]
+    assert cover["before"] and cover["tabbed"] >= len(cover["before"])
+    assert cover["hidden"] == [], cover
+
+
+def test_only_the_main_button_selects_a_card(focused: dict[str, Any]) -> None:
+    """Acceptance 15."""
+    clicks = focused["clicks"]
+    assert clicks["right"] is None and clicks["middle"] is None
+    assert clicks["left"] == clicks["id"]
+
+
+def test_a_change_of_the_header_closes_the_tools_menu(focused: dict[str, Any]) -> None:
+    """Acceptance 16."""
+    narrow, wide, again = focused["menu"]
+    assert narrow == {"menu": True, "open": True, "expanded": "true"}
+    assert wide == {"menu": False, "open": False, "expanded": "false"}
+    assert again == {"menu": True, "open": False, "expanded": "false"}
+
+
+def test_a_new_text_of_the_panel_keeps_the_focus_in_the_panel(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """Acceptance 17."""
+    root = _made(tmp_path_factory.mktemp("rewrite"), "")
+    found = _drive("--rewrite", str(root / "docs" / "map" / "index.html"))
+    assert found["errors"] == [] and found["card"]
+    after = found["after"]
+    assert after["chain"] == [] and after["selected"] is None
+    assert after["inPanel"] and after["tag"] == "H3", after

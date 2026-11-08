@@ -120,10 +120,6 @@ def _box(box: Collection[float]) -> list[float | int]:
     return [_num(v) for v in box]
 
 
-def _level(claim: assurance.Claim | None) -> dict[str, list[str]]:
-    return {"as": [claim.level, claim.freshness]} if claim is not None else {}
-
-
 def _some(**fields: Any) -> dict[str, Any]:
     """Give the fields that have a value. An empty list or text is not a value."""
     return {key: value for key, value in fields.items() if value not in ("", [], None)}
@@ -168,7 +164,7 @@ def _card(
         "p": m.meaning.plain.get(c.id, ""),
         "d": c.does,
         **_some(m=list(c.implemented_by), s=state, u=unresolved, nt=c.note),
-        **_level(found.get(c.id)),
+        **canvas_details.level(found.get(c.id)),
         **extra,
     }
 
@@ -192,7 +188,7 @@ def _flows(
             "p": [_box(point) for point in routes[i].points],
             "lb": _box(seats[i].box),
             **_some(id=f.id),
-            **_level(found.get(f.key)),
+            **canvas_details.level(found.get(f.key)),
         }
         for i, f in enumerate(model.flows)
     ]

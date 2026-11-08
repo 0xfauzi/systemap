@@ -305,14 +305,18 @@ function viewMarks(m, ox, oy, mw, mh, alpha) {
 function headButtons(sel) { return HEAD_EL ? Array.prototype.slice.call(HEAD_EL.querySelectorAll(sel)) : []; }
 var VIEW_BTNS = headButtons('[data-view]'), LAYER_BTNS = headButtons('[data-layer]');
 var LAYER_SELECT = document.getElementById('canvas-layer');
-// The height of the header. It is constant for a screen (`measure` reads it).
+// The height of the header. It is constant for a screen (`measure` reads it). When the
+// header goes into the Tools menu or out of it, the menu closes (`MENU_SHUT`).
+var MENU_SHUT = null;
 function headMeasure() {
   HEAD_BASE = HEAD_EL ? HEAD_EL.getBoundingClientRect().height : 0;
   if (HEAD_EL) {
+    var menu = HEAD_EL.hasAttribute('data-menu');
     HEAD_EL.removeAttribute('data-fit'); HEAD_EL.removeAttribute('data-menu');
     if (HEAD_EL.scrollWidth > HEAD_EL.clientWidth + 1) HEAD_EL.setAttribute('data-fit', '1');
     if (HEAD_EL.scrollWidth > HEAD_EL.clientWidth + 1) HEAD_EL.setAttribute('data-fit', '2');
     if (HEAD_EL.scrollWidth > HEAD_EL.clientWidth + 1) HEAD_EL.setAttribute('data-menu', '');
+    if (MENU_SHUT && menu !== HEAD_EL.hasAttribute('data-menu')) MENU_SHUT();
   }
   headBand(true);
 }

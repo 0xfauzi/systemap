@@ -293,7 +293,8 @@ function up(e) {
   var h = hitAt(p[0], p[1]);
   if (h) { h.go(); return; }
   // A click with a mouse selects the card, for the Details panel. Only a tap goes in.
-  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]); else select(pickClosed(p[0], p[1]));
+  // Only the main button selects: a right click or a middle click does not.
+  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]); else if (e.button === 0) select(pickClosed(p[0], p[1]));
 }
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
@@ -477,8 +478,8 @@ window.systemapCanvas = {
   // of its bar, and the mark and the alpha of each card of a map. `viewLog` records the fade
   // of each view in each frame (`show`).
   changes: changeState,
-  // The open ports (`page_canvas_ports`): the words of a map, and the words, the tag and
-  // the alpha of the mark of each marked card.
+  // The open ports (`page_canvas_ports`): the words, the tag and the alpha of the mark of
+  // each marked card of a map.
   ports: portState,
   // The Sequences view (`page_canvas_sequences`): `seqState` gives the sequence, the mode,
   // the step and the flows and the cards of the route. `seqLog` starts a record of the

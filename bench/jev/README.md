@@ -6821,3 +6821,43 @@ Script: `s5fix/bytes.py`, no acceptance value. Each variant makes the canvas pag
 | B (the fixes) | 273,296 | 88,686 |
 
 The renderer script of the page is now without its comment lines and its indentation (`page.compact`): 146,056 bytes in place of 218,681 bytes. Thus the page of B is 26,570 bytes smaller than the page of A, also with the parts of step 5. The byte item of S10 (43,270 bytes more than A) does not apply to B. Acceptance 10 of `tests/test_canvas_details.py` now counts the script part with the bytes that the page gets.
+
+## S13: the fixes after the second verification of step 5 (2026-11-08)
+
+The fixes change the renderer script: the lists of a large card, the keys of the Details panel, the focus of the panel, the free box of Tab, the mouse buttons, the Tools menu, the hash words and the words of the Map view. This section records one run of the frame time after these changes.
+
+### S13a: C2 and C3 (`bench/jev/canvas_frames.py`, 1 run)
+
+The work tree with the fixes. For 30 s before the run, the host had no process with more than 5 percent CPU, and no Chromium, node or pytest process. The 1-minute load average was 0.39 before the run and 0.64 after it. The run took 88 s and gave exit 0. The acceptance values are the values of the script docstring.
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 299 ms | | | information |
+| M11 shape | C3 load | 4x | 300 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.7 | 16.8 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.8 | 83.3 | pass |
+| M11 tree | dive | 4x | 16.7 | 16.8 | 33.3 | pass |
+| 400 cards | pan-fit | 4x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | dive | 4x | 16.7 | 16.8 | 33.3 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.8 | 33.4 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.8 | 50.0 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | C3 load | 1x | 82 ms | | | pass |
+| M11 shape | C3 load | 1x | 73 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.8 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+
+Result: PASS. The largest p95 is 16.8 ms. The C3 load at 1x is 82 ms (M11 tree) and 73 ms (M11 shape). This is one run with no A run, so it does not give a difference from A. The largest single intervals (83.3 ms in all-open at 4x) are not in the p95.
+
+### S13b: the lists of a large card and the time of the rest test
+
+- At the card Routes of the fixture of `tests/test_nest_join.py` (`Gateway/index.html#Routes`, a card of 864 x 323 px), the canvas now draws FLOWS and MODULES at rest (acceptance 9 of `tests/test_canvas_redirect_browser.py`). Before the fix, it drew no list there. The lists now start when 3 lines or more stay under the description, in place of 7 to 9 lines before the description.
+- The rest test (acceptance 11 of `tests/test_canvas_details_browser.py`) took 30.52 s and 30.99 s in two earlier measurements, with 48 zooms and a wait of 450 ms. With 24 zooms and 250 ms, it examined 81 texts and failed its count of 100. With 32 zooms and 250 ms, it took 14.65 s and examined 100 or more texts, with 0 partly transparent texts.

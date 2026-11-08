@@ -144,14 +144,15 @@ function setHash(h) {
 // The goal that the URL hash gives: a map, or a card of a map. The view link `#changes`
 // (`delta_link.CHANGES`) or `#<map>/changes` also sets the Changes view (`linkedMap`). When
 // the hash names no map and no card, it is the deepest map that the start of the hash names
-// (`hashMap`), or the top map, and the live region tells the reader.
+// (`hashMap`), or the top map, and the live region tells the reader. These words also give
+// the map, thus `tell` does not write the region again when the camera stops in that map.
 function hashGoal() {
   var id = hashId(), c = hashCard(id), v;
   if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
   if (c) return goalOf(c.map, c, null);
   if ((v = linkedMap(id))) { setView('changes'); return goalOf(v, null, null); }
   v = hashMap(id);
-  if (id) say('No map and no card has the link #' + id + '. Open map: ' + mapName(v) + '.');
+  if (id) { say('No map and no card has the link #' + id + '. Open map: ' + mapName(v) + '.'); SAID_MAP = v; }
   return goalOf(v, null, null);
 }
 // The deepest map whose ID starts the ID `id` of a URL hash, or the top map. Thus an old
