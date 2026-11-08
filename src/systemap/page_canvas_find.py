@@ -66,6 +66,11 @@ CSS = (
     ".pal .pal__x kbd{display:none}.pal .pal__x span{display:inline;font-size:13px}"
     "@media (pointer:coarse),(max-width:640px){.pal .pal__x{min-width:44px;min-height:44px;"
     "padding:0 4px}.pal .pal__o{height:44px}}"
+    # The canvas page has no Reduce motion button, so the dialog obeys the system setting.
+    # The selectors have the specificity of the animation rules of the map page.
+    "@media (prefers-reduced-motion:reduce){"
+    'html:not([data-reduce-motion="true"]) .pal:not([hidden]),'
+    'html:not([data-reduce-motion="true"]) .pal:not([hidden]) .pal__box{animation:none}}'
 )
 
 _GLYPHS = ("map", "route", "change", "fit", "zoom-out")
@@ -114,19 +119,16 @@ var FIND = null;
   var LIMIT = {Components:8, Flows:8, Steps:6, 'Other maps':8};
   // The list code of the map page (`page_palette.LIST`) calls `plural`.
   var plural = counted;
-  function add(g, t, s, run, o){
-    o = o || {};
-    items.push({g:g, t:t, s:s || '', run:run, keys:o.keys || [], words:o.words || '',
-      more:o.more || [], glyph:o.glyph || '<i></i>', quiet:!!o.quiet,
-      hint:o.now ? 'Current' : o.hint || '', late:!!o.late,
-      k:items.length});
-  }
-  function line(colour, dash){
-    return '<i class="pal__line' + (dash ? ' dash' : '') + '"'
-      + (colour ? ' style="--c:' + esc(colour) + '"' : '') + '></i>';
-  }
-  function badge(n){ return '<b class="pal__n">' + esc(n) + '</b>'; }
-  function where(m){ return 'in ' + (m.id || DATA.name || 'the top map'); }
+"""
+
+# The result helpers of the map page (`page_palette.ITEMS`). A result of the canvas page
+# also has `late`: the ranking puts it after the other shown rows of its group (`RANK`).
+_HINT = "hint:o.now ? 'Current' : o.hint || '',"
+ITEMS = page_palette.ITEMS.replace(_HINT, _HINT + " late:!!o.late,")
+if ITEMS == page_palette.ITEMS:  # pragma: no cover - a guard for a change of the helpers
+    raise ValueError("The result helpers of the map page have no hint.")
+
+_BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top map'); }
   function layerColour(id){ return 'var(--l-' + id + ')'; }
   function flowGlyph(f){ return line(layerColour(f.l), f.ev === 'structural' || f.ev === 'declared'); }
 
@@ -264,6 +266,7 @@ var FIND = null;
 """
 
 _TAIL = r"""
+  function ranked(text){ build(); return rank(String(text).trim().toLowerCase()); }
   // While the dialog is open, no key goes to the camera.
   box.addEventListener('keydown', function(e){ e.stopPropagation(); });
   if(button){ button.hidden = false; }
@@ -273,16 +276,14 @@ _TAIL = r"""
     build:function(){ var t0 = performance.now(); build(); return {ms:performance.now() - t0, n:items.length}; },
     // The groups and the rows that the text gives, for the tests.
     rank:function(text){
-      build();
-      return rank(String(text).trim().toLowerCase()).map(function(g){
+      return ranked(text).map(function(g){
         return {g:g.g, rows:g.rows.map(function(r){ return {t:r.it.t, s:r.it.s, hint:r.it.hint, late:r.it.late}; })};
       });
     },
     // Do the action of row n of the group g for the text, as Enter does. Give false when
     // there is no such row.
     run:function(text, g, n){
-      build();
-      var found = rank(String(text).trim().toLowerCase()).filter(function(x){ return x.g === g; })[0];
+      var found = ranked(text).filter(function(x){ return x.g === g; })[0];
       var r = found && found.rows[n];
       if(r){ r.it.run(); }
       return !!r;
@@ -303,7 +304,7 @@ if LIST == page_palette.LIST:  # pragma: no cover - a guard for a change of the 
     raise ValueError("The list code of the map page has no text for no result.")
 
 FIND = (
-    (_HEAD + page_palette.MATCH + RANK + LIST + _TAIL)
+    (_HEAD + ITEMS + _BODY + page_palette.MATCH + RANK + LIST + _TAIL)
     .replace("ICONS_JSON", json.dumps({name: icon(name) for name in _GLYPHS}))
     .replace("TEXT_CHARACTERS", str(TEXT_CHARACTERS))
 )

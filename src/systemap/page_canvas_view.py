@@ -11,7 +11,7 @@ never shows an image of a different view.
 
 The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f)`,
 `over(m, a, ox, oy, alpha)`, `enter(from)`, `leave(to)`, `frame()`, `band(fresh)`,
-`facts(c)`, `say(m)`, `words()` and `here(m)`. All of them are optional.
+`box()`, `facts(c)`, `say(m)`, `words()` and `here(m)`. All of them are optional.
 
 - `card(c)` gives null for the usual card, or `{a, ring, tag, back, note}`: the alpha of
   the card (0 to 1), and four marks, each null or an object. `ring` is
@@ -40,7 +40,12 @@ The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f
 - `band(fresh)` gives the height of a bar of the view under the header, for example the
   toolbar of the Sequences view. With `fresh`, the part measures the bar again. The top
   band of the screen (`HEAD_H`) is the header and the bar of each view, multiplied by the
-  fade of its view (`headBand`). Thus the band grows and shrinks with the fade.
+  fade of its view (`headBand`). Thus the band grows and shrinks with the fade. A camera
+  target that a view part calculates uses the band at the end of the fade (`headAim`).
+  `barShow` and `barBand` show, hide and measure a bar.
+- `box()` gives the element of the bar of the view. When that element has the keyboard
+  focus at a change of the mode, the focus goes to the button of the new view. Thus the
+  focus does not go to the body of the page when the bar goes.
 
 The drawing calls the seam only for the cards and the flows that a frame draws:
 `viewCard(c)` and `viewFlow(f)`. They give the values that the screen shows. When a value
@@ -69,7 +74,8 @@ in the Map view, as on the linked page. A layer button in a different view goes 
 Map view with that layer.
 
 The header (`canvas_header`). The view buttons and the layer buttons set the view. The
-layer buttons are a toolbar: the arrow keys, Home and End move between them. The keys of
+layer buttons are a toolbar: the arrow keys, Home and End move the keyboard focus between
+them, and Enter, Space or a click selects the layer. The keys of
 the camera do not operate while the keyboard focus is in the header, in a text field, in
 a select or in a dialog (`ownKeys`). The live region gives the new view or layer, and the
 label of the canvas gives them when they are not Map and All (`viewLabel`).
@@ -207,7 +213,7 @@ function viewFrame() {
   MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.frame) v.frame(); });
   headBand(false);
   if (VIEW_LOG) {
-    VIEW_LOG.cur = {at: now, show: {map: VIEW_SHOW.map, sequences: VIEW_SHOW.sequences, changes: VIEW_SHOW.changes}, cards: [], flows: [], marks: []};
+    VIEW_LOG.cur = {at: now, show: Object.assign({}, VIEW_SHOW), cards: [], flows: [], marks: []};
     VIEW_LOG.frames.push(VIEW_LOG.cur);
   }
 }
@@ -308,10 +314,37 @@ function headMeasure() {
   headBand(true);
 }
 // The top band: the header, and the bar of each view with the fade of its view (`band`).
-function headBand(fresh) {
+function headBand(fresh, show) {
   var b = 0;
-  MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.band) b += v.band(fresh) * VIEW_SHOW[mode]; });
+  show = show || VIEW_SHOW;
+  MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.band) b += v.band(fresh) * show[mode]; });
   HEAD_H = HEAD_BASE + b; P_TOP = P_TOP0 + HEAD_H;
+}
+// Calculate a camera target with the top band of the current view at the end of its fade.
+// Thus a target that a view change starts does not go under the bar of the new view. The
+// next frame calculates the band of the fade again (`viewFrame`).
+function headAim(f) {
+  var show = {};
+  MODES.forEach(function (mode) { show[mode] = mode === VIEW.mode ? 1 : 0; });
+  headBand(false, show);
+  try { f(); } finally { headBand(false); }
+}
+// Show or hide the bar of a view part. The bar comes into the page, and the read of its box
+// makes the browser give it its style before the fade starts. When it goes, it goes out of
+// the page after its fade (the CSS transition of 160 ms), unless the view `mode` starts
+// again before that time.
+function barShow(el, on, mode) {
+  if (!el) return;
+  clearTimeout(el._bt);
+  if (on) { el.hidden = false; el.getBoundingClientRect(); el.classList.add('on'); return; }
+  el.classList.remove('on');
+  if (reduced()) el.hidden = true;
+  else el._bt = setTimeout(function () { if (VIEW.mode !== mode) el.hidden = true; }, VIEW_MS + 10);
+}
+// The height of a bar in the record `s` (`s.h`). A hidden bar keeps the last height.
+function barBand(el, s, fresh) {
+  if (el && (fresh || !s.h) && !el.hidden) s.h = el.getBoundingClientRect().height;
+  return s.h || 0;
 }
 function layerName(id) { return id === 'all' ? 'All' : LAYER_OF[id] ? LAYER_OF[id].n : id; }
 function layerQuestion(id) { return id === 'all' ? 'Which flows connect the components?' : LAYER_OF[id] ? LAYER_OF[id].q : ''; }
@@ -356,12 +389,18 @@ function setView(mode, layer) {
   mode = MODES.indexOf(mode) >= 0 ? mode : VIEW.mode;
   layer = layer === undefined || layer === null ? VIEW.layer : layer === 'all' || LAYER_OF[layer] ? layer : VIEW.layer;
   if (mode === VIEW.mode && layer === VIEW.layer) return false;
-  var was = VIEW.mode;
+  var was = VIEW.mode, held = document.activeElement, box = VIEWS[was] && VIEWS[was].box ? VIEWS[was].box() : null;
   if (mode !== was && VIEWS[was] && VIEWS[was].leave) VIEWS[was].leave(mode);
   VIEW.mode = mode; VIEW.layer = layer; VIEW.epoch++;
   if (mode !== was && VIEWS[mode] && VIEWS[mode].enter) VIEWS[mode].enter(was);
   if (mode !== was && TREE_MS !== null && ((VIEWS[was] && VIEWS[was].facts) || (VIEWS[mode] && VIEWS[mode].facts))) buildTree();
   headSync();
+  // The bar of the old view goes. When it has the keyboard focus, the focus goes to the
+  // button of the new view, not to the body of the page.
+  if (mode !== was && box && held && box.contains(held)) {
+    var to = VIEW_BTNS.filter(function (b) { return b.getAttribute('data-view') === mode && !b.hidden; })[0];
+    (to || cv).focus();
+  }
   say(viewWords(mode !== was));
   relabel(SAID_MAP || currentMap());
   viewTouch();
@@ -374,7 +413,10 @@ LAYER_BTNS.forEach(function (b, i) {
     var n = LAYER_BTNS.length, j = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? (i + 1) % n
       : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? (i + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
     if (j < 0) return;
-    e.preventDefault(); LAYER_BTNS[j].focus(); LAYER_BTNS[j].click();
+    // The keys only move the keyboard focus. Enter, Space and a click select the layer.
+    e.preventDefault();
+    LAYER_BTNS.forEach(function (o, x) { o.tabIndex = x === j ? 0 : -1; });
+    LAYER_BTNS[j].focus();
   });
 });
 if (LAYER_SELECT) LAYER_SELECT.addEventListener('change', function () { setView('map', LAYER_SELECT.value); });
@@ -388,10 +430,9 @@ function ownKeys(e) {
   return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || !!t.isContentEditable;
 }
 // The state of the view for the tests: the mode, the layer, the epoch and the fade of each
-// mode. With `log`, start a record of the values that each frame gives to the cards and the
-// flows; `logged` gives it and stops it.
+// mode.
 function viewState() {
-  return {mode: VIEW.mode, layer: VIEW.layer, epoch: VIEW.epoch, show: {map: VIEW_SHOW.map, sequences: VIEW_SHOW.sequences, changes: VIEW_SHOW.changes},
+  return {mode: VIEW.mode, layer: VIEW.layer, epoch: VIEW.epoch, show: Object.assign({}, VIEW_SHOW),
     fading: VIEW_FADING, head: HEAD_H, hooks: STATS.hooks, flows: STATS.flows, cards: STATS.cards};
 }
 """

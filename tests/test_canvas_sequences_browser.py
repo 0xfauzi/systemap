@@ -41,6 +41,19 @@ Acceptance values, written before the first run:
    of the toolbar and each option is 44 x 44 pixels or more, the scroll width is 390
    pixels, the scroll position is 0, the toolbar does not scroll, and the list is in the
    screen. The page has no script error.
+7. Added on 2026-11-08 after the review of PR 155. A Steps result of Find for a sequence of
+   Gateway, from the top map, ends with the live region "Step 2 of 2:" and the sentence of
+   the step. When Find is opened from Next in the toolbar or from the Copy button of the
+   Changes text, and a result goes to the Map view, the keyboard focus is on the Map
+   button, not on the body of the page. In the Changes view of a page without a revision
+   comparison, the ring of a card with the keyboard focus does not touch the box of the
+   Changes text. A leave, an enter and a leave of the Sequences view in 100 ms do not hide
+   the toolbar before the end of the last fade. With the reduced motion of the system, the
+   Find dialog has no animation.
+8. Added on 2026-11-08. On the self-map, at 700 x 280, 700 x 320 and 600 x 800 pixels,
+   after Start at step 1 and after Next, the zoom is 0.05 (KMIN) or more, and the band of
+   the toolbar is the height of the toolbar. At 1440 x 900, the Find result of the first
+   sequence from the Map view gives the camera that F gives in the Sequences view.
 """
 
 from __future__ import annotations
@@ -285,11 +298,13 @@ def test_the_keys_of_the_toolbar_and_the_listbox(fixture_page: Path) -> None:
 def test_access_and_the_phone(fixture_page: Path) -> None:
     """Acceptance 6."""
     found = _drive("--access", str(fixture_page), "Gateway", "serve")
+    # The phone checks do not need axe-core. Thus they occur first, for all runs.
     for run in found["runs"]:
         assert run["errors"] == []
-        _check_axe(run)
         if run["screen"] == "390x844":
             _check_phone(run)
+    for run in found["runs"]:
+        _check_axe(run)
 
 
 def _check_axe(run: dict[str, Any]) -> None:
@@ -307,3 +322,33 @@ def _check_phone(run: dict[str, Any]) -> None:
     s = run["scroll"]
     assert (s["scrollWidth"], s["scrollX"], s["bar"]) == (390, 0, 0)
     assert s["list"] <= 390
+
+
+def test_find_the_focus_and_the_fades_of_the_bars(fixture_page: Path) -> None:
+    """Acceptance 7."""
+    found = _drive("--edges", str(fixture_page), "Gateway", "The views send the record")
+    assert found["errors"] == [] and found["step"]["errors"] == [] and found["timerErrors"] == []
+    assert found["step"]["said"] == "Step 2 of 2: The views send the record to the store."
+    assert (found["step"]["map"]["map"], found["step"]["map"]["s"]) == ("Gateway", 1)
+    for name in ("bar", "copy"):
+        assert found[name] == {**found[name], "mode": "map", "active": "view:map"}, name
+    assert found["rings"]
+    for one in found["rings"]:
+        assert one["ring"] is not None and one["panel"] is not None, one
+        x, y, w, h = one["ring"]
+        px, py, pw, ph = one["panel"]
+        assert x >= px + pw or x + w <= px or y >= py + ph or y + h <= py, one
+    assert found["timers"] == {"early": False, "late": True}
+    assert found["dialog"] == {"box": "none", "inner": "none"}
+
+
+def test_the_camera_and_the_band_on_low_screens(self_page: Path) -> None:
+    """Acceptance 8."""
+    found = _drive("--low", str(self_page))
+    assert found["errors"] == []
+    for screen in found["screens"]:
+        assert screen["errors"] == []
+        for at in (screen["start"], screen["next"]):
+            assert at["k"] >= 0.05, screen
+            assert at["band"] == at["bar"], screen
+    assert _close(found["found"], found["fit"]), found

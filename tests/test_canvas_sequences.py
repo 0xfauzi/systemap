@@ -139,7 +139,9 @@ def test_the_page_has_the_toolbar(tmp_path: Path) -> None:
     """Acceptance 3."""
     cfg, tree, facts = _made(tmp_path, canvas_sequenced.files())
     text = (tmp_path / "docs" / "map" / "index.html").read_text(encoding="utf-8")
-    bar = re.search(r'<div class="cseq" id="cseq".*?End sequence</button></span></div>', text, re.S)
+    bar = re.search(
+        r'<div class="cseq cview" id="cseq".*?End sequence</button></span></div>', text, re.S
+    )
     assert bar is not None
     found = bar.group(0)
     for words in (

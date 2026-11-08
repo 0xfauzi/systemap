@@ -85,6 +85,7 @@ from systemap import (
     evidence,
     nest,
     nest_join,
+    page,
     page_data,
     source_facts,
 )
@@ -94,7 +95,6 @@ from systemap.model import (
     Component,
     Meaning,
     Model,
-    all_layers,
     build_state,
     claimed,
     reading,
@@ -130,7 +130,7 @@ def _layers(m: nest.Map) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
     comes first when its layer has flows."""
     out: list[dict[str, Any]] = []
     subject_of: dict[str, list[str]] = {}
-    for layer in all_layers(m.model, m.meaning):
+    for layer in page.tab_layers(m.model, m.meaning):
         edges, subjects = reading(m.model, m.meaning, layer.id)
         out.append(
             {"id": layer.id, "n": layer.label, "q": layer.question, "e": edges}
@@ -139,8 +139,7 @@ def _layers(m: nest.Map) -> tuple[list[dict[str, Any]], dict[str, list[str]]]:
         if layer.id != "structure":
             for cid in subjects:
                 subject_of.setdefault(cid, []).append(layer.id)
-    system = [one for one in out if one["id"] == "system" and one["e"]]
-    return system + [one for one in out if one not in system], subject_of
+    return out, subject_of
 
 
 def _card(

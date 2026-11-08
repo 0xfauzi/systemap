@@ -327,12 +327,12 @@ function boundaryFlows(l) {
 }
 // The view of a boundary flow: the values of the one of its flows that shows the most
 // (`viewFlow`). Thus a layer and the Changes view apply to the line as to its flows. A line
-// with no flow shows in its layer color.
+// with no flow shows in the flow color.
 function boundaryView(l) {
   var best = null, flow = null;
   boundaryFlows(l).forEach(function (f) { var v = viewFlow(f); if (!best || v.a > best.a) { best = v; flow = f; } });
   return best ? {a: best.a, u: best.u, color: flowColor(flow, best.color), from: best.u < 1 ? flowColor(flow, best.from) : null}
-    : {a: 1, u: 1, color: C['--l-' + flowLayer(l)] || C['--flow'], from: null};
+    : {a: 1, u: 1, color: C['--flow'], from: null};
 }
 // One path of a boundary flow, with its arrowhead at the end.
 function boundaryLine(p, color, alpha) {
@@ -341,11 +341,5 @@ function boundaryLine(p, color, alpha) {
   ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(DASH.p);
   ctx.beginPath(); cutLine(ctx, p, 0, 0, 1); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = color; ctx.beginPath(); arrowHead(ctx, p[n - 1][0], p[n - 1][1], p[n - 2][0], p[n - 2][1], 8); ctx.fill();
-}
-// The layer of a boundary flow: the layer of its nested flow, or of the flow of the map above.
-function flowLayer(l) {
-  if (l.p.f !== undefined && l.m.flows[l.p.f]) return l.m.flows[l.p.f].l;
-  var up = l.m.owner && l.m.owner.map, f = up && (l.p.pf || []).length ? up.flows[l.p.pf[0]] : null;
-  return f ? f.l : '';
 }
 """

@@ -6454,3 +6454,38 @@ The probe `s4-verify-regress/views/motion_views.js` of U3b, with no change, on t
 - On g400seq in the Sequences view, the probe gives a step of 0.68 for the cards at the view change. The cards of that map are in its image, and `changes(map).cards` gives the target alpha of such a card. The image fades from the old view (`m._mt`), as in U3b. The probe also gave this value on B (U3b).
 
 Result of U4: the changes of U4a fix the problems of U2, U3 and the reviews, except acceptance 3 of U4c (C3 more than 10 percent above A, with the cause in U4b) and the image part of step 2 above. The required checks of AGENTS.md pass.
+
+### U5: C2 and C3 after the fixes of the review of PR 155 (`canvas_frames.py`)
+
+The fixes change the renderer: the step camera, the band of the bars, the camera target of a view change, the marks budget and the focus at a view change. The script is `bench/jev/canvas_frames.py`, with no change, and its acceptance values (35.0 ms at 4x, 17.5 ms at 1x, C3 at 1x at most 1,500 ms). One run on 2026-11-08, with the working tree of the fix commit.
+
+Before the run, the script waited 60 s for 30 s with no chrome, chromium, headless_shell, pytest or node process. The gate did not find a quiet time, because its pattern also found the shell of the environment setup (PID 83), which is not a browser or a test. No browser, Node or pytest process operated during the run. The load average was 0.19 before the run and 0.69 after it.
+
+| Data | Scenario | CPU | Median (ms) | p95 (ms) | Max (ms) | Result |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 291 ms | | | information |
+| M11 shape | C3 load | 4x | 285 ms | | | information |
+| M11 tree | pan-fit | 4x | 16.7 | 16.7 | 33.4 | pass |
+| M11 tree | all-open | 4x | 16.7 | 16.7 | 66.7 | pass |
+| M11 tree | dive | 4x | 16.7 | 16.8 | 50.0 | pass |
+| 400 cards | pan-fit | 4x | 16.7 | 16.7 | 33.3 | pass |
+| 400 cards | dive | 4x | 16.7 | 16.8 | 33.4 | pass |
+| 1,500 cards | pan-fit | 4x | 16.7 | 16.8 | 33.4 | pass |
+| M11 shape | pan-fit | 4x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | all-open | 4x | 16.7 | 16.8 | 66.6 | pass |
+| M11 shape | dive | 4x | 16.7 | 16.8 | 33.3 | pass |
+| M11 tree | C3 load | 1x | 76 ms | | | pass |
+| M11 shape | C3 load | 1x | 74 ms | | | pass |
+| M11 tree | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 tree | all-open | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 tree | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 400 cards | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+| 1,500 cards | pan-fit | 1x | 16.7 | 16.7 | 16.8 | pass |
+| M11 shape | pan-fit | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | all-open | 1x | 16.7 | 16.8 | 16.8 | pass |
+| M11 shape | dive | 1x | 16.7 | 16.7 | 16.8 | pass |
+
+Result: PASS for each scenario. This is one run, not an A/B. Thus it does not give a difference from U4c.
+
+The browser tests of the CI job canvas-browser, with the new glob (`tests/test_canvas_*browser.py` and `tests/test_canvas_access.py`, without `tests/test_canvas_frames.py`), with Playwright 1.63.0, axe-core 4.14.0 and SYSTEMAP_BROWSER_TESTS=required, on this host: 74 passed in 541 s. The speed of the GitHub runner is not measured. The timeout of the job is now 30 minutes. A measurement of the job time on the runner is necessary.

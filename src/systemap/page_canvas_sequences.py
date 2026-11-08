@@ -19,7 +19,7 @@ the screen (`band`), so the fit and the path stay below it.
 The route. A choice moves the camera to the fit of the map of the sequence. In that map,
 the flows of the route have their layer colors and their arrowheads, and each step has its
 number at the label of its flow. The other flows and cards of that map have a low alpha,
-SEQ_FLOW_DIM and SEQ_CARD_DIM. The first card of the route has the tag START. In the Steps
+SEQ_FLOW_DIM and QUIET. The first card of the route has the tag START. In the Steps
 mode, the flow of the step is wider, the acting components have the tag ACTS and the
 measurement components have the tag MEASURES. The flows of the later steps have the alpha
 0.4. The other maps do not change. A step whose component is an actor for a card of a
@@ -42,7 +42,13 @@ card and flow, and the steps of the route.
 
 The keyboard focus. When the focused button of the toolbar becomes hidden or disabled (Start
 at step 1, End sequence, or Next at the last step), the focus goes to the button of the next
-action (`seqFocus`). It does not go to the body of the page.
+action (`seqFocus`). It does not go to the body of the page. When the toolbar has the focus
+at a change of the view, the focus goes to the button of the new view (`box` and `setView`).
+
+The camera target has the full band of the toolbar, also during the fade in (`headAim`).
+The band is measured again at each change of the bar, because the Steps bar can have more
+rows than the Whole route bar. The zoom of a step stays in KMIN to KMAX, also on a very low
+screen.
 """
 
 from __future__ import annotations
@@ -50,7 +56,7 @@ from __future__ import annotations
 from systemap.page_icons import icon
 
 HTML = (
-    '<div class="cseq" id="cseq" role="toolbar" aria-label="Sequence" hidden>'
+    '<div class="cseq cview" id="cseq" role="toolbar" aria-label="Sequence" hidden>'
     '<span class="cseq__label" id="cseq-label">Sequence</span>'
     '<div class="cseq__choose"><button type="button" class="cseq__pick" id="cseq-pick" '
     'aria-haspopup="listbox" aria-expanded="false" aria-controls="cseq-list" '
@@ -73,14 +79,11 @@ HTML = (
 
 # The bar is in the header element, but it is fixed under it: 48 px, and 56 px on a touch
 # screen (`canvas_header`). Outside the Sequences view, the bar is hidden. It fades in and
-# out in 160 ms. During the fade out, it has no visibility, so it has no keyboard focus
-# and no screen reader reads it.
+# out in 160 ms (`cview` in `canvas_header`).
 CSS = """
 .cbar .cseq{position:fixed;left:0;right:0;top:48px;z-index:4;box-sizing:border-box;
 display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 16px;
-border-bottom:1px solid var(--line);background:var(--surface);visibility:hidden;opacity:0;
-transition:opacity .16s ease-out,visibility 0s linear .16s}
-.cbar .cseq.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
+border-bottom:1px solid var(--line);background:var(--surface)}
 .cbar .cseq[hidden]{display:none}
 .cseq__label{color:var(--ink-3)}
 .cseq__choose{position:relative;flex:0 1 320px;min-width:140px}
@@ -117,19 +120,17 @@ color:var(--ink)}
 .cseq__opt-name,.cseq__opt-meta{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 @media (pointer:coarse){.cbar .cseq{top:56px;padding:6px 8px}}
 @media (max-width:820px){.cseq__label{display:none}.cseq__choose{flex:1 1 180px}}
-@media (prefers-reduced-motion:reduce){.cbar .cseq,.cbar .cseq.on{transition:none}}
-:root[data-reduce-motion="true"] .cbar .cseq{transition:none}
 """
 
 SEQ_PART = r"""
 // ---- the Sequences view ------------------------------------------------------------
 var SEQ_MAPS = ORDER.filter(function (m) { return m.sq && m.sq.length; });
 var SEQ = {m: null, j: null, k: -1, steps: false, s: 0}, SEQ_CARDS = Object.create(null), SEQ_FLOWS = Object.create(null);
-var SEQ_CARD_DIM = QUIET, SEQ_FLOW_DIM = 0.16, SEQ_LATER = 0.4;
-var SEQ_DIM = {a: SEQ_CARD_DIM, ring: null, tag: null, back: null}, SEQ_FLOW_OFF = {a: SEQ_FLOW_DIM, color: null}, SEQ_FLOW_LATER = {a: SEQ_LATER, color: null};
+var SEQ_FLOW_DIM = 0.16, SEQ_LATER = 0.4;
+var SEQ_FLOW_OFF = {a: SEQ_FLOW_DIM, color: null}, SEQ_FLOW_LATER = {a: SEQ_LATER, color: null};
 // The marks of the route that this part draws: the step numbers and the wide line of the
 // step. Each has its map, its flow, its alpha `a` and its target `to`.
-var SEQ_MARKS = [], SEQ_AT = -1, SEQ_BAR = document.getElementById('cseq'), SEQ_BAR_H = 0, SEQ_LOG = null;
+var SEQ_MARKS = [], SEQ_AT = -1, SEQ_BAR = document.getElementById('cseq'), SEQ_BAND = {h: 0}, SEQ_LOG = null;
 // The part of the route marks that the zoom shows (`seqZoom`), for each map.
 var SEQ_ZOOM = new Map();
 function seqEl(id) { return document.getElementById('cseq-' + id); }
@@ -267,8 +268,9 @@ function stepCamera() {
   var sx = (box[0] - cam.x) * k, sy = (box[1] - cam.y) * k, named = low * k >= NAME_H + 4;
   if (named && sx >= x0 && sy >= y0 && sx + box[2] * k <= x1 && sy + box[3] * k <= y1) return;
   if (!(named && box[2] * k <= x1 - x0 && box[3] * k <= y1 - y0)) {
+    // A free box of 0 px or less (a very low screen) does not give a zoom of 0 or less.
     k = Math.min(fitBox(box, 0.2).k, Math.max(120 / high, (NAME_H + 8) / low));
-    k = Math.min(k, (x1 - x0) / box[2], (y1 - y0) / box[3]);
+    k = clamp(Math.min(k, Math.max(1, x1 - x0) / box[2], Math.max(1, y1 - y0) / box[3]), KMIN, KMAX);
   }
   fly({x: box[0] + box[2] / 2 - (x0 + x1) / 2 / k, y: box[1] + box[3] / 2 - (y0 + y1) / 2 / k, k: k});
 }
@@ -280,25 +282,28 @@ function seqWords() {
   return 'Sequence: ' + j.n + '. Whole route, ' + counted(n, 'step') + '.' + (j.en ? ' Entry point: ' + j.en + '.' : '') +
     (j.dr ? ' Agent draft. Source review necessary.' : '') + ' Map: ' + mapName(SEQ.m) + '.';
 }
+// Move the camera: to the fit of the map for the whole route, and to the cards of the step
+// in the Steps mode. The target has the full top band of the view (`headAim`). The words of
+// the sequence or of the step are the words of the live region. Thus the live region does
+// not give the map again when the camera stops in it (`tell`).
+function seqCamera() {
+  headAim(function () { if (SEQ.steps) stepCamera(); else flyGoal(goalOf(SEQ.m, null, null)); });
+  SAID_MAP = SEQ.m;
+}
 // Show sequence k of map m. `camera` is true to move the camera: to the fit of the map for
 // the whole route, and to the cards of the first step in the Steps mode.
 function seqChoose(m, k, camera) {
   SEQ.m = m; SEQ.j = m.sq[k]; SEQ.k = k; SEQ.s = 0;
   if (!SEQ.j.s.length) SEQ.steps = false;
   seqChanged();
-  if (camera) {
-    if (SEQ.steps) stepCamera(); else flyGoal(goalOf(m, null, null));
-    // The words of the sequence name its map. Thus the live region does not give the map
-    // again when the camera stops in it (`tell`).
-    SAID_MAP = m;
-  }
+  if (camera) seqCamera();
   say((SEQ.steps ? 'Sequence: ' + SEQ.j.n + '. Map: ' + mapName(m) + '. ' : '') + seqWords());
 }
 function seqMode(steps, s, camera) {
   if (!SEQ.j) return;
   SEQ.steps = steps && SEQ.j.s.length > 0; SEQ.s = clamp(s, 0, Math.max(0, SEQ.j.s.length - 1));
   seqChanged();
-  if (camera) { if (SEQ.steps) stepCamera(); else flyGoal(goalOf(SEQ.m, null, null)); }
+  if (camera) seqCamera();
   say(seqWords());
 }
 function seqStep(d) { if (SEQ.j && SEQ.steps) { var s = SEQ.s + d; if (s >= 0 && s < SEQ.j.s.length) seqMode(true, s, true); } }
@@ -321,6 +326,9 @@ function seqSync() {
   seqEl('whole').disabled = !j; seqEl('steps').disabled = !n; seqEl('start').disabled = !n;
   seqEl('count').textContent = steps ? 'Step ' + (SEQ.s + 1) + ' of ' + n : '';
   seqEl('prev').disabled = !steps || SEQ.s <= 0; seqEl('next').disabled = !steps || SEQ.s >= n - 1;
+  // The Steps bar and the Whole route bar can have a different number of rows. Thus the
+  // height of the band is measured again.
+  barBand(SEQ_BAR, SEQ_BAND, true);
   seqFocus(was);
 }
 
@@ -412,7 +420,7 @@ if (SEQ_MAPS.length && SEQ_BAR && SEQ_PICK && SEQ_LIST) {
     card: function (c) {
       if (c.map !== SEQ.m) return null;
       var v = SEQ_CARDS[c.id];
-      return v === undefined ? SEQ_DIM : v;
+      return v === undefined ? MAP_QUIET : v;
     },
     flow: function (f) {
       if (f.map !== SEQ.m) return null;
@@ -427,19 +435,14 @@ if (SEQ_MAPS.length && SEQ_BAR && SEQ_PICK && SEQ_LIST) {
       var m = currentMap();
       if (!SEQ.j || (SEQ.m !== m && m.sq && m.sq.length)) seqChoose(SEQ_MAPS.indexOf(m) >= 0 ? m : SEQ_MAPS[0], 0, false);
       // The bar comes into the page, and its height is measured before the fade starts.
-      SEQ_BAR.hidden = false; VIEWS.sequences.band(true);
-      SEQ_BAR.classList.add('on');
+      barShow(SEQ_BAR, true); barBand(SEQ_BAR, SEQ_BAND, true);
     },
     // The words of the view for the live region: the words of the sequence (`viewWords`).
     words: function () { return SEQ.j ? seqWords() : ''; },
-    leave: function () {
-      seqShut(false); SEQ_BAR.classList.remove('on');
-      // The bar goes out of the page after its fade (the CSS transition of 160 ms).
-      if (reduced()) SEQ_BAR.hidden = true;
-      else setTimeout(function () { if (VIEW.mode !== 'sequences') SEQ_BAR.hidden = true; }, 170);
-    },
+    leave: function () { seqShut(false); barShow(SEQ_BAR, false, 'sequences'); },
     // The height of the bar. A hidden bar keeps the last height.
-    band: function (fresh) { if ((fresh || !SEQ_BAR_H) && !SEQ_BAR.hidden) SEQ_BAR_H = SEQ_BAR.getBoundingClientRect().height; return SEQ_BAR_H; }
+    band: function (fresh) { return barBand(SEQ_BAR, SEQ_BAND, fresh); },
+    box: function () { return SEQ_BAR; }
   };
   seqSync();
 }
@@ -449,6 +452,6 @@ function seqState() {
   var j = SEQ.j;
   return {map: SEQ.m ? SEQ.m.id : null, id: j ? j.id : null, steps: SEQ.steps, s: SEQ.s, n: j ? j.s.length : 0,
     flows: Object.keys(SEQ_FLOWS).map(Number).sort(function (x, y) { return x - y; }),
-    cards: Object.keys(SEQ_CARDS).sort(), band: SEQ_BAR_H, marks: SEQ_MARKS.length};
+    cards: Object.keys(SEQ_CARDS).sort(), band: SEQ_BAND.h, marks: SEQ_MARKS.length};
 }
 """

@@ -132,9 +132,13 @@ def test_the_layers_of_the_top_map_come_first(
     # later (`page.tab_layers`).
     given = [lay.id for lay in all_layers(tree.top.model, tree.top.meaning)]
     assert given.index("system") > 0
-    monkeypatch.setattr(
-        canvas_data, "reading", lambda model, meaning, lid: ([0] if lid == "system" else [], [])
-    )
+
+    # canvas_data uses the rule of `page.tab_layers`, so the two modules read the change.
+    def system_flows(model: object, meaning: object, lid: str) -> tuple[list[int], list[str]]:
+        return [0] if lid == "system" else [], []
+
+    monkeypatch.setattr(canvas_data, "reading", system_flows)
+    monkeypatch.setattr(page, "reading", system_flows)
     assert [lay["id"] for lay in canvas_data._layers(tree.top)[0]] == ["system"] + [
         lid for lid in given if lid != "system"
     ]
@@ -150,15 +154,12 @@ def test_the_slots_of_the_view_parts(canvas_root: Path, monkeypatch: pytest.Monk
         (".slot-a{color:red}",),
     )
     monkeypatch.setitem(canvas_page.SLOTS, "head", ('<span id="slot-head">H</span>',))
-    monkeypatch.setitem(canvas_page.SLOTS, "main", ('<p id="slot-main">M</p>',))
     monkeypatch.setitem(canvas_page.SLOTS, "after", ('<div id="slot-after">A</div>',))
     text = canvas_page.build(canvas_page.tree_theme(cfg, tree), data)
     assert ".slot-a{color:red}" in text
     head = text[text.index("<header") : text.index("</header>")]
     assert '<span id="slot-head">H</span>' in head
     assert head.index("slot-head") < head.index("find-open")
-    main = text[text.index("<main>") : text.index("</main>")]
-    assert '<p id="slot-main">M</p>' in main
     assert text.index('<div id="slot-after">A</div>') > text.index("</main>")
     policy = re.search(r'http-equiv="Content-Security-Policy" content="([^"]+)"', text)
     assert policy is not None

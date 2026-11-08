@@ -107,7 +107,10 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
 # view, also with two rows on a phone, does not cover it. `data-fit` is set by the
 # script: 1 when the layer buttons do not fit (the select shows), 2 when the name and the
 # label of Find also do not fit (they go, and a screen reader still reads the name and the
-# label of the select).
+# label of the select). `cview` is the fade of the bar of a view (the toolbar of the
+# Sequences view, the bar of the Changes view and the text for a page without a revision
+# comparison): 160 ms, and none with reduced motion. During the fade out, the bar has no
+# visibility, so it has no keyboard focus and no screen reader reads it.
 CSS = """
 .cbar{position:fixed;left:0;right:0;top:0;z-index:4;box-sizing:border-box;height:48px;
 display:flex;align-items:center;gap:12px;padding:0 16px;overflow:hidden;
@@ -153,6 +156,10 @@ overflow:hidden;clip-path:inset(50%)}
 @media (pointer:coarse){.cbar{height:56px}
 .cbar button,.cbar select{height:44px;min-width:44px}
 .cbar .cbar__pick select{min-width:88px}}
+.cview{visibility:hidden;opacity:0;transition:opacity .16s ease-out,visibility 0s linear .16s}
+.cview.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
+@media (prefers-reduced-motion:reduce){.cview,.cview.on{transition:none}}
+:root[data-reduce-motion="true"] .cview{transition:none}
 .tree a:focus{top:104px;z-index:5}
 @media (pointer:coarse){.tree a:focus{top:120px}}
 """

@@ -7,6 +7,8 @@
 //     node tests/canvas_sequences.js --access PAGE.html MAP SEQUENCE
 //     node tests/canvas_sequences.js --shots PAGE.html MAP SEQUENCE FOLDER
 //     node tests/canvas_sequences.js --routes PAGE.html MAP
+//     node tests/canvas_sequences.js --edges PAGE.html MAP TEXT
+//     node tests/canvas_sequences.js --low PAGE.html
 //
 // --routes gives, for each sequence of MAP, the values of the flows of MAP at its fit in the
 // Whole route and at each step.
@@ -382,6 +384,126 @@ async function routesRun(file, mapId) {
   return { errors, routes: out };
 }
 
+// The text of the live region, the mode of the view and the element with the keyboard focus.
+const now = (page) => page.evaluate(() => {
+  const a = document.activeElement;
+  return { said: document.getElementById('canvas-said').textContent, mode: window.systemapCanvas.viewState().mode,
+    active: a ? a.id || (a.getAttribute('data-view') ? 'view:' + a.getAttribute('data-view') : a.tagName) : null };
+});
+// Open Find with Ctrl+K from the element `sel`, type `text` and press Enter.
+async function findFrom(page, sel, text) {
+  await page.focus(sel);
+  await page.keyboard.press('Control+k');
+  await settle(page, 150);
+  await page.keyboard.type(text);
+  await settle(page, 150);
+  await page.keyboard.press('Enter');
+  await settle(page, 500);
+  return now(page);
+}
+
+// --edges: on PAGE with reduced motion. A Steps result of Find for step 2 of the sequence
+// SEQUENCE of MAP, from the top map. Find from a toolbar button and from the Copy button of
+// the text for a page without a comparison. Tab onto the canvas in the Changes view. Then,
+// without reduced motion, a fast leave, enter and leave of the Sequences view, and the
+// animation of the Find dialog with the reduced motion of the system.
+async function edgesRun(file, mapId, text) {
+  const out = {};
+  {
+    const { browser, page, errors } = await open(file);
+    await page.evaluate((text) => window.systemapCanvas.find.run(text, 'Steps', 0), text);
+    await settle(page, 1200);
+    out.step = { ...(await now(page)), map: await page.evaluate(() => window.systemapCanvas.seqState()), errors };
+    await browser.close();
+  }
+  {
+    const { browser, page, errors } = await open(file);
+    await page.evaluate(() => window.systemapCanvas.setView('sequences'));
+    await settle(page, 300);
+    await page.click('#cseq-start');
+    await settle(page, 300);
+    out.bar = await findFrom(page, '#cseq-next', 'Map');
+    await page.evaluate(() => window.systemapCanvas.setView('changes'));
+    await settle(page, 300);
+    out.copy = await page.evaluate(() => !!document.querySelector('#canvas-changes-empty:not([hidden]) button'))
+      ? await findFrom(page, '#canvas-changes-empty button', 'Map') : null;
+    // Tab onto the canvas in the Changes view: the ring of the focused card and the text box.
+    await page.evaluate(() => window.systemapCanvas.setView('changes'));
+    await settle(page, 300);
+    await page.focus('#canvas');
+    out.rings = [];
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('Tab');
+      await settle(page, 400);
+      out.rings.push(await page.evaluate(() => {
+        const k = window.systemapCanvas.keys(), p = document.getElementById('canvas-changes-empty');
+        const r = p && !p.hidden ? p.getBoundingClientRect() : null;
+        return { ring: k.ring ? k.ring.box : null, panel: r ? [r.left, r.top, r.width, r.height] : null };
+      }));
+    }
+    out.errors = errors;
+    await browser.close();
+  }
+  {
+    const { browser, page, errors } = await open(file, { reducedMotion: 'no-preference' });
+    out.timers = await page.evaluate(() => new Promise((done) => {
+      const S = window.systemapCanvas, bar = document.getElementById('cseq'), seen = {};
+      S.setView('sequences');
+      setTimeout(() => {
+        S.setView('map');
+        setTimeout(() => S.setView('sequences'), 50);
+        setTimeout(() => S.setView('map'), 100);
+        setTimeout(() => { seen.early = bar.hidden; }, 200);
+        setTimeout(() => { seen.late = bar.hidden; done(seen); }, 400);
+      }, 300);
+    }));
+    out.timerErrors = errors;
+    await browser.close();
+  }
+  {
+    const { browser, page } = await open(file);
+    await page.focus('#canvas');
+    await page.keyboard.press('Control+k');
+    await settle(page, 50);
+    out.dialog = await page.evaluate(() => ({ box: getComputedStyle(document.getElementById('palette')).animationName,
+      inner: getComputedStyle(document.querySelector('#palette .pal__box')).animationName }));
+    await browser.close();
+  }
+  return out;
+}
+
+// --low: on PAGE with reduced motion, the camera and the band of the Sequences view at Start
+// at step 1 and at Next, on low screens. Then, at 1440 x 900, the camera after the Find
+// result of the first sequence from the Map view, and after F.
+async function lowRun(file) {
+  const out = { screens: [] };
+  for (const [w, h] of [[700, 280], [700, 320], [600, 800]]) {
+    const { browser, page, errors } = await open(file, { viewport: { width: w, height: h } });
+    await page.evaluate(() => window.systemapCanvas.setView('sequences'));
+    await settle(page, 300);
+    const read = () => page.evaluate(() => ({ k: window.systemapCanvas.camera().k, band: window.systemapCanvas.seqState().band,
+      bar: document.getElementById('cseq').getBoundingClientRect().height }));
+    await page.click('#cseq-start');
+    await settle(page, 300);
+    const start = await read();
+    await page.click('#cseq-next');
+    await settle(page, 300);
+    out.screens.push({ w, h, start, next: await read(), errors });
+    await browser.close();
+  }
+  const { browser, page, errors } = await open(file);
+  await page.evaluate(() => window.systemapCanvas.find.run('', 'Sequences', 0));
+  await settle(page, 400);
+  out.found = await page.evaluate(() => window.systemapCanvas.camera());
+  await page.focus('#canvas');
+  await page.keyboard.press('f');
+  await settle(page, 400);
+  out.fit = await page.evaluate(() => window.systemapCanvas.camera());
+  out.errors = errors;
+  await browser.close();
+  return out;
+}
+
 (async () => {
   const [mode, file, mapId, seq, extra] = process.argv.slice(2);
   let out;
@@ -391,6 +513,8 @@ async function routesRun(file, mapId) {
   else if (mode === '--keys') out = await keysRun(file, mapId);
   else if (mode === '--access') out = await accessRun(file, mapId, seq);
   else if (mode === '--shots') out = await shotsRun(file, mapId, seq, extra);
+  else if (mode === '--edges') out = await edgesRun(file, mapId, seq);
+  else if (mode === '--low') out = await lowRun(file);
   else throw new Error('unknown mode ' + mode);
   process.stdout.write(JSON.stringify(out) + '\n');
 })().catch((err) => { process.stderr.write(String(err && err.stack || err) + '\n'); process.exit(1); });

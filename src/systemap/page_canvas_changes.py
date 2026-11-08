@@ -32,9 +32,10 @@ and a frame only reads them. The seam fades each change: 0.2 or less in one fram
 puts the epoch of the view in the key of each image of a large map.
 
 A page without a revision comparison has no change keys. Its Changes view shows the text
-and the command of the linked page (`page_changes.empty`) in a DOM element over the canvas,
-in place of the bar. The bar and that element fade in and out in 160 ms, and at one time
-with reduced motion.
+and the command of the linked page (`page_changes.empty`) in a DOM element under the
+header, in place of the bar. That element is part of the top band too. Thus it does not
+cover a card that has the keyboard focus. The bar and that element fade in and out in
+160 ms, and at one time with reduced motion (`barShow`).
 The list of the tree and the live region give the change words of each card and each map
 in the Changes view (`facts` and `say`).
 """
@@ -76,36 +77,22 @@ ORDER.forEach(function (m) {
 // (`page_changes.empty`). Each one fades in and out in 160 ms, as the toolbar of the
 // Sequences view does. A page with a comparison shows the bar, and a page without one shows
 // the text.
-var CHG_BAR = document.getElementById('cchg'), CHG_EMPTY = document.getElementById('canvas-changes-empty'), CHG_BAR_H = 0;
-var CHG_PANEL = CHG.compared ? CHG_BAR : CHG_EMPTY;
-function chgShow(on) {
-  var el = CHG_PANEL;
-  if (!el) return;
-  if (on) {
-    // The element comes into the page. The read of its box makes the browser give it its
-    // style before the fade starts.
-    el.hidden = false;
-    var h = el.getBoundingClientRect().height;
-    if (el === CHG_BAR) CHG_BAR_H = h;
-    el.classList.add('on');
-    return;
-  }
-  el.classList.remove('on');
-  if (reduced()) el.hidden = true;
-  else setTimeout(function () { if (VIEW.mode !== 'changes') el.hidden = true; }, 170);
-}
+var CHG_BAR = document.getElementById('cchg'), CHG_EMPTY = document.getElementById('canvas-changes-empty');
+var CHG_PANEL = CHG.compared ? CHG_BAR : CHG_EMPTY, CHG_BAND = {h: 0};
+// The text for a page without a comparison is under the header, with a gap of 8 px above
+// and below it (`CSS`). Thus its band has these two gaps.
+var CHG_GAP = CHG.compared ? 0 : 16;
 VIEWS.changes = {
   card: function (c) { return c._chg || null; },
   flow: function (f) { return f.map.ch ? (f.lo ? CHG_LOST : FLOW_OFF) : null; },
-  enter: function () { chgHere(currentMap()); chgShow(true); },
-  leave: function () { chgShow(false); },
+  enter: function () { chgHere(currentMap()); barShow(CHG_PANEL, true); barBand(CHG_PANEL, CHG_BAND, true); },
+  leave: function () { barShow(CHG_PANEL, false, 'changes'); },
   // The bar gives the changes of the current map (`relabel`).
   here: function (m) { chgHere(m); },
-  band: function (fresh) {
-    if (!CHG.compared || !CHG_BAR) return 0;
-    if ((fresh || !CHG_BAR_H) && !CHG_BAR.hidden) CHG_BAR_H = CHG_BAR.getBoundingClientRect().height;
-    return CHG_BAR_H;
-  },
+  // The bar and the text for a page without a comparison are part of the top band. Thus the
+  // fit and a card with the keyboard focus (`showFocus`) stay below them.
+  band: function (fresh) { return CHG_PANEL ? barBand(CHG_PANEL, CHG_BAND, fresh) + (CHG_BAND.h ? CHG_GAP : 0) : 0; },
+  box: function () { return CHG_PANEL; },
   facts: function (c) {
     var out = [];
     if (CHG_WORDS[c.cg]) out.push('Change: ' + CHG_WORDS[c.cg] + '.');
@@ -127,13 +114,17 @@ function chgRollWords(m) {
   var out = r.n ? 'Map changes: ' + r.w + '.' : 'No map change in this map.';
   return out + ((m.ci || []).length ? ' Changed inside: ' + m.ci.join(', ') + '.' : '');
 }
+// The first words for map m: its comparison, or the sentence for a map without one.
+function chgCompare(m) {
+  return m.ch ? 'Compare ' + m.ch.base + ' to ' + m.ch.head + '. ' : 'The map ' + mapName(m) + ' has no revision comparison.';
+}
 // The words of the changes of a map, for the live region and the list of the tree.
 function chgMapWords(m) {
   if (!CHG.compared) return 'This page has no revision comparison. Make the page again with ' + CHG_COMMAND + '.';
-  if (!m.ch) return 'The map ' + mapName(m) + ' has no revision comparison.';
+  if (!m.ch) return chgCompare(m);
   var n = {changed: 0, tests: 0, imports: 0};
   m.cards.forEach(function (c) { if (n[c.cg] !== undefined) n[c.cg]++; });
-  return 'Compare ' + m.ch.base + ' to ' + m.ch.head + '. Changed source: ' + counted(n.changed, 'card') +
+  return chgCompare(m) + 'Changed source: ' + counted(n.changed, 'card') +
     '. Only tests changed: ' + counted(n.tests, 'card') + '. Imports changed source: ' + counted(n.imports, 'card') + '. ' + chgRollWords(m);
 }
 // The text of the bar for map m: the comparison and the roll-up. The text changes only when
@@ -141,7 +132,7 @@ function chgMapWords(m) {
 function chgHere(m) {
   if (!CHG.compared || !CHG_BAR || m === CHG.m) return;
   CHG.m = m;
-  CHG_BAR.textContent = m.ch ? 'Compare ' + m.ch.base + ' to ' + m.ch.head + '. ' + chgRollWords(m) : 'The map ' + mapName(m) + ' has no revision comparison.';
+  CHG_BAR.textContent = chgCompare(m) + (m.ch ? chgRollWords(m) : '');
 }
 if (CHG_EMPTY) {
   var copy = CHG_EMPTY.querySelector('button[data-copy]');
@@ -168,26 +159,23 @@ function changeState(mapId) {
 # band of the screen. A text that is too long ends with three dots, and the live region and
 # the list of the tree give all of it. On a narrow screen the bar has no padding at the
 # bottom, so that the edge of the bar cuts the text after the second line.
-HTML = '<p class="cchg" id="cchg" hidden></p>'
+HTML = '<p class="cchg cview" id="cchg" hidden></p>'
 
 CSS = """
 .cbar .cchg{position:fixed;left:0;right:0;top:48px;z-index:4;box-sizing:border-box;
 height:33px;margin:0;padding:0 16px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
 font:13px/32px var(--fs);color:var(--ink-2);border-bottom:1px solid var(--line);
-background:var(--surface);visibility:hidden;opacity:0;
-transition:opacity .16s ease-out,visibility 0s linear .16s}
-.cbar .cchg.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
+background:var(--surface)}
 .cbar .cchg[hidden]{display:none}
 @media (max-width:820px){.cbar .cchg{display:-webkit-box;height:49px;padding:6px 8px 0;
 white-space:normal;line-height:21px;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
 @media (pointer:coarse){.cbar .cchg{top:56px}}
-.cv-empty{position:fixed;left:50%;top:50%;z-index:2;box-sizing:border-box;
-width:min(460px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;
-transform:translate(-50%,-50%);padding:20px 24px;font:14px/20px var(--fs);color:var(--ink);
-background:var(--raised);border:1px solid var(--line-2);border-radius:12px;
-visibility:hidden;opacity:0;transition:opacity .16s ease-out,visibility 0s linear .16s}
-.cv-empty.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
+.cv-empty{position:fixed;left:50%;top:56px;z-index:2;box-sizing:border-box;
+width:min(460px,calc(100% - 32px));max-height:calc(100% - 72px);overflow:auto;
+transform:translateX(-50%);padding:20px 24px;font:14px/20px var(--fs);color:var(--ink);
+background:var(--raised);border:1px solid var(--line-2);border-radius:12px}
 .cv-empty[hidden]{display:none}
+@media (pointer:coarse){.cv-empty{top:64px;max-height:calc(100% - 80px)}}
 .cv-empty h2{margin:0 0 8px;font:600 16px/22px var(--fs)}
 .cv-empty p{margin:0 0 12px;color:var(--ink-2)}
 .cv-empty .chg-cmd{display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap}
@@ -196,8 +184,6 @@ visibility:hidden;opacity:0;transition:opacity .16s ease-out,visibility 0s linea
 color:var(--ink);background:var(--surface);border:1px solid var(--line-2);border-radius:8px;
 cursor:pointer}
 .cv-empty button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-@media (prefers-reduced-motion:reduce){.cbar .cchg,.cbar .cchg.on,.cv-empty,.cv-empty.on{transition:none}}
-:root[data-reduce-motion="true"] .cbar .cchg,:root[data-reduce-motion="true"] .cv-empty{transition:none}
 """
 
 
@@ -212,7 +198,7 @@ def empty_html(data: Mapping[str, Any]) -> str:
     if has_comparison(data):
         return ""
     return (
-        '<section id="canvas-changes-empty" class="cv-empty" '
+        '<section id="canvas-changes-empty" class="cv-empty cview" '
         'aria-label="This page has no revision comparison" hidden>'
         + page_changes.empty()
         + "</section>"

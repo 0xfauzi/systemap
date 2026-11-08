@@ -201,13 +201,19 @@ async function keys(file) {
     out.push({ sel, before: before.camera, after: after.camera, active: after.active });
   }
   await page.evaluate(() => document.getElementById('canvas-head').removeAttribute('data-fit'));
-  // The arrow keys in the layer toolbar move the pressed layer, and Home and End go to the ends.
-  await page.evaluate(() => window.systemapCanvas.setView('map', 'all'));
-  await page.focus('#canvas-head [data-layer][aria-pressed="true"]');
+  // In the Changes view, the arrow keys in the layer toolbar move the keyboard focus, and
+  // Home and End go to the ends. They do not change the layer or the view. Enter selects.
+  await page.evaluate(() => { window.systemapCanvas.setView('map', 'all'); window.systemapCanvas.setView('changes'); });
+  await page.focus('#canvas-head [data-layer][tabindex="0"]');
   const moves = [];
-  for (const key of ['ArrowRight', 'ArrowRight', 'ArrowLeft', 'Home', 'End']) {
+  const move = () => page.evaluate(() => {
+    const v = window.systemapCanvas.viewState(), a = document.activeElement;
+    return { layer: v.layer, mode: v.mode, focus: a.getAttribute('data-layer'), tab: a.tabIndex,
+      zero: document.querySelectorAll('#canvas-head [data-layer][tabindex="0"]').length };
+  });
+  for (const key of ['ArrowRight', 'ArrowRight', 'ArrowLeft', 'Home', 'End', 'Home', 'Enter']) {
     await page.keyboard.press(key);
-    moves.push(await page.evaluate(() => ({ layer: window.systemapCanvas.viewState().layer, focus: document.activeElement.getAttribute('data-layer') })));
+    moves.push(await move());
   }
   // The canvas still gets the camera keys.
   await page.focus('#canvas');

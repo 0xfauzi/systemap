@@ -29,8 +29,9 @@ Acceptance values:
    maps of 400 and 1,500 cards.
 4. A letter, +, -, =, an arrow key or Escape in a control of the header, in the select of
    the layers and in a text field does not change the camera. In the layer toolbar, the
-   arrow keys, Home and End move the keyboard focus and the pressed layer. On the canvas,
-   an arrow key still moves the camera.
+   arrow keys, Home and End move only the keyboard focus. They do not change the layer or
+   the view, also in the Changes view. Enter selects the layer. On the canvas, an arrow
+   key still moves the camera.
 5. Access (C4): each control of the header has a name. The keyboard focus on each control is
    visible: an outline 2 px wide or more with a contrast ratio of 3 or more against the
    header. Tab goes through the header, then to the canvas, then to the list of the tree,
@@ -46,13 +47,12 @@ from __future__ import annotations
 
 import functools
 import json
-import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
-from test_canvas_access import AXE_VERSION
+from test_canvas_access import AXE_VERSION, no_axe
 from test_canvas_browser import _bench, browser
 from test_canvas_page import _loaded, _made
 from test_theme import contrast
@@ -247,9 +247,15 @@ def test_the_camera_keys_do_not_operate_in_the_header(fixture_page: Path) -> Non
     assert len(found["controls"]) >= 4
     for control in found["controls"]:
         assert control["after"] == control["before"], control
+    # A move of the focus does not select a layer and does not leave the Changes view
+    # (WCAG 3.2.1). Only Enter selects.
     moves = found["moves"]
-    assert all(m["layer"] == m["focus"] for m in moves), moves
-    assert moves[0] == moves[2] == moves[3] != moves[1] and moves[4]["layer"] == "all", moves
+    *arrows, enter = moves
+    assert all(m["layer"] == "all" and m["mode"] == "changes" for m in arrows), moves
+    assert all(m["tab"] == 0 and m["zero"] == 1 for m in moves), moves
+    focus = [m["focus"] for m in arrows]
+    assert focus[0] == focus[2] == focus[3] == focus[5] != focus[1] and focus[4] == "all", moves
+    assert enter["mode"] == "map" and enter["layer"] == enter["focus"] == focus[5], moves
     assert found["canvas"]["after"]["x"] != found["canvas"]["before"]["x"]
 
 
@@ -257,28 +263,33 @@ def test_the_header_is_accessible(fixture_page: Path) -> None:
     """Acceptance 5 (C4)."""
     found = _drive("--access", str(fixture_page))
     assert len(found["runs"]) == 4
+    examined = True
     for run in found["runs"]:
         assert run["errors"] == [], run["errors"]
         assert len(run["controls"]) >= 2, run
         for c in run["controls"]:
-            _check_control(c)
+            examined = _check_control(c) and examined
         runs_of = [o.split(":")[0] for o in run["order"]]
         compressed = [k for i, k in enumerate(runs_of) if i == 0 or runs_of[i - 1] != k]
         assert compressed == ["head", "canvas", "tree", "out"], run["order"]
+    # The checks above do not need axe-core. Without axe-core, the test skips after them,
+    # and it does not pass.
+    if not examined:
+        no_axe(f"the access test needs axe-core {AXE_VERSION} for Node")
 
 
-def _check_control(c: dict[str, Any]) -> None:
-    """A header control has a name, a visible focus outline and no axe-core violation."""
+def _check_control(c: dict[str, Any]) -> bool:
+    """A header control has a name, a visible focus outline and no axe-core violation.
+    Give False when axe-core did not examine the control."""
     assert c["name"], c
     focus = c["focus"]
     assert focus["visible"] and focus["style"] == "solid" and focus["width"] >= 2, c
     assert contrast(_hex(focus["color"]), _hex(focus["back"])) >= 3, c
     axe = c.get("axe")
     if axe is None:
-        if os.environ.get("SYSTEMAP_BROWSER_TESTS") == "required":
-            pytest.fail(f"axe-core {AXE_VERSION} for Node is necessary")
-        return
+        return False
     assert axe["version"] == AXE_VERSION and axe["violations"] == [], c
+    return True
 
 
 def _hex(rgb: str) -> str:

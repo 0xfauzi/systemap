@@ -52,14 +52,21 @@ function marksImage(m, a) {
   return m.img;
 }
 // Remove the marks images of other maps, the oldest first, until `px` more pixels fit in
-// MARKS_PX. Keep each image that the frame before or this frame drew.
+// MARKS_PX. Keep each image that the frame before or this frame drew. The old image of a
+// view change (`img0`) counts too. The old image of a map that the frame before did not
+// draw from its marks image is not necessary for a fade, so it goes first.
+function marksOld(o) { return o.img0 ? o.img0.px : 0; }
 function marksRoom(m, px) {
-  var total = px;
-  MARKS.forEach(function (o) { if (o !== m) total += o.img.px; });
+  var total = px + marksOld(m);
+  MARKS.forEach(function (o) {
+    if (o === m) return;
+    if (o.img0 && o.img.used < drawn - 1) o.img0 = null;
+    total += o.img.px + marksOld(o);
+  });
   MARKS.sort(function (u, v) { return u.img.used - v.img.used; });
   MARKS = MARKS.filter(function (o) {
     if (o === m || total <= MARKS_PX || o.img.used >= drawn - 1) return true;
-    total -= o.img.px; o.img = null; o.img0 = null;
+    total -= o.img.px + marksOld(o); o.img = null; o.img0 = null;
     return false;
   });
 }

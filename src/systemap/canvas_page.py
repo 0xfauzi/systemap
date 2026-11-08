@@ -68,13 +68,12 @@ def tree_theme(cfg: Config, tree: nest.Tree) -> dict[str, Any]:
 
 
 # The parts that the view parts add to the page, each a text: `css` goes after the CSS of
-# the page, `head` into the header before the Find button, `main` into `main` after the list
-# of the tree, and `after` after `main` (for example a dialog). Each view part adds its text
+# the page, `head` into the header before the Find button, and `after` after `main` (for
+# example a dialog). Each view part adds its text
 # in one line for each slot.
 SLOTS: dict[str, tuple[str, ...]] = {
     "css": (page_canvas_changes.CSS, page_canvas_sequences.CSS, page_canvas_find.CSS),
     "head": (page_canvas_sequences.HTML, page_canvas_changes.HTML),
-    "main": (),
     "after": (page_canvas_find.HTML,),
 }
 
@@ -113,7 +112,6 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         "and the flows. Each link in the list moves the camera to its item.</p>"
         + page_canvas_changes.empty_html(data)
         + TREE_HTML
-        + _slot("main")
         + "</main>"
         + _slot("after")
         + '<script type="application/json" id="canvas-data">'
