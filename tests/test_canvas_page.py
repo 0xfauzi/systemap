@@ -181,8 +181,8 @@ def test_a_deep_map_goes_to_the_top_page_with_its_path() -> None:
 
 def _head_script(text: str) -> str:
     head = text[: text.index("</head>")]
-    (script,) = re.findall(r"<script>(.*?)</script>", head, re.S)
-    assert text.count("<script") == 1
+    (script,) = re.findall(r"<script>(.*?)</script>", head, re.S | re.I)
+    assert text.lower().count("<script") == 1
     return str(script)
 
 
