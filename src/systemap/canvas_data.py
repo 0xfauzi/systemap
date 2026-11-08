@@ -58,6 +58,8 @@ The keys of a map:
   and `ci` (`canvas_changes`): the change marks of the cards, the lost flows, and the
   roll-up of the map changes.
 - `sq`: the sequences of the map (`canvas_sequences`), only in a map that has sequences.
+- `mf`, `ff`, `iv`, `ir`, `md` and `sr`: the model file, the facts file, the rules and the
+  source records for the Details panel (`canvas_details`).
 
 An example from the fixture of tests/test_nest_join.py, after `place`: the card Gateway
 and its flow to Auth in the top map, and a port of the map inside Gateway.
@@ -81,6 +83,7 @@ from typing import Any
 from systemap import (
     assurance,
     canvas_changes,
+    canvas_details,
     canvas_sequences,
     evidence,
     nest,
@@ -359,6 +362,7 @@ def _map(
         out["ch"] = comparison
         out |= canvas_changes.keys(tree, m, backed, change, found)
     out.update(canvas_sequences.of_map(m, facts))
+    out.update(canvas_details.of_map(cfg, m, facts, claims))
     return out
 
 

@@ -26,9 +26,13 @@ TOUCH_PART = r"""
 // SEL_C is the selected card, or null. SELS has the cards that the frame draws as selected,
 // each with its alpha `a`: the selected card, and the cards that fade out.
 // `SEL_FADING` is true when an alpha did not get to its target in the frame.
-var SEL_C = null, SELS = [], SEL_MS = 160, SEL_LAST = 0, SEL_FADING = false, PLATE_H = Math.max(38, TARGET);
+// SEL_HOOKS has the functions that a change of SEL_C calls (`page_canvas_details`).
+var SEL_C = null, SELS = [], SEL_MS = 160, SEL_LAST = 0, SEL_FADING = false, PLATE_H = Math.max(38, TARGET), SEL_HOOKS = [];
+function selTold() { SEL_HOOKS.forEach(function (f) { f(); }); }
 function select(c) {
+  var was = SEL_C;
   SEL_C = c || null;
+  if (was !== SEL_C) selTold();
   if (SEL_C) say('Selected: card ' + SEL_C.id + '.');
   if (SEL_C && !SELS.some(function (e) { return e.c === SEL_C; })) SELS.push({c: SEL_C, a: 0});
   request();
@@ -42,7 +46,7 @@ function mapOpen(c) {
 function selFrame() {
   var now = performance.now(), dt = SEL_LAST ? now - SEL_LAST : Infinity, step = reduced() ? 1 : Math.min(0.2, dt / SEL_MS);
   SEL_LAST = now; SEL_FADING = false;
-  if (SEL_C && !mapOpen(SEL_C)) SEL_C = null;
+  if (SEL_C && !mapOpen(SEL_C)) { SEL_C = null; selTold(); }
   SELS = SELS.filter(function (e) {
     var to = e.c === SEL_C ? 1 : 0;
     e.a = approach(e.a, to, step);

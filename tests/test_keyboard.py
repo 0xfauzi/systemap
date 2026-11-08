@@ -22,7 +22,6 @@ from systemap.model import all_layers
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIVER = ROOT / "tests" / "page_driver.js"
-SELF_MAP = ROOT / "docs" / "map" / "index.html"
 
 needs_node = pytest.mark.skipif(
     shutil.which("node") is None,
@@ -169,9 +168,8 @@ def test_sample_page_from_the_keyboard(sample: Sample, tmp_path: Path) -> None:
 
 
 @needs_node
-def test_self_map_page_from_the_keyboard() -> None:
-    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
-    check_keyboard(drive(SELF_MAP))
+def test_self_map_page_from_the_keyboard(self_map_page: Path) -> None:
+    check_keyboard(drive(self_map_page))
 
 
 @needs_node

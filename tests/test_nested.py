@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_detail_text, write_tree
+from conftest import page_detail_text, use_linked_pages, write_tree
 from test_keyboard import DRIVER, needs_node
 
 from systemap import facts_file, judgement, nest, place, source_facts
@@ -324,9 +324,8 @@ def test_the_check_runs_on_every_map_and_counts_coverage_once(
     )
     assert run("--root", str(nested), "check") == 0
     assert run("--root", str(nested), "refresh") == 0
-    assert (
-        "The page agrees with the rendered model fields and the facts." in capsys.readouterr().out
-    )
+    said = capsys.readouterr().out
+    assert "The page agrees with the rendered model fields and the facts." in said
 
 
 def test_the_exact_claim_rule_refuses_an_extra_and_a_missing_module(
@@ -456,6 +455,7 @@ def test_a_sub_maps_actors_are_cards_of_the_parent(
 def test_pages_are_written_per_map_with_the_links_up_and_down(
     nested: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    use_linked_pages(nested)
     assert run("--root", str(nested), "refresh") == 0
     top = (nested / "docs/map/index.html").read_text(encoding="utf-8")
     gateway = (nested / "docs/map/Gateway/index.html").read_text(encoding="utf-8")
@@ -540,7 +540,8 @@ def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
     """The Node driver: the panel's preview and button; the button, a
     double-click and a second Enter open the overlay; Escape and the close
     control close it and hand the focus back to the opener, the selection
-    kept; a card without a map is left alone by the same keys."""
+    kept; a card without a map is left alone by the same keys (linked pages)."""
+    use_linked_pages(nested)
     assert run("--root", str(nested), "refresh") == 0
     args = [
         shutil.which("node") or "node",
@@ -590,9 +591,8 @@ def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
 
 def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out = nested / "fig.html"
-    assert (
-        run("--root", str(nested), "figure", "--map", "Gateway", "--static", "--out", str(out)) == 0
-    )
+    args = ("figure", "--map", "Gateway", "--static", "--out", str(out))
+    assert run("--root", str(nested), *args) == 0
     text = out.read_text(encoding="utf-8")
     assert 'data-id="App"' in text and 'data-id="Routes"' in text and 'data-id="Writer"' not in text
     assert "Inside Gateway: This figure shows the system map." in text
@@ -613,7 +613,7 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     )
     text = out.read_text(encoding="utf-8")
     assert "Inside Style: Control flow: Which components cause other components to act?" in text
-    assert "The page at <code>docs/map/Style/index.html</code>" in text
+    assert "The page at <code>docs/map/index.html#Style</code>" in text
     # The top map by default: the mark, the legend row, the panel names the map without a link.
     assert run("--root", str(nested), "figure", "--interactive", "--out", str(out)) == 0
     text = out.read_text(encoding="utf-8")
@@ -654,9 +654,8 @@ def test_place_writes_into_a_sub_maps_file(
     capsys.readouterr()
     assert run("--root", str(nested), "place", "--print") == 0
     out = capsys.readouterr().out
-    assert (
-        f"place: 0 components placed, 5 kept (already positioned): {place.NOTHING_TO_PLACE}" in out
-    )
+    kept = f"place: 0 components placed, 5 kept (already positioned): {place.NOTHING_TO_PLACE}"
+    assert kept in out
     assert (
         "Style: place: 4 components placed, 0 kept. The command set all boxes and the canvas."
         in out
@@ -725,7 +724,8 @@ def git(root: Path, *args: str) -> str:
 
 def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     """The facts record HEAD at extraction, one commit before the one that
-    records them; the page calls the sha what it is, on every map's page."""
+    records them; the page calls the sha what it is, on every linked page."""
+    use_linked_pages(nested)
     git(nested, "init", "-q")
     git(nested, "add", "-A")
     git(nested, "commit", "-q", "-m", "base")

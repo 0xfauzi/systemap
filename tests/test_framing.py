@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 from conftest import Sample
-from test_keyboard import DRIVER, SELF_MAP, needs_node, sample_page
+from test_keyboard import DRIVER, needs_node, sample_page
 
 # The script's constants: the daylight left beside the drawer, the padding
 # round a framed set, the zoom cap and floor.
@@ -135,10 +135,9 @@ def test_sample_page_frames_the_lit_set_beside_the_drawer(sample: Sample, tmp_pa
 
 
 @needs_node
-def test_self_map_page_frames_in_the_part_on_screen() -> None:
-    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
+def test_self_map_page_frames_in_the_part_on_screen(self_map_page: Path) -> None:
     # A window shorter than the map: the visible area is clipped at the bottom.
-    report = drive(SELF_MAP, "1600x700")
+    report = drive(self_map_page, "1600x700")
     check(report)
     vb = report["viewBox"]
     assert vb["y"] + vb["h"] > 700, "the map runs below the window"
@@ -146,11 +145,10 @@ def test_self_map_page_frames_in_the_part_on_screen() -> None:
 
 
 @needs_node
-def test_a_lit_set_larger_than_the_area_is_fitted_whole() -> None:
-    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
+def test_a_lit_set_larger_than_the_area_is_fitted_whole(self_map_page: Path) -> None:
     # A window under half the map: a card with many neighbours lights a
     # set the area cannot hold at ZMIN, and it is fitted whole.
-    report = drive(SELF_MAP, "700x300")
+    report = drive(self_map_page, "700x300")
     check(report)
     assert any(c["view"]["k"] < ZMIN for c in report["cases"]), "some frame went under ZMIN"
 

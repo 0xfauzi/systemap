@@ -11,6 +11,25 @@ A layer is a filtered view of the map.
 
 ### Changes that can break a script or a CI job
 
+- `render`, `refresh`, and `live` write the canvas page by default (`[render] canvas = true`, step 5 of `docs/design/nested-canvas.md`).
+  The canvas page draws all maps of the map tree on one canvas. The page of each nested map is a redirect page.
+  The header has the views, the layers, Find, the theme, Reduce motion, the keyboard keys, and the source of the map. The Details panel gives the selected card. A dotted ring on an actor card shows an open boundary finding.
+  `systemap check` and `render --check` report each earlier page as stale one time.
+
+  Steps and changes:
+  - Run `systemap refresh` one time and commit the output.
+  - A link to `<id>/index.html` stays correct. The redirect page opens `index.html#<id>`. A hash of the link goes after the map ID, for example `Gateway/index.html#Routes` opens `index.html#Gateway/Routes`.
+  - The F key fits the current map. It does not show the map in full screen.
+  - The page obeys the system setting for reduced motion.
+  - The page data is in the element `script#canvas-data`. A script that reads `window.systemapWorkspace` must read this element.
+  - A figure of a nested map gets a new caption with the address `index.html#<id>`. `systemap refresh` writes it.
+  - `[render] canvas = false` keeps the linked pages, with no new feature, for one release. A later release removes them. `canvas = true` has no effect.
+    With `canvas = false`, `render`, `refresh`, and `live` write one line on stderr that tells you about the next release. The exit code does not change.
+  - The link `#changes` opens the Changes view of the top map. The link `#<id>/changes` opens it at the map `<id>`.
+  - The canvas page and the redirect pages permit no frame (`frame-src 'none'`). A page that shows the map in a frame must link to it.
+  - The canvas page does not show the `interface` text of a component. A change of `interface` does not make the canvas page stale.
+  - A pull request from a fork across this change fails the base-render job one time, because the base revision writes the linked pages.
+  - The phone grid of the regions is only on the linked page. On a phone, the canvas page shows the same canvas as on a desktop.
 - The facts format is 14 (3.0.0 wrote 13). The stored Python values are now the same on each supported Python version: CPython 3.11, 3.12, 3.13 and 3.14 (issue #136).
   The syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`), not from `ast.dump`.
   The signatures, the `constants` previews and the class bases come from the source text, not from `ast.unparse`. The previews keep the limit of 80 characters.

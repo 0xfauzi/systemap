@@ -52,7 +52,11 @@ If the first version fails, the page gives the error.
 
 ## The reload that keeps your view
 
-When a newer version is on the server, a script keeps your view in the session storage of the browser.
+When a newer version is on the server, the page loads again.
+The canvas page keeps only the URL hash: the open map and the selected card.
+It does not keep the view, the layer, or the sequence.
+
+With `[render] canvas = false`, a script of the linked page keeps your view in the session storage of the browser.
 Then it loads the page again. The new page puts back:
 
 - the view and the layer,

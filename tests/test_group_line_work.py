@@ -1,6 +1,7 @@
 """The route search of the group lines does little work, and late lines are the same lines.
 
-Acceptance: on the self-map page with the current group script, the search for
+Acceptance: on the linked page of the self-map (the fixture `self_map_page`) with
+the current group script, the search for
 the Data flow and All layers calls cost() fewer than COST_BOUND times. The
 script of commit d90d08e called cost() 34,859 times for the same page and
 layers, and the current script calls it 3,119 times. On a page with 72 cards,
@@ -18,7 +19,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from test_keyboard import DRIVER, SELF_MAP, needs_node
+from test_keyboard import DRIVER, needs_node
 
 from systemap import page, page_groups
 
@@ -58,9 +59,9 @@ function grouplinelater(page) {
 """
 
 
-def current_page(tmp_path: Path, name: str, *edits: tuple[str, str]) -> Path:
-    """Write the self-map page with the current group script, and count the calls to cost()."""
-    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
+def current_page(source: Path, tmp_path: Path, name: str, *edits: tuple[str, str]) -> Path:
+    """Write the linked page of the self-map (`source`) with the current group script, and
+    count the calls to cost()."""
     script, n = re.subn(
         COUNTED,
         lambda m: m.group(0) + " window.__costs = (window.__costs || 0) + 1;",
@@ -70,7 +71,7 @@ def current_page(tmp_path: Path, name: str, *edits: tuple[str, str]) -> Path:
     for old, new in edits:
         assert script.count(old) == 1, old
         script = script.replace(old, new)
-    html = SELF_MAP.read_text(encoding="utf-8")
+    html = source.read_text(encoding="utf-8")
     blocks = [
         m
         for m in re.finditer(r"<script>(.*?)</script>", html, flags=re.S)
@@ -103,8 +104,8 @@ def drive(tmp_path: Path, html: Path, scenario: str) -> dict[str, object]:
 
 
 @needs_node
-def test_group_line_search_calls_cost_few_times(tmp_path: Path) -> None:
-    report = drive(tmp_path, current_page(tmp_path, "work.html"), "grouplinework")
+def test_group_line_search_calls_cost_few_times(tmp_path: Path, self_map_page: Path) -> None:
+    report = drive(tmp_path, current_page(self_map_page, tmp_path, "work.html"), "grouplinework")
     layers = report["layers"]
     assert isinstance(layers, dict)
     assert layers["data"] and layers["all"], "the two layers show groups"
@@ -114,9 +115,10 @@ def test_group_line_search_calls_cost_few_times(tmp_path: Path) -> None:
 
 
 @needs_node
-def test_lines_after_the_idle_work_are_the_same_lines(tmp_path: Path) -> None:
+def test_lines_after_the_idle_work_are_the_same_lines(tmp_path: Path, self_map_page: Path) -> None:
     # The wait time is zero, and the idle work goes into a list that the scenario empties.
     later = current_page(
+        self_map_page,
         tmp_path,
         "later.html",
         ("WAIT = 120", "WAIT = 0"),
@@ -126,7 +128,7 @@ def test_lines_after_the_idle_work_are_the_same_lines(tmp_path: Path) -> None:
         ),
     )
     report = drive(tmp_path, later, "grouplinelater")
-    now = drive(tmp_path, current_page(tmp_path, "now.html"), "grouplinework")
+    now = drive(tmp_path, current_page(self_map_page, tmp_path, "now.html"), "grouplinework")
     layers = now["layers"]
     assert isinstance(layers, dict)
     assert report["before"] == 0, "no group line before the work is done"

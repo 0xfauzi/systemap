@@ -188,9 +188,9 @@ Its actors use the identifiers of adjacent components on the parent map.
 An actor cannot have a nested map.
 
 The parent card keeps its flows and shows a second card behind it.
-The inspector has a preview and an open button.
-Double-click or a second Enter also opens the nested map.
-`docs/map/Gateway/index.html` has a parent link.
+The card shows a preview of the nested map. Zoom in, double-click, or press Enter to open the nested map.
+`docs/map/Gateway/index.html` is a redirect page.
+It opens the canvas page with the URL hash `#Gateway`.
 A nested map can also have nested maps, with identifiers such as `Gateway/Routes`.
 See `references/layout.md` for thresholds and commands.
 

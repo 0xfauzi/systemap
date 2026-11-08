@@ -246,7 +246,8 @@ function plates(list, a, ox, oy, fs, each) {
 // ---- cards ------------------------------------------------------------------------
 // The corner radius of a card of the screen size w x h. A small card has square corners.
 function cardCorner(w, h) { return w > 60 ? clamp(h * 0.1, 2, 8) : 0; }
-// The view gives the alpha and the marks of the card (`viewCard`).
+// The view gives the alpha and the marks of the card (`viewCard`). The back card of a card
+// that opens a map has an outline in --card-line: 3:1 or more on the map (CANVAS_MARKS).
 function cardBox(c, x, y, w, h, alpha) {
   STATS.cards++;
   var v = viewCard(c), t = cardShow(h), k = colors(c), r = cardCorner(w, h);
@@ -254,7 +255,7 @@ function cardBox(c, x, y, w, h, alpha) {
   if (t < 1) FILL.rect(k.mark, alpha * (1 - t), x, y, w, h, 0);
   viewMarksAt(c, v, x, y, w, h, alpha);
   if (t <= 0) return;
-  if (c.child) { BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r); viewBack(v, x, y, w, h, r, alpha * t); }
+  if (c.child) { BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r); BACK_LINE.rect(C['--card-line'], alpha * t, x + 4, y + 4, w, h, r, 1); viewBack(v, x, y, w, h, r, alpha * t); }
   FILL.rect(k.fill, alpha * t, x, y, w, h, r);
   LINE.rect(k.line, alpha * t, x, y, w, h, r, 1, c.k === 'actor' ? 'a' : '');
 }
@@ -267,7 +268,7 @@ function drawOpening(c, a, ox, oy, alpha) {
   // A quiet card is quiet also in its preview. The nested map has its own view when it is open.
   alpha *= va + (1 - va) * o;
   g.setLineDash([]);
-  if (o < 1) { g.globalAlpha = alpha * (1 - o); g.fillStyle = C['--line-2']; g.beginPath(); rr(g, x + 4, y + 4, w, h, r); g.fill(); }
+  if (o < 1) { g.globalAlpha = alpha * (1 - o); g.fillStyle = C['--line-2']; g.strokeStyle = C['--card-line']; g.lineWidth = 1; g.beginPath(); rr(g, x + 4, y + 4, w, h, r); g.fill(); g.stroke(); }
   g.beginPath(); rr(g, x, y, w, h, r);
   g.globalAlpha = alpha; g.fillStyle = C['--map']; g.fill();
   if (o < 1) { g.globalAlpha = alpha * (1 - o); g.fillStyle = k.fill; g.fill(); }

@@ -26,6 +26,7 @@ from typing import Any
 
 import pytest
 from conftest import write_tree
+from test_canvas_page import DATA
 from test_live_change import git, make_repo
 from test_nested import nested  # noqa: F401 - a fixture
 
@@ -100,7 +101,10 @@ def test_a_render_gives_the_pages_the_figure_and_the_map_updates(
     assert review["text"].startswith("source review: Audit has changed code in pkg.audit.")
     assert review["action"] == explain.LESSONS["source review"].do
     html = (tmp_path / "out/index.html").read_text(encoding="utf-8")
-    assert 'id="changemap"' in html, "the page has the Changes view of the working tree"
+    found = DATA.search(html)
+    assert found is not None
+    top_map = json.loads(found.group(1))["maps"][0]
+    assert "cm" in top_map, "the page has the Changes view of the working tree"
     assert page_live.VIEW_KEY in html
     svg = Path(state["svg"])
     assert svg == tmp_path / "out" / serve.FIGURE

@@ -32,7 +32,7 @@ from typing import Any
 
 import pytest
 from conftest import Sample
-from test_keyboard import DRIVER, SELF_MAP, needs_node, sample_page
+from test_keyboard import DRIVER, needs_node, sample_page
 
 from systemap import figure, page, page_changes
 from systemap import theme as theme_mod
@@ -625,9 +625,8 @@ def test_a_pick_restamps_the_root_and_is_kept(sample: Sample, tmp_path: Path) ->
 
 
 @needs_node
-def test_the_self_map_page_stamps_dark_and_switches() -> None:
-    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
-    report = drive_theme(SELF_MAP)
+def test_the_self_map_page_stamps_dark_and_switches(self_map_page: Path) -> None:
+    report = drive_theme(self_map_page)
     assert report["onLoad"] == "dark"
     assert [s["attr"] for s in report["switches"]] == SCHEMES
-    assert drive_theme(SELF_MAP, "--light")["onLoad"] == "light"
+    assert drive_theme(self_map_page, "--light")["onLoad"] == "light"

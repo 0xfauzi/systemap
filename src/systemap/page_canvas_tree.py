@@ -26,6 +26,14 @@ The script writes the list again after a change of the view (`buildTree`). When 
 the list has the keyboard focus, the same link of the new list gets it. Thus the focus does
 not go to the body of the page.
 
+The URL hash `#changes`, the link of a pull request comment (`delta_link.CHANGES`), opens
+the Changes view at the top map. `#Gateway/changes` opens it at the map Gateway. The small
+page of a nested map gives such a hash for `Gateway/index.html#changes`
+(`canvas_redirect`). A map or a card with the ID `changes` keeps its link: then the hash
+moves the camera to that map or card, as each other hash does, and the view does not
+change. When the camera stops in the Changes view at the map of the hash, the hash stays.
+Thus a load of the page again opens the same view.
+
 A view part can add words (`viewFacts` and `viewSay` in `page_canvas_view`): the words of
 the current view for each card in the list, and for each map in the live region and in the
 top line of the list. For example, the Changes view gives the change of each card.
@@ -133,12 +141,24 @@ function hashId() { try { return decodeURIComponent(location.hash.slice(1)); } c
 function setHash(h) {
   try { history.replaceState(null, '', h || location.pathname + location.search); } catch (e) { /* a file page can refuse it */ }
 }
-// The goal that the URL hash gives: a map, or a card of a map. When the hash names no map
-// and no card, it is the top map.
+// The goal that the URL hash gives: a map, or a card of a map. The view link `#changes`
+// (`delta_link.CHANGES`) or `#<map>/changes` also sets the Changes view (`linkedMap`). When
+// the hash names no map and no card, it is the top map.
 function hashGoal() {
-  var id = hashId(), c = hashCard(id);
+  var id = hashId(), c = hashCard(id), v;
   if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
-  return c ? goalOf(c.map, c, null) : goalOf(TOP, null, null);
+  if (c) return goalOf(c.map, c, null);
+  if ((v = linkedMap(id))) { setView('changes'); return goalOf(v, null, null); }
+  return goalOf(TOP, null, null);
+}
+// The map of the view link of the ID `id` of a URL hash: the top map for `changes`, and the
+// map M for `M/changes`, or null. A map or a card with the ID keeps its link, because
+// `hashGoal` looks for them first.
+function linkedMap(id) {
+  if (!VIEWS.changes) return null;
+  if (id === 'changes') return TOP;
+  var cut = id.lastIndexOf('/'), m = cut > 0 && id.slice(cut + 1) === 'changes' ? MAPS[id.slice(0, cut)] : null;
+  return m && m.T ? m : null;
 }
 // The card that the ID `id` of a URL hash names, when it is a card that opens no map. An
 // empty ID names no card.

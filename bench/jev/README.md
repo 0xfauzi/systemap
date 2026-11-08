@@ -6489,3 +6489,167 @@ Before the run, the script waited 60 s for 30 s with no chrome, chromium, headle
 Result: PASS for each scenario. This is one run, not an A/B. Thus it does not give a difference from U4c.
 
 The browser tests of the CI job canvas-browser, with the new glob (`tests/test_canvas_*browser.py` and `tests/test_canvas_access.py`, without `tests/test_canvas_frames.py`), with Playwright 1.63.0, axe-core 4.14.0 and SYSTEMAP_BROWSER_TESTS=required, on this host: 74 passed in 541 s. The speed of the GitHub runner is not measured. The timeout of the job is now 30 minutes. A measurement of the job time on the runner is necessary.
+
+## D: the canvas page as the default output (step 5, part A, 2026-11-08)
+
+### D0: the tests after the change of the default (no timing)
+
+The change of the default of `[render] canvas` from false to true, with no other change (base 0254afb), gave 12 failed, 3,938 passed and 15 skipped tests of 3,965 (`uv run pytest`, 723 s on this host). Each failed test reads a part of the linked page (the detail data, the layer buttons, the Changes panel, the overlay of a nested map, the snapshot button), or the digests of the linked pages of main. With the changes of part A, these tests set `[render] canvas = false` (`conftest.use_linked_pages`), or they examine the canvas page. One test (`test_interface`) finds a change of the `interface` text of a component as a stale page. The canvas page does not show `interface`. Thus a change of `interface` does not make the canvas page stale. The test now uses the linked pages.
+
+### D1: C3 and the small pages (`canvas_default.py`)
+
+Acceptance values in the docstring of `canvas_default.py`, written before the first run: C3 of B at most 1,500 ms in each load of each quiet run at 1x; each small page of the 49 nested maps of the M11 tree at most 2,048 bytes. A is the canvas page of 0254afb, B is the page of part A. The same canvas data (the real M11 tree) and the same theme.
+
+Other agents ran Chromium on this host. Of 13 attempts, 3 were quiet (B2, A3, B3). The other attempts saw 14 to 21 foreign Chromium or Node processes. Their values do not count for the acceptance.
+
+| Item | A | B | Result |
+|---|---|---|---|
+| Canvas page bytes, raw | 974,447 | 975,194 | information (+747) |
+| Canvas page bytes, gzip -6 | 116,925 | 117,127 | information (+202) |
+| Largest small page | | 860 bytes | pass (limit 2,048) |
+| C3, 1x, median of the quiet loads | 74.8 ms | 72.35 ms | information |
+| C3, 4x, median of the quiet loads | 278.6 ms | 276.0 ms | information |
+| C3, 1x, largest load of the quiet runs of B | | 86.8 ms | pass (limit 1,500 ms) |
+
+Result: PASS.
+
+### D2: the browser tests of part A
+
+With Playwright 1.63.0, axe-core 4.14.0 on NODE_PATH and SYSTEMAP_BROWSER_TESTS=required: `tests/test_canvas_page.py`, `tests/test_canvas_browser.py`, `tests/test_canvas_frames.py`, `tests/test_canvas_data.py`, `tests/test_canvas_access.py`, `tests/test_canvas_redirect_browser.py` and `tests/test_canvas_live.py`: 88 passed in 354 s. `tests/test_canvas_frames.py` asserts C2 and C3 with its own limits. This run had no quiet gate.
+
+## S9: the reader tools and the Details panel of the canvas page (step 5, 2026-11-08)
+
+The canvas page gets the tools of the linked page: the theme, Reduce motion, the Keyboard keys, the source of the map and a Details panel for the selected card or flow (`page_canvas_details`, `canvas_details`, the tools of `canvas_header`). The script is `bench/jev/canvas_details.py`. Its acceptance values were written in its docstring before the first run. A is commit 0254afb, and B is the work tree of the part.
+
+### S9a: the bytes (acceptance 1 and 2)
+
+| Item | Acceptance | Result |
+|---|---|---|
+| C1: canvas data of the real M11 tree, 50 maps, with the new keys | at most 2,097,152 bytes raw | PASS: 1,003,116 bytes raw. Without the new keys: 731,865 bytes. |
+| The canvas page of the self-map, B less A | at most 40,000 bytes raw | PASS: A 299,053 bytes, B 338,445 bytes, growth 39,392 bytes. |
+
+An exploration before the acceptance gave the cost of the full source records of the linked page (`page_data.sources`) for the self-map: 416,434 bytes of JSON. The public names gave 93,468 bytes, the test names 237,126 bytes, and the module descriptions 17,329 bytes. Thus the data gives the count of the public names and of the tests, and no module description. The panel tells the reader that the facts file has them. With the module descriptions, the growth of the self-map page is more than 40,000 bytes.
+
+### S9b: C2, A/B with the quiet gate (acceptance 3, 4 and 5)
+
+Run 1 failed. Its gate counted the Chromium helper processes of the script itself as foreign processes: when a browser closes, its helpers go to PID 1 for a short time. 8 of 9 attempts were not quiet, and the run gave no value. The script now knows its own processes by a value in their environment (`TOKEN`). Run 2 stopped by hand: another agent ran `canvas_frames.py` at the same time, and each attempt was not quiet. Run 3 started after 120 s with no node, Chromium or pytest process on the host.
+
+Run 3: the quiet runs are A1, B1, A2 and A3. B2 and B3 were not quiet in 3 attempts each (pytest, node and Chromium processes of other agents). Thus each value of B comes from one run only.
+
+| Data | Scenario | Variant | CPU | A p95 (ms) | B p95 (ms) | Median B - A | B over | B writes | Result |
+|---|---|---|---|---|---|---|---|---|---|
+| M11 shape | pan-fit | plain | 4x | 16.8, 16.8, 16.8 | 16.8 | +0.0 | -79 | 0 | pass |
+| M11 shape | pan-fit | details | 4x | 16.7, 16.8, 16.7 | 16.8 | +0.1 | -79 | 0 | pass |
+| M11 shape | all-open | plain | 4x | 16.8, 16.8, 16.8 | 16.8 | +0.0 | -50 | 0 | pass |
+| M11 shape | all-open | details | 4x | 16.7, 16.7, 16.8 | 16.8 | +0.1 | -68 | 0 | pass |
+| M11 shape | dive | plain | 4x | 16.7, 16.7, 16.7 | 16.8 | +0.1 | -3 | 0 | pass |
+| M11 shape | dive | details | 4x | 16.7, 16.8, 16.8 | 16.8 | +0.0 | -3 | 0 | pass |
+| 400 cards | pan-fit | plain | 4x | 16.7, 16.8, 16.8 | 16.7 | -0.1 | -400 | 0 | pass |
+| 400 cards | pan-fit | details | 4x | 16.8, 16.8, 16.7 | 16.7 | -0.1 | -400 | 0 | pass |
+| 400 cards | dive | plain | 4x | 16.8, 16.7, 16.8 | 16.8 | +0.0 | 0 | 0 | pass |
+| 400 cards | dive | details | 4x | 16.8, 16.8, 33.3 | 16.8 | +0.0 | 0 | 0 | pass |
+| 1,500 cards | pan-fit | plain | 4x | 16.8, 16.7, 16.7 | 16.8 | +0.1 | -1500 | 0 | pass |
+| 1,500 cards | pan-fit | details | 4x | 16.8, 16.8, 16.7 | 16.8 | +0.0 | -1500 | 0 | pass |
+| M11 shape | pan-fit | plain | 1x | 16.7, 16.7, 16.8 | 16.8 | +0.1 | -79 | 0 | pass |
+| M11 shape | pan-fit | details | 1x | 16.7, 16.8, 16.7 | 16.8 | +0.1 | -79 | 0 | pass |
+| M11 shape | all-open | plain | 1x | 16.7, 16.7, 16.7 | 16.7 | +0.0 | -50 | 0 | pass |
+| M11 shape | all-open | details | 1x | 16.8, 16.8, 16.7 | 16.8 | +0.0 | -50 | 0 | pass |
+| M11 shape | dive | plain | 1x | 16.7, 16.7, 16.7 | 16.7 | +0.0 | -3 | 0 | pass |
+| M11 shape | dive | details | 1x | 16.7, 16.7, 16.7 | 16.8 | +0.1 | -3 | 0 | pass |
+| 400 cards | pan-fit | plain | 1x | 16.8, 16.7, 16.8 | 16.8 | +0.0 | -400 | 0 | pass |
+| 400 cards | pan-fit | details | 1x | 16.8, 16.7, 16.8 | 16.8 | +0.0 | -400 | 0 | pass |
+| 400 cards | dive | plain | 1x | 16.8, 16.7, 16.7 | 16.8 | +0.1 | 0 | 0 | pass |
+| 400 cards | dive | details | 1x | 16.7, 16.8, 16.7 | 16.7 | +0.0 | 0 | 0 | pass |
+| 1,500 cards | pan-fit | plain | 1x | 16.8, 16.8, 16.8 | 16.8 | +0.0 | -1500 | 0 | pass |
+| 1,500 cards | pan-fit | details | 1x | 16.8, 16.8, 16.7 | 16.8 | +0.0 | -1500 | 0 | pass |
+
+Result: PASS with one quiet run of B. A second quiet run of B is necessary for an A/B with more than one value of B. The panel had 0 DOM changes in each move of B. The Details panel does not change the frame work: the panel has no per-frame code.
+
+### S9c: C4, C5 and the browser tests
+
+`tests/test_canvas_details_browser.py` (Playwright 1.63.0, axe-core 4.14.0, SYSTEMAP_BROWSER_TESTS=required): 9 passed. axe-core found 0 violations in 16 runs: the panel with a card and with a flow, the keys sheet and the source records, at 1440 x 900 and 390 x 844 pixels, light and dark. On the phone screen, the tools go into the Tools menu, the scroll width is 390 pixels, and each target of the header, the menu, the panel and the keys sheet is 44 x 44 pixels or more. In a pan of 90 frames with the panel open and a card selected, the panel had 0 DOM changes. The canvas read the theme colors 0 times in a pan of 60 frames and 1 time for a theme change.
+
+## V1: the open ports of step 5, part C (2026-11-08)
+
+Part C of step 5 of docs/design/nested-canvas.md gives the canvas page the open boundary lines of the judgement (`judgement_json.open_boundary` in `canvas_page.pages`), and the page marks the actor card of each open port (`page_canvas_ports`). The back card of a card that opens a map also gets an outline in --card-line (contrast, see below). The script is `canvas_ports_ab.py`. Its acceptance values were written in its docstring before the first run. A is the source of the base commit 0254afb (from `git archive`), and B is the change. The runs are interleaved (A B, then B A). Before each run, the script waited for a 1-minute load average of 1.5 or less (4 cores). Each run started on a quiet host. One run of the script.
+
+### V1a: P1, render and check of the M11 tree with the open lines
+
+The M11 tree (50 maps, the fixture of `canvas_data_size.py`) with `[render] canvas = true`. The tree has 146 open boundary lines. One call of `open_boundary` took 0.11, 0.10 and 0.10 s (3 runs). The judgement of the same tree took 6.0 s (PR #152), thus `open_boundary` does not use `evaluate`.
+
+| Command | A runs (s) | B runs (s) | A median (s) | B median (s) | B - A (s) | Acceptance | Result |
+|---|---|---|---|---|---|---|---|
+| render | 3.21, 2.33, 2.32, 2.46, 2.18 | 2.51, 2.52, 2.42, 2.51, 2.44 | 2.33 | 2.51 | +0.18 | B at most A + 1.0 s | pass |
+| check | 4.88, 4.76, 4.59, 4.50, 4.78 | 4.71, 4.76, 4.90, 5.15, 4.67 | 4.76 | 4.76 | +0.00 | B at most A + 1.0 s | pass |
+
+Each run gave exit 0.
+
+### V1b: P2, C2 with open ports
+
+The M11 shape of `canvas_frames.py` (`nested_tree`) with `judged` true and one open `boundary flow` line on the port of the actor of each nested map: 49 actor cards with a mark. The page of A has the same data, and the code of A draws no mark and no outline of the back card. 4 times CPU throttling, 180 frames in each run.
+
+| Scenario 4x | A p95 (ms) | B p95 (ms) | Acceptance | Result |
+|---|---|---|---|---|
+| pan-fit | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.8 | B at most 35.0 ms in each run | pass |
+| all-open | 16.8, 16.7, 16.7 | 16.7, 16.8, 16.8 | B at most 35.0 ms in each run | pass |
+| dive | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.7 | B at most 35.0 ms in each run | pass |
+
+The M11 tree from real facts with its 146 open lines was not measured in the browser. A measurement is necessary if a frame with many marks of the real tree is in doubt.
+
+### V1c: the contrast of the canvas marks (no browser)
+
+`tests/test_canvas_marks_contrast.py` has the table `CANVAS_MARKS` (the token of each text and line of the canvas and its ground) and examines it in the light and the dark scheme. The ratios come from the theme tokens, not from the pixels. axe-core cannot measure a canvas. Results:
+
+- 29 rows pass in each scheme (4.5 for a text and 3.0 for a line).
+- The back card of a card that opens a map is in --line-2: 1.36 (light) and 1.50 (dark) on the map. It now has an outline in --card-line: 3.03 (light) and 3.62 (dark). Pass.
+- The border of a container of the tones host, client and server is in --line-2 (`BELOW_FLOOR`): 1.36 (light) and 1.50 (dark). The linked page uses the same token. This is a decision for the maintainer. No change.
+
+### V1d: the browser tests
+
+`tests/test_canvas_ports_browser.py` (Playwright 1.63.0, axe-core 4.14.0, SYSTEMAP_BROWSER_TESTS=required): 5 passed. The alpha of the mark changes by 0.2 or less in one frame, and at one time with reduced motion. axe-core found 0 violations in 8 runs (1440 x 900 and 390 x 844, light and dark, the top map and Gateway). On the phone, each target of the canvas is 44 px or more.
+
+A first run of the browser test failed: after a return from the Changes view to the Map view, the mark stayed at the alpha 0. The cause: in the Map view with all layers, a card with the plain value keeps it with no call of the view part (`VIEW_IDLE`). The fix: that rule does not apply to a card with an open port (`page_canvas_view`).
+
+## S10: C2 of the merged page of step 5 (2026-11-08)
+
+Scope: the merge of the parts A, B, C and D of step 5 on the branch `claude/canvas-default`, from 0254afb, not committed at the time of the run. The script is `bench/jev/canvas_details.py` (S9), with no change of its acceptance values. Its docstring tells of this second use. The only change of the script is a split of `_verdict` into `_row`, for the limit of the cognitive complexity. The split does not change a value or a verdict. A is the canvas page of 0254afb, and B is the merged work tree. All 6 runs (A1, B1, B2, A2, A3, B3) were quiet in their first attempt.
+
+### S10a: the bytes
+
+| Item | Acceptance | Result |
+|---|---|---|
+| C1: canvas data of the real M11 tree, 50 maps | at most 2,097,152 bytes raw | PASS: 1,003,116 bytes raw (731,865 without the keys of B). |
+| The canvas page of the self-map, B less A | at most 40,000 bytes raw | FAIL: A 299,889 bytes, B 343,159 bytes, growth 43,270 bytes. |
+
+Acceptance 2 was the limit of part B only. The merged page also has the parts A and C: the open boundary lines in the data, the script of the marks of the ports, and the script of the link `#changes`. S9a gave 39,392 bytes for part B alone on a different model. The bytes of each part in the merged page are not measured separately. A decision of the maintainer is necessary: a limit for the merged page, or less text in the page.
+
+### S10b: C2, A/B with the quiet gate
+
+| Data | Scenario | Variant | CPU | A p95 | B p95 | Median B - A | B over | B writes | Result |
+|---|---|---|---|---|---|---|---|---|---|
+| M11 shape | pan-fit | plain | 4x | 16.7, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | -79 | 0 | pass |
+| M11 shape | pan-fit | details | 4x | 16.8, 16.8, 16.7 | 16.7, 16.7, 16.7 | -0.1 | -79 | 0 | pass |
+| M11 shape | all-open | plain | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.0 | -50 | 0 | pass |
+| M11 shape | all-open | details | 4x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | +0.0 | -50 | 0 | pass |
+| M11 shape | dive | plain | 4x | 16.8, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.0 | -3 | 0 | pass |
+| M11 shape | dive | details | 4x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | -3 | 0 | pass |
+| 400 cards | pan-fit | plain | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.0 | -400 | 0 | pass |
+| 400 cards | pan-fit | details | 4x | 16.8, 16.7, 16.7 | 16.8, 16.7, 16.7 | +0.0 | -400 | 0 | pass |
+| 400 cards | dive | plain | 4x | 16.8, 16.7, 16.7 | 16.8, 16.8, 16.8 | +0.1 | 0 | 0 | pass |
+| 400 cards | dive | details | 4x | 16.8, 16.7, 16.8 | 16.8, 16.7, 16.8 | +0.0 | 0 | 0 | pass |
+| 1,500 cards | pan-fit | plain | 4x | 16.7, 16.8, 16.8 | 16.7, 16.8, 16.7 | -0.1 | -1500 | 0 | pass |
+| 1,500 cards | pan-fit | details | 4x | 16.8, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.0 | -1500 | 0 | pass |
+| M11 shape | pan-fit | plain | 1x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | -79 | 0 | pass |
+| M11 shape | pan-fit | details | 1x | 16.8, 16.7, 16.8 | 16.7, 16.8, 16.7 | -0.1 | -79 | 0 | pass |
+| M11 shape | all-open | plain | 1x | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 | -50 | 0 | pass |
+| M11 shape | all-open | details | 1x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.1 | -50 | 0 | pass |
+| M11 shape | dive | plain | 1x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.8 | +0.1 | -3 | 0 | pass |
+| M11 shape | dive | details | 1x | 16.7, 16.8, 16.7 | 16.8, 16.8, 16.8 | +0.1 | -3 | 0 | pass |
+| 400 cards | pan-fit | plain | 1x | 16.7, 16.8, 16.7 | 16.7, 16.8, 16.8 | +0.1 | -400 | 0 | pass |
+| 400 cards | pan-fit | details | 1x | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.7 | -0.1 | -400 | 0 | pass |
+| 400 cards | dive | plain | 1x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.7 | +0.0 | 0 | 0 | pass |
+| 400 cards | dive | details | 1x | 16.8, 16.8, 16.8 | 16.8, 16.8, 16.7 | +0.0 | 0 | 0 | pass |
+| 1,500 cards | pan-fit | plain | 1x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.7 | +0.1 | -1500 | 0 | pass |
+| 1,500 cards | pan-fit | details | 1x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | -1500 | 0 | pass |
+
+Result: PASS for acceptance 1, 3, 4 and 5. FAIL for acceptance 2 (see S10a). The script gives exit 1. The largest p95 of B is 16.8 ms at 4x and at 1x. The largest difference of the medians is +0.1 ms. In each frame of B, `over` is 0 or less, and the panel had 0 DOM changes in each move.

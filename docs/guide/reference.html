@@ -874,10 +874,12 @@ Coverage counts the parent component one time.</p>
 A nested finding has its map id, as in <code>Gateway: map layout: clean ...</code>.</p>
 </li>
 <li>
-<p><code>refresh</code> and <code>render</code> write one page per map.
-The top page is <code>docs/map/index.html</code>.
-The nested page is <code>docs/map/Gateway/index.html</code>.
-Each page has a link to the other.</p>
+<p><code>refresh</code> and <code>render</code> write the canvas page <code>docs/map/index.html</code>.
+The canvas page draws all maps of the tree.
+Each nested map also gets a redirect page, for example <code>docs/map/Gateway/index.html</code>.
+The redirect page opens the canvas page at that map, with the URL hash <code>#Gateway</code>.
+Thus a link to <code>Gateway/index.html</code> stays correct.
+With <code>[render] canvas = false</code>, the commands write one linked page for each map, with links between them.</p>
 </li>
 <li>
 <p><code>figure --map Gateway</code> renders one map.
@@ -1370,17 +1372,34 @@ The error gives the flow or the component. <code>systemap describe</code> also e
 <p>Writes the page from the facts and model.
 Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
 Thus they do not tell you to use <code>systemap extract</code> when <code>extract</code> cannot operate.</p>
-<p>With <code>[render] canvas = true</code>, the command writes the canvas page.
+<p>The command writes the canvas page. This is the default from step 5 of <code>docs/design/nested-canvas.md</code>.
 The canvas page draws all maps of the tree on one <code>&lt;canvas&gt;</code> element.
 A card that opens a map shows a preview of that map. When the camera zooms in, the preview grows into the map.
 The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
-A double-click or a tap on a card goes into the card. Esc goes out one level, F fits the current map, and <code>+</code> and <code>-</code> zoom the camera.
-The canvas page does not show the Sequences view, the Changes view, or the layers yet. The design gives them in step 4.
+A click on a card selects it, and a double-click on a card goes into the card.
+On a touch screen, a tap selects a card, and a second tap on the card goes into it.
+Esc goes out one level, F fits the current map, <code>+</code> and <code>-</code> zoom the camera, and the arrow keys move the map.
+The F key does not show the map in full screen, as on the linked page.
+The header has the views Map, Sequences, and Changes, the layers, and Find (Ctrl+K, Cmd+K, or /).
 The path of the open maps is at the top left of the canvas. A click on a part of the path moves the camera to that map.
 When the frame of an open map is larger than the screen, a ring stays at the screen edge.
 When a neighbour of the open map is not on the screen, a portal at the screen edge gives it. A click on the portal moves the camera to the neighbour.
 The URL hash holds the ID of the open map, for example <code>index.html#Gateway/Routes</code>.
+A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</code> opens <code>index.html#Gateway/Routes</code>.
+Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
+The page uses the system setting for reduced motion. Then each camera move occurs at one time.
+The header also has the theme button, the Reduce motion button, the Keyboard keys (the <code>?</code> key), and the source button. On a narrow screen, these buttons are in one Tools menu.
+The Details panel (the D key) gives the selected card: its kind and text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
+In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
+The canvas page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the canvas page cannot show in a frame of a different page.
+The page data is in the element <code>script#canvas-data</code>. The page has no <code>window.systemapWorkspace</code> object.
 With <code>?hud</code> after the page address, the page shows the frames in each second and the time of each frame.</p>
+<p>With <code>[render] canvas = false</code>, the command writes the linked page of each map, as before step 5.
+Then <code>render</code>, <code>refresh</code>, and <code>live</code> write this line on stderr. The exit code does not change.</p>
+<pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the canvas page.
+</code></pre>
+<p>The linked pages stay for one release. A later release removes them.
+The canvas page does not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the canvas page stale.</p>
 <ul>
 <li>
 <p><code>--check</code> exits 1 if the page is stale.
@@ -1390,6 +1409,9 @@ Thus a page that <code>render --base REF</code> wrote is stale for <code>render 
 <li>
 <p><code>--base REF</code> adds a change map relative to that revision.
 The page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
+The canvas page and the linked page both obey this link.
+On the canvas page, <code>#Gateway/changes</code> opens the Changes view at the map <code>Gateway</code>.
+A map or a card with the ID <code>changes</code> keeps its link.
 The Changes panel lists the map changes: the components, flows, sequences, and rules
 that the change added, removed, or changed in the model.
 The list compares the committed model at the merge base with the model on disk.
@@ -2751,8 +2773,8 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[render]</code></td>
-<td><code>canvas = false</code></td>
-<td><code>canvas = true</code> makes <code>render</code>, <code>refresh</code>, and <code>live</code> write the canvas page in place of the linked pages: all maps of the tree on one canvas (<code>docs/design/nested-canvas.md</code>). The top page holds the canvas. The page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. <code>check</code> and <code>render --check</code> compare the same pages. With <code>false</code>, the commands write the linked pages with no change. A different value or key gives a configuration error.</td>
+<td><code>canvas = true</code></td>
+<td><code>render</code>, <code>refresh</code>, and <code>live</code> write the canvas page: all maps of the tree on one canvas (<code>docs/design/nested-canvas.md</code>). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. <code>canvas = true</code> has no effect. <code>canvas = false</code> makes the commands write the linked pages, with no new feature, for one release. Then <code>render</code>, <code>refresh</code>, and <code>live</code> write one line on stderr about the next release. A later release removes the linked pages and this key. <code>check</code> and <code>render --check</code> compare the pages of the current value. A different value or key gives a configuration error.</td>
 </tr>
 <tr>
 <td><code>[[figures]]</code></td>

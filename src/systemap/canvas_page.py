@@ -1,13 +1,14 @@
 """The canvas page: all maps of a map tree on one canvas (docs/design/nested-canvas.md).
 
-With `[render] canvas = true` (`config_render`), `render_pages` uses `pages`: the canvas
-page for the top map and a small page for each nested map. The small page goes to the top
-page with the ID of its map in the URL hash, for example `../index.html#Gateway`. Thus a
-link to a nested page still opens that map.
+This is the default output (`config_render`): `render_pages` uses `pages`, the canvas page
+for the top map and a small page for each nested map (`canvas_redirect`). The small page
+goes to the top page with the ID of its map in the URL hash, for example
+`../index.html#Gateway`. Thus a link to a nested page still opens that map.
 
 The canvas page holds the canvas data (`canvas_data`) one time, in a script element of
 the type application/json, and the renderer script (`page_canvas`). The page CSP
-(`page_csp`) has the digest of each script element and style element. The page uses
+(`page_csp`) has the digest of each script element and style element, and it permits no
+frame. The page uses
 the theme tokens of the map page. Thus the light and the dark schemes both apply.
 
 The page also has an empty list of the tree and a live region (`page_canvas_tree`). The
@@ -22,17 +23,18 @@ renderer (docs/design/nested-canvas.md, step 4) add their parts to the page in `
 
 from __future__ import annotations
 
-import html as html_text
 from collections.abc import Mapping
 from typing import Any
-from urllib.parse import quote
 
 from systemap import (
     canvas_data,
     canvas_header,
+    canvas_redirect,
+    judgement_json,
     nest,
     page,
     page_canvas_changes,
+    page_canvas_details,
     page_canvas_find,
     page_canvas_sequences,
     page_csp,
@@ -54,9 +56,12 @@ def pages(
     """Give each map of the tree with its page: the canvas page for the top map, and the
     small page that goes to it for each nested map.
 
-    `changes` gives the change data of each map by map ID (`change.for_page`)."""
-    top = build(tree_theme(cfg, tree), canvas_data.build(cfg, tree, facts, changes=changes))
-    return [(m, redirect(m) if m.id else top) for m in tree.maps]
+    `changes` gives the change data of each map by map ID (`change.for_page`). The ports
+    give only the open boundary lines of the judgement (`judgement_json.open_boundary`)."""
+    still = judgement_json.open_boundary(tree, facts, cfg)
+    data = canvas_data.build(cfg, tree, facts, open_lines=still, changes=changes)
+    top = build(tree_theme(cfg, tree), data)
+    return [(m, canvas_redirect.page(m) if m.id else top) for m in tree.maps]
 
 
 def tree_theme(cfg: Config, tree: nest.Tree) -> dict[str, Any]:
@@ -72,9 +77,14 @@ def tree_theme(cfg: Config, tree: nest.Tree) -> dict[str, Any]:
 # example a dialog). Each view part adds its text
 # in one line for each slot.
 SLOTS: dict[str, tuple[str, ...]] = {
-    "css": (page_canvas_changes.CSS, page_canvas_sequences.CSS, page_canvas_find.CSS),
+    "css": (
+        page_canvas_changes.CSS,
+        page_canvas_sequences.CSS,
+        page_canvas_find.CSS,
+        page_canvas_details.CSS,
+    ),
     "head": (page_canvas_sequences.HTML, page_canvas_changes.HTML),
-    "after": (page_canvas_find.HTML,),
+    "after": (page_canvas_find.HTML, page_canvas_details.HTML),
 }
 
 
@@ -120,24 +130,4 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + SCRIPT
         + "</script></body></html>\n"
     )
-    return page_csp.with_policy(out)
-
-
-def target(m: nest.Map) -> str:
-    """Give the URL of the top page with the hash of the map, relative to the page of `m`."""
-    if not m.id:
-        return "index.html"
-    return "../" * (m.id.count("/") + 1) + "index.html#" + quote(m.id, safe="/")
-
-
-def redirect(m: nest.Map) -> str:
-    """Give the small page of a nested map. It goes to the top page with the map ID."""
-    url = html_text.escape(target(m), quote=True)
-    shown = html_text.escape(m.id)
-    return page_csp.with_policy(
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        f'<meta http-equiv="refresh" content="0;url={url}">'
-        f"<title>{shown}</title></head><body>"
-        f'<p>The map {shown} is on the <a href="{url}">canvas page</a>.</p>'
-        "</body></html>\n"
-    )
+    return page_csp.with_policy(out, frame=page_csp.NO_FRAME)

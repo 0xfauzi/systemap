@@ -32,7 +32,35 @@ SURFACE_CSS = (
 )
 
 
-CSS = r"""
+# The CSS of the keyboard sheet. The canvas page uses it too (`page_canvas_details`).
+KEYS_CSS = r"""/* ---- the keyboard sheet ---------------------------------------------------- */
+.keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+padding:16px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
+.keys[hidden]{display:none}
+.keys__box{box-sizing:border-box;width:min(380px,100%);max-height:calc(100vh - 32px);overflow:auto;
+display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line-2);
+border-radius:10px;background:var(--surface);color:var(--ink);
+box-shadow:0 16px 48px rgba(0,0,0,.28);outline:none}
+.keys__head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.keys__title{margin:0;font:600 15px/20px var(--fs);color:var(--ink)}
+.keys__note{margin:0;font:13px/19px var(--fs);color:var(--ink-2)}
+.keys__list{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;align-items:center;
+margin:6px 0 0;font:12px/16px var(--fs)}
+.keys__list dt{justify-self:start;margin:0}
+.keys__list dd{margin:0;color:var(--ink-2)}
+.keys__list kbd{display:inline-block;font:11px/16px var(--fm);color:var(--ink);background:none;
+border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;padding:0 6px}
+.keys .keys__close{height:28px;min-height:0;padding:0 10px;border:1px solid var(--line-2);
+border-radius:6px;background:none;color:var(--ink-2);font:12px var(--fs);cursor:pointer}
+.keys .keys__close:hover{color:var(--ink);background:var(--raised)}
+.keys .keys__close:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+@keyframes keys-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+html:not([data-reduce-motion="true"]) .keys:not([hidden]) .keys__box{
+animation:keys-in .12s ease-out}
+"""
+
+CSS = (
+    r"""
 /* ---- no transitions at load: the map script removes the class at the second frame */
 svg.booting *{transition:none!important}
 /* ---- card depth: a shade under each card, a lift on hover ----------------- */
@@ -75,31 +103,9 @@ html:not([data-reduce-motion="true"]) .mark__path{
 animation:mark-draw .6s cubic-bezier(.45,0,.25,1) both}
 html:not([data-reduce-motion="true"]) .mark__dot{animation:mark-dot .16s ease-out .6s both}
 
-/* ---- the keyboard sheet ---------------------------------------------------- */
-.keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
-padding:16px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
-.keys[hidden]{display:none}
-.keys__box{box-sizing:border-box;width:min(380px,100%);max-height:calc(100vh - 32px);overflow:auto;
-display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid var(--line-2);
-border-radius:10px;background:var(--surface);color:var(--ink);
-box-shadow:0 16px 48px rgba(0,0,0,.28);outline:none}
-.keys__head{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.keys__title{margin:0;font:600 15px/20px var(--fs);color:var(--ink)}
-.keys__note{margin:0;font:13px/19px var(--fs);color:var(--ink-2)}
-.keys__list{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;align-items:center;
-margin:6px 0 0;font:12px/16px var(--fs)}
-.keys__list dt{justify-self:start;margin:0}
-.keys__list dd{margin:0;color:var(--ink-2)}
-.keys__list kbd{display:inline-block;font:11px/16px var(--fm);color:var(--ink);background:none;
-border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;padding:0 6px}
-.keys .keys__close{height:28px;min-height:0;padding:0 10px;border:1px solid var(--line-2);
-border-radius:6px;background:none;color:var(--ink-2);font:12px var(--fs);cursor:pointer}
-.keys .keys__close:hover{color:var(--ink);background:var(--raised)}
-.keys .keys__close:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
-@keyframes keys-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-html:not([data-reduce-motion="true"]) .keys:not([hidden]) .keys__box{
-animation:keys-in .12s ease-out}
 """
+    + KEYS_CSS
+)
 
 SCRIPT = r"""
 (function(){

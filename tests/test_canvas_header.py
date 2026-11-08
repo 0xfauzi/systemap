@@ -3,8 +3,8 @@
 
 Acceptance values (the browser checks are in tests/test_canvas_header_browser.py):
 
-1. Without `[render] canvas`, the output is byte-identical to main (d8ac070): the linked
-   pages of the fixture of tests/test_nest_join.py have the SHA-256 digests of the pages
+1. With `[render] canvas = false` (before step 5: without `[render] canvas`), the output
+   is byte-identical to main (d8ac070): the linked pages of the fixture of tests/test_nest_join.py have the SHA-256 digests of the pages
    that d8ac070 writes. A change of the linked pages must change these digests on purpose.
 2. The header is one `header` element in front of `main`. It has the views Map, Sequences
    and Changes as buttons with `aria-pressed`, one layer button for each layer of the
@@ -45,7 +45,7 @@ MAIN_PAGES = {
 
 @pytest.fixture(scope="module")
 def linked_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _made(tmp_path_factory.mktemp("linked"), "")
+    return _made(tmp_path_factory.mktemp("linked"), "[render]\ncanvas = false\n")
 
 
 @pytest.fixture(scope="module")

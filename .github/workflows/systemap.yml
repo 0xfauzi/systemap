@@ -311,8 +311,10 @@ jobs:
   # time with 4 times CPU throttling and the load time (tests/test_canvas_frames.py:
   # C2 and C3 of docs/design/nested-canvas.md). One test runs axe-core on the page
   # (tests/test_canvas_access.py: C4). The files tests/test_canvas_*_browser.py examine
-  # the header, the Sequences view, the Changes view and Find. The glob collects each new
-  # file of this form. The page does not load axe-core: the test puts it
+  # the header, the Sequences view, the Changes view, Find and the small page of a nested
+  # map. The glob collects each new file of this form. One test supplies the canvas page
+  # with the server of systemap live (tests/test_canvas_live.py). The page does not load
+  # axe-core: the test puts it
   # into the page. The runner has no GPU, so Chromium paints in software. In this job the
   # tests fail when the browser or axe-core is not available.
   canvas-browser:
@@ -347,7 +349,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the canvas browser tests
-        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py
+        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py
 
   plugin:
     runs-on: ubuntu-latest

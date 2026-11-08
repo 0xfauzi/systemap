@@ -288,6 +288,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         return STALE
     if not _model_ok(p):
         return STALE
+    warn(*render_pages.notice(p.cfg))
     code = OK
     change_of = None
     if args.base:
@@ -502,6 +503,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         return STALE
     fresh = extraction.build(p.cfg)
     p = _upgraded(p, args, note, fresh)
+    warn(*render_pages.notice(p.cfg))
     # Current means two things at once: nothing on disk is older than the
     # tree or the model, and the check passes. A stale-free map that fails
     # coverage is not current; it is incomplete.
