@@ -71,7 +71,7 @@ async function go(url, flags) {
       const S = window.systemapCanvas, c = S.camera(), m = S.chain();
       const fit = S.fit(m.length ? m[m.length - 1] : '');
       return { chain: m, view: S.viewState().mode, atFit: Math.abs(c.k - fit.k) < 1e-6 * fit.k,
-        hash: location.hash, selected: S.selected().id,
+        hash: location.hash, selected: S.selected().id, said: document.getElementById('canvas-said').textContent,
         scroll: document.documentElement.scrollWidth, width: window.innerWidth, scrollX: window.scrollX };
     }));
   } else {

@@ -42,7 +42,7 @@ def page_change(
 
 def notice(cfg: Config) -> list[str]:
     """Give the notice line of the linked pages, or no line for the canvas page."""
-    return config_render.notice(cfg.render_canvas)
+    return [] if cfg.render_canvas else [config_render.NOTICE]
 
 
 def pages(

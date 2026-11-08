@@ -62,6 +62,8 @@ from systemap.page_canvas_tree import CSS as TREE_CSS
 from systemap.page_canvas_tree import TREE
 from systemap.page_canvas_view import VIEW_PART
 
+# The notice of `systemap live` (`page_live.NOTICE_ID`) is over the help line of the canvas,
+# not on it. The notice has a style attribute, thus the rule has !important.
 CSS = (
     """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
@@ -74,6 +76,7 @@ outline:none;cursor:grab}
 #canvas:focus-visible+#still{box-shadow:inset 0 0 0 2px var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
 white-space:nowrap}
+#live-notice{bottom:44px!important}
 """
     + TREE_CSS
 )

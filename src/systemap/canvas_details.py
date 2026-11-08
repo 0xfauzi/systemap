@@ -4,8 +4,8 @@
 gives them for the selected card, as the panel of the linked page does (`page_data.sources`
 and the rules of `page._rules`). This module adds no facts.
 
-- `mf`: the model file of the map.
-- `ff`: the facts file. Only the top map has it.
+- `mf` and `ff`: the model file and the facts file. Only the top map has them. The page
+  gives them in the source records (`canvas_header`).
 - `iv`: the invariants in number order, if any. Each has `n` (the number), `t` (the
   text), `g` (the components that the invariant governs, if any) and `as` (the assurance
   level and the freshness, if known).
@@ -24,14 +24,14 @@ and the rules of `page._rules`). This module adds no facts.
 - `ib` gives only the importers that the page cannot find. The page finds each module of
   `md` that has the module in its `im`. When that set is not the set of the facts, `ib`
   gives all importers and the module has `ia` (1).
+- `sr`: the source records of each card that is not an actor, by card ID, if any. Each
+  has `mo` (the indexes of its modules in `md`), `pt` (the entry points of these
+  modules) and `sc` (the public names that the model claims, as "module:name").
 
 The data does not give the module descriptions, the names of the public names and the
 names of the tests. The facts file has them, and the panel tells the reader this. With
 them, the self-map page is too large for acceptance 10 of `tests/test_canvas_details.py`
 (S9 in `bench/jev/README.md`).
-- `sr`: the source records of each card that is not an actor, by card ID, if any. Each
-  has `mo` (the indexes of its modules in `md`), `pt` (the entry points of these
-  modules) and `sc` (the public names that the model claims, as "module:name").
 """
 
 from __future__ import annotations
@@ -176,5 +176,5 @@ def of_map(
         cid: rec for cid, rec in page_data.sources(m.model, facts).items() if cid not in actors
     }
     table, sr = _modules(sources)
-    top = {"ff": f"{cfg.out_dir}/{cfg.facts_file}"} if m.top else {}
-    return {"mf": m.rel, **top, **_rules(m, claims), **table, **_some(sr=sr)}
+    top = {"mf": m.rel, "ff": f"{cfg.out_dir}/{cfg.facts_file}"} if m.top else {}
+    return {**top, **_rules(m, claims), **table, **_some(sr=sr)}

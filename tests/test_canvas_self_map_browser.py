@@ -19,10 +19,10 @@ Acceptance values:
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 from test_canvas_access import AXE_VERSION, _access, _axe, no_axe
+from test_canvas_page import DATA
 
 from systemap import config, nest, page_csp
 
@@ -33,9 +33,7 @@ SELF_MAP = ROOT / "docs" / "map" / "index.html"
 def test_the_committed_self_map_is_the_canvas_page() -> None:
     """Acceptance 1."""
     html = SELF_MAP.read_text(encoding="utf-8")
-    found = re.findall(
-        r'<script type="application/json" id="canvas-data">(.*?)</script>', html, re.S
-    )
+    found = DATA.findall(html)
     assert len(found) == 1, "one data element"
     data = json.loads(found[0])
     tree = nest.load(config.load(ROOT))

@@ -1389,8 +1389,9 @@ A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</cod
 Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
 The page uses the system setting for reduced motion. Then each camera move occurs at one time.
 The header also has the theme button, the Reduce motion button, the Keyboard keys (the <code>?</code> key), and the source button. On a narrow screen, these buttons are in one Tools menu.
-The Details panel (the D key) gives the selected card: its kind and text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
+The Details panel (the D key) gives the selected card: its kind and text, its <code>note</code> text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
 In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
+Thus such an answer changes the canvas page. After you record it, run <code>systemap refresh</code>. If you do not, <code>check</code> and <code>render --check</code> report the page as stale.
 The canvas page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the canvas page cannot show in a frame of a different page.
 The page data is in the element <code>script#canvas-data</code>. The page has no <code>window.systemapWorkspace</code> object.
 With <code>?hud</code> after the page address, the page shows the frames in each second and the time of each frame.</p>
@@ -1399,7 +1400,8 @@ Then <code>render</code>, <code>refresh</code>, and <code>live</code> write this
 <pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the canvas page.
 </code></pre>
 <p>The linked pages stay for one release. A later release removes them.
-The canvas page does not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the canvas page stale.</p>
+The canvas page does not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the canvas page stale.
+A change of the <code>note</code> text makes the canvas page stale.</p>
 <ul>
 <li>
 <p><code>--check</code> exits 1 if the page is stale.

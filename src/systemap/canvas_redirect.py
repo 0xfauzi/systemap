@@ -12,8 +12,10 @@ the "#" of that address. Thus a hash cannot change the scheme, the host or the p
 the page cannot go to a different site.
 
 Without a script, the refresh meta element goes to the map (not to the card of the hash).
-The page also has a visible link to the map. The policy of the page (`page_csp`) permits
-only the digest of its script. It permits no frame, no connection and no style element.
+The page also has a heading and a visible link to the map in a `main` element. The body
+has the system colors of the scheme in a style attribute. The policy of the page
+(`page_csp`) permits only the digest of its script. It permits no frame, no connection and
+no style element.
 
 Acceptance values (tests/test_canvas_page.py and tests/test_canvas_redirect_browser.py):
 
@@ -36,11 +38,21 @@ from urllib.parse import quote
 from systemap import nest, page_csp
 
 
+def hash_of(map_id: str) -> str:
+    """Give the URL hash of a map on the canvas page, with no "#": the quoted map ID."""
+    return quote(map_id, safe="/")
+
+
 def target(m: nest.Map) -> str:
     """Give the URL of the top page with the hash of the map, relative to the page of `m`."""
     if not m.id:
         return "index.html"
-    return "../" * (m.id.count("/") + 1) + "index.html#" + quote(m.id, safe="/")
+    return "../" * (m.id.count("/") + 1) + "index.html#" + hash_of(m.id)
+
+
+# The colors of the page body: the system colors of the scheme of the browser. A checker
+# such as axe-core then does not use white as the background of a page in the dark scheme.
+_STYLE = "background:Canvas;color:CanvasText;font:16px/1.5 system-ui,sans-serif;margin:16px"
 
 
 def _script(url: str) -> str:
@@ -64,8 +76,9 @@ def page(m: nest.Map) -> str:
         f"<title>{shown} system map</title>"
         f"<script>{_script(url)}</script>"
         f'<meta http-equiv="refresh" content="0;url={href}">'
-        "</head><body>"
+        f'</head><body style="{_STYLE}">'
+        f"<main><h1>{shown} system map</h1>"
         f'<p>The map {shown} is on the <a href="{href}">canvas page</a>.</p>'
-        "</body></html>\n",
+        "</main></body></html>\n",
         frame=page_csp.NO_FRAME,
     )

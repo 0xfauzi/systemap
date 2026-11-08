@@ -35,6 +35,9 @@ tests/test_canvas_details.py.
    changes only at a change of the selection: 0 DOM changes in a pan of 90 frames, and a
    change after a new selection. Escape in the panel closes it, does not move the camera
    out, and the focus goes back to the Details button.
+   Added after the verification of step 5, before the run: the panel of the card Scaffold
+   gives its `note` text. With reduced motion (the system setting or the page setting), the
+   keys sheet opens with no animation. Without it, the sheet has the animation `keys-in`.
 8. C4: axe-core 4.14.0 finds no violation with the panel open (a card and a flow), with
    the keys sheet open, and with the source records open (on a phone, in the Tools menu),
    at 1440 x 900 and 390 x 844 pixels, in the light and the dark scheme.
@@ -43,6 +46,12 @@ tests/test_canvas_details.py.
    the menu, of the panel (also with each part of the source records open) and the Close
    button of the keys sheet is 44 x 44 pixels or more, in the screen width. The page has
    no script error.
+11. Added after the verification of step 5, before the run: at rest, the lists and the
+    fact row of a card are not partly transparent. The camera goes to the card CLI at 48
+    zooms, from a card height of 60 px to 600 px. At rest, the alpha of each drawn list
+    row, list name and fact row of the card is 0.02 or less, or 0.98 or more. The test
+    examines 100 or more texts. Without the rule `rest` of `page_canvas_text`, this test
+    found 39 partly transparent texts.
 """
 
 from __future__ import annotations
@@ -159,6 +168,11 @@ def test_the_details_panel(self_page: Path, motion: str) -> None:
             assert most <= 0.25 + 1e-9 and span >= 160 - 17 and frames >= 5, (most, span)
         else:
             assert frames == 1, record
+    assert found["keysAnimation"] == ("keys-in" if motion == "none" else "none")
+    scaffold = next(
+        c for c in nest.load(config.load(REPO)).top.model.components if c.id == "Scaffold"
+    )
+    assert scaffold.note and found["note"] == f"Note. {scaffold.note}"
     assert found["openState"]["pressed"] == "true" and found["openState"]["focus"] == "cdet-title"
     card = found["card"]
     assert card["heading"] == found["cardId"]
@@ -181,6 +195,13 @@ def test_the_details_panel(self_page: Path, motion: str) -> None:
         "pressed": "false",
         "chain": [],
     }
+
+
+def test_the_lists_of_a_card_at_rest_are_not_partly_transparent(self_page: Path) -> None:
+    """Acceptance 11."""
+    found = _drive("--rest", str(self_page), "CLI")
+    assert found["errors"] == []
+    assert found["checked"] >= 100 and found["partial"] == [], found
 
 
 def test_the_tools_and_the_panel_are_accessible(self_page: Path) -> None:

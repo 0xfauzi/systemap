@@ -25,6 +25,10 @@ step 5):
    the origin of the server.
 7. On a phone screen (390 x 844, touch), the move is the same, and the page has no
    horizontal scroll.
+8. Added after the verification of step 5, before the run: `Gateway/index.html#Nothing`
+   (a card that the map Gateway does not have) goes to `index.html#Gateway/Nothing`. The
+   canvas stays in the map Gateway, and the live region tells that no map and no card has
+   the link.
 """
 
 from __future__ import annotations
@@ -123,3 +127,12 @@ def test_a_card_with_the_id_changes_keeps_its_link(origin: str) -> None:
     out = _go(origin + "/named.html#changes")
     assert out["view"] == "map" and out["chain"] == []
     assert out["hash"] == "#changes"
+
+
+def test_a_link_to_a_lost_card_stays_in_its_map(origin: str) -> None:
+    """Acceptance 8 and 6."""
+    out = _go(origin + "/Gateway/index.html#Nothing")
+    assert out["chain"] == ["Gateway"] and out["atFit"], out
+    said = out["said"]
+    assert said.startswith("No map and no card has the link #Gateway/Nothing. Open map: "), said
+    assert said.endswith(" / Gateway."), said

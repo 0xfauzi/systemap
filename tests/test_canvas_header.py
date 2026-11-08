@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import LINKED_PAGES
 from test_canvas_page import DATA, _loaded, _made, _read
 
 from systemap import canvas_data, canvas_header, canvas_page, page, page_canvas
@@ -45,7 +46,7 @@ MAIN_PAGES = {
 
 @pytest.fixture(scope="module")
 def linked_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _made(tmp_path_factory.mktemp("linked"), "[render]\ncanvas = false\n")
+    return _made(tmp_path_factory.mktemp("linked"), LINKED_PAGES)
 
 
 @pytest.fixture(scope="module")

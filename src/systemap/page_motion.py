@@ -296,13 +296,15 @@ def _key(key: str) -> str:
     return f"<kbd>{key}</kbd>"
 
 
-def keys_sheet() -> str:
+def keys_sheet(rows: str | None = None) -> str:
     """Give the keyboard sheet. The page shows it for the ? key.
 
     The sheet is a modal dialog. The ? key and the Keyboard keys button in the
     header open it, but not while another dialog is open. Escape and its Close button
-    close it and return the focus."""
-    rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
+    close it and return the focus. `rows` gives the rows of the list in place of the keys
+    of the linked page."""
+    if rows is None:
+        rows = "".join(f"<dt>{_key(key)}</dt><dd>{text}</dd>" for key, text in _KEYS)
     return (
         '<div class="keys" id="keys" hidden>'
         '<div class="keys__box" role="dialog" aria-modal="true" aria-labelledby="keys-title">'

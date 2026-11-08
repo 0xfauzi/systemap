@@ -143,13 +143,25 @@ function setHash(h) {
 }
 // The goal that the URL hash gives: a map, or a card of a map. The view link `#changes`
 // (`delta_link.CHANGES`) or `#<map>/changes` also sets the Changes view (`linkedMap`). When
-// the hash names no map and no card, it is the top map.
+// the hash names no map and no card, it is the deepest map that the start of the hash names
+// (`hashMap`), or the top map, and the live region tells the reader.
 function hashGoal() {
   var id = hashId(), c = hashCard(id), v;
   if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
   if (c) return goalOf(c.map, c, null);
   if ((v = linkedMap(id))) { setView('changes'); return goalOf(v, null, null); }
-  return goalOf(TOP, null, null);
+  v = hashMap(id);
+  if (id) say('No map and no card has the link #' + id + '. Open map: ' + mapName(v) + '.');
+  return goalOf(v, null, null);
+}
+// The deepest map whose ID starts the ID `id` of a URL hash, or the top map. Thus an old
+// link to a card that is not in a nested map any more stays in that map.
+function hashMap(id) {
+  for (var cut = id.lastIndexOf('/'); cut > 0; cut = id.lastIndexOf('/', cut - 1)) {
+    var m = MAPS[id.slice(0, cut)];
+    if (m && m.T) return m;
+  }
+  return TOP;
 }
 // The map of the view link of the ID `id` of a URL hash: the top map for `changes`, and the
 // map M for `M/changes`, or null. A map or a card with the ID keeps its link, because

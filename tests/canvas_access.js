@@ -96,6 +96,7 @@ async function held(file, card) {
       errors, api: await page.evaluate(() => !!window.systemapCanvas),
       links: await page.evaluate(() => document.querySelectorAll('#canvas-tree a').length),
       chain: await page.evaluate(() => window.systemapCanvas && window.systemapCanvas.chain()),
+      said: await page.evaluate(() => document.getElementById('canvas-said').textContent),
     };
     if (hash === '#constructor') {
       await page.evaluate(() => { location.hash = 'valueOf'; });

@@ -12,6 +12,11 @@ card fades in and out with the size of the card:
   follows the zoom. When the font size stays at a limit, the count of columns changes, and
   the lines of the two counts fade into each other in time (`colFade`).
 - The lists change from one column to two columns with a fade (`lists`).
+
+These fades follow the zoom while the camera moves. At rest, a text is not partly
+transparent: each of these weights is 0 or 1 in the full drawing (`rest`). The fade after
+the camera stops (`stillStart`) blends the last moving frame into that drawing. Thus a
+text at rest has the contrast of its color, and nothing appears at one time.
 """
 
 from __future__ import annotations
@@ -70,17 +75,21 @@ function facts(c) {
 function details(c, x, y, w, h, alpha, ur) {
   var u = q(ur), raw = clamp(ur * 0.78, MIN_TEXT, 19), fs = q(raw), lh = raw * 1.38, small = q(clamp(u * 0.66, MIN_TEXT, 15));
   if (h < lh * 0.9 || w < 30 || alpha <= 0.02) return;
-  var fact = smooth(3, 3.5, h / lh) * smooth(90, 110, w), bottom = y + h - small * 1.7 * fact;
+  var fact = rest(smooth(3, 3.5, h / lh) * smooth(90, 110, w)), bottom = y + h - small * 1.7 * fact;
   var cols = 2 * w / (raw * 1.04), at = block(c, 'p', c.p, x, y, (bottom - y) / lh, 2, fs, cols, lh, C['--ink-2'], alpha);
-  var room = (bottom - at) / lh, shown = alpha * smooth(7, 9, room) * smooth(150, 170, w);
+  var room = (bottom - at) / lh, shown = alpha * rest(smooth(7, 9, room) * smooth(150, 170, w));
   if (c.d) at = block(c, 'd', c.d, x, at + lh * 0.3, room - 1, 4, fs, cols, lh, C['--ink-3'], alpha);
   if (shown > 0.02) lists(c, x, at + lh * 0.5, w, bottom - at - lh * 0.5, fs, small, lh, shown);
   if (fact > 0) text(fit(facts(c), small, w, 400), x, y + h - small * 0.3, small, C['--ink-3'], alpha * fact);
 }
+// A weight of a fade that follows the zoom: the value while the camera moves, and 0 or 1
+// in the full drawing at rest. Thus a text at rest is not partly transparent, and its
+// contrast is the contrast of its color.
+function rest(v) { return sharp && ctx === PAGE_CTX ? (v < 0.5 ? 0 : 1) : v; }
 // The weights of the two integer steps around a value v: [[n - 1, 1 - f], [n, f]]. The
 // step n starts at the value n with the weight 0, and has the weight 1 from n + 0.5.
 function steps(v, most) {
-  var n = clamp(Math.floor(v), 0, most), f = n ? smooth(n, n + 0.5, v) : 1;
+  var n = clamp(Math.floor(v), 0, most), f = n ? rest(smooth(n, n + 0.5, v)) : 1;
   return [[n - 1, 1 - f], [n, f]];
 }
 // Texts from more than one variant of a layout, each variant with a weight. A text that
@@ -135,7 +144,7 @@ function lists(c, x, y, w, h, fs, small, lh, alpha) {
   if (alpha <= 0.02) return;
   var flows = c.outs.map(function (f) { return 'to ' + f.t + ' · ' + f.a; })
     .concat(c.ins.map(function (f) { return 'from ' + f.s + ' · ' + f.a; }));
-  var mods = (c.m || []).concat(c.u || []), two = smooth(320, 360, w), mix = new Mix();
+  var mods = (c.m || []).concat(c.u || []), two = rest(smooth(320, 360, w)), mix = new Mix();
   steps(h / lh, Infinity).forEach(function (r) {
     if (r[0] >= 2) { layout(r[0], false, r[1] * (1 - two)); layout(r[0], true, r[1] * two); }
   });

@@ -17,7 +17,7 @@ lose information when it becomes the default page:
   not recorded". It opens the source records of the page: the unknown source information,
   the commit, the facts file and the model file (`canvas_header`).
 - Details. The D key and the button open and close the Details panel. The panel gives the
-  selected card: its kind and text, the map that it opens, the flows in and out with their
+  selected card: its kind and text, its note, the map that it opens, the flows in and out with their
   evidence state and assurance, the sequences, the invariants and the import rules with
   their assurance, and the source records (`canvas_details`). A flow of the lists gives
   the flow. Without a selection, the panel gives the rules of the current map.
@@ -57,16 +57,7 @@ KEYS: tuple[tuple[str, str], ...] = (
     ("<kbd>?</kbd>", "Keyboard keys"),
 )
 
-KEYS_HTML = (
-    '<div class="keys" id="keys" hidden>'
-    '<div class="keys__box" role="dialog" aria-modal="true" aria-labelledby="keys-title">'
-    '<div class="keys__head"><h2 class="keys__title" id="keys-title">Keyboard keys</h2>'
-    '<button type="button" class="keys__close" data-keys-close>Close</button></div>'
-    '<p class="keys__note">Press ? to open this list.</p>'
-    '<dl class="keys__list">'
-    + "".join(f"<dt>{key}</dt><dd>{text}</dd>" for key, text in KEYS)
-    + "</dl></div></div>"
-)
+KEYS_HTML = page_motion.keys_sheet("".join(f"<dt>{key}</dt><dd>{text}</dd>" for key, text in KEYS))
 
 PANEL_HTML = (
     '<aside class="cdet cpop cview" id="cdetails" aria-labelledby="cdet-title" data-own-keys hidden>'
@@ -78,9 +69,12 @@ PANEL_HTML = (
 HTML = PANEL_HTML + KEYS_HTML
 
 # The tools of the header (`canvas_header`), the source records, the Tools menu on a narrow
-# screen, the keyboard sheet of the linked page (`page_motion.KEYS_CSS`) and the panel.
+# screen, the keyboard sheet of the linked page (`page_motion.KEYS_CSS`) and the panel. The
+# keyboard sheet also obeys the system setting for reduced motion. The selector has the
+# specificity of the animation rule of `page_motion.KEYS_CSS`.
 CSS = (
-    page_motion.KEYS_CSS
+    page_motion.KEYS_CSS + "@media (prefers-reduced-motion:reduce){"
+    'html:not([data-reduce-motion="true"]) .keys:not([hidden]) .keys__box{animation:none}}'
     + """
 .cbar__tools{display:flex;flex:none;align-items:center;gap:2px}
 .cbar__tools .cbar__snap{padding:0 8px;font:12px/1 var(--fm);white-space:nowrap}
@@ -289,6 +283,7 @@ DETAILS = r"""
     var m = c.map;
     return '<h3 tabindex="-1">' + esc(c.id) + '<\/h3><p>' + (c.k === 'actor' ? 'Actor' : 'Component') + '. Map: ' + esc(mapName(m)) + '.<\/p>'
       + (c.p ? '<p>' + esc(c.p) + '<\/p>' : '') + (c.d ? '<p>' + esc(c.d) + '<\/p>' : '')
+      + (c.nt ? '<p><b>Note.<\/b> ' + esc(c.nt) + '<\/p>' : '')
       + (c.as ? '<p>Assurance level: ' + esc(c.as[0]) + '. Freshness: ' + esc(c.as[1]) + '.<\/p>' : '')
       + (c.child ? '<p><button type="button" data-go>Go into the map: ' + esc(sizeText(c.child)) + '<\/button><\/p>' : '')
       + flows('FLOWS IN', c.ins, 'from', 's') + flows('FLOWS OUT', c.outs, 'to', 't')
@@ -354,13 +349,7 @@ DETAILS = r"""
 })();
 """
 
-# The page gets the part without the comment lines and the indentation. The part has no
-# template literal, so no string continues on a second line.
-DETAILS = "\n".join(
-    line.strip()
-    for line in DETAILS.split("\n")
-    if line.strip() and not line.strip().startswith("//")
-)
+# The canvas page compacts the renderer script with this part (`canvas_page`).
 DETAILS = (
     DETAILS.replace("SCHEME_KEY", json.dumps(page.SCHEME_KEY))
     .replace("MOTION_KEY", json.dumps(page.MOTION_KEY))

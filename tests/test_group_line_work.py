@@ -65,7 +65,7 @@ def current_page(source: Path, tmp_path: Path, name: str, *edits: tuple[str, str
     script, n = re.subn(
         COUNTED,
         lambda m: m.group(0) + " window.__costs = (window.__costs || 0) + 1;",
-        page._compact(page_groups.SCRIPT),
+        page.compact(page_groups.SCRIPT),
     )
     assert n == 1, "one cost function"
     for old, new in edits:

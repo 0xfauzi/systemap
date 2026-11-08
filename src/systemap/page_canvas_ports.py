@@ -7,7 +7,7 @@ the open lines of the judgement (`judged`, `canvas_page.pages`). A port with no 
 shows no join state, because no check confirms the boundary. The page never says
 "verified". These are the rules of the ports of step 7 of docs/design/nested-parts.md.
 
-Each open line has a short text (`WORDS`, `words_of`):
+Each open line has a short text for its form (`WORDS`, and `w` of the port in `canvas_data`):
 
 - "No flow inside": the parent flow has no nested flow to or from the actor.
 - "Import with no flow": an internal component imports the component of an actor, and no
@@ -34,33 +34,16 @@ from __future__ import annotations
 
 import json
 
-from systemap import nest_join
-
-# The short text of each form of an open boundary line.
+# The short text of each form of an open boundary line (`w` of a port in `canvas_data`).
 WORDS = {
-    "inside": "No flow inside",
-    "import": "Import with no flow",
-    "parent": "No flow in the parent map",
+    "n": "No flow inside",
+    "i": "Import with no flow",
+    "p": "No flow in the parent map",
 }
-# The parts of the line text (`nest_join`) that select the form: the kind after the map
-# prefix, and the words of a parent flow with no nested flow.
-IMPORT_HEAD = f": {nest_join.IMPORT_KIND}: "
-INSIDE_PART = " has no nested flow "
-
-
-def words_of(line: str) -> str:
-    """Give the short text of an open boundary line, as the script does (`portWords`)."""
-    if IMPORT_HEAD in line:
-        return WORDS["import"]
-    return WORDS["inside"] if INSIDE_PART in line else WORDS["parent"]
 
 
 _SCRIPT = r"""
 // ---- the open boundary lines -------------------------------------------------------
-function portWords(line) {
-  if (line.indexOf(PORT_IMPORT) >= 0) return PORT_WORDS.import;
-  return line.indexOf(PORT_INSIDE) >= 0 ? PORT_WORDS.inside : PORT_WORDS.parent;
-}
 // The mark of each actor card with an open line (`_pm`), and the words of each map with
 // an open line (`_ps`). The data does not change, thus the part makes them one time.
 var PORT_RING = {c: '--ink-2', w: 1.5, d: 'r'}, PORT_LINE = {c: '--ink-2', d: 'r'};
@@ -68,8 +51,8 @@ var PORT_RING = {c: '--ink-2', w: 1.5, d: 'r'}, PORT_LINE = {c: '--ink-2', d: 'r
   ORDER.forEach(function (m) {
     var told = [];
     (m.ports || []).forEach(function (p) {
-      (p.n || []).forEach(function (line) {
-        var w = portWords(line), c = m.byId[p.x];
+      (p.w || []).forEach(function (form) {
+        var w = PORT_WORDS[form], c = m.byId[p.x];
         told.push(w + ': ' + p.x + '.');
         if (!c || c.k !== 'actor') return;
         var e = c._pm || (c._pm = {w: []});
@@ -105,7 +88,4 @@ function portState(mapId) {
 }
 """
 
-PORTS = (
-    f"var PORT_WORDS = {json.dumps(WORDS)}, PORT_IMPORT = {json.dumps(IMPORT_HEAD)}, "
-    f"PORT_INSIDE = {json.dumps(INSIDE_PART)};\n" + _SCRIPT
-)
+PORTS = f"var PORT_WORDS = {json.dumps(WORDS)};\n" + _SCRIPT

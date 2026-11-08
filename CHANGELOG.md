@@ -28,8 +28,12 @@ A layer is a filtered view of the map.
   - The link `#changes` opens the Changes view of the top map. The link `#<id>/changes` opens it at the map `<id>`.
   - The canvas page and the redirect pages permit no frame (`frame-src 'none'`). A page that shows the map in a frame must link to it.
   - The canvas page does not show the `interface` text of a component. A change of `interface` does not make the canvas page stale.
+    The Details panel shows the `note` text of a component. A change of `note` makes the canvas page stale.
+  - An answer in `[judgement] answered` to a `boundary flow` or `boundary import` finding removes the mark on the canvas page. Thus the answer changes the page.
+    After you record such an answer, run `systemap refresh`. If you do not, `check` and `render --check` report the page as stale.
   - A pull request from a fork across this change fails the base-render job one time, because the base revision writes the linked pages.
   - The phone grid of the regions is only on the linked page. On a phone, the canvas page shows the same canvas as on a desktop.
+    At the fit of a large map on a phone, a card can be smaller than 44 px. Zoom in before you tap a small card.
 - The facts format is 14 (3.0.0 wrote 13). The stored Python values are now the same on each supported Python version: CPython 3.11, 3.12, 3.13 and 3.14 (issue #136).
   The syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`), not from `ast.dump`.
   The signatures, the `constants` previews and the class bases come from the source text, not from `ast.unparse`. The previews keep the limit of 80 characters.

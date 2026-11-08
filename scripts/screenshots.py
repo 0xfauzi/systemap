@@ -29,7 +29,6 @@ import subprocess
 import sys
 import tempfile
 import threading
-from dataclasses import replace
 from pathlib import Path
 
 from systemap import (
@@ -101,7 +100,7 @@ function next(){{ q('#cseq-next').click(); }}
 def render(root: Path, compare: bool = False) -> str:
     """Make the canvas page of the map tree from stored facts. With `compare`, the page
     has the revision comparison of CHANGE_HEAD with CHANGE_BASE."""
-    cfg = replace(config.load(root), render_canvas=True)
+    cfg = config.load(root)
     tree = nest.load(cfg)
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not facts:

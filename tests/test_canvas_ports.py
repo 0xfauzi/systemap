@@ -16,32 +16,33 @@ Acceptance values, written before the first run on 2026-11-08:
    (`boundary flow` and `boundary import`), no port has a line. An exact answer with its
    evidence digest closes only its line. `open_boundary` gives the boundary lines of
    `evaluate` also for an exact answer that names a boundary line and a different line.
-2. The words of the part (`page_canvas_ports.WORDS`): a `boundary flow` line about a
-   parent flow with no nested flow gives "No flow inside", a `boundary import` line gives
+2. The words of the part (`page_canvas_ports.WORDS`) for the form `w` of each line of a
+   port: a `boundary flow` line about a parent flow with no nested flow has the form "n"
+   and gives "No flow inside", a `boundary import` line has the form "i" and gives
    "Import with no flow", and a `boundary flow` line about a nested flow with no parent
-   flow gives "No flow in the parent map". The script has the same texts.
+   flow has the form "p" and gives "No flow in the parent map". The script has the same
+   texts.
 3. Only a flow between an internal component and an actor of the map inside Gateway has
    a port with a nested flow: the flows Reader -> App and Routes -> Style.
 4. The layer colours of the tree (`canvas_page.tree_theme`): in each scheme, a layer of
    the top map has the colour of the top page, and a layer that only a nested map has
    gets a colour that no layer of the top map has.
-5. The policy of the canvas page permits no frame (`frame-src 'none'`). The canvas page
-   has no iframe. Part A of step 5 (the default and the small pages) adds this to
-   `page_csp`. The merge of the parts removed the mark of an expected failure.
+The test of step 6 for the frame policy is acceptance 8 of tests/test_canvas_page.py.
 """
 
 from __future__ import annotations
 
 import dataclasses
 import json
-import re
 from pathlib import Path
 from typing import Any
 
 from conftest import write_tree
+from test_canvas_page import DATA
 from test_nested import GATEWAY, MODELS, TREE
 
 from systemap import (
+    canvas_data,
     canvas_page,
     config,
     extraction,
@@ -70,7 +71,6 @@ POLICY = (
 ROUTE = '    Flow("Routes", "Style", "guide lookup", "data"),\n'
 ROUTE_SENTENCE = '        ("Routes", "Style"): "A route looks a guide up in the cache.",\n'
 WITHOUT = GATEWAY.replace(ROUTE, "").replace(ROUTE_SENTENCE, "")
-DATA = re.compile(r'<script type="application/json" id="canvas-data">(.*?)</script>', re.S)
 
 
 def run(*argv: str) -> int:
@@ -156,13 +156,22 @@ def test_each_open_line_has_its_short_text(tmp_path: Path) -> None:
     """Acceptance 2."""
     data = page_data(made(tmp_path))
     gateway = next(m for m in data["maps"] if m["id"] == "Gateway")
-    texts = sorted(
-        page_canvas_ports.words_of(line) for port in gateway["ports"] for line in port.get("n", [])
-    )
-    assert texts == ["Import with no flow", "No flow inside"]
-    line = "A/B: boundary flow: X sends to actor Y, and the parent map has no flow from B to Y"
-    assert page_canvas_ports.words_of(line) == "No flow in the parent map"
-    for text in page_canvas_ports.WORDS.values():
+    pairs = [
+        pair
+        for port in gateway["ports"]
+        for pair in zip(port.get("n", []), port.get("w", []), strict=True)
+    ]
+    words = page_canvas_ports.WORDS
+    assert sorted(words[form] for _, form in pairs) == ["Import with no flow", "No flow inside"]
+    for line, form in pairs:
+        assert (form == "i") == (f": {nest_join.IMPORT_KIND}: " in line), (line, form)
+        assert (form == "n") == (" has no nested flow " in line), (line, form)
+    # A nested flow with no parent flow names its internal component.
+    inside = nest_join.Finding("x", "A", "A", "Y", "", ("A", "Y"))
+    assert canvas_data._form(inside) == "n"
+    assert canvas_data._form(dataclasses.replace(inside, inner="B")) == "p"
+    assert canvas_data._form(dataclasses.replace(inside, imports=(("m", "t"),))) == "i"
+    for text in words.values():
         assert json.dumps(text) in page_canvas_ports.PORTS
 
 
@@ -206,10 +215,3 @@ def test_a_new_layer_of_a_nested_map_gets_a_colour_that_no_top_layer_has(
             assert table["layers"][lid] == top[lid], (scheme, lid)
         for lid in nested_only:
             assert table["layers"][lid] not in {table["layers"][t] for t in top_layers}
-
-
-def test_the_policy_of_the_canvas_page_permits_no_frame(tmp_path: Path) -> None:
-    """Acceptance 5 (step 6: test_the_policy_permits_no_frame)."""
-    html = (made(tmp_path) / "docs/map/index.html").read_text(encoding="utf-8")
-    assert "<iframe" not in html
-    assert "frame-src 'none'" in html and "frame-src 'self'" not in html

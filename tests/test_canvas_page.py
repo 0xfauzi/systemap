@@ -30,7 +30,9 @@ docs/design/nested-canvas.md, written before the first run):
    ID. A refresh meta element and a visible link go to `index.html#<map ID>`. The policy
    has default-src 'none', no connect-src and frame-src 'none'. The page has 2,048 bytes
    or less for a map ID of 40 characters. A map ID with a space or with a "<" character
-   is quoted in each address.
+   is quoted in each address. Added after the verification of step 5: the page has one
+   `main` element with one `h1` heading, and the body has the system colors Canvas and
+   CanvasText in a style attribute that the policy permits.
 8. The policy of the canvas page has frame-src 'none'. The linked pages of
    `canvas = false` keep frame-src 'self'.
 9. `check` and `render --check` exit 1 after one changed byte in the canvas page, after
@@ -53,7 +55,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import write_tree
+from conftest import LINKED_PAGES, write_tree
 from test_nest_join import CONFIG, NESTED, SOURCE, TOP
 
 from systemap import (
@@ -96,9 +98,6 @@ def _loaded(root: Path) -> tuple[config.Config, nest.Tree, dict[str, Any]]:
     return cfg, nest.load(cfg), facts_file.read_facts(cfg.facts_path, cfg.root)
 
 
-LINKED = "[render]\ncanvas = false\n"
-
-
 def test_without_the_setting_render_writes_the_canvas_page(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -117,7 +116,7 @@ def test_with_canvas_false_render_writes_the_linked_pages(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Acceptance 2 and 8."""
-    root = _made(tmp_path, LINKED)
+    root = _made(tmp_path, LINKED_PAGES)
     assert capsys.readouterr().err.count(config_render.NOTICE) == 1
     cfg, tree, facts = _loaded(root)
     assert not cfg.render_canvas
@@ -142,7 +141,7 @@ def test_the_notice_line_keeps_the_exit_code(
 ) -> None:
     """Acceptance 2: the same exit code with and without the notice line."""
     codes = {}
-    for name, setting in (("canvas", ""), ("linked", LINKED)):
+    for name, setting in (("canvas", ""), ("linked", LINKED_PAGES)):
         root = _made(tmp_path / name, setting)
         capsys.readouterr()
         codes[name] = main(["--root", str(root), *command])
@@ -208,6 +207,9 @@ def test_the_small_page_goes_to_the_top_page_with_the_hash(map_id: str) -> None:
     assert f'<meta http-equiv="refresh" content="0;url={url}">' in text
     assert f'<a href="{url}">canvas page</a>' in text
     assert "<i>" not in text
+    assert text.count("<main>") == 1 and text.count("<h1>") == 1
+    assert '<body style="background:Canvas;color:CanvasText;' in text
+    assert directives["style-src-attr"] == "'unsafe-inline'"
     assert len(text.encode("utf-8")) <= 2048
 
 
@@ -238,7 +240,9 @@ def test_the_small_page_script_adds_the_hash() -> None:
 
 
 def test_the_canvas_page_permits_no_frame(canvas_root: Path) -> None:
-    """Acceptance 8."""
+    """Acceptance 8 (step 6 of docs/design/nested-parts.md: test_the_policy_permits_no_frame).
+    The canvas page has no iframe."""
+    assert "<iframe" not in _read(canvas_root, "index.html")
     for rel in ("index.html", "Gateway/index.html"):
         policy = page_csp.of_page(_read(canvas_root, rel)).split("; ")
         assert "frame-src 'none'" in policy, rel
@@ -282,7 +286,7 @@ FIGURE = (
 
 @pytest.mark.parametrize(
     ("setting", "named"),
-    [("", "docs/map/index.html#Gateway"), (LINKED, "docs/map/Gateway/index.html")],
+    [("", "docs/map/index.html#Gateway"), (LINKED_PAGES, "docs/map/Gateway/index.html")],
 )
 def test_a_figure_of_a_nested_map_names_its_page(tmp_path: Path, setting: str, named: str) -> None:
     """Acceptance 10."""

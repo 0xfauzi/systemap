@@ -20,7 +20,8 @@ docs/design/nested-canvas.md). The values 6, 7, 8 and 9 are measurements of
    have no commit. Its source records give each line of `unknown`, the full commit, the
    facts file and the model file.
 10. The page of the self-map grows by at most 40,000 bytes raw (the parts of this step:
-    the data keys, the script part, the CSS, the panel, the keys sheet and the tools).
+    the data keys, the script part, the CSS, the panel, the keys sheet and the tools). The
+    script part has the bytes that the page gets (`page.compact`).
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from systemap import (
     config,
     facts_file,
     nest,
+    page,
     page_canvas_details,
     page_data,
 )
@@ -216,12 +218,12 @@ def test_the_page_grows_by_at_most_40000_bytes() -> None:
         if k in m
     )
     parts = (
-        page_canvas_details.DETAILS,
+        page.compact(page_canvas_details.DETAILS),
         page_canvas_details.CSS,
         page_canvas_details.HTML,
         canvas_header._tools(data),
     )
     added += sum(len(p.encode()) for p in parts)
     assert added <= 40_000, added
-    page = canvas_page.build(canvas_page.tree_theme(cfg, tree), data)
-    assert page_canvas_details.HTML in page and canvas_header._tools(data) in page
+    built = canvas_page.build(canvas_page.tree_theme(cfg, tree), data)
+    assert page_canvas_details.HTML in built and canvas_header._tools(data) in built

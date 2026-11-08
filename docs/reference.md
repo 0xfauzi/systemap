@@ -1134,8 +1134,9 @@ A redirect page keeps the hash of its link: `Gateway/index.html#Routes` opens `i
 Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
 The page uses the system setting for reduced motion. Then each camera move occurs at one time.
 The header also has the theme button, the Reduce motion button, the Keyboard keys (the `?` key), and the source button. On a narrow screen, these buttons are in one Tools menu.
-The Details panel (the D key) gives the selected card: its kind and text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
+The Details panel (the D key) gives the selected card: its kind and text, its `note` text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
 In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in `[judgement] answered` that applies to the finding removes the mark.
+Thus such an answer changes the canvas page. After you record it, run `systemap refresh`. If you do not, `check` and `render --check` report the page as stale.
 The canvas page and the redirect pages have the policy `frame-src 'none'`. Thus the canvas page cannot show in a frame of a different page.
 The page data is in the element `script#canvas-data`. The page has no `window.systemapWorkspace` object.
 With `?hud` after the page address, the page shows the frames in each second and the time of each frame.
@@ -1147,6 +1148,7 @@ Then `render`, `refresh`, and `live` write this line on stderr. The exit code do
 
 The linked pages stay for one release. A later release removes them.
 The canvas page does not show the `interface` text of a component. Thus a change of `interface` does not make the canvas page stale.
+A change of the `note` text makes the canvas page stale.
 
 - `--check` exits 1 if the page is stale.
   It renders the page with the same options and compares the two pages.

@@ -6653,3 +6653,171 @@ Acceptance 2 was the limit of part B only. The merged page also has the parts A 
 | 1,500 cards | pan-fit | details | 1x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 | -1500 | 0 | pass |
 
 Result: PASS for acceptance 1, 3, 4 and 5. FAIL for acceptance 2 (see S10a). The script gives exit 1. The largest p95 of B is 16.8 ms at 4x and at 1x. The largest difference of the medians is +0.1 ms. In each frame of B, `over` is 0 or less, and the panel had 0 DOM changes in each move.
+
+## S11: C4 and C5 of the default canvas page (step 5, 2026-11-08)
+
+Scope: the commit 69dd021 on the branch `claude/canvas-default`, with no change. The scripts are the scratchpad files `s5-verify-access/access5.js` and `s5-verify-access/make_pages.py`. The header of `access5.js` has the acceptance values, written before the first run. After the first run on one page, the 390 x 844 screen was added to the iPhone 13 screen, and the mode `--details` was added (a selected card in the Details panel on each screen). The acceptance values did not change. axe-core 4.14.0 and Playwright 1.63.0 Chromium. These checks are not timings. Thus the quiet gate was not used.
+
+The pages:
+
+- The map of this repository: `systemap render` with the default setting (no `[render]` table) in a copy of the commit. The page is the same as `docs/map/index.html` of the commit. This map has no nested map.
+- The fixture of `tests/test_nest_join.py` (the card Gateway opens a map), and the same fixture with sequences (`tests/canvas_sequenced.py`), each from `systemap render` with the default setting. Thus each has a small page `Gateway/index.html`.
+- The generated M11 tree (nested map P0/A0) and the map of 400 cards (`bench/jev/canvas_frames.py`).
+
+The screens: 1440 x 900 pixels; the Playwright device "iPhone 13" in Chromium (390 x 664 CSS pixels, a touch screen, 3 device pixels for each pixel); 390 x 844 pixels with a touch screen and 3 device pixels for each pixel. Each run has reduced motion. The places of C4 are the places of U2, and also: the link `#changes`, the Tools menu, the Details panel of a card and of a flow, the keys sheet, the source records, the other theme from the theme button, Reduce motion on, and the focus on each control of the Tools menu.
+
+| Item | Acceptance | Result |
+|---|---|---|
+| C4: axe-core in 1,158 runs on the 5 canvas pages, 3 screens, light and dark | 0 serious or critical issues in each run | PASS: 0 violations of each impact in each run (map of this repository 260, fixture 236, fixture with sequences 276, M11 tree 204, 400 cards 182). The pages had no script error and no request to a different host. |
+| C4: the Details panel of a selected card and of its first flow, 60 runs | 0 serious or critical issues | PASS: 0 violations. The cards are Placer, Gateway, P0 and C17. |
+| C4: the small page `Gateway/index.html`, 6 runs | 0 serious or critical issues | FAIL: in the dark scheme, axe-core gives `color-contrast` (serious) on the link "canvas page": 2.38, #9e9eff on #ffffff. The page sets no background color. axe-core thus uses white. Chromium shows the page on #121212 (a pixel of a screenshot). On that color, the contrast is 7.84. Each run also gives three moderate issues: `landmark-one-main`, `page-has-heading-one` and `region`. |
+| C5: no horizontal scroll, in each place of C4 on the two phone screens | scroll width at most 390 px, scroll position 0 | PASS: in each of the 398 places of the 5 pages, and on the small page. |
+| C5: the control targets | each visible control of the header, the Tools menu, the sequence toolbar and its list, Find, Changes, the Details panel, the keys sheet and the source records: 44 x 44 px or more | PASS: the smallest is 44 x 44 px (the view button Map). |
+| C5: the targets on the canvas at the camera fit of the top map | each target 44 x 44 px or more | FAIL for the cards. At the fit of the top map, the page draws no portal and no part of the path. A tap on a card selects it. The cards are smaller than 44 px: map of this repository 14.4 to 18.4 px high, fixture 37.0 px, M11 tree 7.2 px, 400 cards 4.1 px. The linked pages had the phone grid with targets of 44 px. The C5 of the design counts only the portals and the parts of the path. Thus a decision of the maintainer is necessary. |
+| C5: the top map by touch, without the phone grid | the page shows the header and the canvas only, with no vertical scroll; a tap selects a card and a second tap goes into its map; a pan with one finger moves the camera; a pinch changes the zoom; Find by touch moves the camera to a card | PASS on the 5 pages and the two phone screens. For example, on the fixture: "Selected: card Gateway.", then "Open map: join / Gateway. 4 cards.". A pinch changed the zoom from 0.661 to 1.542. |
+| C5: the link of the small page | 44 x 44 px or more | Information: the link is 77.7 x 17 px. It is a link in a sentence. |
+| The browser tests | `tests/test_canvas_access.py`, `tests/test_canvas_redirect_browser.py` and the touch and phone tests of `tests/test_canvas_browser.py` (acceptance 27 and 28), SYSTEMAP_BROWSER_TESTS=required | PASS: 18 passed. |
+
+Result: FAIL. These items are necessary:
+
+- The small page: give the page a background color and a link color for each scheme, for example with a `style` attribute. The policy permits `style-src-attr 'unsafe-inline'`. Then axe-core does not use white. A `main` element and a heading also remove the three moderate issues.
+- The cards at the fit of the top map on a phone: a decision of the maintainer. One possible rule: a tap on a card that is smaller than 44 px moves the camera to that card before it selects it.
+
+The guide `~/.claude/WRITING.md` was not on this host. Thus this text was examined only against the language policy of the project.
+
+## S11: C2, C3 and the render output of step 5, A/B with the quiet gate (2026-11-08)
+
+Scope: commit 69dd021 on `claude/canvas-default` (B) against 0254afb (A). The two scripts are not in the repository: `frames_ab.py` and `render_ab.py` in the scratchpad of the verifier. Their docstrings have the acceptance values, written before the first run.
+
+### S11a: C2 and C3 (`bench/jev/canvas_frames.py`, 3 pairs)
+
+A is a `git archive` copy of 0254afb with `[render] canvas = true` added to its systemap.toml, and the canvas_frames.py of that copy (PYTHONPATH on its src). B is the work tree at 69dd021 with the default configuration. canvas_frames.py and canvas_frames.js are the same in A and B. Order A1, B1, B2, A2, A3, B3. The quiet gate of `canvas_tree.py` (30 s with no foreign chrome, chromium, headless_shell, node or pytest process, 900 s or less), and a sampler of such processes each 2 s during the run.
+
+Other agents ran Chromium on the host. Of 10 attempts, 6 were quiet (A1 attempt 2, B1 attempt 2, B2 attempt 2, A2 attempt 2, A3, B3). The first attempt of A1 waited the full 900 s and was not quiet. The values below are of the 6 quiet runs only. The largest 1-minute load average in a quiet run was 1.45 (4 CPUs). Each run gave exit 0.
+
+Acceptance values:
+
+1. Each B row at or below its limit (p95 35.0 ms at 4x, 17.5 ms at 1x; C3 at 1x 1,500 ms or less).
+2. The median p95 of B is not more than one tick (16.67 ms) above the median of A.
+3. C3 at 1x: a fail if the median of B is more than 10 percent above the median of A on the M11 tree and on the M11 shape.
+
+| Data | Scenario | CPU | A (3 runs) | B (3 runs) | Median B - A |
+|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 257, 276, 272 ms | 308, 300, 369 ms | +36 ms |
+| M11 shape | C3 load | 4x | 252, 253, 273 ms | 278, 260, 309 ms | +25 ms |
+| M11 tree | pan-fit | 4x | 16.8, 16.7, 16.7 | 16.7, 16.7, 16.7 | +0.0 |
+| M11 tree | all-open | 4x | 16.7, 16.8, 16.8 | 16.7, 16.7, 16.8 | -0.1 |
+| M11 tree | dive | 4x | 16.8, 16.7, 16.8 | 16.7, 16.7, 16.7 | -0.1 |
+| 400 cards | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.8, 16.7, 16.8 | +0.0 |
+| 400 cards | dive | 4x | 16.8, 16.7, 16.8 | 16.8, 16.7, 16.7 | -0.1 |
+| 1,500 cards | pan-fit | 4x | 16.8, 16.7, 16.8 | 16.8, 16.7, 16.7 | -0.1 |
+| M11 shape | pan-fit | 4x | 16.8, 16.8, 16.8 | 16.7, 16.8, 16.8 | +0.0 |
+| M11 shape | all-open | 4x | 16.8, 16.8, 16.8 | 16.7, 16.7, 16.7 | -0.1 |
+| M11 shape | dive | 4x | 16.7, 16.7, 16.8 | 16.8, 16.7, 16.7 | +0.0 |
+| M11 tree | C3 load | 1x | 66, 70, 68 ms | 80, 86, 81 ms | +13 ms (+19 percent) |
+| M11 shape | C3 load | 1x | 61, 65, 66 ms | 71, 77, 91 ms | +12 ms (+18 percent) |
+| M11 tree | pan-fit | 1x | 16.8, 16.7, 16.8 | 16.8, 16.7, 16.7 | -0.1 |
+| M11 tree | all-open | 1x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.7 | -0.1 |
+| M11 tree | dive | 1x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.7 | +0.0 |
+| 400 cards | pan-fit | 1x | 16.7, 16.7, 16.7 | 16.7, 16.8, 16.7 | +0.0 |
+| 400 cards | dive | 1x | 16.7, 16.7, 16.8 | 16.8, 16.8, 16.7 | +0.1 |
+| 1,500 cards | pan-fit | 1x | 16.8, 16.8, 16.7 | 16.8, 16.7, 16.8 | +0.0 |
+| M11 shape | pan-fit | 1x | 16.7, 16.8, 16.8 | 16.7, 16.7, 16.8 | -0.1 |
+| M11 shape | all-open | 1x | 16.7, 16.8, 16.8 | 16.8, 16.7, 16.7 | -0.1 |
+| M11 shape | dive | 1x | 16.7, 16.7, 16.7 | 16.8, 16.7, 16.7 | +0.0 |
+
+The frame values are the p95 in ms. The largest single frame interval in a quiet run: 50.0 ms in A, 66.6 ms in B (B3, one frame). The script gives no p95 above 16.8 ms.
+
+Result:
+
+- Acceptance 1: PASS. The largest p95 of B is 16.8 ms at 4x and at 1x. The largest C3 of B at 1x is 91 ms.
+- Acceptance 2: PASS. The largest change of a median p95 is +0.1 ms.
+- Acceptance 3: FAIL. C3 at 1x of B is 19 percent above A on the M11 tree (81 ms against 68 ms) and 18 percent above A on the M11 shape (77 ms against 65 ms). Each load of B at 1x is longer than each load of A, on the two data sets. At 4x the change of the median is +13 percent (M11 tree) and +9.9 percent (M11 shape). The time is much less than 1,500 ms. In D1 (part A only), C3 did not increase. Thus the increase comes from the parts B, C or D of step 5. A probable cause is the 43,270 bytes of new page text of S10a (the Details panel and the marks of the ports), but this is not measured. A measurement of each part is necessary to find the cause.
+
+### S11b: the time and the bytes of `systemap render` (`render_ab.py`)
+
+No acceptance value. A is 0254afb with its default configuration (the linked pages). B is 69dd021 with its default configuration (the canvas page at the top, and a small page that goes to it for each nested map). B-linked is 69dd021 with `[render] canvas = false`, for information. This repository: a `git archive` copy of each commit, with the facts of `systemap extract` of that copy. The M11 tree: the fixture writer of `canvas_data_size.py`, `place` and `extract` with 69dd021, then one copy for each variant. The time is the wall time of the process `python -m systemap --root X render`, with the start of Python. 5 runs of each variant, interleaved, each after the quiet gate (a sample each 1 s). All 30 runs were quiet and gave exit 0. The bytes are the sum of the files that the command wrote.
+
+| Data | Variant | Median (s) | Range (s) | Files | Bytes raw | Bytes gzip -6 | Top page bytes |
+|---|---|---|---|---|---|---|---|
+| this repository | A (linked) | 0.61 | 0.51 to 0.66 | 1 | 980,056 | 200,602 | 980,056 |
+| this repository | B (default) | 0.54 | 0.49 to 0.57 | 1 | 343,086 | 110,885 | 343,086 |
+| this repository | B-linked | 0.55 | 0.52 to 0.58 | 1 | 991,847 | 202,209 | 991,847 |
+| M11 tree | A (linked) | 4.64 | 4.38 to 4.99 | 50 | 24,679,229 | 5,449,819 | 1,101,689 |
+| M11 tree | B (default) | 2.65 | 2.43 to 2.83 | 50 | 1,311,719 | 200,423 | 1,270,699 |
+| M11 tree | B-linked | 5.03 | 4.75 to 5.19 | 50 | 24,679,229 | 5,449,819 | 1,101,689 |
+
+Notes:
+
+- The self-map of this repository has one map. Thus render writes one page. The canvas page is 65 percent smaller than the linked page (raw).
+- On the M11 tree, B writes 95 percent fewer bytes (raw) and 96 percent fewer bytes (gzip -6) than A. The time of B is 43 percent less. The top page of B is 169,010 bytes larger than the top page of A, because it holds the data of all 50 maps. The 49 small pages are 41,020 bytes in total.
+- B-linked writes the same bytes as A on the M11 tree. On this repository it differs from A because the model of 69dd021 has more modules.
+
+## S12: the fixes after the verification of step 5 (2026-11-08)
+
+Scope: the work tree on `claude/canvas-default` after 69dd021, with the fixes of the verification of step 5 (S11). The scripts are in the scratchpad folder `s5fix` of the session. Each script has its acceptance values in its header, written before its first run. axe-core 4.14.0 and Playwright 1.63.0 Chromium.
+
+### S12a: the contrast of the texts of a card at rest
+
+Script: `s5fix/verify/rest_contrast.js`. After the camera is still for 6 s, each drawn list row, list name and fact row (`systemapCanvas.texts`) that is fully on the screen must have a rendered contrast of 4.5 or more. The contrast is that of the pixel of the page canvas with the largest luminance difference from the most common pixel of the box of the text. The first run also counted texts with a box off the screen, at the clamped edge of the canvas. That run gave a ratio of 1. The script now skips such texts.
+
+| Page and hash | Scheme | Motion | Texts | Smallest ratio |
+|---|---|---|---|---|
+| Fixture of `tests/test_nest_join.py`, `#Gateway/Routes` (camera k = 42.8) | light | both | 1 | 5.41 |
+| The same | dark | both | 1 | 5.55 |
+| The same fixture, top map | light | both | 4 | 5.33 |
+| The same fixture, top map | dark | both | 4 | 5.54 |
+| This repository, `#CLI` | light | no preference | 1 | 5.41 |
+| This repository, `#CLI` | dark | no preference | 1 | 5.55 |
+
+Result: PASS. In S11, the list row "to Auth · token" at `#Gateway/Routes` had 2.01 (light) and 2.56 (dark). At that zoom, the card has room for 7 to 9 lines of lists. At rest, the lists now have the alpha 0 there, and only the fact row shows. The browser test (acceptance 11 of `tests/test_canvas_details_browser.py`) moves the camera to the card CLI at 48 zooms. With the fix, it found 0 partly transparent texts in 163 texts. Without the rule `rest`, it found 39 in 183 texts.
+
+### S12b: C4, C5, the keys sheet, `live` and the links
+
+The scripts of S11 again: `access5.js` (copied to `s5fix/access`) on the pages of `make_pages.py`, made from the work tree, and the self-map page of `systemap refresh`.
+
+| Item | Acceptance | Result |
+|---|---|---|
+| C4: axe-core on the 5 canvas pages, 1,158 runs | 0 serious or critical issues | PASS: 0 violations of each impact (260, 236, 276, 204 and 182 runs) |
+| C4: the Details panel, 60 runs | 0 serious or critical issues | PASS: 0 violations |
+| C4: the small page `Gateway/index.html` without script, 6 runs | 0 serious or critical issues | PASS: 0 violations of each impact. In S11: `color-contrast` (serious) in the 3 dark runs, and 3 moderate issues in each run. |
+| C5: no horizontal scroll and control targets, 398 places on the two phone screens | scroll width 390 px, targets 44 x 44 px or more | PASS: the smallest target is 44 x 44 px. The small page has the scroll width 390 px. |
+| C5: the top map by touch on the 5 pages | a tap selects a card, a second tap goes into its map, pan, pinch, Find | PASS, as in S11 |
+| C5: the cards at the fit of the top map on a phone | no acceptance value (an item for the maintainer) | Not changed: 14.4 to 18.4 px (self-map), 37.0 px (fixture), 7.2 px (M11 tree), 4.1 px (400 cards) |
+| The keys sheet with reduced motion (`s5-verify-review/keys_motion.js`) | no animation with the system setting | PASS: `animationName` is `none` with `reduce`, and `keys-in` (0.12 s) with `no-preference` |
+| `systemap live` on the fixture (`s5-verify-behaviour/scripts/live.js`) | one reload for a model edit, the hash stays, the notice for a syntax error, the notice does not cover the help line, 0 policy violations | PASS: the reload took 2.6 s, the hash stayed `#Gateway/Routes`, and the notice is above the help line (screenshot `live-error.png`) |
+| `Gateway/index.html#Nothing` (`go.js`) | the canvas stays in the map Gateway | PASS: chain [Gateway], at the fit, 0 policy violations, 0 script errors |
+
+### S12c: C2 and C3, A/P/B with the quiet gate
+
+Script: `s5fix/regress/frames_ab.py`, from the script of S11a. A is 0254afb with `[render] canvas = true`, P is 69dd021, and B is the work tree with the fixes. Order A1, P1, B1, B2, P2, A2, A3, B3, P3. Each of the 9 runs was quiet at the first attempt. Each run gave exit 0. The largest 1-minute load average in a run was 1.97 (4 CPUs).
+
+Acceptance values:
+
+1. Each B row at or below its limit (p95 35.0 ms at 4x, 17.5 ms at 1x; C3 at 1x 1,500 ms or less).
+2. The median p95 of B is not more than one tick (16.67 ms) above the median of A.
+3. C3 at 1x: a fail if the median of B is more than 10 percent above the median of A on the M11 tree and on the M11 shape.
+4. Information: C3 of P against B.
+
+| Data | Scenario | CPU | A (3 runs) | P (3 runs) | B (3 runs) | Median B - A |
+|---|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 276, 248, 261 ms | 319, 329, 286 ms | 312, 317, 296 ms | +51 ms |
+| M11 shape | C3 load | 4x | 267, 249, 267 ms | 271, 285, 278 ms | 279, 264, 257 ms | -3 ms |
+| M11 tree | C3 load | 1x | 72, 79, 76 ms | 89, 93, 83 ms | 101, 83, 83 ms | +7 ms (+9.2 percent) |
+| M11 shape | C3 load | 1x | 76, 73, 67 ms | 70, 72, 73 ms | 76, 65, 73 ms | 0 ms |
+
+Each frame row (pan-fit, all-open and dive of the M11 tree and the M11 shape, pan-fit and dive of 400 cards, pan-fit of 1,500 cards, at 4x and 1x) has a p95 from 16.7 to 16.8 ms in each run of A, P and B. The largest difference of the medians of B and A is +0.1 ms.
+
+Result: PASS for acceptance 1, 2 and 3. The largest p95 of B is 16.8 ms. The largest C3 of B at 1x is 101 ms. C3 at 1x of B is 9.2 percent above A on the M11 tree and the same as A on the M11 shape. In S11, P was 19 and 18 percent above A. In this run, P is 17 percent above A on the M11 tree (89 ms against 76 ms) and 1 percent below A on the M11 shape. Thus the difference of P and A on the M11 shape is not the same as in S11. A measurement with more runs is necessary to give the cause of the increase on the M11 tree.
+
+### S12d: the bytes of the self-map page
+
+Script: `s5fix/bytes.py`, no acceptance value. Each variant makes the canvas page from the same model and facts of the work tree, with its own `src`.
+
+| Variant | Raw bytes | Bytes after gzip -6 |
+|---|---|---|
+| A (0254afb, `canvas = true`) | 299,866 | 99,689 |
+| P (69dd021) | 343,108 | 110,989 |
+| B (the fixes) | 273,296 | 88,686 |
+
+The renderer script of the page is now without its comment lines and its indentation (`page.compact`): 146,056 bytes in place of 218,681 bytes. Thus the page of B is 26,570 bytes smaller than the page of A, also with the parts of step 5. The byte item of S10 (43,270 bytes more than A) does not apply to B. Acceptance 10 of `tests/test_canvas_details.py` now counts the script part with the bytes that the page gets.

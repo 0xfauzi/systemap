@@ -18,9 +18,11 @@ Acceptance values:
    the page. In the run with no focus, no card has the keyboard focus and the canvas does
    not have the focus. The page has no script error.
 2. A URL hash that names a property of all objects (for example #constructor or
-   #Gateway/__proto__) names no map: the canvas opens at the top map, with no script error,
-   and the list of the tree has all its links. A change of the hash to such a name after
-   the load gives no script error.
+   #Gateway/__proto__) names no map and no card: the canvas opens at the top map, with no
+   script error, and the list of the tree has all its links. A change of the hash to such a
+   name after the load gives no script error. Changed after the verification of step 5: a
+   hash that starts with the ID of a nested map, such as #Gateway/__proto__, opens that
+   map, and the live region tells that no map and no card has the link.
 3. After Esc from the map Gateway, the live region gives the top map and the focused card
    Gateway, in one text. The live region changes one time after Esc.
 4. When a zoom out closes the map of the focused card, the card loses the keyboard focus:
@@ -123,7 +125,9 @@ def test_a_hash_with_an_object_property_names_no_map(held: dict[str, Any]) -> No
     for hash_, found in held["hashes"].items():
         assert found["errors"] == [], hash_
         if "links" in found:
-            assert found["api"] and found["links"] == 13 and found["chain"] == [], hash_
+            inside = ["Gateway"] if "/" in hash_ else []
+            assert found["api"] and found["links"] == 13 and found["chain"] == inside, hash_
+            assert found["said"].startswith(f"No map and no card has the link {hash_}."), hash_
 
 
 def test_the_live_region_after_esc_and_the_closed_focus(held: dict[str, Any]) -> None:

@@ -7,6 +7,7 @@
 //     node tests/canvas_details.js --access PAGE.html
 //     node tests/canvas_details.js --phone PAGE.html
 //     node tests/canvas_details.js --shots PAGE.html FOLDER
+//     node tests/canvas_details.js --rest PAGE.html CARD
 //
 // --tools: the theme button, the reads of the theme colors, the Reduce motion button with
 // the alpha of the selection in each frame, the keys sheet, the F key and the source
@@ -14,6 +15,7 @@
 // panel in a pan, and its text. MOTION is "none", "system" or "page". --access: axe-core
 // (from NODE_PATH; null when it is not there) with the panel, the keys sheet, the source
 // records and the Tools menu open. --phone: the scroll and the target boxes on a phone.
+// --rest: the alpha of the list texts of a card at rest, at many zooms.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -152,6 +154,11 @@ async function panel(file, motion) {
   const { browser, page, errors } = await open(file, { reducedMotion: motion === 'system' ? 'reduce' : 'no-preference' });
   if (motion === 'page') await page.click('#reduce-motion');
   const out = {};
+  // The keys sheet: its animation with this motion setting.
+  await page.focus('#canvas');
+  await page.keyboard.press('?');
+  out.keysAnimation = await page.evaluate(() => getComputedStyle(document.querySelector('#keys .keys__box')).animationName);
+  await page.keyboard.press('Escape');
   await page.focus('#canvas');
   let rec = framesOf(page, panelOpacity, 500);
   await page.waitForTimeout(80);
@@ -188,6 +195,16 @@ async function panel(file, motion) {
     await page.click('#cdet-body button[data-back]');
     out.back = await page.evaluate(() => document.querySelector('#cdet-body h3').textContent);
   }
+  // The note of the card Scaffold of the self-map.
+  const sc = await page.evaluate(() => window.systemapCanvas.box('', 'Scaffold'));
+  if (sc) {
+    await page.mouse.click(sc[0] + sc[2] / 2, sc[1] + sc[3] / 2);
+    await page.waitForTimeout(300);
+    out.note = await page.evaluate(() => {
+      const p = [...document.querySelectorAll('#cdet-body p')].find((e) => e.textContent.startsWith('Note. '));
+      return p ? p.textContent : null;
+    });
+  }
   // Escape in the panel closes it.
   await page.focus('#cdet-close');
   rec = framesOf(page, panelOpacity, 500);
@@ -197,6 +214,34 @@ async function panel(file, motion) {
   out.closed = await page.evaluate(() => ({ hidden: document.getElementById('cdetails').hidden, focus: document.activeElement.id,
     pressed: document.getElementById('details-toggle').getAttribute('aria-pressed'), chain: window.systemapCanvas.chain() }));
   out.errors = errors;
+  await browser.close();
+  return out;
+}
+
+// The texts of the card `id` of the top map at rest, at 48 zooms from a card height of 60
+// px to 600 px: each list row, list name and fact row, with its alpha. A text at rest
+// with an alpha between 0.02 and 0.98 is partial.
+async function rest(file, id) {
+  const { browser, page, errors } = await open(file, {});
+  const out = { checked: 0, partial: [], errors };
+  for (let i = 0; i < 48; i++) {
+    const h = 60 * Math.pow(10, i / 47);
+    await page.evaluate(([id, h]) => {
+      const S = window.systemapCanvas, c = S.camera(), b = S.box('', id);
+      const wx = c.x + b[0] / c.k, wy = c.y + b[1] / c.k, ww = b[2] / c.k, wh = b[3] / c.k, k = h / wh;
+      S.view({ x: wx + ww / 2 - innerWidth / 2 / k, y: wy + wh / 2 - innerHeight / 2 / k, k });
+    }, [id, h]);
+    await page.waitForFunction(() => window.systemapCanvas.stats().sharp);
+    await page.waitForTimeout(450);
+    const found = await page.evaluate((id) => {
+      const S = window.systemapCanvas, b = S.box('', id), texts = S.texts();
+      const inside = (t) => t.box[0] >= b[0] - 1 && t.box[2] <= b[0] + b[2] + 1 && t.box[1] >= b[1] - 1 && t.box[3] <= b[1] + b[3] + 1;
+      const list = (s) => /^(to |from |FLOWS$|MODULES$|none$|\+ \d+ more$)/.test(s) || / in · \d+ out/.test(s);
+      return texts.filter((t) => list(t.s) && inside(t)).map((t) => ({ s: t.s, alpha: t.alpha }));
+    }, id);
+    out.checked += found.length;
+    found.filter((t) => t.alpha > 0.02 && t.alpha < 0.98).forEach((t) => out.partial.push({ h, ...t }));
+  }
   await browser.close();
   return out;
 }
@@ -302,6 +347,6 @@ async function shots(file, dir) {
 (async () => {
   const [mode, file, arg] = process.argv.slice(2);
   const run = { '--tools': () => tools(file), '--panel': () => panel(file, arg), '--access': () => access(file),
-    '--phone': () => phone(file), '--shots': () => shots(file, arg) }[mode];
+    '--phone': () => phone(file), '--shots': () => shots(file, arg), '--rest': () => rest(file, arg) }[mode];
   process.stdout.write(JSON.stringify(await run()));
 })().catch((e) => { console.error(e); process.exit(1); });

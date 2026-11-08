@@ -7,7 +7,7 @@ default, and `canvas = true` gives the same output.
 `canvas = false` makes the commands write the linked pages, one page for each map, with
 no change from the earlier releases. This setting is for one release only. The linked
 pages get no new function. `render`, `refresh` and `live` then give the notice line
-`NOTICE`, and the exit code does not change.
+`NOTICE` (`render_pages.notice`), and the exit code does not change.
 
 A ValueError gives the configuration error. The configuration reader changes it to a
 ConfigError.
@@ -37,8 +37,3 @@ def canvas(raw: dict[str, Any], where: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{where}: render.canvas must be true or false")
     return value
-
-
-def notice(canvas_page: bool) -> list[str]:
-    """Give the notice line of the linked pages, or no line for the canvas page."""
-    return [] if canvas_page else [NOTICE]

@@ -32,8 +32,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from systemap import theme as theme_mod
-from systemap.page import SCHEME_ICONS, esc
+from systemap import page
+from systemap.page import esc
 from systemap.page_icons import icon
 
 ALL_TITLE = "All flows of all layers"
@@ -90,38 +90,12 @@ def _find() -> str:
     )
 
 
-def _tool(id_: str, name: str, glyph: str, extra: str = "") -> str:
-    """Give one icon button of the tools, with its name and its tooltip. The Tools menu
-    shows the name as text (`page_canvas_details.CSS`)."""
-    return (
-        f'<button type="button" id="{id_}" aria-label="{esc(name)}" title="{esc(name)}"{extra}>'
-        f"{icon(glyph)}</button>"
-    )
-
-
 def _records(data: Mapping[str, Any]) -> str:
     """Give the source records of the page, with the words of the linked page
-    (`page._unknown_provenance` and `page._source_files`)."""
+    (`page.unknown_records` and `page.source_records`)."""
     top = (data.get("maps") or [{}])[0]
-    unknown = data.get("unknown") or []
-    out = (
-        '<details class="unknown-records"><summary>Unknown source information</summary>'
-        "<p>The extractor could not read these records. The missing information limits "
-        "the information on the map. Read the finding. Correct the source or extractor "
-        "configuration. Then run <code>systemap refresh</code> in the terminal.</p>"
-        + "".join(f"<p><code>{esc(line)}</code></p>" for line in unknown)
-        + "</details>"
-        if unknown
-        else ""
-    )
-    return out + (
-        "<p>HEAD at extraction was "
-        f"<code>{esc(data.get('rev') or 'not recorded')}</code>.</p>"
-        f"<p>Source files: <code>{esc(top.get('ff', ''))}</code> and "
-        f"<code>{esc(top.get('mf', ''))}</code>.</p>"
-        "<p>Extraction reads the working tree, which can contain uncommitted changes. "
-        "This page cannot find subsequent changes. Run <code>systemap refresh</code> "
-        "in the project terminal to update it.</p>"
+    return page.unknown_records(data.get("unknown") or []) + page.source_records(
+        str(data.get("rev") or ""), top.get("ff", ""), top.get("mf", "")
     )
 
 
@@ -140,30 +114,25 @@ def _snap(data: Mapping[str, Any]) -> str:
 def _tools(data: Mapping[str, Any]) -> str:
     """Give the tools and the button of the Tools menu. The theme buttons are one toggle:
     the header shows only the button of the scheme that is not in use."""
-    labels = theme_mod.SCHEME_LABELS
-    schemes = "".join(
-        _tool(
-            f"scheme-{name}",
-            f"{labels.get(name, name.title())} theme",
-            SCHEME_ICONS.get(name, "sun"),
-            f' data-scheme="{esc(name)}" aria-pressed="false"',
-        )
-        for name in theme_mod.SCHEMES
-    )
     return (
         '<div class="cbar__tools" id="canvas-tools" role="group" aria-label="Tools">'
         + _snap(data)
-        + schemes
-        + _tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
-        + _tool(
-            "keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"'
+        + page.scheme_buttons("")
+        + page.tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"', "")
+        + page.tool(
+            "keys-open",
+            "Keyboard keys",
+            "help",
+            ' aria-haspopup="dialog" aria-keyshortcuts="?"',
+            "",
         )
-        + _tool(
+        + page.tool(
             "details-toggle",
             "Details",
             "panel",
             ' class="cbar__det" aria-pressed="false" aria-controls="cdetails"'
             ' aria-keyshortcuts="D"',
+            "",
         )
         + "</div>"
         '<button type="button" class="cbar__more" id="tools-open" aria-expanded="false" '

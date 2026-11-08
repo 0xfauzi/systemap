@@ -6,6 +6,7 @@ import hashlib
 import html
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -174,37 +175,45 @@ def _views(meaning: Meaning, ch: dict[str, Any]) -> str:
 SCHEME_ICONS = {"dark": "moon", "light": "sun"}
 
 
-def _tool(id_: str, name: str, glyph: str, extra: str = "") -> str:
-    """Give one icon button of the header, with its name and its tooltip."""
+def tool(id_: str, name: str, glyph: str, extra: str = "", cls: str = "tool") -> str:
+    """Give one icon button of the header, with its name and its tooltip. An empty `cls`
+    gives a button with no class attribute."""
+    attr = f' class="{cls}"' if cls else ""
     return (
-        f'<button type="button" class="tool" id="{id_}" aria-label="{esc(name)}" '
+        f'<button type="button"{attr} id="{id_}" aria-label="{esc(name)}" '
         f'title="{esc(name)}"{extra}>{icon(glyph)}</button>'
+    )
+
+
+def scheme_buttons(cls: str = "tool") -> str:
+    """Give one button for each scheme. The page shows only the button of the scheme that
+    is not in use, so the buttons are one toggle."""
+    labels: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
+    return "".join(
+        tool(
+            f"scheme-{name}",
+            f"{labels.get(name, name.title())} theme",
+            SCHEME_ICONS.get(name, "sun"),
+            f' data-scheme="{esc(name)}" aria-pressed="false"',
+            cls,
+        )
+        for name in theme_mod.SCHEMES
     )
 
 
 def _tools() -> str:
     """Give the header settings: the theme, Reduce motion and the keyboard keys.
 
-    The theme group has one button for each scheme. The page shows only the
-    button of the scheme that is not in use, so the group is one toggle."""
-    labels: dict[str, str] = getattr(theme_mod, "SCHEME_LABELS", {})
-    schemes = "".join(
-        _tool(
-            f"scheme-{name}",
-            f"{labels.get(name, name.title())} theme",
-            SCHEME_ICONS.get(name, "sun"),
-            f' data-scheme="{esc(name)}" aria-pressed="false"',
-        )
-        for name in theme_mod.SCHEMES
-    )
+    The theme group has one button for each scheme (`scheme_buttons`)."""
+    schemes = scheme_buttons()
     return (
         f'<div class="bar__tools"><div id="scheme" role="group" aria-label="Theme">{schemes}</div>'
-        + _tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
-        + _tool(
+        + tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
+        + tool(
             "keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"'
         )
         + '</div><span class="bar__div" aria-hidden="true"></span>'
-        + _tool(
+        + tool(
             "panel-toggle",
             "Details",
             "panel",
@@ -404,28 +413,37 @@ def _map_key(t: dict[str, Any], model: Model) -> str:
     return "\n".join(out)
 
 
-def _unknown_provenance(provenance: dict[str, Any]) -> str:
-    if not provenance["unknown"]:
+def unknown_records(lines: Sequence[str]) -> str:
+    """Give the facts that the extractor could not read, or no text when there are none."""
+    if not lines:
         return ""
     return (
         '<details class="unknown-records"><summary>Unknown source information</summary>'
         "<p>The extractor could not read these records. The missing information limits "
         "the information on the map. Read the finding. Correct the source or extractor "
         "configuration. Then run <code>systemap refresh</code> in the terminal.</p>"
-        + "".join(f"<p><code>{esc(line)}</code></p>" for line in provenance["unknown"])
+        + "".join(f"<p><code>{esc(line)}</code></p>" for line in lines)
         + "</details>"
     )
 
 
-def _source_files(cfg: Config, facts: dict[str, Any], nesting: Nesting) -> str:
+def source_records(rev: str, facts_file: str, model_file: str) -> str:
+    """Give the commit of the facts (`rev`, or "not recorded"), the facts file and the
+    model file."""
     return (
         "<p>HEAD at extraction was "
-        f"<code>{esc(facts.get('built_at_commit') or 'not recorded')}</code>.</p>"
-        f"<p>Source files: <code>{esc(cfg.out_dir)}/{esc(cfg.facts_file)}</code> and "
-        f"<code>{esc(nesting.model_file)}</code>.</p>"
+        f"<code>{esc(rev or 'not recorded')}</code>.</p>"
+        f"<p>Source files: <code>{esc(facts_file)}</code> and "
+        f"<code>{esc(model_file)}</code>.</p>"
         "<p>Extraction reads the working tree, which can contain uncommitted changes. "
         "This page cannot find subsequent changes. Run <code>systemap refresh</code> "
         "in the project terminal to update it.</p>"
+    )
+
+
+def _source_files(cfg: Config, facts: dict[str, Any], nesting: Nesting) -> str:
+    return source_records(
+        facts.get("built_at_commit") or "", f"{cfg.out_dir}/{cfg.facts_file}", nesting.model_file
     )
 
 
@@ -597,7 +615,7 @@ def build(
             facts,
             nesting,
             ch,
-            _unknown_provenance(payload["provenance"]) + _source_files(cfg, facts, nesting),
+            unknown_records(payload["provenance"]["unknown"]) + _source_files(cfg, facts, nesting),
         ),
         '<main class="main">',
         _map_section(model, meaning, system_svg, ch),
@@ -627,7 +645,7 @@ def build(
             json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         ).replace("<", "\\u003c")
         + ";</script>",
-        _compact(page_maps_script(t, maps)),
+        compact(page_maps_script(t, maps)),
     ]
     scripts = (
         JS,
@@ -642,13 +660,13 @@ def build(
         page_motion.SCRIPT,
         page_palette.SCRIPT,
     )
-    o += [f"<script>{_compact(js)}</script>" for js in scripts]
+    o += [f"<script>{compact(js)}</script>" for js in scripts]
     o.append("</body></html>")
     previews = [str(child["preview"]) for child in nesting.opens.values() if "preview" in child]
     return page_csp.with_policy("\n".join(o) + "\n", inserted=previews)
 
 
-def _compact(js: str) -> str:
+def compact(js: str) -> str:
     """Remove comment lines, indentation and empty lines from a page script.
 
     The page scripts have no template literals, so no string continues on a second line.

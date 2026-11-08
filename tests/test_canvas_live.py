@@ -15,7 +15,8 @@ step 5, written before the first run):
 2. A newer version loads the page 1 time. After the load, the hash is the same
    (`#Gateway/Routes`), and the map Gateway is open.
 3. A version that the command cannot render shows the notice "The map is not updated:"
-   with the first line of the error, and it does not load the page again.
+   with the first line of the error, and it does not load the page again. Added after the
+   verification of step 5: the box of the notice does not cover the plate of the help line.
 4. 0 securitypolicyviolation events, 0 script errors, and 0 requests outside the origin
    of the server. The live script runs under the policy of the canvas page
    (`page_csp.with_live_script`), which keeps frame-src 'none'.
@@ -78,3 +79,6 @@ def test_live_reloads_the_canvas_page_and_keeps_the_hash(tmp_path: Path) -> None
     assert [load["hash"] for load in out["loads"]] == ["#Gateway/Routes", "#Gateway/Routes"]
     assert all(load["chain"] == ["Gateway"] for load in out["loads"]), out
     assert out["notice"] == "The map is not updated: " + FAILED
+    nx, ny, nw, nh = out["noticeBox"]
+    hx, hy, hw, hh = out["helpBox"]
+    assert nx + nw <= hx or hx + hw <= nx or ny + nh <= hy or hy + hh <= ny, out

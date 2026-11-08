@@ -48,6 +48,7 @@ Each value comes from a script whose acceptance value was written before the run
 | P1 and P2 (step 5, part C, V1): `render` and `check` of the M11 tree with its 146 open boundary lines, and C2 with a mark on 49 actor cards | each command at most 1.0 s slower than A; p95 at most 35 ms at 4x | PASS: render +0.18 s, check +0.00 s; the largest p95 of B is 16.8 ms. The real M11 tree with its 146 marks was not measured in the browser. |
 | P3 (step 5, part C, V1c and V1d): the contrast of the canvas marks in each scheme, C4 and C5 of the marks, and the fade of the marks | 4.5 for a text and 3.0 for a line; 0 serious or critical issues; targets of 44 px or more; an alpha step of 0.2 or less in one frame | PASS: 29 rows in each scheme, 0 violations in 8 runs. One row is below the floor and is recorded for the maintainer (`BELOW_FLOOR`: the border of a container of the tones host, client and server, 1.36 light and 1.50 dark, the same token as the linked page). |
 | S10 (step 5, after the merge of the parts): C2 of the merged page, the script of B1 again with the same acceptance values | the acceptance values of B1 | C2 PASS: 6 quiet runs, the largest p95 of B is 16.8 ms at 4x and at 1x, and the largest difference of the medians is +0.1 ms. The bytes FAIL: the self-map page grows by 43,270 bytes, more than the 40,000 bytes of part B, because the merged page also has the parts A and C. A decision of the maintainer is necessary. See S10 in `bench/jev/README.md`. |
+| S12 (step 5, the fixes after the verification): the rendered contrast of the texts of a card at rest, C4 and C5 again, and C2 and C3 against 0254afb (A) and 69dd021 (P) with the quiet gate | 4.5 for a text at rest; 0 serious or critical issues; targets of 44 px or more; p95 at most 35 ms at 4x and 17.5 ms at 1x; the median of B at most one tick more than A; C3 of B not more than 10 percent above A on the two data sets | PASS: the smallest ratio of a list text or a fact row at rest is 5.33. 0 violations in 1,158 runs, in 60 runs of the panel and in 6 runs of the small page. The largest p95 of B is 16.8 ms. C3 at 1x of B is 9.2 percent above A on the M11 tree and the same as A on the M11 shape. The self-map page has 273,296 bytes, 26,570 bytes fewer than A. |
 
 The frame time on a real slow device is not measured yet. The `?hud` readout of the canvas page shows it on a device.
 
@@ -252,7 +253,7 @@ On a touch screen (`pointer: coarse`), each target on the canvas is 44 x 44 px o
 - The plate of the facts of a selected card is 44 px high.
 - The help line is not a target.
 
-**The decision for the phone grid.** C5 passes (see "What is measured"). Thus the canvas meets the phone measurements of this design, and the top map can use the canvas on a phone. The phone grid goes in step 5, when the canvas becomes the default. These items are not measured yet: the frame time on a real phone (the `?hud` readout), and a test with a person (the last open question).
+**The decision for the phone grid.** C5 passes (see "What is measured"). Thus the canvas meets the phone measurements of this design, and the top map can use the canvas on a phone. C5 does not count the cards. At the fit of a large top map, a card on a phone is smaller than 44 px (see the items for the maintainer in step 5). The phone grid goes in step 5, when the canvas becomes the default. These items are not measured yet: the frame time on a real phone (the `?hud` readout), and a test with a person (the last open question).
 
 ## Steps
 
@@ -275,14 +276,24 @@ Each step is a pull request with the required checks of AGENTS.md, `/code-review
    The setting `[render] canvas` stays for one release. The evidence: the configuration reader refuses an unknown key, thus a removal turns each `canvas = true` into a configuration error. The canvas page does not have the full source records, the snapshot button, the `interface` text or the model-change list of the linked page. `canvas = true` has no effect. `canvas = false` writes the linked pages with no new feature, with the same bytes as 0254afb, and `render`, `refresh` and `live` write one line on stderr about the next release. The next release removes the linked pages and the key.
    Branches 6 to 8 were not merged. Step 5 ported their tests for the open ports, the layer colors, the contrast of the marks and the frame policy. It did not port their placement of ports, the mark of the parent context, the badge SVG of the top page, the keys of `test_page_nav` or `test_nested_pages`, because these tests are for the linked pages. The search index of the canvas is the Find dialog of step 4. The maintainer closes the branches.
    The Map tree panel was not merged into main, so step 5 does not port it.
+   The verification of step 5 found these problems. They are fixed (S12 in `bench/jev/README.md`):
+   - At rest, the lists and the fact row of a card kept a part of the alpha of their fade. A list row had the contrast 2.01 (light) and 2.56 (dark). Now each fade of the text of a card that follows the zoom has the value 0 or 1 in the full drawing at rest (`rest` in `page_canvas_text`). The fade after the camera stops blends the last moving frame into that drawing. Thus nothing appears at one time.
+   - The keyboard sheet also obeys the system setting for reduced motion.
+   - The Details panel gives the `note` text of a card (`nt` in the canvas data). Thus a change of `note` makes the page stale.
+   - The notice of `systemap live` is above the help line, not on it.
+   - A hash that names no card of a nested map opens that map, and the live region tells the reader (`hashMap`). An earlier link such as `Gateway/index.html#Nothing` thus stays in the map Gateway.
+   - The redirect page has a `main` element, a heading, and the system colors of the scheme. Thus axe-core does not use white as its background in the dark scheme.
+   - The canvas page has the renderer script without its comment lines and its indentation (`page.compact`), as the linked page has its scripts.
+   - The page gives the form of an open boundary line from the data (`w`), not from the words of the line.
    Items for the maintainer:
    - The canvas page does not show the `interface` text. Thus a change of `interface` does not make the canvas page stale.
    - The link `#<id>/changes`, and the rule that a map or a card with the ID `changes` keeps its link, need a decision.
    - In the Changes view at the start fit on a desktop, the bar "no revision comparison" covers the top of the SYSTEM box, but no card.
-   - The Details panel gives the counts of the public names and the tests of a module, and no module description, because of the byte limit of 40,000 bytes. The merged self-map page grows by 43,270 bytes (S10). A limit for the merged page is necessary.
+   - The Details panel gives the counts of the public names and the tests of a module, and no module description, because of the byte limit of 40,000 bytes. The merged self-map page grew by 43,270 bytes (S10). With the compact renderer script, the page is 26,570 bytes smaller than the page of 0254afb (S12).
    - The rule of step 7 "a quiet card that opens a map keeps full contrast" conflicts with the alpha 0.32 of a quiet card. It is not done.
    - The border of a container of the tones host, client and server has the contrast 1.36 (light) and 1.50 (dark), less than 3.0.
    - The mark of an open boundary line shows only in the Map view. A line about a component that is not an actor of the map has no card. Its words are only in the words of the map.
+   - On a phone, at the fit of the top map, the cards are smaller than 44 px: 14.4 to 18.4 px high on the self-map, 37.0 px on the fixture, 7.2 px on the M11 tree and 4.1 px on the map of 400 cards (S11). C5 counted only the portals and the parts of the path. A card that is less than 15 px high is a mark with no name, for example the 5 actor cards of the self-map. A tap on such a card selects it, and a pinch zooms in. A rule for the cards is necessary, for example a tap on a small card that moves the camera to the card before it selects the card.
 
 ## Open questions
 

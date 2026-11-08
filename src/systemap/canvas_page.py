@@ -6,7 +6,8 @@ goes to the top page with the ID of its map in the URL hash, for example
 `../index.html#Gateway`. Thus a link to a nested page still opens that map.
 
 The canvas page holds the canvas data (`canvas_data`) one time, in a script element of
-the type application/json, and the renderer script (`page_canvas`). The page CSP
+the type application/json, and the renderer script (`page_canvas`) without its comment
+lines and its indentation (`page.compact`). The page CSP
 (`page_csp`) has the digest of each script element and style element, and it permits no
 frame. The page uses
 the theme tokens of the map page. Thus the light and the dark schemes both apply.
@@ -88,6 +89,10 @@ SLOTS: dict[str, tuple[str, ...]] = {
 }
 
 
+# The renderer script without the comment lines and the indentation (`page.compact`).
+_SCRIPT = page.compact(SCRIPT)
+
+
 def _slot(name: str) -> str:
     return "".join(SLOTS[name])
 
@@ -127,7 +132,7 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + '<script type="application/json" id="canvas-data">'
         + body
         + "</script>\n<script>"
-        + SCRIPT
+        + _SCRIPT
         + "</script></body></html>\n"
     )
     return page_csp.with_policy(out, frame=page_csp.NO_FRAME)

@@ -14,10 +14,9 @@ import json
 import re
 from collections.abc import Iterator, Mapping
 from typing import Any
-from urllib.parse import quote
 
+from systemap import canvas_redirect, nest, schematic_change
 from systemap import change as change_mod
-from systemap import nest, schematic_change
 from systemap.config import ArgumentError, Config, ConfigError, Figure
 from systemap.model import DERIVED_LAYERS, Layer, Meaning, Model, all_layers, reading
 from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
@@ -374,7 +373,7 @@ def page_of(cfg: Config, map_id: str) -> str:
     if not map_id:
         return top
     if cfg.render_canvas:
-        return f"{top}#{quote(map_id, safe='/')}"
+        return f"{top}#{canvas_redirect.hash_of(map_id)}"
     return f"{cfg.out_dir}/{map_id}/index.html"
 
 

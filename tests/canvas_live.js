@@ -63,6 +63,9 @@ async function refresh(page, url) {
   await refresh(page, url);
   await page.waitForSelector('#live-notice', { timeout: 30000 });
   out.notice = await page.textContent('#live-notice');
+  // The box of the notice and the plate of the help line, in the coordinates of the page.
+  out.noticeBox = await page.evaluate(() => { const r = document.getElementById('live-notice').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; });
+  out.helpBox = await page.evaluate(() => window.systemapCanvas.layout().help);
   await page.waitForTimeout(1000);
   out.navigations = navigations;
   await browser.close();
