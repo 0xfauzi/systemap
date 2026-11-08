@@ -21,6 +21,14 @@ open map changes, a live region tells the path and the count of cards of the new
 the canvas has the keyboard focus on a card, the same text then also gives that card, and
 the selected card (`heldWords`). Thus the text of the map does not remove the name of the
 focused card before a screen reader reads it.
+
+The script writes the list again after a change of the view (`buildTree`). When a link of
+the list has the keyboard focus, the same link of the new list gets it. Thus the focus does
+not go to the body of the page.
+
+A view part can add words (`viewFacts` and `viewSay` in `page_canvas_view`): the words of
+the current view for each card in the list, and for each map in the live region and in the
+top line of the list. For example, the Changes view gives the change of each card.
 """
 
 from __future__ import annotations
@@ -66,6 +74,8 @@ function factsText(c) {
   out.push('Flows in: ' + c.ins.length + '. Flows out: ' + c.outs.length + '.');
   if (c.as) out.push('Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.');
   if (c.child) out.push('Opens a map of ' + sizeText(c.child) + '.');
+  var more = viewFacts(c);
+  if (more) out.push(more);
   return out.join(' ');
 }
 function link(hash, data, text) { return '<a href="' + esc(hash || '#') + '" ' + data + '>' + esc(text) + '<\/a>'; }
@@ -89,10 +99,17 @@ function mapLists(m) {
   }
   return out.join('');
 }
+// A new list replaces the links. When a link of the list has the keyboard focus, the same
+// link of the new list gets it (`data-m` and `data-c` or `data-f`).
 function buildTree() {
   if (!TREE_EL) return;
-  var t0 = performance.now();
-  TREE_EL.innerHTML = '<ul><li>' + link('', 'data-m="0"', 'Map: ' + mapName(TOP)) + ' ' + esc(sizeText(TOP)) + '.' + mapLists(TOP) + '<\/li><\/ul>';
+  var t0 = performance.now(), a = document.activeElement, keep = null;
+  if (a && a.tagName === 'A' && TREE_EL.contains(a)) {
+    keep = ['data-m', 'data-c', 'data-f'].map(function (n) { return a.hasAttribute(n) ? '[' + n + '="' + a.getAttribute(n) + '"]' : ''; }).join('');
+  }
+  TREE_EL.innerHTML = '<ul><li>' + link('', 'data-m="0"', 'Map: ' + mapName(TOP)) + ' ' + esc(sizeText(TOP) + '.' + viewSay(TOP)) + mapLists(TOP) + '<\/li><\/ul>';
+  var back = keep && TREE_EL.querySelector('a' + keep);
+  if (back) back.focus({preventScroll: true});
   TREE_MS = performance.now() - t0;
 }
 function union(a, b) {
@@ -151,9 +168,17 @@ function heldWords() {
 // When the camera stops: the label of the canvas gives the current path. When the open map
 // changes, the live region tells the new map. Each element changes only when its text changes.
 function tell(m) {
-  var name = mapName(m), label = 'System map: ' + name + '. Level ' + CHAIN.length + '.';
-  if (label !== LABEL) { LABEL = label; cv.setAttribute('aria-label', label); }
-  if (SAID_MAP && m !== SAID_MAP) say('Open map: ' + name + '. ' + counted(m.cards.length, 'card') + '.' + heldWords());
+  relabel(m);
+  if (SAID_MAP && m !== SAID_MAP) say(openWords(m) + heldWords());
   SAID_MAP = m;
+}
+// The words of an open map: its path, its count of cards, and the words of the view.
+function openWords(m) { return 'Open map: ' + mapName(m) + '. ' + counted(m.cards.length, 'card') + '.' + viewSay(m); }
+// The label of the canvas: the path, the level, and the view when it is not the Map view
+// with All (`viewLabel` in `page_canvas_view`).
+function relabel(m) {
+  var label = 'System map: ' + mapName(m) + '. Level ' + CHAIN.length + '.' + viewLabel();
+  if (label !== LABEL) { LABEL = label; cv.setAttribute('aria-label', label); }
+  viewHere(m);
 }
 """

@@ -120,7 +120,7 @@ function place(m, x, y, s, depth, owner) {
     m.maxH = Math.max(m.maxH, c.b[3]); m.maxW = Math.max(m.maxW, c.b[2]);
   });
   m.flows.forEach(function (f, i) {
-    f.i = i; f.bb = pointsBox(f.p);
+    f.i = i; f.map = m; f.bb = pointsBox(f.p);
     if (m.byId[f.s]) m.byId[f.s].outs.push(f);
     if (m.byId[f.t]) m.byId[f.t].ins.push(f);
   });
@@ -151,7 +151,7 @@ ORDER.forEach(function (m) { KMAX = Math.max(KMAX, 64 / m.T.s); });
 // ---- the theme colors ---------------------------------------------------
 var C = {}, FONT_UI = 'sans-serif', FONT_MONO = 'monospace', EPOCH = 0;
 var TOKENS = ['--map', '--bg', '--card', '--card-line', '--actor', '--ink', '--ink-2', '--ink-3', '--flow',
-  '--region', '--accent', '--line', '--line-2', '--raised', '--surface'];
+  '--region', '--accent', '--line', '--line-2', '--raised', '--surface', '--change', '--on-change'];
 function readColors() {
   var cs = getComputedStyle(document.documentElement);
   function v(name, other) { var x = cs.getPropertyValue(name).trim(); return x || other; }

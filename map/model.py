@@ -169,7 +169,7 @@ COMPONENTS = (
     # ---- gather: the mechanical truth ----
     Component(
         id="FactsExtractor",
-        source_review="fecab5e9a91b8566b5ceb360d68688886596ea499adc9cc0a9d2a0f20e80c5e4",
+        source_review="76d2df6c02fbcf28fffeebcc41d99c52128eef8ebc6d6961913efee236231e53",
         does="Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. An import of a declaration file is not an unresolved import. Relative imports and path aliases can also name declaration files. A comment directly before a TypeScript variable does not become the module description without a blank line or a module tag. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Writes the Python syntax digest and the api fingerprints from the syntax text of systemap, and takes the Python signatures and constant values from the source text. Thus these values are the same on each supported Python version. A Python syntax node that the syntax text does not know stops the extraction. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language.",
         interface="build(cfg) -> facts; drift(fresh, stored) -> facts that are different",
         implemented_by=(
@@ -248,7 +248,7 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="de6bf4cd7ee203d3d7b8b3ee4ac6683dcdcaa3fff8e673a43b5346e8c42ddee8",
+        source_review="0b9aa344674bb17b132d977a3278975a682b1128d7ef9d405d3f0ccd84e6a6fe",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. Holds the lock of the model file from the read to the end of the write. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, label, placement, expected, load)",
         implemented_by=("systemap.place", "systemap.place_source"),
@@ -271,7 +271,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="a86e88c8f1a8197027670efe2cbe9cf621348cf3ebc94a4965014c2af2178d4f",
+        source_review="8da36153237f5c3db9d8f419897e0417bfe3b85abac956f9a8d746e7764e7908",
         does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. With a map ID, loads only that map, its parent maps and its nested maps, and does not read the files of other maps. A card that opens a map must have an ID that is one path segment. Replaces a model file through a temporary file. If a replacement fails, restores the previous files. Holds the lock <model file>.lock of each model file during the write, so that two processes can write two different model files at the same time. Gives the file name of a nested map: the map ID in lower case, with _ in place of each /, and .py. Gives the files of the part plan and of the result files in map/parts. Refuses a stem of a nested map that is reserved, that is the same as a different stem, or whose prefix is the start of a different stem. To find the modules that the module claims of a component cover, it uses a sorted list of the module names. It keeps this list for each of the last 4 module lists that it examined.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants, import_rules) and Meaning(plain, layers, relations, journeys, verbs), exported by map/model.py as MODEL and MEANING; Contract(invariants, import_rules), exported by map/contract.py as CONTRACT",
         implemented_by=(
@@ -301,7 +301,7 @@ COMPONENTS = (
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="6b3c58930e8f3f0616d346ddbd5e5d9ce3cde595d6ec4597745d97d23379fc7f",
+        source_review="a977f2c7f8879313f53eff97c8589f2559b1790dc17957a7595072f1430736a1",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=(
@@ -317,7 +317,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="27555c3d342c1cb6ac5089a3c76616c73ab7ade3d7c6f07483bac33c432c6db8",
+        source_review="06a716f35c058ed7a2ef00a5e9d1ff9d6f4c5c985d13ae9484731fd4a4dd9a67",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -337,8 +337,8 @@ COMPONENTS = (
     ),
     Component(
         id="Page",
-        source_review="bb25758cc11b03c467fd896cb9500a4a45314af590f599f0fff8f4f2b47ca547",
-        does="Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. With [render] canvas = true, makes the canvas page in place of the linked pages: one canvas element for all maps of the tree, with the data object one time. The page of each nested map then goes to the canvas page with the map ID in the URL hash. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves. While the camera moves, it can draw a large map from images of the full map, which it makes in slices in the free time of the frames. Each boundary flow fades in and out with the camera, and the text of each card fades in and out with the zoom. A hidden list after the canvas gives the maps, the cards and the flows for a screen reader. Each link in the list moves the camera to its item. On the canvas page, Tab moves the keyboard focus through the cards of the current map in reading order, and Enter goes into the focused card or selects it. On a touch screen, a tap selects a card, and a second tap on a card that opens a map goes into it.",
+        source_review="c60cce4b167e4912cc20e3c9e545b2f08071371641ecaae4a5ff16f1ae9b4712",
+        does='Makes the map page. Shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. The rules list gives the assurance level and the freshness of each invariant and import rule. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. With [render] canvas = true, makes the canvas page in place of the linked pages: one canvas element for all maps of the tree, with the data object one time. The page of each nested map then goes to the canvas page with the map ID in the URL hash. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves. While the camera moves, it can draw a large map from images of the full map, which it makes in slices in the free time of the frames. Each boundary flow fades in and out with the camera, and the text of each card fades in and out with the zoom. A hidden list after the canvas gives the maps, the cards and the flows for a screen reader. Each link in the list moves the camera to its item. On the canvas page, Tab moves the keyboard focus through the cards of the current map in reading order, and Enter goes into the focused card or selects it. On a touch screen, a tap selects a card, and a second tap on a card that opens a map goes into it. A header over the canvas has the views Map, Sequences and Changes and the layers. In the Map view, a layer shows only its flows, and the cards that no flow of the layer touches become quiet. Each change of the view fades. In the Sequences view, a toolbar under the header selects a sequence of a map of the tree. The camera goes to that map, the route shows with a number at each step, and the other cards and flows of the map become quiet. In the Steps mode, Previous and Next move the camera to the cards of each step. In the Changes view of the canvas page, each card shows its change mark, only the flows of changed source with structural or declared evidence show, and a card that opens a map with map changes in it or below it shows "changed inside". A bar under the header gives the changes of the current map in words. When the map changes are not known, the bar gives the reason. The layer and the view also control which boundary flows show. On the canvas page, Ctrl K opens the Find dialog for the cards and the flows of all maps. A result in a different map moves the camera to that card and selects it.',
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
             "systemap.page",
@@ -365,6 +365,7 @@ COMPONENTS = (
             "systemap.page_csp",
             "systemap.canvas_data",
             "systemap.canvas_page",
+            "systemap.canvas_header",
             "systemap.render_pages",
             "systemap.page_canvas",
             "systemap.page_canvas_scene",
@@ -375,6 +376,12 @@ COMPONENTS = (
             "systemap.page_canvas_keys",
             "systemap.page_canvas_tree",
             "systemap.page_canvas_touch",
+            "systemap.page_canvas_view",
+            "systemap.canvas_changes",
+            "systemap.page_canvas_changes",
+            "systemap.page_canvas_sequences",
+            "systemap.canvas_sequences",
+            "systemap.page_canvas_find",
         ),
         entry="build",
         region="draw",
@@ -383,7 +390,7 @@ COMPONENTS = (
     ),
     Component(
         id="Figures",
-        source_review="b8fc4e004e71d0d806ed8eaea017cb16bd2ccb488c0c187143fce030b670d906",
+        source_review="fc2b20a14fcf0e901485237d326d37bcf6f48f5ea13d25a04158c3cc05d6fbef",
         does="Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background. Shows the model and configuration text as HTML text. Rejects an SVG ID that is not a safe HTML ID.",
         interface="make(cfg, model, meaning, theme, facts, mode, components, base, head, caption, layer) -> (html, collisions)",
         implemented_by=("systemap.figure",),
@@ -395,7 +402,7 @@ COMPONENTS = (
     # ---- keep true: what refuses, and what asks a person ----
     Component(
         id="Check",
-        source_review="2a4eef5a2a370055ddbe90a329ea60f3d526902b3ff387af32b4b541d4105ced",
+        source_review="6a2de9a32d66363a569fb3a961ee61422e367e44c0a3e4e9ce15251b68ee4ab0",
         does="Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Compares the import rules with the resolved imports. Gives each contract rule without a reason, and does not reject the map for it. Gives all findings. Returns exit code 1 if there are errors.",
         interface="run(model, meaning, theme, facts, ignores) -> Result; stale(cfg, tree, fresh=None) -> lines",
         implemented_by=(
@@ -412,7 +419,7 @@ COMPONENTS = (
     ),
     Component(
         id="Judgement",
-        source_review="5883f1fe240d471b57b5ddf38f9e9bdd9cd17b72a5b8596d25867657f8ad0616",
+        source_review="761e72c23468080ea0cc5052d98f3f693a51ba8c3053952d449fbd3476622959",
         does="Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. Gives each flow review earlier than source tracking as a row with a label, not as a finding. A change to a cited module opens the flow review again. With --strict, returns exit code 1 for findings without answers or for a model without components. Gives the cause, the fix line and the source location rows of each unknown surface finding. Gives a contract reason finding for each invariant or import rule without a reason. A finding line contains no line number, source excerpt, parser version or count. The evidence digest of an answer contains the names, imports and entry points that the finding cites. A comment, a function body or a test does not open an answer again. Gives no finding about a test file. With --json, writes the findings, answers and counts as one JSON object. Gives the assurance level and the freshness of each component, flow, invariant and import rule to the JSON object and to the page. Only an import rule with the result pass is established. A current source review or flow review gives examined. All other claims are unknown. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap decisions submit holds .systemap/write.lock from the read of the store to the last write. Before the first review write, it takes the lock of each model file that a review can write. The store write reads the store again and keeps the records of the other keys. If the configuration does not load after the answer write, the command restores the previous bytes only if no different writer changed the file. systemap suggest gives initial module groups and the map= file name of each possible nested map. systemap parts writes the part plan of the nested maps of one map: the modules, the module groups, the adjacent components, the flows and imports at each boundary, the entry points, and two digests. A different source fact, or a different contract of the parent map or of a map above it, makes the plan stale. A new commit with the same source facts does not make the plan stale. systemap parts --results examines the result file of each nested part against the plan. In each nested map, gives a boundary flow finding for a flow across the boundary of the map that the parent map does not show in the same direction, and for a parent flow that no nested flow shows. Gives a boundary import finding for an import across the boundary when the nested map has no actor or no flow for the imported component. The owner of an imported module is the component that claims it in the nearest map above the nested map.",
         interface="run(model, meaning, facts, sdks) -> lines; exit 1 with --strict while a line is open",
         implemented_by=(
@@ -467,7 +474,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="3dfd5211232145bb0c13c350ffa20d05a5e2aaf2c9fb33cd246e2376df02555a",
+        source_review="26533fbe71aaaae46e79c4fde735a2b480e3880777192484ca350daa45f77733",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),

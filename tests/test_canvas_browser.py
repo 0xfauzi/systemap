@@ -24,7 +24,8 @@ Acceptance values:
    the generated M11 tree (bench/jev/canvas_frames.py), at the fit and at 17 other camera
    positions near it, each boundary flow has right angles, stays on the screen, goes into
    no card that is not open, and ends at the edge of its portal. At the fit of each map,
-   there is a boundary flow.
+   there is a boundary flow. Added on 2026-11-07 (U4 in bench/jev/README.md): no two drawn
+   paths of one frame have the same key.
 10. A portal does not cover a card of the open map. After the camera fit of a map, no card
     of that map is in the band of a portal at its screen edge. The test uses the map Gateway
     and two maps of the generated M11 tree, on a screen of 1440 x 900 pixels and on a
@@ -104,8 +105,8 @@ Acceptance values:
 21. The fade of the count of text columns of a card starts again when the frame before did
     not draw the card. The test runs the function `colFade` of the page script in Node.
 22. Tab and Shift+Tab move the keyboard focus through the cards of the current map in
-    reading order, and then out of the canvas. Tab from the page goes to the canvas. Each
-    card gets the focus one time. A card never comes after a card that is fully below it,
+    reading order, and then out of the canvas. Tab from the page goes through the header
+    to the canvas. Each card gets the focus one time. A card never comes after a card that is fully below it,
     and in a row (each card has its vertical middle in the box of the other) the cards go
     from left to right. Shift+Tab gives the reverse order. After the last card, Tab moves
     the keyboard focus out of the canvas, and so does Shift+Tab before the first card. The

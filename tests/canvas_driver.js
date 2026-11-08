@@ -224,9 +224,12 @@ async function links(file, ids) {
           const child = (m.id ? m.id + '/' : '') + c.id;
           if (!open.has(child) && c.b[0] < W && c.b[1] < H && c.b[0] + c.b[2] > 0 && c.b[1] + c.b[3] > 0) cards.push([m.id + ':' + c.id, c.b]);
         }));
+        const keys = new Set();
         S.links().forEach((l) => {
           r.links++;
           const p = l.points, tag = id + ' x' + z + ' ' + d + ' ' + l.id + ' ';
+          if (keys.has(l.key)) r.problems.push(tag + 'two paths with one key');
+          keys.add(l.key);
           p.forEach((q) => { if (q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H) r.problems.push(tag + 'off the screen'); });
           for (let i = 1; i < p.length; i++) {
             if (Math.abs(p[i][0] - p[i - 1][0]) > 0.5 && Math.abs(p[i][1] - p[i - 1][1]) > 0.5) r.problems.push(tag + 'not a right angle');
@@ -794,8 +797,10 @@ async function keys(file, card, neighbour, light, order) {
   out.boxes = await page.evaluate((id) => JSON.parse(document.getElementById('canvas-data').textContent).maps.find((m) => m.id === id).cards.map((c) => ({ id: c.id, b: c.b })), map);
   out.order = await page.evaluate((id) => window.systemapCanvas.order(id), map);
   const n = out.order.length;
-  // Tab from the page goes to the canvas. Then Tab goes through the cards and out.
+  // Tab from the page goes through the controls of the header to the canvas. Then Tab goes
+  // through the cards and out.
   await page.keyboard.press('Tab');
+  for (let i = 0; i < 20 && await page.evaluate(() => !!document.activeElement.closest('#canvas-head')); i++) await page.keyboard.press('Tab');
   out.entered = await keyState(page);
   out.tabs = await presses(page, 'Tab', n);
   await page.keyboard.press('Tab');

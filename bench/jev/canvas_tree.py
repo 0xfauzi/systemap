@@ -41,6 +41,7 @@ import sys
 import tempfile
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -98,6 +99,25 @@ def _gate() -> float:
             quiet_since = time.monotonic()
         time.sleep(1)
     return time.monotonic() - start
+
+
+def attempts(
+    run: Callable[[], dict[str, Any]], label: str, tries: int = ATTEMPTS
+) -> dict[str, Any]:
+    """Make one run after the quiet gate, and again until it is quiet, in `tries` attempts or
+    fewer. Print each attempt as one JSON line, and give the last attempt.
+
+    `run` gives the values of one run with the key `foreign`: the foreign processes that the
+    run saw. `label` is the name of the run, for example "B2"."""
+    found: dict[str, Any] = {}
+    for attempt in range(1, tries + 1):
+        waited = _gate()
+        found = run() | {"run": label, "attempt": attempt, "waited": round(waited)}
+        found["quiet"] = not found["foreign"]
+        print(json.dumps(found), flush=True)
+        if found["quiet"]:
+            break
+    return found
 
 
 def _loads(page: Path) -> dict[str, Any]:

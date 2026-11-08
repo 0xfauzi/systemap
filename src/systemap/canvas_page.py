@@ -14,6 +14,10 @@ The page also has an empty list of the tree and a live region (`page_canvas_tree
 script writes the list from the canvas data after the first frame. The canvas, its help
 text, the list and the live region are in one `main` element. Thus all text of the page is
 in a landmark.
+
+In front of `main`, the page has one `header` element over the top of the canvas
+(`canvas_header`): the views, the layers and the Find button. The view parts of the
+renderer (docs/design/nested-canvas.md, step 4) add their parts to the page in `SLOTS`.
 """
 
 from __future__ import annotations
@@ -23,7 +27,17 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import quote
 
-from systemap import canvas_data, nest, page, page_csp, page_font
+from systemap import (
+    canvas_data,
+    canvas_header,
+    nest,
+    page,
+    page_canvas_changes,
+    page_canvas_find,
+    page_canvas_sequences,
+    page_csp,
+    page_font,
+)
 from systemap import theme as theme_mod
 from systemap.config import Config
 from systemap.model import all_layers
@@ -53,6 +67,21 @@ def tree_theme(cfg: Config, tree: nest.Tree) -> dict[str, Any]:
     return nest.theme_of(cfg, layers.values())
 
 
+# The parts that the view parts add to the page, each a text: `css` goes after the CSS of
+# the page, `head` into the header before the Find button, and `after` after `main` (for
+# example a dialog). Each view part adds its text
+# in one line for each slot.
+SLOTS: dict[str, tuple[str, ...]] = {
+    "css": (page_canvas_changes.CSS, page_canvas_sequences.CSS, page_canvas_find.CSS),
+    "head": (page_canvas_sequences.HTML, page_canvas_changes.HTML),
+    "after": (page_canvas_find.HTML,),
+}
+
+
+def _slot(name: str) -> str:
+    return "".join(SLOTS[name])
+
+
 def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
     """Give the canvas page of the canvas data `data`, with the colors of the theme `t`."""
     name = str(data.get("name", ""))
@@ -63,7 +92,11 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + page_font.FACE
         + theme_mod.root_css(t)
         + CSS
-        + "</style></head><body><main>"
+        + canvas_header.CSS
+        + _slot("css")
+        + "</style></head><body>"
+        + canvas_header.html_of(data, _slot("head"))
+        + "<main>"
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + '<p id="canvas-help" class="sr-only">'
@@ -77,8 +110,10 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         "The arrow keys move the map. The keys + and - zoom. "
         "F fits the current map. The list after the canvas gives the maps, the cards "
         "and the flows. Each link in the list moves the camera to its item.</p>"
+        + page_canvas_changes.empty_html(data)
         + TREE_HTML
         + "</main>"
+        + _slot("after")
         + '<script type="application/json" id="canvas-data">'
         + body
         + "</script>\n<script>"

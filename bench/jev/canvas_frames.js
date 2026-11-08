@@ -1,6 +1,6 @@
 // The browser part of canvas_frames.py (C2 and C3 of the nested canvas design).
 //
-//     node canvas_frames.js PAGE.html MODE RATE [FRAMES]
+//     node canvas_frames.js PAGE.html MODE RATE [FRAMES] [VIEW]
 //     node canvas_frames.js --probe
 //
 // MODE is load, pan-fit, all-open, dive, dive-stop or pan-stop. RATE is the CPU throttling rate of
@@ -15,6 +15,8 @@
 //   change. `over` is the count of intervals of more than 35 ms (two ticks plus 5 percent).
 //   dive-stop goes from the top fit to the part DEPTH of the dive (the scale moves in log
 //   space). pan-stop moves the camera of that point 200 screen pixels to the left and right.
+// VIEW is the name of a view of the page (`systemapCanvas.setView`, for example changes). The
+// scenario starts 400 ms after the page shows that view. A page without views ignores it.
 // --probe exits 0 if Playwright can start Chromium.
 'use strict';
 const { chromium } = require('playwright');
@@ -96,12 +98,14 @@ function scenario(args) {
   });
 }
 
-async function frames(file, mode, rate, count) {
+async function frames(file, mode, rate, count, view) {
   const { browser, page } = await open(rate);
   await page.goto('file://' + file);
   await page.waitForFunction(() => window.systemapCanvas && window.systemapCanvas.ready);
   await page.waitForTimeout(300);
+  if (view && await page.evaluate((v) => !!window.systemapCanvas.setView && window.systemapCanvas.setView(v), view)) await page.waitForTimeout(400);
   const result = await page.evaluate(scenario, [mode, count, STOP_MS, DEPTH]);
+  if (view) result.view = await page.evaluate(() => (window.systemapCanvas.viewState ? window.systemapCanvas.viewState().mode : 'map'));
   await browser.close();
   return result;
 }
@@ -112,7 +116,7 @@ async function frames(file, mode, rate, count) {
     await browser.close();
     return;
   }
-  const [file, mode, rate, count] = process.argv.slice(2);
-  const result = mode === 'load' ? await load(file, +rate) : await frames(file, mode, +rate, +(count || 180));
+  const [file, mode, rate, count, view] = process.argv.slice(2);
+  const result = mode === 'load' ? await load(file, +rate) : await frames(file, mode, +rate, +(count || 180), view);
   process.stdout.write(JSON.stringify(result) + '\n');
 })().catch((err) => { process.stderr.write(String(err && err.stack || err) + '\n'); process.exit(1); });
