@@ -25,6 +25,7 @@ from systemap import (
     python_tree,
     source_facts,
     source_text,
+    syntax_text,
     unknown_causes,
 )
 
@@ -238,12 +239,12 @@ def test_walk_gives_the_nodes_in_the_order_of_ast_walk() -> None:
 def test_the_syntax_digest_does_not_change_the_shared_tree(
     as_on: Callable[[ast.AST], ast.AST],
 ) -> None:
-    """The dump hides empty `type_params` and empty f-string parts (issue 126) and then
-    restores them."""
+    """The syntax text omits empty `type_params` and empty f-string parts (issue 126), but
+    it does not change the tree."""
     source = "def f(x: int) -> int:\n    return x\n\nclass C:\n    pass\n" + SOURCE
     tree = as_on(ast.parse(source))
     before = ast.dump(tree, include_attributes=True)
-    extract._dump_python_syntax(tree)
+    syntax_text.text(tree)
     assert ast.dump(tree, include_attributes=True) == before
     assert not any("_fields" in vars(node) for node in ast.walk(tree))
 

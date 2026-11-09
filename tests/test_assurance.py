@@ -344,7 +344,7 @@ def test_judgement_json_gives_one_row_for_each_claim(
 ) -> None:
     main(["--root", str(project), "judgement", "--json"])
     out = json.loads(capsys.readouterr().out)
-    assert out["schema_version"] == 7 == judgement_json.SCHEMA_VERSION
+    assert out["schema_version"] == 8 == judgement_json.SCHEMA_VERSION
     tree = nest.load(config.load(project))
     cfg = config.load(project)
     facts = facts_file.read_facts(cfg.facts_path, cfg.root) or {}

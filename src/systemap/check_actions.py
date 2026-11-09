@@ -25,22 +25,31 @@ def fix_line(tree: nest.Tree, cfg: Config, results: Mapping[str, check.Result]) 
     """Give the action for the check error with the highest priority.
 
     Model errors come first, then facts, combined checks, and outputs. The top map comes
-    before nested maps. Only stale outputs give "run: systemap refresh".
+    before nested maps. Only stale outputs give "run: systemap refresh". A scoped tree has
+    results only for the selected map. Its coverage counts only if it is the top map.
     """
-    for m in tree.maps:
+    for m in tree.reported:
         if results[m.id].problems:
             return f"Correct {m.rel}. Then use systemap check."
-    top = results[tree.top.id]
-    if not top.coverage.checked:
-        return "run: systemap extract"
-    coverage = _coverage_fix(cfg, top)
+    coverage = _top_fix(cfg, results.get(tree.top.id))
     if coverage:
         return coverage
-    for m in tree.maps:
+    for m in tree.reported:
         result = results[m.id]
         if result.entry or result.interface or result.nesting:
             return f"Correct {m.rel}. Then use systemap check."
     return "run: systemap refresh"
+
+
+def _top_fix(cfg: Config, top: check.Result | None) -> str:
+    """Give the action for the facts or the coverage of the top map, or no action.
+
+    A scoped tree without the top map gives no action."""
+    if top is None:
+        return ""
+    if not top.coverage.checked:
+        return "run: systemap extract"
+    return _coverage_fix(cfg, top)
 
 
 def _coverage_fix(cfg: Config, top: check.Result) -> str:

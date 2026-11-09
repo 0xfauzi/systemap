@@ -10,9 +10,10 @@ it. Thus the page must escape the model text. The policy does not replace that e
 
 The page has no network request. Thus the policy permits no network source. It permits
 `data:` images and fonts, because the page contains its icon and its font as `data:`
-URLs. It permits frames from the same origin, because a card can open a child map in a
-frame. Style attributes stay permitted, because the map and its scripts use them. A
-style attribute cannot run a script.
+URLs. The linked page permits frames from the same origin, because a card can open a
+child map in a frame. The canvas page and the small page of a nested map have no frame.
+Thus they permit no frame (`NO_FRAME`). Style attributes stay permitted, because the map
+and its scripts use them. A style attribute cannot run a script.
 
 `systemap live` adds a script to each page, and this script reads events from the live
 server. For such a page, `with_live_script` adds the digest of the script and permits
@@ -49,6 +50,10 @@ FIGURE_POLICY = (
     "object-src 'none'; base-uri 'none'"
 )
 
+# The frame-src source of the linked page, and of a page with no frame.
+SAME_ORIGIN = "'self'"
+NO_FRAME = "'none'"
+
 
 def _digest(text: str) -> str:
     value = base64.b64encode(hashlib.sha256(text.encode("utf-8")).digest()).decode("ascii")
@@ -71,11 +76,12 @@ def _digests(pattern: re.Pattern[str], texts: Iterable[str], decoded: bool) -> l
     return list(found)
 
 
-def policy(page: str, inserted: Iterable[str] = ()) -> str:
+def policy(page: str, inserted: Iterable[str] = (), frame: str = SAME_ORIGIN) -> str:
     """Give the policy for `page`.
 
     `inserted` gives the HTML texts that the page scripts put into the page, for example
-    the child map previews. Their style elements get digests too."""
+    the child map previews. Their style elements get digests too. `frame` is the source
+    of frame-src."""
     texts = [_META.sub("", page), *inserted]
     scripts = " ".join(_digests(_SCRIPT, texts, False)) or "'none'"
     styles = " ".join(_digests(_STYLE, texts, True)) or "'none'"
@@ -88,7 +94,7 @@ def policy(page: str, inserted: Iterable[str] = ()) -> str:
         "style-src-attr 'unsafe-inline'",
         "img-src data:",
         "font-src data:",
-        "frame-src 'self'",
+        f"frame-src {frame}",
         "object-src 'none'",
         "base-uri 'none'",
         "form-action 'none'",
@@ -96,7 +102,7 @@ def policy(page: str, inserted: Iterable[str] = ()) -> str:
     return "; ".join(parts)
 
 
-def with_policy(page: str, inserted: Iterable[str] = ()) -> str:
+def with_policy(page: str, inserted: Iterable[str] = (), frame: str = SAME_ORIGIN) -> str:
     """Give `page` with a policy meta element after its charset meta element.
 
     If the page has a policy meta element, the new element replaces it. If the page has
@@ -104,7 +110,7 @@ def with_policy(page: str, inserted: Iterable[str] = ()) -> str:
     page = _META.sub("", page)
     if _CHARSET not in page:
         return page
-    return page.replace(_CHARSET, _CHARSET + _meta(policy(page, inserted)), 1)
+    return page.replace(_CHARSET, _CHARSET + _meta(policy(page, inserted, frame)), 1)
 
 
 def with_live_script(page: str, script: str) -> str:

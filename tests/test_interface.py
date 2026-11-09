@@ -17,7 +17,7 @@ from typing import Any
 
 import fixture_workspace
 import pytest
-from conftest import Sample, init_two_cards, write_tree
+from conftest import Sample, init_two_cards, use_linked_pages, write_tree
 
 from systemap import check
 from systemap.cli import ALREADY_CURRENT, main
@@ -35,9 +35,11 @@ def run(*argv: str) -> int:
     return main(list(argv))
 
 
-def current(root: Path) -> None:
+def current(root: Path, linked: bool = False) -> None:
     write_tree(root, {"pkg/__init__.py": "", **STARTER_MODULES})
     init_two_cards(root, "--no-ci")
+    if linked:
+        use_linked_pages(root)
     assert run("--root", str(root), "refresh") == 0
     assert run("--root", str(root), "check") == 0
 
@@ -313,7 +315,8 @@ def test_panel_carries_interface_entry_and_note(sample: Sample) -> None:
 def test_an_interface_edit_renders_and_refresh_says_what_current_means(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    current(tmp_path)
+    # The canvas page does not show the interface. The linked page shows it.
+    current(tmp_path, linked=True)
     capsys.readouterr()
     edit_model(
         tmp_path, 'interface="write(request) -> Result",', 'interface="write(request) -> str",'

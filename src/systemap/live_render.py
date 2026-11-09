@@ -25,7 +25,7 @@ from systemap import (
     history,
     nest,
     out_paths,
-    page,
+    render_pages,
 )
 from systemap.config import Config, ConfigError
 from systemap.model import problems as model_problems
@@ -71,16 +71,8 @@ def render_tree(root: Path, base: str, cache: fact_cache.FactCache | None = None
     source = change.source_change(cfg, base, facts, change.WORKING_TREE, cache) if base else None
     compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
     files = {
-        out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): page.build(
-            cfg,
-            m.model,
-            m.meaning,
-            m.theme,
-            facts,
-            compared[m.id],
-            nesting=page.nesting_of(cfg, tree, m, facts),
-        )
-        for m in tree.maps
+        out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): html
+        for m, html in render_pages.pages(cfg, tree, facts, lambda m: compared[m.id])
     }
     top = compared[tree.top.id]
     files[FIGURE] = _figure(cfg, tree, facts, (base, source), top)

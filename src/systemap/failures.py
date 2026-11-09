@@ -23,6 +23,7 @@ from systemap import (
     file_write,
     place,
     review,
+    syntax_text,
     terminal_text,
 )
 from systemap import language as languages
@@ -39,6 +40,10 @@ OPTION_FIX = "Correct the command option. Then run the command again."
 FACTS_FIX = "Use systemap refresh or systemap extract to write a new facts file."
 # The module that reads tsconfig.json files. Its errors are about those files.
 TSCONFIG_READER = "systemap.typescript_config"
+SYNTAX_FIX = (
+    "Use a Python version from the classifiers of systemap, or add the item to the "
+    "tables of systemap.syntax_text."
+)
 
 # The first type that agrees with the error gives the correction and the exit code.
 # A subclass comes before its base class.
@@ -52,8 +57,11 @@ FAILURES: tuple[tuple[type[Exception], str, int], ...] = (
     (figure.FigureError, "", STALE),
     # The message of a refused cache or output file gives the path, the cause, and the fix.
     (file_write.RefusedFile, "", STALE),
+    # The message of a held lock gives the path, the holder, and the fix.
+    (file_write.HeldLock, "", STALE),
     (place.PlaceError, "", STALE),
     (review.ReviewError, "", STALE),
+    (syntax_text.UnknownSyntax, SYNTAX_FIX, STALE),
     (decisions_submit.DecisionError, "", STALE),
     (
         delta.DeltaError,

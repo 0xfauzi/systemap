@@ -519,4 +519,48 @@ JOURNEYS = (
             ),
         ),
     ),
+    Journey(
+        id="nested-parts",
+        label="Divide the map into nested parts",
+        starts="parts (subcommand in systemap.parts_cli)",
+        covers=('["subcommand","systemap.parts_cli","","parts"]',),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="The agent runs systemap parts --stub CARD for a component with more than ten modules.",
+            ),
+            Step(
+                acts=("CLI",),
+                measures=("Model",),
+                edge=("Model", "CLI"),
+                say="The command loads the map and finds the parent components that have a flow or an import across the boundary of the component.",
+            ),
+            Step(
+                acts=("Placer",),
+                measures=(),
+                edge=("CLI", "Placer"),
+                say="The stub gets one component for each module group of systemap suggest, the actors, and positions from systemap place.",
+            ),
+            Step(
+                acts=("Check",),
+                measures=(),
+                edge=("CLI", "Check"),
+                say="The command examines the stub with the model checks and the nesting check. If a check gives a problem, it writes no file.",
+            ),
+            Step(
+                acts=("Judgement",),
+                measures=(),
+                edge=("CLI", "Judgement"),
+                say="After the agent sets map= on the component, systemap parts writes the part plan to map/parts/plan.json with two digests.",
+            ),
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Judgement", "Agent"),
+                say="The agent gives each nested part its record from the plan. Then systemap parts --results examines each result file against the plan.",
+            ),
+        ),
+    ),
 )

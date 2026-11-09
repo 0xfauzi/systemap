@@ -17,6 +17,7 @@ from conftest import SAMPLE_TREE, write_tree
 
 from systemap import skill
 from systemap.cli import main
+from systemap.parts_result import FORMS, LISTS, REQUEST_KINDS, TEXTS
 
 
 def worked_example() -> str:
@@ -232,3 +233,33 @@ def test_language_policy_is_mandatory_and_installed(tmp_path: Path) -> None:
     target = tmp_path / "skills" / "systemap"
     skill.write(target)
     assert (target / "references/language.md").read_text(encoding="utf-8") == policy
+
+
+def test_the_skill_names_each_reference_and_the_parts_procedure() -> None:
+    text = skill.text()
+    assert len(text.splitlines()) <= 240
+    listed = text[text.index("## References") :]
+    for name in skill.files():
+        if name.startswith("references/"):
+            assert f"`{name}`" in listed, name
+    assert "read `references/parts.md`" in text
+    parts = skill.files()["references/parts.md"]
+    for command in (
+        "systemap parts --stub CARD",
+        "systemap parts --map <MAP ID> --json",
+        "systemap parts --results",
+        "systemap decisions pending --map ID --json",
+        ".systemap/write.lock",
+    ):
+        assert command in parts, command
+
+    block = re.search(r"```json\n(.*?)```", parts, re.S)
+    assert block is not None
+    for key in (*TEXTS, *LISTS, "check_exit"):
+        assert f'"{key}"' in block.group(1), key
+    assert all(f"`{kind}`" in parts for kind in REQUEST_KINDS)
+    assert all(f"`{form}`" in parts for form in FORMS)
+    glossary = skill.files()["references/language.md"]
+    for term in ("sub-agent", "main agent", "nested part", "part agent", "write set", "stub"):
+        assert f"| {term} |" in glossary, term
+    assert "| merge | Combine two Git branches with `git merge`. |" in glossary

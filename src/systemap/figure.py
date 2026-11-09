@@ -15,8 +15,8 @@ import re
 from collections.abc import Iterator, Mapping
 from typing import Any
 
+from systemap import canvas_redirect, nest, schematic_change
 from systemap import change as change_mod
-from systemap import nest, schematic_change
 from systemap.config import ArgumentError, Config, ConfigError, Figure
 from systemap.model import DERIVED_LAYERS, Layer, Meaning, Model, all_layers, reading
 from systemap.schematic import interactive_script, kind_rows, layer_rows, legend_rows, panel_css
@@ -244,7 +244,7 @@ def make(
     _check_svg_id(svg_id)
     # The configuration and the model give these names, so the caption has them as text.
     caption = esc(caption)
-    page_url = esc(f"{cfg.out_dir}/{map_id}/index.html" if map_id else f"{cfg.out_dir}/index.html")
+    page_url = esc(page_of(cfg, map_id))
     facts_url = esc(f"{cfg.out_dir}/{cfg.facts_file}")
     inside = f"Inside {esc(map_id.rpartition('/')[2])}: " if map_id else ""
     mode = mode or ("change" if (base or components) else "system")
@@ -361,6 +361,20 @@ def make(
         t, model, meaning, svg, caption, rows, svg_id, detail if interactive else None, layer
     )
     return out, collisions
+
+
+def page_of(cfg: Config, map_id: str) -> str:
+    """Give the page of the map `map_id` that a caption names, relative to the root.
+
+    The canvas page holds all maps. Thus a nested map is the top page with the map ID in
+    the hash, for example `docs/map/index.html#Gateway`. With `[render] canvas = false`,
+    a nested map has its own linked page."""
+    top = f"{cfg.out_dir}/index.html"
+    if not map_id:
+        return top
+    if cfg.render_canvas:
+        return f"{top}#{canvas_redirect.hash_of(map_id)}"
+    return f"{cfg.out_dir}/{map_id}/index.html"
 
 
 def _check_svg_id(svg_id: str) -> None:

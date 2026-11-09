@@ -17,8 +17,11 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    claim_index,
     control_names,
     fact_cache,
+    facts_file,
+    facts_shape,
     file_names,
     git_command,
     repo_files,
@@ -29,7 +32,7 @@ from systemap import language as languages
 from systemap.completeness import parse_state
 from systemap.config import Config, ConfigError
 from systemap.language import LanguageAdapter
-from systemap.model import Model, covers, is_symbol
+from systemap.model import Model, is_symbol
 from systemap.reexports import resolve_reexports
 from systemap.source_facts import WHOLE_MODULE, entry_label
 
@@ -53,8 +56,11 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # `extraction_inputs` of the adapter gives, and `provenance.installed` has the digests of
 # such files in an installed package folder. Format 13: a `package_export` record has no
 # count in `target` and `reason`, because a finding line must not contain a count. The
-# record has the count in `count`.
-FORMAT = 13
+# record has the count in `count`. Format 14: the Python syntax digest and the `api`
+# fingerprints come from the syntax text of systemap (`syntax_text`), and the signatures,
+# the constant values and the class bases come from the source text (`source_segment`).
+# Thus they are the same on each supported Python version (issue 136).
+FORMAT = 14
 TESTS_KEPT = 25
 
 
@@ -552,6 +558,27 @@ def _build(
     return _facts_file(cfg, language, prefixes, components, cfg.test_dirs, points, issues, context)
 
 
+def saved_drift(
+    cfg: Config, fresh: dict[str, Any] | None = None
+) -> tuple[list[str], dict[str, Any]]:
+    """Compare the saved facts with fresh facts. Give the problems and the saved facts.
+
+    Saved facts that are not available or not correct give no saved facts. `check` uses
+    this function, also in a run with `--map`."""
+    fresh = fresh if fresh is not None else build(cfg)
+    try:
+        stored = facts_file.read_facts(cfg.facts_path, cfg.root)
+    except facts_shape.FactsError as exc:
+        # A refresh writes a new facts file in place of the incorrect file.
+        return [f"facts: {exc}"], {}
+    if not stored:
+        return ["No extracted facts are available."], {}
+    # Only the drift is stale here: a claim of a module the tree does not
+    # have is the entry rule's finding, and a placement problem is the
+    # placement rule's, so neither is reported twice.
+    return [f"facts: {line}" for line in drift(fresh, stored)], stored
+
+
 def drift(fresh: dict[str, Any], stored: dict[str, Any]) -> list[str]:
     """Compare stored facts with extracted facts. An empty list means no differences."""
     out: list[str] = []
@@ -659,15 +686,14 @@ def mapping_drift(fresh: dict[str, Any], model: Model, prefixes: set[str]) -> li
     Component module claims are authored input. A rename can leave a claim for an
     absent module. This function finds that difference and also examines layout.
     """
-    known = set(fresh["components"])
     out: list[str] = []
     for c in model.components:
         for m in c.implemented_by:
             # A symbol claim names its module before the colon; the name
             # itself is the entry rule's business.
             module = m.partition(":")[0] if is_symbol(m) else m
-            if module.split(".")[0] in prefixes and not any(
-                covers(module, k, fresh["components"]) for k in known
+            if module.split(".")[0] in prefixes and not claim_index.claimed(
+                (module,), fresh["components"]
             ):
                 out.append(
                     f"{c.id} has a module claim for {module}, which is missing from the facts."

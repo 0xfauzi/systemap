@@ -5,7 +5,9 @@ and the tour is what the script says it is.
 test holds what it wrote to its claims: two PNGs of 1600 by 900, one
 per scheme; a GIF under four megabytes; a tour whose every state names a
 reading or a card the model has, so a renamed card cannot leave the tour
-showing nothing.
+showing nothing. From step 5 of docs/design/nested-canvas.md, the script
+photographs the canvas page: the tour uses the views and the layer buttons of
+its header, and the URL hash of a card.
 """
 
 from __future__ import annotations
@@ -79,15 +81,16 @@ def test_every_tour_state_names_a_reading_or_a_card_the_model_has() -> None:
     cards = {c.id for c in m.model.components}
     names = [name for name, _ in script.TOUR]
     assert len(names) == len(set(names))
+    known = {"layer": layers, "card": cards, "view": {"map", "sequences", "changes"}}
     for name, actions in script.TOUR:
-        for layer in re.findall(r"layer\('([^']+)'\)", actions):
-            assert layer in layers, (name, layer)
-        for card in re.findall(r"A\.select\('([^']+)'\)", actions):
-            assert card in cards, (name, card)
+        for call, arg in re.findall(r"(layer|card|view)\('([^']+)'\)", actions):
+            assert arg in known[call], (name, call, arg)
         for k in re.findall(r"journey\((\d+)\)", actions):
             assert int(k) < len(m.meaning.journeys), (name, k)
     assert any("journey(" in a for _, a in script.TOUR)
-    assert any("A.select(" in a for _, a in script.TOUR)
+    assert any("card(" in a for _, a in script.TOUR)
+    assert any("view('changes')" in a for _, a in script.TOUR)
+    assert "canvas_page" in SCRIPT.read_text(encoding="utf-8"), "the canvas page"
     assert sum(1 for _, a in script.TOUR if "layer(" in a) >= len(layers) - 1
 
 

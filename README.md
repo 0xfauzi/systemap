@@ -27,7 +27,7 @@ This page gives the map terms, the installation procedure, and the commands
 that compare the map with the code.
 
 <p align="center">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the map: the reader changes the view, selects a component to show its connections, and reads a sequence one step at a time" width="100%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the canvas page: the reader changes the layer, zooms to a component, reads a sequence one step at a time, and opens the Changes view" width="100%">
 </p>
 
 <p align="center">
@@ -54,18 +54,8 @@ one step at a time. A sequence does not record an execution.
 
 The figure shows systemap's own map with no flow lines. A **layer** shows the
 flows that answer one question. Examples include connections across the system
-boundary, data flow, and control flow. Select a component to see its connected components
-and the explanation for each connection.
-
-`Structure` shows no flow lines after a component selection.
-Other layers show only flow lines that connect to the selected component.
-Flow labels show on their lines. A label that does not fit on its line
-shows for a pointer, keyboard focus, or selection, and the Details panel lists it.
-
-When the map is smaller than 100 percent, the labels become larger, so that you can read them.
-A label moves along its line to a place where it touches no card, label, or other line.
-A label without such a place also shows only for a pointer, keyboard focus, or selection.
-The Details panel keeps all component connections, with direction and evidence.
+boundary, data flow, and control flow. A layer shows only its flows. A card that
+no flow of the layer touches becomes quiet.
 
 Flow lines also show evidence. A solid internal line shows a current source review.
 This is a recorded source review whose source records and claim digest still agree with
@@ -83,47 +73,46 @@ None of these states records execution.
  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/light.png" alt="the Paper theme" width="48%">
 </p>
 
-The page has three views. **Map** shows the layers. **Sequences** shows one
-operation as a route on the map, then one step at a time, with a note at each
-step. A button in its row opens the list of sequences. **Changes** shows the components and flows that a revision comparison
-changed.
+The page draws all maps of the map tree on one canvas. A card that opens a
+nested map shows a preview of that map. When you zoom in, the preview grows into
+the nested map. The wheel and a pinch zoom at the pointer, and a drag moves the map.
+A double-click goes into a card, Esc goes out one level, and F fits the current map.
+The path of the open maps is at the top left. When a neighbour of the open map
+is not on the screen, a portal at the screen edge gives it.
 
-On the first visit, a guide card gives up to five steps through the map.
-The three views have the same parts. Each has a row of controls under the header
-and a panel at the right. Above the map, one line gives a small label and a question.
-On a wide window, the Map view opens the panel with the page. With no
-selection, the panel shows the current layer: one card for each flow,
-actor, or region.
+The header has three views. **Map** shows the layers. **Sequences** shows one
+operation as a route on the map, then one step at a time.
+**Changes** shows the components and flows that a revision comparison changed.
+Find (Ctrl+K, Cmd+K, or /) opens one search field for views, layers,
+components, flows, sequences, and actions in all maps.
 
-The header has no menu. Find (Ctrl+K, Cmd+K, or /) opens one search field for
-views, layers, components, flows, sequences, rules, and actions. Icon buttons
-select the theme, set Reduce motion, show the keyboard keys, and open the
-Details panel. Motion is on until the reader sets Reduce motion on the page.
-
-The full-screen button and the F key show the map alone in each view.
-The Map panel gives all rules of the system and an explanation of the lines
-and cards. The commit in the header opens the source records of the page.
+The URL hash holds the open map, for example `index.html#Gateway`.
+The page of each nested map, for example `Gateway/index.html`, is a redirect page.
+It opens the canvas page at that map, so earlier links stay correct.
 
 The themes are Ink and Paper.
-Ink has dark surfaces and is the default. Paper has light surfaces.
-The first visit uses the device theme.
+Ink has dark surfaces. Paper has light surfaces.
+The page starts with the device theme, and the theme button changes it.
+The page obeys the system setting for reduced motion, and the Reduce motion button
+also stops the motion. The ? key shows the keyboard keys of the canvas.
+The source button gives the commit of the map and the facts file.
+
+A click or a tap selects a card. The Details panel (the D key) gives the selected
+card: its flows with their evidence, its sequences, its rules with their assurance,
+and the counts of its source records. A dotted ring on an actor card shows an open
+boundary finding of the judgement, with a short text.
 
 Only the flow kinds, the selection, and the change have colors.
-A line has the color of its flow kind in all views. The selection color
-identifies only the current item, such as the selected card, the current step,
-and a wider line under the selected line. Cards, regions, text, and other lines are neutral.
+A line has the color of its flow kind in all views.
 
-The map has one flat view. Card text changes size with the zoom.
-Fit shows the full map as large as the map area permits.
+Keyboard users move through the cards with Tab and go into a card with Enter.
+A list after the canvas gives each map, card, and flow for a screen reader.
+On a phone, the page shows the same canvas. A tap selects a card and shows its
+facts, and a second tap goes into a card that opens a map.
 
-In a sequence step, the acting component has an ACTS tag and a measurement
-component has a MEASURES tag. On a phone, the map shows its regions as a grid,
-and a sequence shows one step below the map. The map gets the height that the
-step and its buttons do not use. Its zoom keeps the card text at a size that you can read,
-and the acting component stays in view.
-
-The panel gives source modules, entry points, related sequences, and evidence states.
-These values come from the current model and recorded source data.
+With `[render] canvas = false`, systemap writes the earlier linked pages for one release.
+They have the full source records, the snapshot button, full screen, and a phone grid.
+The canvas page does not have these parts.
 
 ## How do you install systemap?
 
@@ -577,7 +566,7 @@ systemap does not change an existing `.systemap/.gitignore` file. It does not ch
     uv run systemap check && uv run systemap judgement --strict
 
 CI executes tests, type checks, and lint checks on Linux, macOS, and Windows.
-The Python versions are 3.11 and 3.13. Each platform also installs the built
+The Python versions are 3.11, 3.13, and 3.14. Each platform also installs the built
 package into an empty environment. The installation job executes the commands
 against a copy of this repository's map.
 

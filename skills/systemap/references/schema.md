@@ -174,8 +174,8 @@ The checker gives the actual available dimensions when text does not fit.
 Do not remove part of an identifier or invent a shorter source name.
 
 `note` gives a source limitation or other necessary qualification.
-The inspector shows it below the interface.
-A dot on the card also gives the note as hover text.
+On the canvas page, the Details panel shows it below the `does` text.
+On the linked page, the inspector shows it below the interface, and a dot on the card gives the note as hover text.
 
 ### Nested map
 
@@ -188,9 +188,9 @@ Its actors use the identifiers of adjacent components on the parent map.
 An actor cannot have a nested map.
 
 The parent card keeps its flows and shows a second card behind it.
-The inspector has a preview and an open button.
-Double-click or a second Enter also opens the nested map.
-`docs/map/Gateway/index.html` has a parent link.
+The card shows a preview of the nested map. Zoom in, double-click, or press Enter to open the nested map.
+`docs/map/Gateway/index.html` is a redirect page.
+It opens the canvas page with the URL hash `#Gateway`.
 A nested map can also have nested maps, with identifiers such as `Gateway/Routes`.
 See `references/layout.md` for thresholds and commands.
 
@@ -442,7 +442,7 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 13, with portable syntax hashes, compiler provenance, the digests of the configuration values that extraction reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. `extract --check` marks older formats stale.
+- `version`: The facts format is 14, with portable syntax hashes, compiler provenance, the digests of the configuration values that extraction reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. `extract --check` marks older formats stale. In format 14, the Python syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`). The signatures and the constant values come from the source text. These values are the same on each supported Python version.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer. `files` has, for each configuration file that extraction reads, the digest of the values that extraction reads from it. Comments and other values do not change the digest. `installed` has these digests for the files in an installed package folder, for example `node_modules`. A new or changed installed digest is an input change. An installed file that is not on this computer is not a change.
@@ -463,13 +463,13 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `loc`: The file line count.
 - `sha`: The first twelve hex digits of the source SHA-1. This is the change-detector key.
 - `source_sha256`: The full SHA-256 of UTF-8 source text with normalized newlines, for source references.
-- `syntax_sha`: The parsed-syntax digest for source review. Comments and text format do not change it.
+- `syntax_sha`: The parsed-syntax digest for source review. Comments and text format do not change it. A Python syntax node class that systemap does not know stops the extraction with an error that gives the class and the Python version.
 - `docstring`: The first paragraph of the module description, with a length limit. The Python adapter reads the module docstring. The TypeScript adapter reads the first documentation comment.
-- `functions`: Public functions with `name` and `signature`. A function with overload signatures has one record for each signature, and one record in `names`.
+- `functions`: Public functions with `name` and `signature`. The Python adapter takes the annotations and the default values of a signature from the source text. A function with overload signatures has one record for each signature, and one record in `names`.
 - `classes`: Public class declarations other than errors, with `name` and public method signatures in `methods`. A type declaration that is not a class is in `types`.
 - `errors`: Public classes with Error or Exception in their names or bases. They use the same fields as classes.
 - `types`: Public type declarations that are not classes, with `name`, `category`, and public method signatures in `methods`. The category is `interface`, `enum`, or `type_alias`. The TypeScript adapter records the three categories. The Python adapter records the `type` statement as `type_alias`. Python 3.11 cannot parse this statement.
-- `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`.
+- `constants`: The first 14 UPPER_CASE assignments, with `name` and `value`. The Python adapter takes the value from the source text, on one line without comments, with not more than 80 characters.
 - `names`: Public module-level names in source order, with `kind`: `function`, `class`, `error`, `type` (a record in `types`), `constant` (UPPER_CASE), or `object` (other assignments such as `app`). TypeScript uses `unknown` for unresolved kinds. A package `__init__` includes local re-exports, with `reexport_of` and the kind in their source module. A full-module import uses kind `module`. Each re-export and each local alias has `defined_in` and `defined_as`: the module and the symbol that define it, through all re-exports and aliases. `defined_as` is `*` for a full module. The two values are `null` if the defining module is not known. A `*` re-export of the module does not give a name that has `star_export` set to `false`. A name with `star_export` set to `null` can be in the `*` re-export or not. The TypeScript adapter sets `false` for `default`. The Python adapter sets the value from `__all__`. The `__all__` of a package also applies to the names of its `*` re-exports. A Python name that is not in `__all__` stays in `names`, because an import of that name can use it. `type_only` is `true` for a type-only export. A type-only export is not an entry point, because the emitted code has no value for it. A name without `type_only` is not type-only. Python has no type-only export. `entry` and `interface` can use these names.
 - `api`: Full export identities for public-surface comparisons: exported name, display bucket, and declaration fingerprint. The fingerprint includes decorators. It does not include callable bodies. A `*` re-export has the name `*`, because one module cannot supply the names that it gives.
 - `executes`: Python-only: a top-level call makes a package initializer nonempty.

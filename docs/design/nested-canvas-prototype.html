@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nested map canvas</title>
+<style>
+:root{--bg:#f4f3f0;--card:#fffefb;--ink:#1d1c1a;--mute:#6c6962;--faint:#a29e96;--line:#c9c5bd;--frame:#58554f;--flow:#1f5d4c;--accent:#b5532a;--soft:#e9e7e2;--dot:#cfcbc3;
+ --t-edge:#e7efe9;--t-core:#ece9f3;--t-data:#f3ece4;--t-actor:transparent;--ok:#2f7a55;--warn:#a8741a}
+:root[data-theme="dark"]{--bg:#16161a;--card:#222227;--ink:#ecebe7;--mute:#a3a097;--faint:#6f6c66;--line:#3f3f45;--frame:#a29e96;--flow:#64b59c;--accent:#e08a5c;--soft:#2b2b31;--dot:#34343a;
+ --t-edge:#1f2b26;--t-core:#26232f;--t-data:#2e2822;--ok:#5fbf8f;--warn:#d6a24a}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#16161a;--card:#222227;--ink:#ecebe7;--mute:#a3a097;--faint:#6f6c66;--line:#3f3f45;--frame:#a29e96;--flow:#64b59c;--accent:#e08a5c;--soft:#2b2b31;--dot:#34343a;
+ --t-edge:#1f2b26;--t-core:#26232f;--t-data:#2e2822;--ok:#5fbf8f;--warn:#d6a24a}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.4 Inter,system-ui,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0;touch-action:none}
+svg{width:100%;height:100%;display:block;user-select:none}
+svg *{pointer-events:none} svg .hit{pointer-events:all}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="svg" role="img" aria-label="System map"></svg></div>
+<script>
+"use strict";
+// ======================= sample tree =======================
+// Each card: id, text (does), layer, modules, review ("examined" | "unknown"), position.
+const L = {edge: "--t-edge", core: "--t-core", data: "--t-data"};
+const HANDLERS = [];
+const verbs = ["orders", "carts", "users", "invoices", "refunds", "stock", "prices", "tokens", "sessions", "reports"];
+for (let i = 0; i < 40; i++) HANDLERS.push({id: "H" + String(i).padStart(2, "0"), text: "Handles the " + verbs[i % 10] + " requests of route " + (i + 1) + ".",
+  layer: i % 3 ? "core" : "data", modules: 1 + (i % 3), review: i % 7 ? "examined" : "unknown", x: 40 + (i % 8) * 118, y: 70 + Math.floor(i / 8) * 104, w: 104, h: 80});
+const TREE = {id: "System", w: 1000, h: 620,
+  cards: [
+    {id: "User", actor: true, text: "A person who uses the shop in a browser.", x: 30, y: 250, w: 170, h: 110},
+    {id: "Front", text: "Serves the pages and sends each request to the gateway.", layer: "edge", modules: 6, review: "examined", x: 250, y: 250, w: 190, h: 120},
+    {id: "Gateway", text: "Checks each request, finds its route and runs its handler.", layer: "core", modules: 52, review: "examined", x: 490, y: 190, w: 250, h: 210, opens: "Gateway"},
+    {id: "Store", text: "Keeps orders, users and stock in the database.", layer: "data", modules: 9, review: "examined", x: 790, y: 110, w: 180, h: 120},
+    {id: "Jobs", text: "Runs the nightly reports and the stock sync.", layer: "core", modules: 4, review: "unknown", x: 790, y: 420, w: 180, h: 120},
+  ],
+  flows: [["User", "Front", "request"], ["Front", "Gateway", "call"], ["Gateway", "Store", "query"], ["Jobs", "Store", "write"]],
+  maps: {
+    Gateway: {id: "Gateway", w: 1000, h: 620,
+      cards: [
+        {id: "Auth", text: "Checks the session token of each call.", layer: "edge", modules: 3, review: "examined", x: 70, y: 70, w: 200, h: 120},
+        {id: "Routes", text: "Finds the route of a call and gives it to a handler.", layer: "core", modules: 46, review: "examined", x: 370, y: 210, w: 280, h: 220, opens: "Routes"},
+        {id: "Cache", text: "Keeps recent answers for a short time.", layer: "data", modules: 2, review: "examined", x: 740, y: 70, w: 200, h: 120},
+        {id: "Log", text: "Writes one line for each call.", layer: "data", modules: 1, review: "unknown", x: 740, y: 440, w: 200, h: 120},
+      ],
+      flows: [["Routes", "Auth", "token"], ["Routes", "Cache", "lookup"], ["Routes", "Log", "event"]],
+      boundary: [["Front", "Routes", "call", "in"], ["Routes", "Store", "query", "out"]],
+      maps: {
+        Routes: {id: "Routes", w: 1000, h: 620,
+          cards: [
+            {id: "Router", text: "Matches the path of a call to a route.", layer: "edge", modules: 2, review: "examined", x: 60, y: 250, w: 200, h: 120},
+            {id: "Validate", text: "Checks the fields of a request.", layer: "core", modules: 2, review: "examined", x: 380, y: 60, w: 200, h: 120},
+            {id: "Handlers", text: "One handler for each route of the shop.", layer: "core", modules: 40, review: "examined", x: 360, y: 280, w: 300, h: 230, opens: "Handlers"},
+            {id: "Errors", text: "Turns a fault into an error answer.", layer: "core", modules: 1, review: "unknown", x: 760, y: 60, w: 200, h: 120},
+          ],
+          flows: [["Router", "Validate", "input"], ["Router", "Handlers", "request"], ["Validate", "Errors", "fault"]],
+          boundary: [["Front", "Router", "call", "in"], ["Handlers", "Store", "query", "out"]],
+          maps: {Handlers: {id: "Handlers", w: 1000, h: 620, cards: HANDLERS,
+            flows: [["H00", "H01", "record"], ["H09", "H17", "record"], ["H20", "H28", "record"]],
+            boundary: [["Router", "H00", "request", "in"], ["H39", "Store", "query", "out"]], maps: {}}}}
+      }}
+  }};
+// Each nested map sits inside its card: this is the map's area in card coordinates.
+const PAD = {x: 0.05, top: 0.16, bottom: 0.05};
+const inner = (c) => { const w = c.w * (1 - 2 * PAD.x), h = c.h * (1 - PAD.top - PAD.bottom); return {x: c.x + c.w * PAD.x, y: c.y + c.h * PAD.top, w, h}; };
+
+// ======================= drawing helpers =======================
+const svg = document.getElementById("svg"), NS = "http://www.w3.org/2000/svg";
+const el = (tag, a, p) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; };
+const tx = (s, a, p) => { const t = el("text", a, p); t.textContent = s; return t; };
+const V = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let W = 0, H = 0, C = {};
+function measure() { const r = svg.getBoundingClientRect(); W = r.width; H = r.height;
+  for (const n of ["--bg","--card","--ink","--mute","--faint","--line","--frame","--flow","--accent","--soft","--dot","--t-edge","--t-core","--t-data","--ok","--warn"]) C[n] = V(n); }
+function wrap(s, maxChars, maxLines) {
+  const words = s.split(" "), lines = []; let cur = "";
+  for (const w of words) { if ((cur + " " + w).trim().length > maxChars) { lines.push(cur); cur = w; if (lines.length === maxLines) break; } else cur = (cur + " " + w).trim(); }
+  if (lines.length < maxLines && cur) lines.push(cur);
+  if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, "") + " …";
+  return lines;
+}
+
+// ======================= camera =======================
+let cam = {x: 0, y: 0, k: 1};
+const S = (x, y, w, h) => ({x: (x - cam.x) * cam.k, y: (y - cam.y) * cam.k, w: w * cam.k, h: h * cam.k});
+function fitBox(b, pad = 0.08) { const k = Math.min(W * (1 - 2 * pad) / b.w, H * (1 - 2 * pad) / b.h); return {x: b.x + b.w / 2 - W / 2 / k, y: b.y + b.h / 2 - H / 2 / k, k}; }
+// A smooth zoom path: the scale moves in log space, and dips out when the two views are far
+// apart, so the reader sees where they go (as on a street map). Center moves in world space.
+let flight = null;
+function fly(to, ms) {
+  if (flight) cancelAnimationFrame(flight.raf);
+  const from = {...cam}, cx0 = from.x + W / 2 / from.k, cy0 = from.y + H / 2 / from.k, cx1 = to.x + W / 2 / to.k, cy1 = to.y + H / 2 / to.k;
+  const dist = Math.hypot(cx1 - cx0, cy1 - cy0) * Math.min(from.k, to.k) / Math.max(W, H);
+  const dip = Math.log(1 + dist) * 1.1, l0 = Math.log(from.k), l1 = Math.log(to.k);
+  ms = ms || clamp(450 + 220 * (Math.abs(l1 - l0) + dip), 450, 1400);
+  if (reduce) { cam = to; draw(); return; }
+  const t0 = performance.now();
+  const step = now => { const t = clamp((now - t0) / ms, 0, 1), e = t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const k = Math.exp(l0 + (l1 - l0) * e - dip * Math.sin(Math.PI * e));
+    const cx = cx0 + (cx1 - cx0) * e, cy = cy0 + (cy1 - cy0) * e; cam = {x: cx - W / 2 / k, y: cy - H / 2 / k, k}; draw();
+    if (t < 1) flight.raf = requestAnimationFrame(step); else flight = null; };
+  flight = {raf: requestAnimationFrame(step)};
+}
+
+// ======================= the scene =======================
+// Every card of every map gets a world box. A nested map is placed inside the card that opens it.
+const nodes = [], byPath = {};
+function place(m, box, depth, parentPath, parentNode) {
+  const s = box.w / m.w;
+  for (const c of m.cards) {
+    const n = {c, map: m, depth, path: parentPath.concat(c.id), parent: parentNode, x: box.x + c.x * s, y: box.y + c.y * s, w: c.w * s, h: c.h * s};
+    nodes.push(n); byPath[n.path.join("/")] = n;
+    if (c.opens) { n.child = m.maps[c.opens]; const ib = inner(n); const s2 = Math.min(ib.w / n.child.w, ib.h / n.child.h);
+      n.inner = {x: ib.x + (ib.w - n.child.w * s2) / 2, y: ib.y, w: n.child.w * s2, h: n.child.h * s2}; place(n.child, n.inner, depth + 1, n.path, n); }
+  }
+}
+place(TREE, {x: 0, y: 0, w: TREE.w, h: TREE.h}, 0, [], null);
+const OPEN0 = 300, OPEN1 = 520; // screen width over which a card turns into its map
+const openness = n => n.child ? smooth(OPEN0, OPEN1, n.w * cam.k) : 0;
+function visibleOpen(n) { // a card is drawn only when each card above it is open
+  for (let p = n.parent; p; p = p.parent) if (openness(p) <= 0) return false; return true; }
+
+let inChain = new Set(); // the open cards around the view: their portals carry the boundary flows
+function draw() {
+  svg.textContent = ""; measure();
+  const root = el("g", {});
+  drawGrid(root);
+  // the focus: the deepest open card whose map covers the middle of the screen
+  let focus = null;
+  for (const n of nodes) if (n.child && openness(n) > 0.6 && visibleOpen(n)) {
+    const r = S(n.x, n.y, n.w, n.h); if (r.x < W / 2 && r.x + r.w > W / 2 && r.y < H / 2 && r.y + r.h > H / 2 && (!focus || n.depth > focus.depth)) focus = n; }
+  const flowsG = el("g", {}, root), cardsG = el("g", {}, root), portG = el("g", {}, root);
+  inChain = new Set(); for (let p = focus; p; p = p.parent) inChain.add(p);
+  drawMap(TREE, null, cardsG, flowsG, 1);
+  drawRingsAndPortals(focus, portG);
+  drawPath(focus);
+  drawHelp();
+}
+
+function drawGrid(g) { // a dot grid that follows the zoom: the dots of each level fade in and out
+  const defs = el("defs", {}, g);
+  const lvl = Math.log(cam.k) / Math.log(6), base = Math.floor(lvl);
+  for (const j of [0, 1]) {
+    const step = 24 / Math.pow(6, base + j) , px = step * cam.k, a = j === 0 ? 1 - (lvl - base) : (lvl - base);
+    const pat = el("pattern", {id: "dots" + j, width: px, height: px, patternUnits: "userSpaceOnUse", x: (-cam.x * cam.k) % px, y: (-cam.y * cam.k) % px}, defs);
+    el("circle", {cx: px / 2, cy: px / 2, r: 1, fill: C["--dot"]}, pat);
+    if (px > 6) el("rect", {x: 0, y: 0, width: W, height: H, fill: "url(#dots" + j + ")", opacity: a}, g);
+  }
+  const m = el("marker", {id: "arr", viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse"}, defs);
+  el("path", {d: "M0,0 L10,5 L0,10 z", fill: C["--flow"]}, m);
+}
+
+function edgeAt(r, px, py) { const cx = r.x + r.w / 2, cy = r.y + r.h / 2, dx = px - cx, dy = py - cy;
+  const s = Math.min(Math.abs(r.w / 2 / (dx || 1e-9)), Math.abs(r.h / 2 / (dy || 1e-9))); return [cx + dx * s, cy + dy * s]; }
+function line(a, b, label, g, alpha, opts = {}) {
+  if (alpha <= 0.02) return;
+  const [x1, y1] = edgeAt(a, b.x + b.w / 2, b.y + b.h / 2), [x2, y2] = edgeAt(b, a.x + a.w / 2, a.y + a.h / 2);
+  el("line", {x1, y1, x2, y2, stroke: C["--flow"], "stroke-width": opts.w || 1.6, "stroke-dasharray": opts.dash || "", "marker-end": "url(#arr)", opacity: alpha}, g);
+  const d = Math.hypot(x2 - x1, y2 - y1);
+  if (label && d > 80) { const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, w = label.length * 6.6 + 10;
+    el("rect", {x: mx - w / 2, y: my - 9, width: w, height: 18, rx: 9, fill: C["--bg"], opacity: alpha}, g);
+    tx(label, {x: mx, y: my + 4, "text-anchor": "middle", "font-size": 11, fill: C["--ink"], opacity: alpha}, g); }
+}
+
+function drawMap(m, owner, cardsG, flowsG, alpha) {
+  const ns = nodes.filter(n => n.map === m && n.parent === owner);
+  const rect = n => S(n.x, n.y, n.w, n.h);
+  for (const [a, b, l] of m.flows) { const A = ns.find(n => n.c.id === a), B = ns.find(n => n.c.id === b); if (A && B) line(rect(A), rect(B), l, flowsG, alpha); }
+  for (const n of ns) {
+    const r = rect(n); if (r.x > W || r.y > H || r.x + r.w < 0 || r.y + r.h < 0) continue;
+    const o = openness(n);
+    drawCard(n, r, cardsG, alpha, o);
+    if (n.child && o > 0.02) {
+      // boundary flows of the nested map: from a port on the frame to the inner card
+      const kids = nodes.filter(k => k.parent === n), bg = el("g", {}, flowsG);
+      for (const [a, b, l, dir] of inChain.has(n) ? [] : n.child.boundary || []) {
+        const k = kids.find(q => q.c.id === (dir === "in" ? b : a)); if (!k) continue; const kr = rect(k);
+        const py = kr.y + kr.h / 2, port = {x: dir === "in" ? r.x - 2 : r.x + r.w - 2, y: py - 2, w: 4, h: 4};
+        el("circle", {cx: port.x + 2, cy: py, r: 4.5, fill: C["--bg"], stroke: C["--flow"], "stroke-width": 1.6, opacity: alpha * o}, bg);
+        if (dir === "in") line(port, kr, l, bg, alpha * o); else line(kr, port, l, bg, alpha * o);
+      }
+      drawMap(n.child, n, cardsG, flowsG, alpha * o);
+    }
+  }
+}
+
+function drawCard(n, r, g, alpha, o) {
+  const c = n.c, tint = c.actor ? "none" : C[L[c.layer] || "--card"];
+  const sz = Math.min(r.w, r.h * 1.7); // the level of detail follows the screen size
+  const a = alpha * (n.child ? 1 - 0.0 * o : 1);
+  const rx = clamp(sz * 0.05, 4, 12);
+  if (n.child && o < 1) el("rect", {x: r.x + 5, y: r.y + 5, width: r.w, height: r.h, rx, fill: C["--card"], stroke: C["--line"], opacity: a * (1 - o)}, g);
+  // when the card is open, its body becomes the frame of the nested map
+  el("rect", {x: r.x, y: r.y, width: r.w, height: r.h, rx, fill: c.actor || o > 0 ? "none" : tint, stroke: o > 0 ? C["--frame"] : C["--frame"],
+    "stroke-width": o > 0 ? 1.4 : 1, "stroke-dasharray": c.actor ? "6 4" : "", opacity: a}, g);
+  if (n.child && o > 0) el("rect", {x: r.x, y: r.y, width: r.w, height: r.h, rx, fill: tint, opacity: a * (1 - o)}, g);
+  if (sz < 34) return; // a mark only: the color tells the layer
+  const fs = clamp(sz * 0.085, 10, 17), pad = clamp(sz * 0.06, 6, 14);
+  const head = o > 0 ? Math.min(fs, 13) : fs;
+  tx(c.id, {x: r.x + pad, y: r.y + pad + head * 0.9, "font-size": head, "font-weight": 650, fill: C["--ink"], class: "mono", opacity: a}, g);
+  if (n.child && o > 0) { // the header of an open card
+    tx("· " + n.child.cards.length + " components · " + c.modules + " modules", {x: r.x + pad + c.id.length * head * 0.62 + 6, y: r.y + pad + head * 0.9, "font-size": Math.min(fs, 12), fill: C["--mute"], opacity: a * o}, g);
+  }
+  if (o >= 1) return;
+  const fade = a * (1 - o);
+  // the description
+  let y = r.y + pad + fs * 0.9 + 6;
+  if (sz > 90 && c.text) {
+    const tfs = clamp(sz * 0.055, 10, 13), chars = Math.max(10, Math.floor((r.w - 2 * pad) / (tfs * 0.55)));
+    const maxLines = n.child ? 2 : clamp(Math.floor((r.h - 2 * pad - fs - 26) / (tfs * 1.35)), 1, 4);
+    for (const ln of wrap(c.text, chars, maxLines)) { y += tfs * 1.35; tx(ln, {x: r.x + pad, y, "font-size": tfs, fill: C["--mute"], opacity: fade}, g); }
+  }
+  // the preview of a nested map: its real layout, drawn faint. It grows into the map.
+  if (n.child && sz > 60) {
+    const ib = S(n.inner.x, n.inner.y, n.inner.w, n.inner.h), top = Math.max(ib.y, y + 8);
+    const kids = nodes.filter(k => k.parent === n);
+    for (const k of kids) { const kr = S(k.x, k.y, k.w, k.h); if (kr.y < top - 2) continue;
+      el("rect", {x: kr.x, y: kr.y, width: kr.w, height: kr.h, rx: 2, fill: C[L[k.c.layer] || "--card"], stroke: C["--line"], "stroke-width": 0.8, opacity: fade * 0.9}, g); }
+    for (const [p, q] of n.child.flows) { const A = kids.find(k => k.c.id === p), B = kids.find(k => k.c.id === q); if (!A || !B) continue;
+      const ar = S(A.x, A.y, A.w, A.h), br = S(B.x, B.y, B.w, B.h); if (ar.y < top || br.y < top) continue;
+      el("line", {x1: ar.x + ar.w / 2, y1: ar.y + ar.h / 2, x2: br.x + br.w / 2, y2: br.y + br.h / 2, stroke: C["--flow"], "stroke-width": 0.8, opacity: fade * 0.6}, g); }
+  }
+  // a large card that opens no map: its flows and its modules fill the body
+  if (!n.child && !c.actor && sz > 330 && (r.y + r.h - pad * 2.4) - (y + clamp(sz * 0.032, 10, 13) * 2.2) > clamp(sz * 0.032, 10, 13) * 1.55 * 4) {
+    const lfs = clamp(sz * 0.032, 10, 13), colW = (r.w - 2 * pad) / 2, top = y + lfs * 2.2, bottom = r.y + r.h - pad * 2.4;
+    const rows = Math.max(0, Math.floor((bottom - top) / (lfs * 1.55)));
+    const fl = n.map.flows.filter(f => f[0] === c.id || f[1] === c.id).map(f => f[0] === c.id ? "to " + f[1] + " · " + f[2] : "from " + f[0] + " · " + f[2]);
+    const mods = Array.from({length: c.modules}, (_, i) => c.id.toLowerCase() + (i ? "." + ["models", "queries", "schema", "pool", "migrate", "cache", "events", "admin"][(i - 1) % 8] : ""));
+    const col = (title, items, x0) => { if (!rows) return; tx(title, {x: x0, y: top, "font-size": lfs * 0.85, "letter-spacing": 1.2, fill: C["--faint"], opacity: fade}, g);
+      items.slice(0, rows - 1).forEach((s, i) => tx(s, {x: x0, y: top + (i + 1) * lfs * 1.55, "font-size": lfs, fill: C["--ink"], class: i >= 0 && title === "MODULES" ? "mono" : "", opacity: fade * 0.85}, g));
+      if (items.length > rows - 1) tx("+ " + (items.length - rows + 1) + " more", {x: x0, y: top + rows * lfs * 1.55, "font-size": lfs * 0.9, fill: C["--mute"], opacity: fade}, g); };
+    col("FLOWS", fl.length ? fl : ["no flows in this map"], r.x + pad);
+    col("MODULES", mods, r.x + pad + colW);
+    // a hairline under the header gives the body a structure
+    el("line", {x1: r.x + pad, y1: top - lfs * 1.2, x2: r.x + r.w - pad, y2: top - lfs * 1.2, stroke: C["--line"], "stroke-width": 0.8, opacity: fade}, g);
+  }
+  // the footer: facts that the map can show without a click
+  if (sz > 70 && !c.actor) {
+    const ffs = clamp(sz * 0.048, 9, 11.5), fy = r.y + r.h - pad * 0.8;
+    const bd = n.map.boundary || [];
+    const ins = n.map.flows.filter(f => f[1] === c.id).length + bd.filter(f => f[3] === "in" && f[1] === c.id).length;
+    const outs = n.map.flows.filter(f => f[0] === c.id).length + bd.filter(f => f[3] === "out" && f[0] === c.id).length;
+    const parts = [c.modules + (c.modules === 1 ? " module" : " modules")];
+    if (sz > 120) parts.push(ins + " in · " + outs + " out");
+    tx(parts.join("  ·  "), {x: r.x + pad, y: fy, "font-size": ffs, fill: C["--mute"], opacity: fade}, g);
+    const ok = c.review === "examined";
+    el("circle", {cx: r.x + r.w - pad - 3, cy: fy - ffs * 0.35, r: 3.2, fill: ok ? C["--ok"] : "none", stroke: ok ? C["--ok"] : C["--warn"], "stroke-width": 1.4, opacity: fade}, g);
+    if (sz > 150) tx(ok ? "examined" : "unknown", {x: r.x + r.w - pad - 11, y: fy, "text-anchor": "end", "font-size": ffs, fill: ok ? C["--ok"] : C["--warn"], opacity: fade}, g);
+    if (n.child) { const lab = n.child.cards.length + " inside", w = lab.length * ffs * 0.6 + 14, bx = r.x + r.w - pad - w - (sz > 150 ? 78 : 14);
+      el("rect", {x: bx, y: fy - ffs - 3, width: w, height: ffs + 8, rx: (ffs + 8) / 2, fill: C["--card"], stroke: C["--frame"], opacity: fade}, g);
+      tx(lab, {x: bx + w / 2, y: fy, "text-anchor": "middle", "font-size": ffs, fill: C["--ink"], opacity: fade}, g); }
+  }
+  // targets: double-click (or tap) a card that opens a map to go into it
+  if (n.child && o < 0.5 && (!n.parent || openness(n.parent) > 0.5)) { const hit = el("rect", {x: r.x, y: r.y, width: r.w, height: r.h, fill: "transparent", class: "hit"}, g); hit.style.cursor = "zoom-in";
+    hit.addEventListener("dblclick", e => { e.stopPropagation(); fly(fitBox(n.inner, 0.06)); }); }
+}
+
+// ======================= depth: rings and portals =======================
+// An open frame that is larger than the screen does not leave: it stays at the screen edge as
+// a ring. A neighbour of the focus map that leaves the screen stays at the edge as a portal,
+// on the side where it is. Both follow the zoom, so nothing appears at once.
+function drawRingsAndPortals(focus, g) {
+  const chain = []; for (let p = focus; p; p = p.parent) chain.unshift(p);
+  chain.forEach((n, i) => {
+    const r = S(n.x, n.y, n.w, n.h), over = Math.max(-r.x, -r.y, r.x + r.w - W, r.y + r.h - H);
+    const a = smooth(0, 120, over); if (a <= 0) return;
+    const inset = 6 + (chain.length - 1 - i) * 6;
+    el("rect", {x: Math.max(r.x, inset), y: Math.max(r.y, inset), width: Math.min(r.x + r.w, W - inset) - Math.max(r.x, inset), height: Math.min(r.y + r.h, H - inset) - Math.max(r.y, inset),
+      rx: 14, fill: "none", stroke: C["--frame"], "stroke-width": 1.2, opacity: a * (0.25 + 0.5 * (i + 1) / chain.length)}, g);
+  });
+  if (!focus) return;
+  // the neighbours of each open map in the chain, from its boundary flows
+  const seen = new Set();
+  for (const n of [...chain].reverse()) for (const [a, b, l, dir] of n.child.boundary || []) { // the deepest connection wins
+    const other = dir === "in" ? a : b, innerId = dir === "in" ? b : a; if (seen.has(other + dir)) continue;
+    const nb = findNeighbour(n, other); const ik = nodes.find(k => k.parent === n && k.c.id === innerId); if (!nb || !ik) continue;
+    seen.add(other + dir);
+    const r = S(nb.x, nb.y, nb.w, nb.h), m = 30;
+    const off = Math.max(m - (r.x + r.w), m - (r.y + r.h), r.x - (W - m), r.y - (H - m)); // how far the card is outside
+    const show = smooth(0, 160, off); if (show <= 0.01) continue;
+    const cx = clamp(r.x + r.w / 2, 90, W - 90), cy = clamp(r.y + r.h / 2, 76, H - 76);
+    const pw = 126, ph = 34, px = cx - pw / 2, py = cy - ph / 2;
+    const ir = S(ik.x, ik.y, ik.w, ik.h), port = {x: px, y: py, w: pw, h: ph};
+    if (dir === "in") line(port, ir, l, g, show * 0.9, {dash: "5 4"}); else line(ir, port, l, g, show * 0.9, {dash: "5 4"});
+    const grp = el("g", {opacity: show, transform: `translate(${cx} ${cy}) scale(${0.85 + 0.15 * show}) translate(${-cx} ${-cy})`}, g);
+    el("rect", {x: px, y: py, width: pw, height: ph, rx: ph / 2, fill: C["--card"], stroke: C["--frame"], "stroke-width": 1.2}, grp);
+    el("rect", {x: px + 4, y: py + 4, width: pw - 8, height: ph - 8, rx: (ph - 8) / 2, fill: "none", stroke: C["--line"], "stroke-dasharray": "2 3"}, grp);
+    tx(other, {x: cx, y: cy + 4, "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: C["--ink"], class: "mono"}, grp);
+    tx("in " + (nb.parent ? nb.parent.c.id : TREE.id), {x: cx, y: py + ph + 13, "text-anchor": "middle", "font-size": 10, fill: C["--mute"]}, grp);
+    const hit = el("rect", {x: px, y: py, width: pw, height: ph, fill: "transparent", class: "hit"}, grp); hit.style.cursor = "pointer";
+    hit.addEventListener("click", e => { e.stopPropagation(); if (!moved) fly(fitBox({x: nb.x, y: nb.y, w: nb.w, h: nb.h}, 0.3)); });
+  }
+}
+function findNeighbour(n, id) { for (let p = n; p; p = p.parent) { const s = nodes.find(k => k.parent === p.parent && k.map === p.map && k.c.id === id); if (s) return s; } return null; }
+
+// ======================= on-canvas path and help =======================
+function drawPath(focus) {
+  const chain = [{label: TREE.id, box: {x: 0, y: 0, w: TREE.w, h: TREE.h}}];
+  for (const p of (function a(n) { const c = []; for (; n; n = n.parent) c.unshift(n); return c; })(focus)) chain.push({label: p.c.id, box: p.inner});
+  const g = el("g", {}); let x = 18;
+  const card = el("rect", {x: 10, y: 10, width: 10, height: 34, rx: 17, fill: C["--card"], stroke: C["--line"]}, g);
+  chain.forEach((s, i) => {
+    const last = i === chain.length - 1, w = s.label.length * 7.2 + 18;
+    if (i) tx("›", {x: x - 2, y: 32, "font-size": 14, fill: C["--faint"]}, g);
+    const b = el("rect", {x: x + 6, y: 15, width: w, height: 24, rx: 12, fill: last ? C["--ink"] : "transparent", class: last ? "" : "hit"}, g);
+    tx(s.label, {x: x + 6 + w / 2, y: 31, "text-anchor": "middle", "font-size": 12, "font-weight": last ? 600 : 400, fill: last ? C["--bg"] : C["--ink"], class: "mono", "pointer-events": "none"}, g);
+    if (!last) { b.style.cursor = "pointer"; b.addEventListener("click", e => { e.stopPropagation(); fly(fitBox(s.box, 0.06)); }); }
+    x += w + 14;
+  });
+  tx("level " + (chain.length - 1), {x: x + 4, y: 31, "font-size": 11, fill: C["--mute"]}, g);
+  card.setAttribute("width", x + 52);
+}
+function drawHelp() {
+  const g = el("g", {});
+  tx("Scroll or pinch to zoom · drag to pan · double-click a stacked card to go in · Esc goes out · F fits", {x: 18, y: H - 16, "font-size": 11.5, fill: C["--mute"]}, g);
+}
+
+// ======================= input =======================
+let moved = false, drag = null; const pts = new Map();
+svg.addEventListener("wheel", e => { e.preventDefault(); if (flight) { cancelAnimationFrame(flight.raf); flight = null; }
+  const r = svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0018));
+  const wx = cam.x + px / cam.k, wy = cam.y + py / cam.k; cam.k = clamp(cam.k * f, 0.3, 4000); cam.x = wx - px / cam.k; cam.y = wy - py / cam.k; draw(); }, {passive: false});
+svg.addEventListener("pointerdown", e => { pts.set(e.pointerId, [e.clientX, e.clientY]); moved = false; drag = {x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y}; if (flight) { cancelAnimationFrame(flight.raf); flight = null; } });
+svg.addEventListener("pointermove", e => {
+  if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pts.size === 2) { const [a, b] = [...pts.values()], other = [...pts.entries()].find(([id]) => id !== e.pointerId)[1];
+    const f = Math.hypot(a[0] - b[0], a[1] - b[1]) / (Math.hypot(prev[0] - other[0], prev[1] - other[1]) || 1), r = svg.getBoundingClientRect();
+    const px = (a[0] + b[0]) / 2 - r.left, py = (a[1] + b[1]) / 2 - r.top, wx = cam.x + px / cam.k, wy = cam.y + py / cam.k;
+    cam.k = clamp(cam.k * f, 0.3, 4000); cam.x = wx - px / cam.k; cam.y = wy - py / cam.k; moved = true; drag = null; draw(); return; }
+  if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+  cam.x = drag.cx - dx / cam.k; cam.y = drag.cy - dy / cam.k; draw(); });
+const up = e => { pts.delete(e.pointerId); if (!pts.size) drag = null; };
+svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);
+function currentFocus() { let f = null; for (const n of nodes) if (n.child && openness(n) > 0.6 && visibleOpen(n)) { const r = S(n.x, n.y, n.w, n.h);
+  if (r.x < W / 2 && r.x + r.w > W / 2 && r.y < H / 2 && r.y + r.h > H / 2 && (!f || n.depth > f.depth)) f = n; } return f; }
+addEventListener("keydown", e => {
+  if (e.key === "Escape") { const f = currentFocus(); fly(fitBox(f && f.parent ? f.parent.inner : {x: 0, y: 0, w: TREE.w, h: TREE.h}, 0.06)); }
+  if (e.key === "f" || e.key === "F") { const f = currentFocus(); fly(fitBox(f ? f.inner : {x: 0, y: 0, w: TREE.w, h: TREE.h}, 0.06)); }
+  if (e.key === "+" || e.key === "=") fly({...cam, k: cam.k * 1.6, x: cam.x + W / 2 / cam.k - W / 2 / (cam.k * 1.6), y: cam.y + H / 2 / cam.k - H / 2 / (cam.k * 1.6)}, 260);
+  if (e.key === "-") fly({...cam, k: cam.k / 1.6, x: cam.x + W / 2 / cam.k - W / 2 / (cam.k / 1.6), y: cam.y + H / 2 / cam.k - H / 2 / (cam.k / 1.6)}, 260);
+});
+addEventListener("resize", draw);
+measure(); cam = fitBox({x: 0, y: 0, w: TREE.w, h: TREE.h}, 0.06); draw();
+</script>
+</body>
+</html>

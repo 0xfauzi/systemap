@@ -174,6 +174,8 @@ For each finding, change the model or record the reason for its stored state.
 | missing source review | Only with `[judgement] require_reviews = true`. A source component has no `source_review` digest. Examine the source and the claims. Then record the digest with `systemap decisions` or `systemap review ID`. |
 | contract reason | An invariant or an import rule of the contract has no `reason`, for example `contract reason: invariant 3 has no reason`. Write the reason in the contract file from the code, the documentation, or the commit history. Do not record an answer. |
 | model sdk | A module imports a model SDK or agent framework. Its component is neither an agent nor `calls_model`. Examples are anthropic, openai, and google.adk. `[facts] model_sdks` can add or remove names from the built-in list. |
+| boundary flow | Only in a nested map. A nested flow between an internal component and the actor X has no parent flow between the component that opens the map and X, in the same direction, for example `Gateway: boundary flow: Routes sends to actor Auth, and the parent map has no flow from Gateway to Auth`. Or, a parent flow between the component that opens the map and X has no nested flow with the actor X, in the same direction, for example `Gateway: boundary flow: the parent flow from Gateway to Auth has no nested flow to actor Auth`. Add the missing flow, remove the incorrect flow, or record the reason. |
+| boundary import | Only in a nested map. A module of an internal component imports a module of the component X outside the map. X is not an actor of the nested map, for example `Gateway: boundary import: Routes imports Auth, and Auth is not an actor of the map inside Gateway`. Or, no nested flow connects the component and the actor X, for example `Gateway: boundary import: Routes imports Auth, and no flow connects Routes and actor Auth`. X is the component that claims the imported module in the nearest map above the nested map. A `count:` row below the line gives the importing modules, and `--verbose` lists the imports. |
 
 Without `--strict`, the report exits 0.
 With `--strict`, it exits 1 while a finding is open.
@@ -617,10 +619,12 @@ Commands use all maps in the map tree:
 - `check` executes all rules on each map.
   A nested finding has its map id, as in `Gateway: map layout: clean ...`.
 
-- `refresh` and `render` write one page per map.
-  The top page is `docs/map/index.html`.
-  The nested page is `docs/map/Gateway/index.html`.
-  Each page has a link to the other.
+- `refresh` and `render` write the canvas page `docs/map/index.html`.
+  The canvas page draws all maps of the tree.
+  Each nested map also gets a redirect page, for example `docs/map/Gateway/index.html`.
+  The redirect page opens the canvas page at that map, with the URL hash `#Gateway`.
+  Thus a link to `Gateway/index.html` stays correct.
+  With `[render] canvas = false`, the commands write one linked page for each map, with links between them.
 
 - `figure --map Gateway` renders one map.
   A `[[figures]]` entry also accepts `map`.
@@ -641,12 +645,65 @@ Commands use all maps in the map tree:
 
 - `suggest` shows maps above forty components.
   It lists the components with the most modules as possible nested maps.
+  For each component, it gives the `map=` value: the map id in lower case, with `_` in place of each `/`, and `.py`.
+  For example, the map `Gateway/Routes` has the file `map/gateway_routes.py` and the value `map="gateway_routes.py"`.
+  All model files are in the folder of the top model file.
+
+These commands accept `--map ID`: `check`, `judgement`, `rules`, `place`, `describe`, `journeys`, `review`, `decisions pending`, and `decisions status`.
+With `--map ID`, the command reads only the model files of that map, of its parent maps, and of its nested maps.
+Thus an error in the model file of a different map does not stop the command.
+The command reports only the map `ID`. Use `--map .` for the top map.
+`check --map` examines the facts, but a run with `--map` does not examine the pages or the global entry coverage.
+`judgement --map` gives no `entry point` line and prints `entry coverage: not examined in a run with --map`.
+An exact answer for a line of a different map, or for an `entry point` line, is not stale in a run with `--map`.
+`decisions pending --map ID` gives the requests of that map, with the same request IDs as a run without `--map`. It gives no request for an `entry point` line.
+`describe --map` and `journeys --map` examine only the sequences of the loaded maps. A sequence of a sibling map is not examined.
+With `--json`, `judgement`, `rules`, `decisions pending`, and `decisions status` add the field `scope` in a run with `--map`.
+`place --map ID` writes only the model file of that map.
+Only a run without `--map` gives the result for completion.
+`refresh`, `extract`, and `decisions submit` write the shared files of all maps. Thus they refuse `--map` with exit code `2`.
 
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
 The fixture in [`tests/test_nested.py`](../tests/test_nested.py) has five top-level
 components. Two open nested maps.
+The fixture in [`tests/three_levels.py`](../tests/three_levels.py) has 11 maps with its default sizes: the top map and 10 nested maps on three levels below it.
+
+### Map a large system in nested parts
+
+If a map needs two or more nested maps, more than one agent can do the work.
+The skill gives the procedure in [`references/parts.md`](../src/systemap/skill/references/parts.md).
+The procedure is the same with sub-agents and without sub-agents.
+Without sub-agents, one agent does the nested parts in sequence and commits after each nested part.
+
+1. The main agent writes the top map with forty components or fewer, and gives each module a component assignment.
+   It writes the layer IDs, the regions, and the artifacts of the flows between top components in the top `MEANING`.
+2. For each nested part, the main agent writes one `allow_imports` rule in the top contract.
+   The rule records the imports of the component at that commit. The reason must say that the rule does not show that the boundary is correct.
+3. For each nested part, the main agent runs `systemap parts --stub CARD`, sets `map=`, and runs `systemap refresh` and `systemap check`.
+   Then it runs `systemap parts` and commits. This commit is the contract commit.
+4. Each part agent gets one nested part, the message in `references/parts.md`, and its own Git worktree from the contract commit.
+   It writes only its write set: its model file, its contract file, the model files with its file prefix, and its result file.
+   A nested part with nested parts also writes their plan and result files.
+   It uses `--map ID` with `check`, `judgement`, `place`, `review`, `describe`, `journeys`, and `decisions pending`.
+   It does not run `extract`, `refresh`, `render`, `init`, `triage`, or `decisions submit`.
+   It records answers only in the forms `item` and `items`. It writes a boundary request for a change to a module claim or a boundary flow.
+5. After each part agent has stopped, the main agent examines each branch in the plan `order`.
+   It compares the changed files with the write set before it merges the branch. Then it runs `systemap parts --results` and `systemap check --map ID`.
+   It submits the verdicts of each nested part that no boundary request changes. Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without `--map`.
+
+Only the main agent writes `systemap.toml`, `.systemap/decisions.json`, the top model, the top contract, the plan, and `docs/map/`.
+The lock files stop a second writer in the same folder with an error. They do not merge two writes.
+Git does not track `.systemap/`, so the main agent copies `.systemap/decisions.json` into each worktree.
+A part agent that finds `.systemap/write.lock` held by a different command stops and tells the main agent. It does not remove the lock.
+
+The `boundary flow` and `boundary import` lines show where a nested map and its parent map do not agree about a flow or an import across the boundary.
+The [second pass](#what-does-the-second-pass-find) gives the lines.
+Only a run without `--map` gives the result for completion.
+
+Two values in the procedure are not measurements. One is the limit of five part agents at one time.
+The other is 400 modules, the size above which a nested part gets its own nested parts. A measurement is necessary before a change to these values.
 
 ## What does a model contain?
 
@@ -853,6 +910,19 @@ The file has the line `*`. Thus `git add -A` does not add these files to the rep
 The command does not change an existing `.systemap/.gitignore` file, also if it is a link or a folder.
 It does not change the `.gitignore` file in the repository root.
 
+Only one command at a time can write the shared files.
+`extract`, `refresh`, `render`, `figure --out`, and `decisions submit` make the lock file `.systemap/write.lock`.
+The lock file contains the process ID, the command, and the time.
+If a different command holds the lock, the command stops with exit code `1`.
+It does not wait, and it writes no file that the lock controls.
+Each write of a model file also makes the lock file `<model file>.lock`, for example `map/gateway.py.lock`.
+Thus two commands can write two different model files at the same time.
+A command removes its lock file when it stops, also after an error.
+If a process stops before it can remove its lock file, the file stays.
+Then the error gives the path and the command that holds the lock.
+If no systemap command operates, remove the lock file. Then use the command again.
+Do not commit a lock file. A committed lock file stops each write in each clone of the repository.
+
 ### `systemap init [--no-ci | --strict-ci]`
 
 Writes `systemap.toml`, an initial model, an empty contract file, the skill directory, and a GitHub
@@ -941,9 +1011,15 @@ Each language adapter also writes these facts with the same meaning for Python a
 
 - `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
 
-The facts file has a format number in its `version` key. The current format is 13.
+The facts file has a format number in its `version` key. The current format is 14.
 A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
 After an upgrade of systemap, run `systemap refresh`.
+
+In format 14, the Python syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`).
+The signatures and the constant values come from the source text.
+Thus each supported Python version gives the same stored values.
+If the syntax tree has a node class that the syntax text does not know, the extraction stops.
+The error gives the class and the Python version.
 
 A test file that systemap cannot read or parse gives a `test_file_issues` record, for Python and for TypeScript.
 The record is not known. It does not reject the map. `check` and `refresh` print it with its cause and its `fix:` line.
@@ -1045,12 +1121,48 @@ Writes the page from the facts and model.
 Without facts and without package roots, `render`, `facts`, and `figure` give the package-root error of `extract` and exit 2.
 Thus they do not tell you to use `systemap extract` when `extract` cannot operate.
 
+The command writes the canvas page. This is the default from step 5 of `docs/design/nested-canvas.md`.
+The canvas page draws all maps of the tree on one `<canvas>` element.
+A card that opens a map shows a preview of that map. When the camera zooms in, the preview grows into the map.
+The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
+A click on a card selects it, and a double-click on a card goes into the card.
+On a touch screen, a tap selects a card, and a second tap on the card goes into it.
+Esc goes out one level, F fits the current map, `+` and `-` zoom the camera, and the arrow keys move the map.
+The F key does not show the map in full screen, as on the linked page.
+The header has the views Map, Sequences, and Changes, the layers, and Find (Ctrl+K, Cmd+K, or /).
+The path of the open maps is at the top left of the canvas. A click on a part of the path moves the camera to that map.
+When the frame of an open map is larger than the screen, a ring stays at the screen edge.
+When a neighbour of the open map is not on the screen, a portal at the screen edge gives it. A click on the portal moves the camera to the neighbour.
+The URL hash holds the ID of the open map, for example `index.html#Gateway/Routes`.
+A redirect page keeps the hash of its link: `Gateway/index.html#Routes` opens `index.html#Gateway/Routes`.
+Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
+The page uses the system setting for reduced motion. Then each camera move occurs at one time.
+The header also has the theme button, the Reduce motion button, the Keyboard keys (the `?` key), and the source button. On a narrow screen, these buttons are in one Tools menu.
+The Details panel (the D key) gives the selected card: its kind and text, its `note` text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
+In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in `[judgement] answered` that applies to the finding removes the mark.
+Thus such an answer changes the canvas page. After you record it, run `systemap refresh`. If you do not, `check` and `render --check` report the page as stale.
+The canvas page and the redirect pages have the policy `frame-src 'none'`. Thus the canvas page cannot show in a frame of a different page.
+The page data is in the element `script#canvas-data`. The page has no `window.systemapWorkspace` object.
+With `?hud` after the page address, the page shows the frames in each second and the time of each frame.
+
+With `[render] canvas = false`, the command writes the linked page of each map, as before step 5.
+Then `render`, `refresh`, and `live` write this line on stderr. The exit code does not change.
+
+    notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the canvas page.
+
+The linked pages stay for one release. A later release removes them.
+The canvas page does not show the `interface` text of a component. Thus a change of `interface` does not make the canvas page stale.
+A change of the `note` text makes the canvas page stale.
+
 - `--check` exits 1 if the page is stale.
   It renders the page with the same options and compares the two pages.
   Thus a page that `render --base REF` wrote is stale for `render --check` without `--base REF`.
 
 - `--base REF` adds a change map relative to that revision.
   The page link `#changes`, for example `index.html#changes`, opens the Changes view.
+  The canvas page and the linked page both obey this link.
+  On the canvas page, `#Gateway/changes` opens the Changes view at the map `Gateway`.
+  A map or a card with the ID `changes` keeps its link.
   The Changes panel lists the map changes: the components, flows, sequences, and rules
   that the change added, removed, or changed in the model.
   The list compares the committed model at the merge base with the model on disk.
@@ -1165,6 +1277,44 @@ components that can become nested maps.
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
 
+### `systemap parts [--map ID] [--json] [--stub CARD] [--results]`
+
+Gives the part plan of the nested maps of one map.
+A nested part is one nested map, its contract file, and the model files with its file prefix.
+The command does not select the boundaries of the nested parts.
+It gives the facts for the boundaries that `map=` sets.
+It reads the stored facts and sends no data out.
+
+- Without an option, the command writes `parts/plan.json` beside the top model, for example `map/parts/plan.json`.
+  It prints one line for each nested part of the top map: its model file, its module count, its entry point count, and its actors.
+  The plan gives these fields for each nested part: the model file, the contract file, the file prefix, the result file, the modules, the `suggest` groups, the modules alone in their package, the actors, the boundary flows, the boundary imports, the import rules, the entry points, the state (`stub` or `mapped`), and `level_2`.
+  An actor is a component of the parent map that has a flow with the card, that a module of the card imports, or that imports a module of the card.
+  Each entry point goes to the deepest map that claims its module.
+  A nested part with more than 400 modules has `level_2` true. The value 400 is forty components with ten modules each. It is not a measurement.
+- `--map ID` gives the record of the nested part `ID` from the plan of its parent map.
+  If the map `ID` has nested maps, the command also writes their plan, for example `map/parts/gateway_plan.json`.
+- `--stub CARD` writes the stub of a new nested map for the component `CARD`.
+  The file name is the same file name that `systemap suggest` gives, for example `map/gateway.py`.
+  The stub has one component for each `suggest` group, the component `<CARD>Other` for the modules alone in their package, the symbol claims of the card, the actors, and positions.
+  The command does not write over a file.
+  If the stub fails the model checks or the nesting check, the command writes no file and gives the problems.
+  The actors of a nested map must be components of its parent map. Thus a stub that needs an actor that the parent map does not have gives exit code `2`.
+- `--results` examines the result file `parts/<stem>.json` of each nested part against the plan.
+  An answer in a result file must have the form `item` or `items`.
+  Each file in `files` must be in the write set of the nested part: its model file, its contract file, the model files with its file prefix, its result file, and the plan and the result files of its own nested parts (`parts/<stem>_*.json`).
+- `--json` writes one JSON object.
+
+The plan has two digests. `facts_digest` is the SHA-256 of the source facts. It does not contain `built_at_commit` or the provenance values of one computer. Thus a refresh at a new commit with the same source facts does not change it.
+`contract_digest` is the SHA-256 of the contract of the parent map and of each map above it: the layer IDs, the region IDs, the flow artifacts, the identity and claims of each component, the flows, the invariants, and the import rules.
+A change to a position or to a description does not change `contract_digest`.
+If a digest is different from the current tree, `parts --map ID` and `parts --results` stop with exit code `1` and the text `The plan is stale. Do systemap parts again.`
+`check --map ID` gives the same text as a warning and keeps its exit code. If no plan exists, `check --map ID` says nothing about a plan.
+
+The plan refuses a nested map whose stem is `model`, `contract`, or `plan`, or ends in `_contract` or `_plan`.
+It also refuses two stems that are the same in lower case, and a file prefix `<stem>_` that is the start of a different stem.
+A stem that the plan refuses gives exit code `2`.
+The commands that write a plan or a stub hold the write lock `.systemap/write.lock`.
+
 ### `systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]`
 
 Prints the second-pass findings.
@@ -1250,15 +1400,19 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 7. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. |
+| `schema_version` | integer | The version of this schema. The value is 8. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. Version 8 added `open[].map_id`, `open[].parent_flow`, `open[].nested_flows`, and `open[].import_pairs`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
-| `open[].detail` | list of strings | The imports of a crossing-import finding, as `--verbose` prints them. For other kinds, the list is empty. |
+| `open[].detail` | list of strings | The imports of a `crossing import` or a `boundary import` finding, as `--verbose` prints them. For other kinds, the list is empty. |
 | `open[].evidence` | string or null | The digest that an exact answer for this one line must have in `evidence`. The value is null if the evidence is not available. |
 | `open[].cause` | string or null | The cause of an `unknown surface` finding, for example `syntax` or `declaration file`. The `systemap check` section gives the causes. For other kinds, the value is null. |
 | `open[].sources` | list of objects or null | The source records of an `unknown surface` finding of a module. Each object has `file`, `line`, `excerpt`, and `parser`. A value that the record does not give is null. For other findings, the value is null. |
-| `open[].count` | integer or null | The count that the row below the line gives: the importing modules of a `crossing import` finding, or the targets of a `package_export` finding. For other findings, the value is null. |
+| `open[].count` | integer or null | The count that the row below the line gives: the importing modules of a `crossing import` or a `boundary import` finding, or the targets of a `package_export` finding. For other findings, the value is null. |
+| `open[].map_id` | string or null | The ID of the nested map of a `boundary flow` or `boundary import` finding. For other findings, the value is null. |
+| `open[].parent_flow` | object or null | For a boundary finding: `src` and `dst` of the parent flow that the finding is about, and `artifacts`, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For a `boundary import` finding, the direction is from the card to X. If the parent map has only a flow from X to the card, the direction is from X to the card. For other findings, the value is null. |
+| `open[].nested_flows` | list of objects or null | For a boundary finding: each flow of the nested map with the actor that the finding names, with `src`, `dst`, and `artifact`. For other findings, the value is null. |
+| `open[].import_pairs` | list of objects or null | For a `boundary import` finding: each import, with `module` and `imports`. For a `boundary flow` finding, the list is empty. For other findings, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |
@@ -1858,6 +2012,7 @@ Unknown keys are rejected.
 | `[delta]` | none | `page_url = "https://example.org/pr-{number}/"` gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces `{number}`. With this value, the comment of `systemap delta --comment FILE --pr N` also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with `https://` or `http://`. It must contain `{number}` and no other `{` or `}`. It must not contain `#` or a space character, because the link adds `#changes`. |
 | `[writing]` | `profile = "plain"` | The writing profile for the map text that a person reads. `plain` selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. `asd-ste100` also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. `systemap journeys` puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. `init` writes `profile = "plain"`. |
 | `[theme]` | `dark` | Color-token overrides. `scheme = "dark"` (Ink) or `scheme = "light"` (Paper) selects the default palette. The page offers both palettes. The earlier names `warm`, `graphite`, and `clay` give a configuration error. `[theme.light]` overrides one palette. `[theme.layers]` sets a color per layer ID, also for standard IDs. `[theme.marks]` selects a mark per agent kind. The `bg`, `raised`, `change`, and `reach` tokens, the `[theme.layers]` values, and the `layer_palette` items must be colors in the form `#RRGGBB`. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain `<`, `>`, `&`, `"`, `;`, `{`, or `}`. A font value (`font_ui`, `font_mono`) can contain `"`. A `[theme.marks]` value must be `ring`, `notch`, or `dotted`. A key in a theme table, such as `[theme.delta]`, can contain only letters, digits, `_`, and `-`. The page uses these keys in CSS names. |
+| `[render]` | `canvas = true` | `render`, `refresh`, and `live` write the canvas page: all maps of the tree on one canvas (`docs/design/nested-canvas.md`). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example `../index.html#Gateway`. `canvas = true` has no effect. `canvas = false` makes the commands write the linked pages, with no new feature, for one release. Then `render`, `refresh`, and `live` write one line on stderr about the next release. A later release removes the linked pages and this key. `check` and `render --check` compare the pages of the current value. A different value or key gives a configuration error. |
 | `[[figures]]` | none | Figures for `refresh`. Keys are `out`, `mode` (`system` or `reach`), `components`, `caption`, `interactive`, `layer`, and `map`. `layer` selects that layer's flows. `map` identifies a nested map. An `out` with `.svg` suffix writes the drawing alone. An `out` that is not in `out_dir` gives exit code 2. |
 
 The environment of a command can set three values. A repository file cannot set them.

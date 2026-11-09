@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import TWO_CARD_MODEL, write_tree
+from conftest import TWO_CARD_MODEL, use_linked_pages, write_tree
 
 from systemap import check, extract, judgement
 from systemap.cli import main
@@ -108,6 +108,8 @@ def test_a_symbol_claim_passes_and_counts_for_no_module(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     scaffold(tmp_path)
+    # The test reads the detail data of the linked page.
+    use_linked_pages(tmp_path)
     assert run("--root", str(tmp_path), "refresh") == 0
     assert run("--root", str(tmp_path), "check") == 0
     out = capsys.readouterr().out

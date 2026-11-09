@@ -47,49 +47,68 @@
 This page gives the controls and the keys of each view.</p>
 <p>To try each control, open the <a href="../map/">live example</a>. It is the map of systemap itself.</p>
 <h2 id="the-page">The page</h2>
+<p>The page draws all maps of the map tree on one canvas.
+The header has the views, the layers, and Find.</p>
 <ul>
-<li><strong>Map</strong> shows the components and the flows of one layer.</li>
+<li><strong>Map</strong> shows the components and the flows of one layer, or of all layers.</li>
 <li><strong>Sequences</strong> shows one sequence as a route, then one step at a time.</li>
 <li><strong>Changes</strong> shows the components and the flows that a revision comparison changed.</li>
 </ul>
-<p>The header gives the commit of the facts, for example <code>at 42172a9</code>. Select it to see the source records of the page.
-At the right, the header has Find, Theme, Reduce motion, Keyboard keys (?), and Details.</p>
-<p>The question of the view is above the map. The legend is at the bottom left, and the readout is at the bottom right.
-If a label does not fit on its line, the readout tells you that it is in the list of the Details panel.</p>
-<h2 id="keyboard-keys">Keyboard keys</h2>
-<p>Press ? to see this list on the page:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="keyboard-keys">
+<p>The path of the open maps is at the top left. Select a part of the path to go to that map.
+A help line at the bottom left gives the inputs for the camera.</p>
+<h2 id="move-the-camera">Move the camera</h2>
+<div class="table" role="region" tabindex="0" aria-labelledby="move-the-camera">
 <table>
 <thead>
 <tr>
-<th>Key</th>
+<th>Input</th>
 <th>Action</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Ctrl K or /</td>
-<td>Find a component, flow, layer or action.</td>
+<td>Wheel or pinch</td>
+<td>Zoom at the pointer.</td>
 </tr>
 <tr>
-<td>1 to 6</td>
-<td>Select a layer. The last number is the number of layer buttons on the map.</td>
+<td>Drag</td>
+<td>Move the map.</td>
 </tr>
 <tr>
-<td>Left and right arrows</td>
-<td>Previous or next layer or step.</td>
+<td>Click or tap a card</td>
+<td>Select the card.</td>
 </tr>
 <tr>
-<td>W</td>
-<td>Whole route of a sequence.</td>
+<td>Double-click a card</td>
+<td>Go into the card.</td>
+</tr>
+<tr>
+<td>Tab</td>
+<td>Move the keyboard focus to the next card of the current map.</td>
+</tr>
+<tr>
+<td>Enter</td>
+<td>Go into the focused card, or select it if it opens no map.</td>
+</tr>
+<tr>
+<td>Esc</td>
+<td>Go out one level.</td>
 </tr>
 <tr>
 <td>F</td>
-<td>Full screen.</td>
+<td>Fit the current map.</td>
 </tr>
 <tr>
-<td>B</td>
-<td>Hold to show the base, in the Changes view.</td>
+<td>+ and -</td>
+<td>Zoom.</td>
+</tr>
+<tr>
+<td>Arrow keys</td>
+<td>Move the map.</td>
+</tr>
+<tr>
+<td>Ctrl K, Cmd K, or /</td>
+<td>Find a view, layer, component, flow, sequence, or action.</td>
 </tr>
 <tr>
 <td>D</td>
@@ -97,43 +116,50 @@ If a label does not fit on its line, the readout tells you that it is in the lis
 </tr>
 <tr>
 <td>?</td>
-<td>Keyboard keys.</td>
-</tr>
-<tr>
-<td>Esc</td>
-<td>Close, or go back one view.</td>
+<td>Show the keyboard keys of the canvas.</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>On a Mac, use Cmd+K for Find.</p>
+<p>The camera keys do not operate while the keyboard focus is in the header or in a dialog.</p>
+<h2 id="nested-maps">Nested maps</h2>
+<p>A card that opens a map has a second card behind it. It shows a preview of that map.
+When you zoom in, the preview grows into the nested map. Nothing appears at one time.
+When a neighbour of the open map is not on the screen, a portal at the screen edge gives its name.
+Select a portal to move the camera to that neighbour.
+When the frame of an open map is larger than the screen, a ring stays at the screen edge.</p>
+<p>The URL hash holds the open map and the selected card, for example <code>index.html#Gateway/Routes</code>.
+A link with this hash opens the canvas at that map.
+The page of a nested map, for example <code>Gateway/index.html</code>, is a redirect page.
+It opens the canvas page at that map. Thus earlier links stay correct.</p>
 <h2 id="layers">Layers</h2>
-<p>Select a layer in the row under the header. <a href="concepts.html#layer">Concepts</a> tells which flows each layer shows.
-A layer with more than 20 flows shows one grey line for the flows between two regions. Select the line to show its routes.</p>
-<h2 id="select-a-component-or-a-flow">Select a component or a flow</h2>
-<ul>
-<li>Select a card. The Details panel gives its flows, sequences, rules, and source modules.</li>
-<li>Move the pointer or the keyboard focus to a line to see a preview of the flow.</li>
-<li>Select a line. The Details panel gives its artifact, direction, evidence state, and source records.</li>
-<li>If two or more flows connect the same two components, the map shows a different line with its own label for each flow.</li>
-<li>Press Escape to clear the selection.</li>
-</ul>
+<p>Select a layer in the header. <a href="concepts.html#layer">Concepts</a> tells which flows each layer shows.
+A layer shows only its flows. A card that no flow of the layer touches becomes quiet.
+When the layer buttons do not fit, a list shows in their place.</p>
 <h2 id="the-details-panel">The Details panel</h2>
-<p>With no selection, the panel shows the current layer and a guide with up to five steps.
-<strong>Lines and cards</strong> tells how to read the line patterns and the card marks. <strong>Rules</strong> gives all the invariants.</p>
-<h2 id="fit-and-zoom">Fit and zoom</h2>
-<p>The zoom controls are at the end of the row: zoom out, the zoom value, zoom in, and Fit.
-Fit shows the full map as large as the map area permits.</p>
+<p>Select a card, then select Details or push D. The panel gives the kind and the text of the card, the map that it opens, its flows with their evidence, its sequences, and its rules with their assurance.
+The panel gives the counts of the public names and the tests of each module. The facts file has the full source records.
+Select a flow in the panel to see its details. &quot;Show the flow on the map&quot; moves the camera to the flow.
+With no selection, the panel gives the rules of the current map. Esc closes the panel.</p>
+<h2 id="open-boundary-findings">Open boundary findings</h2>
+<p>In the Map view, a dotted ring on an actor card shows an open boundary finding of the judgement.
+A tag at the top right of the card gives the finding, for example &quot;No flow inside&quot; or &quot;Import with no flow&quot;.
+The list for a screen reader and the live region give the same words.
+When you record an answer to the finding, the ring goes.</p>
+<h2 id="text-for-a-screen-reader">Text for a screen reader</h2>
+<p>A list after the canvas gives the maps, the cards, the flows, and the facts of each card.
+Each link in the list moves the camera to its item.
+A live region gives the new map, view, and layer.</p>
 <h2 id="sequences">Sequences</h2>
 <ul>
-<li>The sequence button in the row opens the list of sequences.</li>
+<li>The Sequences view has a toolbar under the header. The chooser opens the list of sequences.</li>
 <li><strong>Whole route</strong> shows all the steps, with a number on each line. The START tag marks the component where the sequence starts.</li>
-<li><strong>Steps</strong> shows one step at a time. Use Previous and Next, or the left and right arrow keys.</li>
+<li><strong>Steps</strong> shows one step at a time. Use Previous and Next.</li>
 <li>The acting component has an ACTS tag. A measurement component has a MEASURES tag.</li>
 </ul>
 <h2 id="changes">Changes</h2>
 <p><code>systemap render --base REF</code> and <code>systemap live</code> make a page with a revision comparison.
-A dot on Changes shows that the page has a revision comparison. The live example has none.
+Without a revision comparison, the Changes view gives the command that makes one. The live example has none.
 <a href="pull-requests-and-ci.html#the-changes-view">Pull requests and CI</a> tells how to make this page.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="changes">
 <table>
@@ -163,7 +189,9 @@ A dot on Changes shows that the page has a revision comparison. The live example
 </tbody>
 </table>
 </div>
-<p>Hold B to show the map without the change marks. A page link that ends in <code>#changes</code> opens this view.</p>
+<p>A card that opens a map with a change in it or below it has the note &quot;changed inside&quot;.
+A bar under the header gives the changes of the current map in words.
+A page link that ends in <code>#changes</code> opens this view.</p>
 <h2 id="the-legend-and-the-line-marks">The legend and the line marks</h2>
 <p>Color shows only the flow kind, the selection, and the change.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="the-legend-and-the-line-marks">
@@ -192,11 +220,7 @@ A dot on Changes shows that the page has a revision comparison. The live example
 <td>An actor outside the source code.</td>
 </tr>
 <tr>
-<td>Dot on a card</td>
-<td>The component has a note. The Details panel gives it.</td>
-</tr>
-<tr>
-<td>Stacked card</td>
+<td>Second card behind a card</td>
 <td>The component opens a nested map.</td>
 </tr>
 </tbody>
@@ -204,14 +228,24 @@ A dot on Changes shows that the page has a revision comparison. The live example
 </div>
 <p><a href="concepts.html#evidence-states">Concepts</a> gives the evidence states, and <a href="concepts.html#component">Concepts</a> gives the card marks of each component kind.</p>
 <h2 id="themes-and-motion">Themes and motion</h2>
-<p>Ink has dark surfaces. Paper has light surfaces. The first visit uses the device theme.
-The system setting for reduced motion does not change the page. Use Reduce motion on the page.</p>
+<p>Ink has dark surfaces. Paper has light surfaces. The page starts with the device theme. The theme button in the header changes it.
+The page obeys the system setting for reduced motion, and the Reduce motion button does the same. Then each camera move occurs at one time.
+The source button gives the commit of the map, the facts file, and the model file.
+On a narrow screen, these buttons are in one Tools menu.</p>
 <h2 id="phone-layout">Phone layout</h2>
-<p>At a width of 640 pixels or less, the Map view shows the regions as a grid.
-Select a region to open the map at a size that you can read.</p>
+<p>On a phone, the page shows the same canvas.
+A pinch zooms, and a drag moves the map.
+A tap selects a card. A plate gives the name and the facts of the card.
+A second tap on a card that opens a map goes into it.
+Each part of the path and each portal is 44 by 44 pixels or more.
+The page has no horizontal scroll.</p>
+<h2 id="the-linked-pages-for-one-release">The linked pages for one release</h2>
+<p>With <code>[render] canvas = false</code> in <code>systemap.toml</code>, systemap writes one linked page for each map, as before.
+The linked page has the full source records, the snapshot button, full screen, and a grid of the regions on a phone. The canvas page does not have these parts.
+A later release removes the linked pages.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="concepts.html" rel="prev"><span class="kicker">Previous</span><span>Concepts</span></a><a class="pager__a pager__next" href="coding-agents.html" rel="next"><span class="kicker">Next</span><span>Coding agents</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-page">The page</a></li><li class="toc__l2"><a href="#keyboard-keys">Keyboard keys</a></li><li class="toc__l2"><a href="#layers">Layers</a></li><li class="toc__l2"><a href="#select-a-component-or-a-flow">Select a component or a flow</a></li><li class="toc__l2"><a href="#the-details-panel">The Details panel</a></li><li class="toc__l2"><a href="#fit-and-zoom">Fit and zoom</a></li><li class="toc__l2"><a href="#sequences">Sequences</a></li><li class="toc__l2"><a href="#changes">Changes</a></li><li class="toc__l2"><a href="#the-legend-and-the-line-marks">The legend and the line marks</a></li><li class="toc__l2"><a href="#themes-and-motion">Themes and motion</a></li><li class="toc__l2"><a href="#phone-layout">Phone layout</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-page">The page</a></li><li class="toc__l2"><a href="#move-the-camera">Move the camera</a></li><li class="toc__l2"><a href="#nested-maps">Nested maps</a></li><li class="toc__l2"><a href="#layers">Layers</a></li><li class="toc__l2"><a href="#the-details-panel">The Details panel</a></li><li class="toc__l2"><a href="#open-boundary-findings">Open boundary findings</a></li><li class="toc__l2"><a href="#text-for-a-screen-reader">Text for a screen reader</a></li><li class="toc__l2"><a href="#sequences">Sequences</a></li><li class="toc__l2"><a href="#changes">Changes</a></li><li class="toc__l2"><a href="#the-legend-and-the-line-marks">The legend and the line marks</a></li><li class="toc__l2"><a href="#themes-and-motion">Themes and motion</a></li><li class="toc__l2"><a href="#phone-layout">Phone layout</a></li><li class="toc__l2"><a href="#the-linked-pages-for-one-release">The linked pages for one release</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

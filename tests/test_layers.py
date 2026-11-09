@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 
 import pytest
-from conftest import TWO_CARD_MODEL, Sample, sample_model, write_tree
+from conftest import TWO_CARD_MODEL, Sample, sample_model, use_linked_pages, write_tree
 
 from systemap import check, page
 from systemap import theme as theme_mod
@@ -202,6 +202,8 @@ def test_standard_kinds_need_no_declaration(tmp_path: Path) -> None:
     assert "LAYERS: tuple[Layer, ...] = ()" in text
     assert 'Flow("Reader", "Writer", "request", "data")' in TWO_CARD_MODEL
     (tmp_path / "map/model.py").write_text(TWO_CARD_MODEL, encoding="utf-8")
+    # The test reads the layer buttons of the linked page.
+    use_linked_pages(tmp_path)
     assert main(["--root", str(tmp_path), "refresh"]) == 0
     assert main(["--root", str(tmp_path), "check"]) == 0
     html = (tmp_path / "docs/map/index.html").read_text(encoding="utf-8")

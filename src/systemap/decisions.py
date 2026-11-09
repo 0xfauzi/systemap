@@ -352,9 +352,7 @@ def _subject(m: nest.Map, line: str, facts: dict[str, Any]) -> str:
     bare = judgement.unprefixed(line[len(m.prefix) :])
     kind = next((k for k, head in judgement.KIND_PREFIX.items() if bare.startswith(head)), "")
     cards = sorted({card.id for card in judgement_evidence.named_cards(m, line)})
-    modules = sorted(
-        name for name in facts.get("components", {}) if judgement_evidence.names(name, bare)
-    )
+    modules = sorted(judgement_evidence.named_modules(facts.get("components", {}), bare))
     if not kind or not (cards or modules):
         return line
     return f"{kind}: {' '.join(cards + modules)}"
@@ -448,8 +446,8 @@ def requests(
     if not facts.get("components"):
         return []
     reviews: list[Request] = []
-    for m in tree.maps:
+    for m in tree.reported:
         reviews += _card_requests(m, facts, root)
-    for m in tree.maps:
+    for m in tree.reported:
         reviews += _flow_requests(m, facts, root)
     return _line_requests(tree, facts, root, judged, reviews) + reviews

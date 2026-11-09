@@ -57,7 +57,7 @@ def test_paths_are_printed_and_recorded_with_forward_slashes(
     write_tree(tmp_path, TINY_PACKAGE)
     init_two_cards(tmp_path)
     out = capsys.readouterr().out
-    assert "The command wrote .claude/skills/systemap/ (SKILL.md and 10 references)" in out
+    assert "The command wrote .claude/skills/systemap/ (SKILL.md and 11 references)" in out
     assert run("--root", str(tmp_path), "extract") == 0
     facts = (tmp_path / "docs/map/map.json").read_text(encoding="utf-8")
     assert '"file":"pkg/reader.py"' in facts.replace(" ", "")
@@ -69,7 +69,7 @@ def test_the_workflow_runs_the_suite_and_the_wheel_on_three_operating_systems() 
     for job in ("\n  test:\n", "\n  install:\n", "\n  plugin:\n", "\n  systemap:\n"):
         assert job in text, job
     assert text.count("os: [ubuntu-latest, macos-latest, windows-latest]") == 2
-    assert text.count('python: ["3.11", "3.13"]') == 2
+    assert text.count('python: ["3.11", "3.13", "3.14"]') == 2
     assert "UV_PYTHON: ${{ matrix.python }}" in text
     install = text.split("\n  install:\n", 1)[1].split("\n  plugin:\n", 1)[0]
     # The release workflow makes the wheel from the source archive. This job does the same,

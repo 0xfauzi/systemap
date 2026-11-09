@@ -7,6 +7,11 @@ sequence and its step, and the camera of the map and of the change map. After th
 the script puts the view back. A component, a flow or a sequence that the new page does
 not have stays clear.
 
+The canvas page (`canvas_page`) has no `svg#schematic` element. There the script keeps no
+view in the session storage. The load keeps the URL hash, and the hash holds the camera
+target: the open map or a card (docs/design/nested-canvas.md, "A live reload keeps only
+the hash"). The other parts of the script are the same on the two pages.
+
 The script reads the events of the server at `/events`. It loads the page again only
 for a `rendered` event with a version number that is more than the number of the page.
 If the connection breaks, the script closes it and does nothing more. If the command
@@ -27,6 +32,8 @@ NOTICE_ID = "live-notice"
 SCRIPT = r"""
 (function(){
   if(window.parent !== window || !window.EventSource){ return; }
+  // The canvas page has no svg#schematic. There A and P are undefined, so save() and
+  // restore() do nothing, and the load keeps only the URL hash.
   var svg = document.getElementById('schematic');
   var A = svg && svg.systemap, P = svg && svg.page;
   var C = document.getElementById('changemap'), M = C && C.systemap;

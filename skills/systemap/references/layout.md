@@ -64,19 +64,24 @@ The suggestion threshold is forty components for a map or more than ten modules 
 These are tool thresholds. They do not show that a map is easy to read.
 For a suggested nested map:
 
-1. Set `map="gateway.py"` on the parent component.
-   The path is relative to the parent model file.
-2. Write `MODEL` and `MEANING` in that module without positions.
+1. Write `MODEL` and `MEANING` in the nested model file, for example `map/gateway.py`.
+   `systemap parts --stub Gateway` writes a stub with positions.
    Assign exactly the parent's modules or source symbols to its internal components.
    Do not include unrelated source claims.
+2. Set `map="gateway.py"` on the parent component.
+   The path is relative to the parent model file.
 3. Use the parent map's adjacent component identifiers for the nested map actors.
 4. Do the loop in SKILL.md for every map.
+   If the map has two or more nested maps, read `references/parts.md`.
 
-`systemap place` and `systemap check` examine every nested map.
+Without `--map`, `systemap place` and `systemap check` examine every nested map.
+`--map ID` selects one map.
 The nested-map check rejects differences in source coverage.
 Nested findings have a map prefix, for example `Gateway: `.
 
-`refresh` writes `docs/map/Gateway/index.html` with parent and child links.
+`refresh` writes the canvas page `docs/map/index.html` with all maps of the tree.
+`docs/map/Gateway/index.html` is a redirect page to `docs/map/index.html#Gateway`.
+The URL hash identifies the map, so earlier links stay correct.
 `figure --map Gateway` makes its figure.
 `describe`, `judgement`, and `delta` also identify the applicable map.
 The parent component and its flows stay on the parent map.

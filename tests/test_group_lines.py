@@ -1,6 +1,6 @@
 """Group lines are horizontal and vertical, as the flow routes are.
 
-Acceptance: in the committed self-map page, every straight part of every group
+Acceptance: in the linked page of the self-map (the fixture `self_map_page`), every straight part of every group
 line in the Data flow and All layers is horizontal or vertical (0.05 units of
 tolerance). The bends are quarter curves between the straight parts. The Node
 harness runs the page script with fixed geometry.
@@ -14,7 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from test_keyboard import DRIVER, SELF_MAP, needs_node
+from test_keyboard import DRIVER, needs_node
 
 SCENARIO = r"""
 function grouplines(page) {
@@ -55,8 +55,7 @@ def straight_parts(d: str) -> list[tuple[float, float, float, float]]:
 
 
 @needs_node
-def test_group_lines_have_no_diagonal_parts(tmp_path: Path) -> None:
-    assert SELF_MAP.is_file(), "the committed page; run systemap refresh"
+def test_group_lines_have_no_diagonal_parts(tmp_path: Path, self_map_page: Path) -> None:
     driver = DRIVER.read_text(encoding="utf-8").replace(
         "const scenarios = {keyboard, framing, submap, theme, workspace};",
         "const scenarios = {keyboard, framing, submap, theme, workspace, grouplines};",
@@ -64,7 +63,13 @@ def test_group_lines_have_no_diagonal_parts(tmp_path: Path) -> None:
     harness = tmp_path / "group-lines.js"
     harness.write_text(driver + SCENARIO, encoding="utf-8")
     result = subprocess.run(
-        [shutil.which("node") or "node", str(harness), str(SELF_MAP), "--scenario", "grouplines"],
+        [
+            shutil.which("node") or "node",
+            str(harness),
+            str(self_map_page),
+            "--scenario",
+            "grouplines",
+        ],
         capture_output=True,
         text=True,
         encoding="utf-8",
