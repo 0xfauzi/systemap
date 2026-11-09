@@ -16,6 +16,9 @@ bench/jev/data/
 bench/jev/.venv/
 bench/jev/results/labels/label-page/items.json
 .systemap/
+# systemap writes <model file>.lock next to a model file while it writes that file.
+# The lock goes when the write ends. A stopped process can leave it.
+*.py.lock
 
 # Claude Code writes its plugin API declarations here when it loads the plugin
 # from this folder with --plugin-dir. They belong to the installed Claude Code version.
