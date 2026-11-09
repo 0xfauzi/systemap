@@ -26,12 +26,15 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from systemap import repo_files
+from systemap import python_syntax, python_tree, source_segment, source_text
+from systemap.unknown_causes import DEPTH_ERRORS
 
 # The maximum number of characters in a 2.0.0 preview of a constant value.
 _PREVIEW_LIMIT = 80
 
 _Function = ast.FunctionDef | ast.AsyncFunctionDef
+# The errors of `ast.unparse` for a node that it cannot give as text.
+_UNPARSE_ERRORS = (AttributeError, ValueError, *DEPTH_ERRORS)
 
 
 def record(root: Path, module: dict[str, Any]) -> dict[str, Any]:
@@ -42,43 +45,43 @@ def record(root: Path, module: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(name, str) or not name.endswith(".py"):
         return module
     try:
-        tree = ast.parse(repo_files.read_bytes(root, name))
-    except (OSError, SyntaxError, ValueError):
+        raw = source_text.read(root, root / name)
+        tree = python_tree.parse(raw)
+    except (OSError, UnicodeError, SyntaxError, ValueError):
         return module
-    statements = _active(tree.body)
+    statements = python_syntax.active_statements(tree.body)
     functions = _queues(
         (node.name, _signature(node)) for node in statements if isinstance(node, _Function)
     )
-    classes = _queues(
-        (node.name, _methods(node)) for node in statements if isinstance(node, ast.ClassDef)
-    )
+    classes = _class_queues(statements, source_segment.Source(raw))
     constants = _queues(_previews(statements))
     out = dict(module)
     out["functions"] = [
         {**item, "signature": _next(functions, item, "signature")}
         for item in module.get("functions", [])
     ]
-    for key in ("classes", "errors"):
+    for key, queues in classes.items():
         out[key] = [
-            {**item, "methods": _next(classes, item, "methods")} for item in module.get(key, [])
+            {**item, "methods": _next(queues, item, "methods")} for item in module.get(key, [])
         ]
     out["constants"] = [
         {**item, "value": _next(constants, item, "value")} for item in module.get("constants", [])
     ]
-    return {key: value for key, value in out.items() if key in module}
-
-
-def _active(body: list[ast.stmt]) -> list[ast.stmt]:
-    """Select the statements that `extract` reads: an `if` with a `bool` constant test
-    gives only the statements of its selected branch."""
-    out: list[ast.stmt] = []
-    for node in body:
-        if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
-            if isinstance(node.test.value, bool):
-                out.extend(_active(node.body if node.test.value else node.orelse))
-                continue
-        out.append(node)
     return out
+
+
+def _class_queues(
+    statements: list[ast.stmt], source: source_segment.Source
+) -> dict[str, dict[str, deque[Any]]]:
+    """Give the method queues of the `classes` records and of the `errors` records.
+
+    `extract` puts an error class only in `errors`, with the same test of the class.
+    """
+    kinds: dict[bool, list[tuple[str, list[str]]]] = {True: [], False: []}
+    for node in statements:
+        if isinstance(node, ast.ClassDef):
+            kinds[source_segment.is_error(node, source)].append((node.name, _methods(node)))
+    return {"classes": _queues(kinds[False]), "errors": _queues(kinds[True])}
 
 
 def _queues(pairs: Iterable[tuple[str, Any]]) -> dict[str, deque[Any]]:
@@ -99,11 +102,11 @@ def _signature(node: _Function) -> str:
     """Give the signature of a function as 2.0.0 and 3.0.0 gave it."""
     try:
         args = ast.unparse(node.args)
-    except (AttributeError, ValueError):
+    except _UNPARSE_ERRORS:
         args = "..."
     ret = ""
     if node.returns is not None:
-        with contextlib.suppress(AttributeError, ValueError):
+        with contextlib.suppress(*_UNPARSE_ERRORS):
             ret = f" -> {ast.unparse(node.returns)}"
     prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
     return f"{prefix}{node.name}({args}){ret}"
@@ -126,7 +129,7 @@ def _previews(statements: list[ast.stmt]) -> Iterable[tuple[str, str]]:
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
         try:
             value = ast.unparse(node.value)[:_PREVIEW_LIMIT]
-        except (AttributeError, ValueError):
+        except _UNPARSE_ERRORS:
             value = "?"
         for target in targets:
             if isinstance(target, ast.Name):

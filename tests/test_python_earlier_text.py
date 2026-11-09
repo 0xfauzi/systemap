@@ -4,12 +4,18 @@ From facts format 14, the signatures, the methods, and the `constants` previews 
 from the source lines. systemap 2.0.0 and 3.0.0 got them from `ast.unparse`. Acceptance
 values:
 
-1. `python_earlier_text.record` gives the `ast.unparse` text of a function signature, a method,
-   and two constant previews. The other values of the record do not change.
+1. `python_earlier_text.record` gives the `ast.unparse` text of a function signature, an
+   async function signature, a method, the method of an error class, a function in an
+   `if True:` block, and three constant previews. A preview has a maximum of 80
+   characters. The other values of the record do not change.
 2. An answer from 2.0.0 that agrees with the source becomes current after one
    `systemap extract`, also when its module has such a value. Without `python_earlier_text`,
    the 2.0.0 form of its evidence is different. Thus the test needs `python_earlier_text`.
 3. A record without a Python source file stays the same.
+4. A module with too many syntax levels gives its record without a change. `extract`
+   with an answer that is not current and such a module exits 0.
+5. An error class and a class that is not an error, with the same name, each keep the
+   methods of their own class.
 
 A probe on this repository at 80e418b gave the evidence: with `python_earlier_text`, the 2.0.0
 form gave the 6 digests that 80e418b recorded in `systemap.toml`. Without it, it gave 3
@@ -35,6 +41,10 @@ ADDED = (
     'TITLE: str = "Reader"\n'
     '\n\ndef shape(size:int=1, *, name = "x") -> str:\n    return name\n'
     "\n\nclass Shape:\n    def scale(self, factor:float=2.0) -> None:\n        pass\n"
+    "\n\nclass ReadError(Exception):\n    def code(self, n:int=1) -> int:\n        return n\n"
+    "\n\nasync def fetch(size:int=1) -> None:\n    pass\n"
+    f'\n\nLONG = "{"a" * 100}"\n'
+    "\n\nif True:\n    def inside(k:int=3) -> int:\n        return k\n"
 )
 # The `ast.unparse` text of ADDED, as systemap 2.0.0 and 3.0.0 recorded it.
 UNPARSED = {
@@ -42,6 +52,10 @@ UNPARSED = {
     "TITLE": "'Reader'",
     "shape": "def shape(size: int=1, *, name='x') -> str",
     "Shape": ["def scale(self, factor: float=2.0) -> None"],
+    "ReadError": ["def code(self, n: int=1) -> int"],
+    "fetch": "async def fetch(size: int=1) -> None",
+    "LONG": ("'" + "a" * 100)[:80],
+    "inside": "def inside(k: int=3) -> int",
 }
 
 
@@ -55,7 +69,7 @@ def _two_zero(record: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(record)
     for item in out["functions"]:
         item["signature"] = UNPARSED.get(item["name"], item["signature"])
-    for item in out["classes"]:
+    for item in out["classes"] + out["errors"]:
         item["methods"] = UNPARSED.get(item["name"], item["methods"])
     for item in out["constants"]:
         item["value"] = UNPARSED.get(item["name"], item["value"])
@@ -98,3 +112,44 @@ def test_a_record_without_python_source_stays_the_same(tmp_path: Path) -> None:
     for name in ("service.ts", "broken.py", "missing.py"):
         record = {"file": name, "constants": [{"name": "LIMIT", "value": "200_000"}]}
         assert python_earlier_text.record(tmp_path, record) == record
+
+
+# A module with too many syntax levels for `ast.parse`.
+DEEP = "X = " + "+".join(["1"] * 3000) + "\n"
+
+
+def test_a_module_that_is_too_deep_stays_the_same(tmp_path: Path) -> None:
+    """Acceptance 4: the record."""
+    (tmp_path / "deep.py").write_text(DEEP, encoding="utf-8")
+    record = {"file": "deep.py", "constants": [{"name": "X", "value": "?"}]}
+    assert python_earlier_text.record(tmp_path, record) == record
+
+
+@pytest.mark.parametrize("project", ["python"], indirect=True)
+def test_extract_with_a_pending_answer_and_a_module_that_is_too_deep(project: Path) -> None:
+    """Acceptance 4: `extract`."""
+    line = structural_lines(project)[0]
+    cfg = config.load(project)
+    answer = {"item": line, "reason": "A test.", "evidence": "0" * 64}
+    answer_write.add(project, cfg.source, [answer])
+    (project / "pkg" / "deep.py").write_text(DEEP, encoding="utf-8")
+    assert main(["--root", str(project), "extract"]) == 0
+
+
+# An error class and a class that is not an error, with the same name.
+SAME_NAME = (
+    "\n\nclass Thing(Exception):\n    def a(self, x:int=1): ...\n"
+    "\n\nclass Thing:\n    def b(self, y:int=2): ...\n"
+)
+
+
+@pytest.mark.parametrize("project", ["python"], indirect=True)
+def test_an_error_and_a_class_with_the_same_name_keep_their_methods(project: Path) -> None:
+    """Acceptance 5."""
+    append(project, "pkg/reader.py", SAME_NAME)
+    record = _records(project)["components"]["pkg.reader"]
+    out = python_earlier_text.record(project, record)
+    errors = [item["methods"] for item in out["errors"] if item["name"] == "Thing"]
+    classes = [item["methods"] for item in out["classes"] if item["name"] == "Thing"]
+    assert errors == [["def a(self, x: int=1)"]]
+    assert classes == [["def b(self, y: int=2)"]]
