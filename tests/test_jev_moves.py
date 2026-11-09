@@ -1,4 +1,4 @@
-"""`delta --jev`'s first half: the new module a module that disappeared became.
+"""`delta --decide`'s first half: the new module a module that disappeared became.
 
 delta pairs a module that moved by its source, its public names, or a file
 name that reads the same with most of the same names. A module renamed and

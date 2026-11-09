@@ -184,7 +184,7 @@ def test_jev_does_not_change_the_update_lines_or_the_exit_code(
     )
     fake = Fake()
     use(monkeypatch, fake)
-    with_jev = run(renamed, capsys, "--jev")
+    with_jev = run(renamed, capsys, "--decide")
     assert fake.posts, "Jev was asked"
     assert with_jev[0] == without[0]
     assert update_lines(with_jev[1]) == update_lines(without[1])
@@ -198,7 +198,7 @@ def test_jev_does_not_change_the_update_lines_or_the_exit_code(
     # A Jev answer that does not fit the question gives a reason, and the same result.
     (renamed / ".systemap/jev-cache.json").unlink()
     use(monkeypatch, Fake(broken=True))
-    broken = run(renamed, capsys, "--jev")
+    broken = run(renamed, capsys, "--decide")
     assert broken[0] == without[0]
     assert update_lines(broken[1]) == update_lines(without[1])
     assert "delta --decide: Jev gave an incorrect answer to became" in broken[1]
@@ -249,7 +249,7 @@ def test_delta_jev_asks_for_an_owner_of_each_unclaimed_module(
     git(renamed, "commit", "-q", "-m", "stray")
     fake = Fake()
     use(monkeypatch, fake)
-    code, out, _err = run(renamed, capsys, "--jev")
+    code, out, _err = run(renamed, capsys, "--decide")
     assert code == 1
     owners = [p["state"]["module"]["module"] for p in fake.posts if "owner" in p["questions"]]
     assert owners == ["pkg.stray"]
@@ -275,7 +275,7 @@ def test_the_text_report_gives_the_reason_for_no_answer(
     renamed: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    code = main(["--root", str(renamed), "delta", "--base", "HEAD~1", "--jev"])
+    code = main(["--root", str(renamed), "delta", "--base", "HEAD~1", "--decide"])
     out = capsys.readouterr().out
     assert code == 1
     assert "delta --decide: set TYPESAFE_API_KEY to call Jev. No data was sent" in out
@@ -285,7 +285,7 @@ def test_the_text_report_gives_the_reason_for_no_answer(
 def test_delta_jev_with_nothing_to_ask_sends_nothing_and_says_nothing(
     renamed: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    code = main(["--root", str(renamed), "delta", "--base", "HEAD", "--jev"])
+    code = main(["--root", str(renamed), "delta", "--base", "HEAD", "--decide"])
     out = capsys.readouterr().out
     assert code == 0
-    assert "delta --jev" not in out
+    assert "delta --decide" not in out

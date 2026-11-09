@@ -738,20 +738,10 @@ def report(
     out = [_head(result, kind, len(shown))]
     out += _shown(shown, _with_causes(detail, found), teach)
     out += unknown_causes.fix_lines(found[line] for line in shown if line in found)
-    out += [
-        f"  stale answer: '{printable(item)}' is {_stale_cause(item)}. "
-        "Remove it from [judgement] answered."
-        for item in result.stale
-    ]
+    out += [f"  stale answer: {answer_migrations.stale(item)}" for item in result.stale]
     out += [f"  pending answer: {printable(item)}" for item in result.pending or []]
     out += [f"  policy answer: {printable(item)}" for item in result.policies or []]
     return out
-
-
-def _stale_cause(item: str) -> str:
-    """This function tells why an answer item matches no line."""
-    cause = answer_migrations.retired(item)
-    return f"no longer a finding: {cause}" if cause else "now missing"
 
 
 def _with_causes(

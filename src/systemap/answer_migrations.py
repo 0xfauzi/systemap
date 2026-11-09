@@ -4,26 +4,8 @@ A finding line is also an identifier, so a change of its text needs a migration.
 module is the one migration path for `judgement` and `audit` (`AGENTS.md`). Each earlier
 form has one pattern in `EARLIER_FORMS`. These lines changed:
 
-- Facts format 8: the line for a source parse error ended with "under Python
-  <version>". Then it ended with "(parser version <version>)".
-- Facts format 9: the line for a configuration package ended with "the npm tsconfig
-  package could not be read". Now it ends with "the configuration package could not be
-  read".
-- Facts format 9: the reason "The parser could not parse the TypeScript syntax." is now
-  "The parser could not parse the source syntax."
-- Facts format 11: a finding line is the identity of the finding. Thus it contains no
-  value that changes while the finding stays the same. The `unknown surface` line of a
-  module record had the location "(<file>:<line>)". The current line has "(<file>)". The
-  line of a test file record had "test file <file>:<line>:". A parse line ended with
-  " Source excerpt: '<text>'", with " (parser version <version>)", or with the two. The
-  current line ends with the reason. The judgement report gives these values in rows
-  below the line, and `judgement --json` gives them in `sources`.
-- The `entry point` line for a group of entry points gave the kind identifier, as in
-  "7 public_functions into Api". Now it gives the kind as words, as in "7 public
-  functions into Api". A kind without "_", such as `route`, does not change.
-- The `decision mis-fold` and `decision owner` lines of `audit` ended with the pick of the
-  provider, for example ", which reads like Reader". The detail row now gives the pick.
-- The kinds of the `audit` lines started with "jev". Now they start with "decision".
+- The `jev mis-fold` and `jev owner` lines of `audit` ended with the pick of the provider,
+  for example ", which reads like Reader". The detail row now gives the pick.
 - Facts format 13: the `crossing import` line gave the count of the importing modules,
   as in "imports Config in 3 modules and". The `package_export` line gave "(+2 more)"
   after the target and the count of the targets in the reason. A count can change while
@@ -32,11 +14,23 @@ form has one pattern in `EARLIER_FORMS`. These lines changed:
   The current line shows each such character as an escape (`terminal_text.printable`).
   This form is the first form, so the other forms read the line with the escapes.
 
-Until 3.1.0, an answer item in an earlier form selects the line in the current form.
-`current_line` applies the patterns in their sequence. Thus an item can change in two or
-more steps. `warnings` gives one warning for each item in an earlier form, and also the
-warnings for the previous decision kind names. An item that is a current line gets no
-warning: the callers give the current lines as `present`.
+An answer item in an earlier form selects the line in the current form. `current_line`
+applies the patterns in their sequence. Thus an item can change in two or more steps.
+`warnings` gives one warning for each item in an earlier form of `EARLIER_FORMS`. An item
+that is a current line gets no warning: the callers give the current lines as `present`.
+
+2.0.0 and 3.0.0 also read these forms of the releases before 2.0.0: the "jev"
+kind names of the `audit` lines, the `entry point` line with a kind identifier such as
+"public_functions", and the `unknown surface` lines with "under Python <version>", "the
+npm tsconfig package", "the TypeScript syntax", a line number in the location, a source
+excerpt, or a parser version. From 3.1.0, systemap does not read these forms. An item in
+such a form matches no line, and the judgement report gives it as a stale answer. An item
+with a previous kind name is an `audit` item. The judgement report also gives it as a
+stale answer, with the current line (`renamed_items`, `decision_kinds.renamed`).
+
+Before 2.0.0, the `jev mis-fold` and `jev owner` lines ended with the pick of the
+provider. No release gave a `decision` line with the pick. The "provider pick" form gives
+the current line of such an item after the change of its kind name.
 
 A name or a reason in a current line can contain the text of an earlier form. Thus each
 pattern has its fixed text at its fixed position. An item that is a current line stays
@@ -53,7 +47,10 @@ Two earlier forms need the current lines. `current_lines` reads them:
   with the names, which come from the source. An item without names applies to a current
   line if the module, the file, and the target agree with one and only one current line
   of this form. A line for a declaration file has a different meaning, so an earlier item
-  does not apply to it.
+  does not apply to it. The earlier item has a line number in its location, and this
+  form still reads it.
+
+`warnings` gives no warning for an item in these two forms.
 
 `judgement` gives no line about a test file. `retired` gives the cause for an item of such
 a line. The report gives the item as a stale answer with this cause.
@@ -69,8 +66,6 @@ from typing import NamedTuple
 
 from systemap import decision_kinds
 from systemap.config import Answer
-from systemap.decision_kinds import PREVIOUS, Answered
-from systemap.journey_coverage import kind_words
 from systemap.terminal_text import UNSAFE, printable
 
 
@@ -82,16 +77,6 @@ class EarlierForm(NamedTuple):
     current: str | Callable[[re.Match[str]], str]
 
 
-def _group_kind(found: re.Match[str]) -> str:
-    return f"{found['head']}{kind_words(found['kind'])}s{found['rest']}"
-
-
-def _parsed(found: re.Match[str]) -> str:
-    return f"{found['line']}{found['syntax'] or found['error']}"
-
-
-_PREVIOUS_KINDS = "|".join(re.escape(name) for name in PREVIOUS)
-
 # The parts of a line. Each pattern has its fixed text at its fixed position, and each
 # variable part has a limit. Thus a match is linear in the length of the line, and the
 # text of a name or of a reason cannot move the fixed text to a different position.
@@ -99,17 +84,8 @@ _PREVIOUS_KINDS = "|".join(re.escape(name) for name in PREVIOUS)
 _MAP = r"(?:\S+: )?"
 # A file in a location: no ":", and parentheses only in pairs, as in "app/(shop)/a.ts".
 _FILE = r"[^():]*(?:\([^():]*\)[^():]*)*"
-# A module name. A file name with a space gives a name with a space, as "pkg.my file".
-# A word after a space does not start with "(", because " (" starts the location.
-_MODULE = r"\S+(?: [^\s(]\S*)*"
-# The location of a module record or of a test file, with the earlier line number.
-_WHERE = rf"(?:module {_MODULE} \({_FILE}(?::\d+)?\)|test file [^:]+(?::\d+)?)"
 # A quoted value as Python `repr` gives it.
 _QUOTED = r"""(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
-# The reason of an earlier module record: a parse error, a read error, or an error name.
-_ERROR = r"(?:source could not be parsed: \w+|source could not be read: .*?|\w+)"
-_SYNTAX = "The parser could not parse the source syntax."
-
 # The control characters and separators that `terminal_text.printable` replaces.
 _CONTROL = UNSAFE.pattern.removeprefix("[").removesuffix("]")
 
@@ -121,79 +97,13 @@ EARLIER_FORMS = (
         lambda found: printable(found["line"]),
     ),
     EarlierForm(
-        "parser name",
-        re.compile(
-            rf"^(?P<line>{_MAP}unknown surface: module {_MODULE} \({_FILE}(?::\d+)?\): {_ERROR})"
-            r" under Python (?P<parser>\S+)$"
-        ),
-        r"\g<line> (parser version \g<parser>)",
-    ),
-    EarlierForm(
-        "npm package",
-        re.compile(
-            rf"^(?P<line>{_MAP}unknown surface: [^'\"]+? extends {_QUOTED}): "
-            r"the npm tsconfig package could not be read$"
-        ),
-        r"\g<line>: the configuration package could not be read",
-    ),
-    EarlierForm(
-        "language syntax",
-        re.compile(
-            rf"^(?P<line>{_MAP}unknown surface: {_WHERE}: )"
-            r"The parser could not parse the TypeScript syntax\."
-            r"(?P<rest>(?: Source excerpt: .*| \(parser version [^()]*\))?)$"
-        ),
-        r"\g<line>The parser could not parse the source syntax.\g<rest>",
-    ),
-    EarlierForm(
-        "parser version",
-        re.compile(
-            rf"^(?P<line>{_MAP}unknown surface: {_WHERE}: )"
-            rf"(?:(?P<syntax>{re.escape(_SYNTAX)})(?: Source excerpt: .*?)?|(?P<error>{_ERROR}))"
-            r" \(parser version [^()]*\)$"
-        ),
-        _parsed,
-    ),
-    EarlierForm(
-        "source excerpt",
-        re.compile(
-            rf"^(?P<line>{_MAP}unknown surface: {_WHERE}: {re.escape(_SYNTAX)})"
-            r" Source excerpt: .*$"
-        ),
-        r"\g<line>",
-    ),
-    EarlierForm(
-        "module line number",
-        re.compile(rf"^(?P<head>{_MAP}unknown surface: module \S+ \({_FILE}):\d+(?P<tail>\): .*)$"),
-        r"\g<head>\g<tail>",
-    ),
-    EarlierForm(
-        "test file line number",
-        re.compile(rf"^(?P<head>{_MAP}unknown surface: test file [^:]+):\d+(?P<tail>: .*)$"),
-        r"\g<head>\g<tail>",
-    ),
-    EarlierForm(
-        "entry kind identifier",
-        re.compile(
-            rf"^(?P<head>{_MAP}entry point \d+ )(?P<kind>(?=[^\W_]*_)\w+?)s"
-            # The component name can contain a space. It is the same in the two positions.
-            r"(?P<rest> into (?P<card>[^()]+) have no sequence \(component (?P=card)\))$"
-        ),
-        _group_kind,
-    ),
-    EarlierForm(
         "provider pick",
         re.compile(
-            rf"^(?P<line>{_MAP}(?:jev|decision) "
+            rf"^(?P<line>{_MAP}decision "
             r"(?:mis-fold: \S+ claims \S+|owner: \S+ is claimed by no card))"
             r"(?:, which reads like .+|; it reads like .+|; closest: .+)$"
         ),
         r"\g<line>",
-    ),
-    EarlierForm(
-        "decision kind name",
-        re.compile(rf"^(?P<prefix>(?:[^:]*: )?)(?P<kind>{_PREVIOUS_KINDS}): (?P<rest>.*)$"),
-        lambda found: f"{found['prefix']}{PREVIOUS[found['kind']]}: {found['rest']}",
     ),
     EarlierForm(
         "crossing count",
@@ -260,49 +170,54 @@ def retired(item: str) -> str:
     return next((cause for pattern, cause in _RETIRED if pattern.match(item)), "")
 
 
-class _Unmatched(NamedTuple):
-    """The items of an answer that are not current lines, and the kind of the answer."""
-
-    items: tuple[str, ...]
-    kind: str
-    reviewed: tuple[str, ...]
-
-
-def _unmatched(answer: Answered, present: Container[str]) -> _Unmatched:
-    return _Unmatched(
-        tuple(item for item in answer.items if item not in present),
-        answer.kind,
-        tuple(item for item in answer.reviewed if item not in present),
-    )
+def stale(item: str) -> str:
+    """Tell why an answer item matches no line, and what the maintainer must do."""
+    shown = f"'{printable(item)}'"
+    if cause := retired(item):
+        return f"{shown} is no longer a finding: {cause}. Remove it from [judgement] answered."
+    if names := decision_kinds.renamed(item):
+        now = current_line(item.replace(names[0], names[1], 1))
+        return (
+            f'{shown} has the previous kind name "{names[0]}", which systemap does not read. '
+            f"Change it to '{printable(now)}' in [judgement] answered."
+        )
+    return f"{shown} is now missing. Remove it from [judgement] answered."
 
 
-def kind_warnings(answers: Iterable[Answered], present: Container[str]) -> list[str]:
-    """Give one warning for each previous kind name (`decision_kinds.warnings`).
+def renamed_items(answers: Iterable[Answer]) -> list[str]:
+    """Give each item and each reviewed line with a previous kind name, one time.
 
-    `present` contains the current lines. An item that is a current line gets no warning,
-    also if its text looks like a decision line with a previous kind name."""
-    return decision_kinds.warnings([_unmatched(answer, present) for answer in answers])
+    `audit` reads such an answer, but its items match no line. `judgement` gives these
+    items as stale answers, because CI uses `judgement` and not `audit`."""
+    found = (item for answer in answers for item in (*answer.items, *answer.reviewed))
+    return list(dict.fromkeys(item for item in found if decision_kinds.renamed(item)))
 
 
-def warnings(answers: Iterable[Answered], present: Container[str] = ()) -> list[str]:
-    """Give one warning for each previous kind name and each item in an earlier form.
+def warnings(answers: Iterable[Answer], present: Container[str] = ()) -> list[str]:
+    """Give one warning for each item in an earlier form.
 
     `present` contains the current lines. An item that is a current line gets no warning,
     because the item is correct."""
-    given = [_unmatched(answer, present) for answer in answers]
-    items = (item for answer in given for item in (*answer.items, *answer.reviewed))
+    items = (
+        item
+        for answer in answers
+        for item in (*answer.items, *answer.reviewed)
+        if item not in present
+    )
     now = {item: current_line(item) for item in items}
     earlier = [
         item
         for item, line in now.items()
         if line != item
         and not retired(item)
-        # `decision_kinds.warnings` gives the warning for a decision line.
+        # A decision line is an `audit` line, and `judgement` does not give it. `audit`
+        # changes an item in an earlier form of a decision line without a warning. An
+        # item with a previous kind name is a stale answer (`renamed_items`).
         and decision_kinds.kind_of(item) is None
+        and decision_kinds.renamed(item) is None
     ]
-    return decision_kinds.warnings(given) + [
-        f'warning: [judgement] answered uses the earlier line "{item}". Change it to '
-        f'"{now[item]}". From 3.1.0, systemap does not read the earlier line.'
+    return [
+        f'warning: [judgement] answered uses the earlier line "{item}". Change it to "{now[item]}".'
         for item in earlier
     ]
 

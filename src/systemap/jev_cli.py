@@ -22,7 +22,6 @@ from typing import Any
 
 from systemap import (
     agent,
-    answer_migrations,
     audit,
     cli_scope,
     config,
@@ -35,7 +34,6 @@ from systemap import (
     history,
     jev,
     journeys,
-    judgement_json,
     model_write,
     nest,
     providers,
@@ -142,18 +140,6 @@ def delta_hint(cfg: config.Config, decide: bool | None, unpaired: bool) -> None:
 # ---- audit -------------------------------------------------------------------------
 
 
-def _kind_warnings(cfg: config.Config, tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
-    """Give the previous-kind-name warnings for `[judgement] answered`.
-
-    An item that is a current judgement line gets no warning, as in `systemap judgement`
-    (`answer_migrations.kind_warnings`). The function calculates the judgement lines
-    only if an item can get a warning."""
-    if not decision_kinds.warnings(cfg.judgement_answered):
-        return []
-    present = set(judgement_json.current_lines(tree, facts, cfg))
-    return answer_migrations.kind_warnings(cfg.judgement_answered, present)
-
-
 def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     """Give the provider findings with exit 0, or exit 1 if the request cannot complete."""
     option = getattr(args, "provider", None)
@@ -162,8 +148,6 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
     if facts is None:
         return STALE
     tree = nest.load(cfg)
-    for line in _kind_warnings(cfg, tree, facts):
-        show(line, file=sys.stderr)
     kinds = _measured_kinds(cfg, _kinds(args.kind) if args.kind else audit.DEFAULT_KINDS)
     if not kinds:
         return STALE
@@ -200,10 +184,8 @@ def cmd_audit(args: argparse.Namespace, send: jev.Send | None = None) -> int:
 
 
 def _kinds(given: list[str]) -> tuple[str, ...]:
-    """Give the current kind names. Print a warning for each previous name."""
-    for name in dict.fromkeys(k for k in given if k in decision_kinds.PREVIOUS):
-        show(decision_kinds.option_warning(name), file=sys.stderr)
-    return tuple(dict.fromkeys(decision_kinds.current(k) for k in given))
+    """Give each selected kind name one time, in the given sequence."""
+    return tuple(dict.fromkeys(given))
 
 
 def _measured_kinds(cfg: config.Config, kinds: tuple[str, ...]) -> tuple[str, ...]:
@@ -701,13 +683,12 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         "--kind",
         action="append",
         default=[],
-        choices=decision_kinds.AUDIT_NAMES,
+        choices=decision_kinds.KINDS,
         metavar="KIND",
         help="Select this question type. Use the option again for more types (one of: "
         + ", ".join(f'"{k}"' for k in config.AUDIT_KINDS)
         + f'). The default does not include "{decision_kinds.FLOW}". Its holdout result was '
-        'less than the threshold. The previous names, such as "jev flow", stay correct until '
-        "3.1.0.",
+        "less than the threshold.",
     )
     s.add_argument(
         "--brief",

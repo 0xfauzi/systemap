@@ -663,9 +663,8 @@ def _answer_selector(form: str, value: Any, location: str) -> Answer:
     if form == "kind":
         error = f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
         name = _answer_name(value, error)
-        # A previous name of a decision kind stays correct until 3.1.0.
-        if name not in (*LINE_KINDS, *decision_kinds.AUDIT_NAMES):
-            raise ConfigError(error)
+        if name not in (*LINE_KINDS, *AUDIT_KINDS):
+            raise ConfigError(error + decision_kinds.previous_name_note(name))
         return Answer(items=(), reason="", kind=name)
     name = _answer_name(value, f"{location} module_sdk must be an import name.")
     return Answer(items=(), reason="", module_sdk=name)

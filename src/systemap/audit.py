@@ -4,7 +4,7 @@
 or OpenAI) questions about owners, component sentences, flow claims, and invariants.
 Disagreements print with `decision mis-fold`, `decision owner`, `decision sentence`,
 `decision flow`, or `decision governs` identifiers. `systemap.decision_kinds` gives
-these names and their previous names, which started with "jev".
+these names.
 
 Thresholds came from five first maps in bench/scratch, recorded in bench/jev.
 Three holdout maps used the same thresholds. All results stayed within 10 points
@@ -26,8 +26,8 @@ gives the count of the questions that got a refusal.
 A finding line is an identifier. It does not contain the pick of the provider, so a
 new model release that changes only the pick does not change the line. The pick is in
 the detail row. `migrated` changes a line in an earlier form to the current form, so
-that recorded answers continue to match. An earlier form ended with the pick, or had
-a previous kind name. `evidence` gives the evidence digest of a line from its line
+that recorded answers continue to match. An earlier form ended with the pick.
+`evidence` gives the evidence digest of a line from its line
 with the previous kind name, so that the recorded digests stay correct.
 
 Completed reports exit 0. A request error can cause exit 1.
@@ -407,8 +407,8 @@ def run(
 def migrated(line: str, present: Container[str] = ()) -> str:
     """Change a line in an earlier form to the current form (`answer_migrations`).
 
-    An earlier form has the pick of the provider at the end, or a previous kind name.
-    A line in `present` is a current line, so it stays the same.
+    An earlier form has the pick of the provider at the end. A line in `present` is a
+    current line, so it stays the same.
     """
     return answer_migrations.current_line(line, present)
 
@@ -419,23 +419,36 @@ def _bare(line: str) -> str:
 
 
 def is_audit_answer(answer: Answer) -> bool:
-    """Determine whether an answer names audit findings, with a new or previous name."""
+    """Determine whether an answer names audit findings.
+
+    An item with a previous kind name, such as "jev flow", is also an audit item. It
+    matches no line, and `judgement` gives it as a stale answer."""
     if answer.kind:
-        return decision_kinds.current(answer.kind) in KINDS
-    return bool(answer.items) and all(decision_kinds.kind_of(i) in KINDS for i in answer.items)
+        return answer.kind in KINDS
+    return bool(answer.items) and all(_item_kind(i) in KINDS for i in answer.items)
+
+
+def _item_kind(item: str) -> str | None:
+    """Give the kind of an audit item. An item with a previous name has the new kind."""
+    names = decision_kinds.renamed(item)
+    return names[1] if names else decision_kinds.kind_of(item)
 
 
 def _covers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
     if answer.items:
         return any(migrated(item, present) == line for item in answer.items)
-    return decision_kinds.kind_of(line) == decision_kinds.current(answer.kind)
+    return decision_kinds.kind_of(line) == answer.kind
 
 
 def _stale(mine: list[Answer], texts: list[str]) -> list[str]:
-    """Give the configured items and kinds that match no current line."""
+    """Give the configured items and kinds that match no current line.
+
+    A reviewed line with a previous kind name is also stale (`_stale_row`)."""
     present = set(texts)
     stale = [i for a in mine for i in a.items if migrated(i, present) not in present]
-    return stale + [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+    stale += [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+    renamed = (r for a in mine for r in a.reviewed if decision_kinds.renamed(r))
+    return stale + [r for r in dict.fromkeys(renamed) if r not in stale]
 
 
 def evidence(
@@ -468,8 +481,8 @@ def _with_earlier_lines(evidence: Mapping[str, str], mine: list[Answer]) -> dict
 
 def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
     """Determine whether the answer names types selected in this run."""
-    names = [answer.kind] if answer.kind else [decision_kinds.kind_of(i) for i in answer.items]
-    return all(n is not None and decision_kinds.current(n) in kinds for n in names)
+    names = [answer.kind] if answer.kind else [_item_kind(i) for i in answer.items]
+    return all(n is not None and n in kinds for n in names)
 
 
 def apply(
@@ -562,6 +575,11 @@ def reviewed_answer_issue(
     return f"'{answer.label}' must have policy = true for a family of lines."
 
 
+def _stale_row(item: str) -> str:
+    """Give the new name for an item with a previous kind name (`answer_migrations.stale`)."""
+    return answer_migrations.stale(item) if decision_kinds.renamed(item) else item
+
+
 def report(
     open_lines: list[Line],
     answered: int,
@@ -590,7 +608,7 @@ def report(
         noun = "item" if len(open_lines) == 1 else "items"
         head = f"audit: {len(open_lines)} {noun} for the maintainer to confirm{tail}"
     out = [head, *_taught(open_lines, teach)]
-    out += [f"  stale answer: {s}" for s in stale]
+    out += [f"  stale answer: {_stale_row(s)}" for s in stale]
     out += [f"  pending answer: {s}" for s in pending]
     out += [f"  policy answer: {s}" for s in policies]
     out += unasked_lines(list(unasked))

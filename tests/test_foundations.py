@@ -234,8 +234,9 @@ def test_explain_lists_every_kind_and_prints_one_whole(
     assert main(["--root", str(tmp_path), "explain"]) == 0
     out = capsys.readouterr().out
     assert "The diagnostic kinds and their meanings follow." in out
-    for kind in ("crossing import", "coverage", "jev owner", "new crossing import"):
+    for kind in ("crossing import", "coverage", "decision owner", "new crossing import"):
         assert f"  {kind}: " in out
+    assert "  jev owner: " not in out
     assert main(["--root", str(tmp_path), "explain", "crossing import"]) == 0
     whole = capsys.readouterr().out
     assert whole.startswith("crossing import\n")

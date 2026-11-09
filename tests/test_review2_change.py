@@ -71,7 +71,7 @@ def delta_repo(tmp_path: Path) -> Path:
 
 
 def delta(root: Path, *argv: str) -> int:
-    return main(["--root", str(root), "delta", "--no-jev", "--base", "HEAD~1", *argv])
+    return main(["--root", str(root), "delta", "--no-decide", "--base", "HEAD~1", *argv])
 
 
 def test_the_comment_replaces_a_link_and_does_not_write_to_its_target(

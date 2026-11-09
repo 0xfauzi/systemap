@@ -87,8 +87,8 @@ def crowd_label(how_many: int, kind: str, card: str) -> str:
     HttpApi.
 
     The kind is an identifier, such as `public_function`. The label gives it as words:
-    "7 public functions into Api". `answer_migrations` reads the earlier form of the
-    `entry point` line, which gave the identifier.
+    "7 public functions into Api". From 3.1.0, systemap does not read the earlier form
+    of the `entry point` line, which gave the identifier.
     """
     return f"{how_many} {kind_words(kind)}s into {card}"
 

@@ -4,22 +4,22 @@ Before this change, `source_facts.unknown_fact_lines` wrote "... under Python 3.
 a `parse_error` record. Shared logic must not name one language in a finding line. The
 line then ended with "(parser version 3.11)". Facts format 11 removes the parser
 version and the line number from the line (trial3-1), because they change while the
-finding stays the same. An answer item in `[judgement] answered`
-that has the earlier form still selects the line, with the same evidence digest, and
-the judgement report gives a warning that tells the person to change the item.
+finding stays the same. 2.0.0 and 3.0.0 also read an answer item in `[judgement]
+answered` that has the earlier form. From 3.1.0, systemap does not read that form.
 
 Acceptance: the Python fixture and the TypeScript fixture each give an unknown-surface
-line that does not contain "Python" or "under". An earlier-form item is not stale, it
-answers the current line, its recorded digest stays valid, and the warnings name it.
+line that does not contain "Python" or "under". An earlier-form item selects no line: it
+is stale, the current line is open, and the item gets no warning. An item in the current
+form, or in an earlier form that stays, with the prefix of the top map still selects the
+one current line in the nested map.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import sys
 from pathlib import Path
 
+import pytest
 from conftest import TINY_PACKAGE, write_tree
 
 from systemap import answer_migrations, config, extract, judgement, source_facts
@@ -61,35 +61,42 @@ def test_the_typescript_parse_error_line_has_the_same_form(tmp_path: Path) -> No
     assert not any("under Python" in line for line in lines)
 
 
-def test_an_answer_in_the_earlier_form_selects_the_current_line(tmp_path: Path) -> None:
+def test_an_answer_in_the_earlier_form_selects_no_line(tmp_path: Path) -> None:
     line = _python_line(tmp_path)
     head, _, rest = line.partition("): ")
     earlier = f"{head}:1): {rest} under Python {sys.version.split()[0]}"
-    assert answer_migrations.current_line(earlier) == line
-    assert answer_migrations.current_line(f"sub: {earlier}") == f"sub: {line}"
+    assert answer_migrations.current_line(earlier) == earlier
     assert answer_migrations.current_line(line) == line
     evidence = {line: "digest-of-the-evidence"}
     answer = Answer(items=(earlier,), reason="known", evidence="digest-of-the-evidence")
     result = judgement.apply_answers([line], [answer], evidence)
-    assert result.open == [] and result.stale == [] and result.pending == []
-    # A group digest was recorded over the configured text and the evidence of each line.
-    group = (earlier, "other line")
-    recorded = [(earlier, "digest-of-the-evidence"), ("other line", "second")]
-    expected = hashlib.sha256(json.dumps(recorded, sort_keys=True).encode()).hexdigest()
-    assert judgement.answer_digest(group, {**evidence, "other line": "second"}) == expected
-    assert any(earlier in warning for warning in answer_migrations.warnings([answer]))
+    assert result.open == [line] and result.stale == [earlier] and result.pending == []
+    assert answer_migrations.warnings([answer]) == []
     assert answer_migrations.warnings([Answer(items=(line,), reason="known")]) == []
 
 
-def test_an_answer_in_the_earlier_form_follows_a_line_that_moved_to_a_nested_map() -> None:
-    """Acceptance: an item in the earlier form, with the prefix of the top map, selects the
-    one current line in the nested map. Each migration acts on the item one time: the moved
-    item is in the current form, and the form migration does not change it again.
+_TARGETS = "package.json export targets have no resolved TypeScript modules."
+
+
+@pytest.mark.parametrize(
+    ("earlier", "current"),
+    [
+        (
+            "unknown surface: module app.broken (app/broken.py): SyntaxError",
+            "sub: unknown surface: module app.broken (app/broken.py): SyntaxError",
+        ),
+        (
+            f"unknown surface: package_export web -> dist/a.js (+2 more): 3 {_TARGETS}",
+            f"sub: unknown surface: package_export web -> dist/a.js: The {_TARGETS}",
+        ),
+    ],
+)
+def test_an_answer_follows_a_line_that_moved_to_a_nested_map(earlier: str, current: str) -> None:
+    """Acceptance: an item with the prefix of the top map selects the one current line in
+    the nested map. An item can also be in an earlier text form that stays, such as the
+    `package_export` line with a count. Each migration acts on the item one time: the
+    moved item is in the current form, and the form migration does not change it again.
     """
-    current = "sub: unknown surface: module app.broken (app/broken.py): SyntaxError"
-    earlier = (
-        "unknown surface: module app.broken (app/broken.py:3): SyntaxError under Python 3.11.10"
-    )
     answer = Answer(items=(earlier,), reason="known", evidence="digest-of-the-evidence")
     (moved,) = answer_migrations.current_lines([answer], [current])
     assert moved.items == (current,)

@@ -252,22 +252,22 @@ def test_an_entry_point_group_gives_its_kind_in_words(tmp_path: Path, language: 
     assert lines == ["entry point 5 public functions into Api have no sequence (component Api)"]
 
 
-def test_an_answer_with_the_earlier_entry_point_group_line_selects_the_new_line() -> None:
-    """Acceptance: an answer item in the earlier form "7 public_functions into" selects
-    the line in the new form, with and without a nested-map prefix. Its recorded digest
-    stays valid. The warnings name the earlier item. A line in the new form and a line
-    of a kind without "_" do not change."""
+def test_an_answer_with_the_earlier_entry_point_group_line_selects_no_line() -> None:
+    """Acceptance: 2.0.0 and 3.0.0 read an answer item in the earlier form "7
+    public_functions into". From 3.1.0, the item does not change, with and without a
+    nested-map prefix. It is a stale answer, the new line is open, and the item gets no
+    warning. A line in the new form and a line of a kind without "_" do not change."""
     earlier = "entry point 7 public_functions into Api have no sequence (component Api)"
     current = "entry point 7 public functions into Api have no sequence (component Api)"
-    assert answer_migrations.current_line(earlier) == current
-    assert answer_migrations.current_line(f"Sub: {earlier}") == f"Sub: {current}"
+    assert answer_migrations.current_line(earlier) == earlier
+    assert answer_migrations.current_line(f"Sub: {earlier}") == f"Sub: {earlier}"
     assert answer_migrations.current_line(current) == current
     routes = "entry point 6 routes into Reader have no sequence (component Reader)"
     assert answer_migrations.current_line(routes) == routes
     answer = Answer(items=(earlier,), reason="library", evidence="digest")
     result = judgement.apply_answers([current], [answer], {current: "digest"})
-    assert result.open == [] and result.stale == [] and result.pending == []
-    assert any(earlier in warning for warning in answer_migrations.warnings([answer]))
+    assert result.open == [current] and result.stale == [earlier] and result.pending == []
+    assert answer_migrations.warnings([answer]) == []
 
 
 # ---- trial-12: the check heading of a model error names the model error ------------

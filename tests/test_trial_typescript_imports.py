@@ -186,13 +186,12 @@ def test_a_parse_problem_gives_the_error_lines_and_the_parser_version(tmp_path: 
     assert "tree-sitter-typescript " in problem["parser"]
 
 
-def test_an_answer_for_the_earlier_parse_line_applies_to_the_current_line(
+def test_an_answer_for_the_earlier_parse_line_does_not_apply_to_the_current_line(
     tmp_path: Path,
 ) -> None:
-    """trial-16. Acceptance: an exact answer with the earlier line (excerpt `','` and no
-    parser version) applies to the current line of the same file and line, with the
-    same evidence digest. A finding line is an identifier (`AGENTS.md`), so the change
-    of the line needs this migration."""
+    """trial-16. Acceptance: 2.0.0 and 3.0.0 read an exact answer with the earlier line
+    (excerpt `','` and no parser version). From 3.1.0, systemap does not read it: the
+    answer is stale, and the current line of the same file is open."""
     write_tree(
         tmp_path,
         {
@@ -205,8 +204,7 @@ def test_an_answer_for_the_earlier_parse_line_applies_to_the_current_line(
     [line] = [line for line in lines if "web.runner" in line]
     earlier = line.replace("(src/runner.ts)", "(src/runner.ts:4)") + " Source excerpt: ','"
     answer = Answer(items=(earlier,), reason="known", evidence="digest")
-    # From facts format 11, `answer_migrations` gives the current line (trial3-1).
-    assert answer_migrations.current_line(earlier) == line
-    [moved] = answer_migrations.current_lines([answer], [line])
-    result = judgement.apply_answers([line], [moved], {line: "digest"})
-    assert result.open == [] and result.stale == [] and result.pending == []
+    assert answer_migrations.current_line(earlier) == earlier
+    [kept] = answer_migrations.current_lines([answer], [line])
+    result = judgement.apply_answers([line], [kept], {line: "digest"})
+    assert result.open == [line] and result.stale == [earlier] and result.pending == []

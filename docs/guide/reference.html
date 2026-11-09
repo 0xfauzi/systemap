@@ -516,10 +516,11 @@ A kind excluded from the report does not make its answer stale.
 <code>judgement</code> ignores all audit answers.</p>
 <p>The <code>decision mis-fold</code> and <code>decision owner</code> lines do not contain the component that the provider selects.
 The detail row gives that component. Thus a new model release that changes only that component
-does not open an answer again. Earlier versions put that component at the end of the line,
+does not open an answer again. Versions before 2.0.0 put that component at the end of the line,
 for example <code>jev mis-fold: Writer claims pkg.emit, which reads like Reader</code>.
-Previous versions also used the <code>jev</code> names.
-An answer with the earlier line text matches the current line, with the same evidence digest.</p>
+Those versions also used the <code>jev</code> names. From 3.1.0, systemap does not read the <code>jev</code> names.
+Thus an answer with that earlier line is a stale answer. Its row gives the current line without the component,
+for example <code>decision mis-fold: Writer claims pkg.emit</code>.</p>
 <p><code>systemap triage &quot;&lt;issue&gt;&quot; --provider jev</code> gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
 On 80 closed issues from two repositories, the component of the pull request with the fix was first
@@ -531,7 +532,6 @@ With that line and without <code>--decide</code>, <code>delta</code> prints a wa
 Without <code>--decide</code>, <code>delta</code> sends no data to Jev.
 If the request cannot complete, <code>--decide</code> gives the cause.
 <code>--no-decide</code> sends nothing.
-<code>--jev</code> and <code>--no-jev</code> are the previous names of these options.
 If delta has no question for Jev, it sends nothing and prints no Jev line.</p>
 <p>Jev answers are suggestions for source examination. They are not evidence.
 They do not change the delta lines or the exit code.
@@ -667,7 +667,7 @@ OpenAI charges $0.10 for each 1M input tokens and does not charge for output.
 The 1,636 bench requests used 1,211,893 input tokens ($0.12).
 The 256 requests of the second flow measurement used 213,942 input tokens ($0.02).</p>
 <h2 id="how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</h2>
-<p>In this release, the diagnostic kinds of a decision provider have new names.
+<p>In 2.0.0, the diagnostic kinds of a decision provider got new names.
 The previous names started with <code>jev</code>. The new names start with <code>decision</code>, because Jev or OpenAI can give the answers.</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
 <table>
@@ -705,24 +705,36 @@ The previous names started with <code>jev</code>. The new names start with <code
 </tbody>
 </table>
 </div>
-<p>This release also reads the previous names:</p>
+<p>2.0.0 and 3.0.0 also read the previous names. From 3.1.0, systemap does not read them:</p>
 <ul>
-<li>An exact answer (<code>item</code> or <code>items</code>) with a previous name is an answer for the line with the new name.</li>
-<li>A family answer, for example <code>kind = &quot;jev flow&quot;</code>, is an answer for the lines of the new diagnostic kind.</li>
-<li><code>audit --kind &quot;jev flow&quot;</code> selects the new diagnostic kind and prints a warning.</li>
-<li><code>systemap explain &quot;jev flow&quot;</code> gives the text of the new diagnostic kind.</li>
+<li>An exact answer (<code>item</code> or <code>items</code>) with a previous name is not an answer for the line with the new name.
+<code>judgement</code> and <code>audit</code> give the item as a stale answer. The row gives the current line, for example
+<code>stale answer: 'jev flow: A -&gt; B ...' has the previous kind name &quot;jev flow&quot;, which systemap does not read. Change it to 'decision flow: A -&gt; B ...' in [judgement] answered.</code>
+A <code>reviewed</code> line with a previous name also gives this row.
+An item with the new name in the same <code>items</code> group stays an <code>audit</code> item.
+But the group is a <code>pending answer</code>, and its lines are open until you record a new digest.</li>
+<li>A family answer with a previous name, for example <code>kind = &quot;jev flow&quot;</code>, gives a configuration error.</li>
+<li><code>audit --kind &quot;jev flow&quot;</code> gives a usage error.</li>
+<li><code>systemap explain &quot;jev flow&quot;</code> gives no explanation.</li>
 </ul>
-<p><code>audit</code> and <code>judgement</code> print one warning to stderr for each previous name in <code>[judgement] answered</code>.
-The warning gives the new name. From 3.1.0, systemap does not read the previous names.</p>
 <p>The evidence digest of a line is the same for the previous name and the new name.
 systemap calculates the digest of a line from the same line with its previous name.
 Thus an exact answer with one item keeps its <code>evidence</code> value after you change the name.
 But the digest of an <code>items</code> group also contains the text of each item.
 Thus a group with changed names gets a new digest, and <code>audit</code> prints a <code>pending answer</code> line.</p>
+<p>Some other lines also got a new form in 2.0.0 or before 2.0.0:</p>
+<ul>
+<li>the parse error line with <code>under Python</code>,</li>
+<li>the two lines in the next table,</li>
+<li>the <code>entry point</code> line with a kind identifier,</li>
+<li>the lines in the facts format 11 table.</li>
+</ul>
+<p>2.0.0 and 3.0.0 also read an answer item in these earlier forms. From 3.1.0, systemap does not read them.
+<code>judgement</code> then gives the current line as an open line, and the earlier item as a stale answer.
+The row is <code>stale answer: '&lt;item&gt;' is now missing. Remove it from [judgement] answered.</code>
+Examine the source again. Then record the answer again with the current line.</p>
 <p>The <code>unknown surface</code> line for a source parse error also has a new form, because a line must not name one language.
-The earlier line ended with <code>under Python 3.11.10</code>. The new line ends with <code>(parser version 3.11.10)</code>.
-In this release, an answer item in the earlier form is an answer for the line in the new form.
-The evidence digest of the item does not change.</p>
+The earlier line ended with <code>under Python 3.11.10</code>. Then the line ended with <code>(parser version 3.11.10)</code>.</p>
 <p>Two other <code>unknown surface</code> lines also have a new form for the same cause:</p>
 <div class="table" role="region" tabindex="0" aria-labelledby="how-do-you-change-to-the-new-finding-names">
 <table>
@@ -744,21 +756,18 @@ The evidence digest of the item does not change.</p>
 </tbody>
 </table>
 </div>
-<p>The same rule applies to these two lines.</p>
 <p>The <code>entry point</code> line for a group of entry points gave the kind identifier, for example
 <code>entry point 7 public_functions into Api have no sequence (component Api)</code>.
 The new line gives the <code>kind</code> value with a space in place of each <code>_</code>: <code>entry point 7 public functions into Api have no sequence (component Api)</code>.
-The same rule applies to this line. A kind without <code>_</code>, for example <code>route</code>, does not change.</p>
+A kind without <code>_</code>, for example <code>route</code>, does not change.</p>
 <p>The <code>unknown surface</code> line for a TypeScript parse error also changed.
 Its source excerpt is the line of the error and the line before it, because the error can be one token, such as <code>','</code>.
 From facts format 11, the excerpt and the parser version are in rows below the line.
-The line ends with <code>The parser could not parse the source syntax.</code>
-An answer item in an earlier form applies to the current line of the same module.</p>
+The line ends with <code>The parser could not parse the source syntax.</code></p>
 <p>The parser can also refuse correct syntax.
 tree-sitter-typescript 0.23.2 refuses a generic function call with a <code>typeof import()</code> type argument and a comma after the last argument.
 For example, <code>f&lt;typeof import('./a')&gt;(g(),)</code> is correct TypeScript.
 At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.</p>
-<p><code>judgement</code> prints one warning to stderr for each item in the earlier form. The warning gives the new line.</p>
 <p>The <code>unknown surface</code> line for a re-export target outside the extracted module set also changed (facts format 10).
 The earlier line had the location <code>:1</code>, and a statement with two or more names gave one equal line for each name.
 The new line ends with the names, for example <code>Names: Shape, Size.</code> The <code>at:</code> row gives the line of the statement.
@@ -800,8 +809,7 @@ A recorded answer then stays applicable when a line is added above the cited sta
 </table>
 </div>
 <p>The judgement report gives these values in rows below the line, and <code>judgement --json</code> gives them in <code>open[].sources</code>.
-An answer item in an earlier form applies to the line in the new form.
-<code>judgement</code> prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+From 3.1.0, an answer item in an earlier form of this table is a stale answer.
 Two records with different line numbers can give the same line. Then one answer applies to the two records.</p>
 <p>Facts format 13 removes the counts from two lines, because a count can change while the finding stays the same.
 A row below the line gives the count, and <code>judgement --json</code> gives it in <code>open[].count</code>.</p>
@@ -837,17 +845,17 @@ An answer for an <code>unknown surface: test file</code> line is a stale answer.
 The report gives the row <code>stale answer: '&lt;item&gt;' is no longer a finding: judgement gives no line about a test file.</code>
 Remove the item from <code>[judgement] answered</code>.</p>
 <p><code>--decide</code> is the new name of <code>--jev</code> in <code>delta</code> and <code>suggest</code>. <code>--no-decide</code> is the new name of <code>--no-jev</code>.
-The previous options stay until 3.1.0. They send the same requests as the new options.
+2.0.0 and 3.0.0 also read the previous options. From 3.1.0, <code>--jev</code> and <code>--no-jev</code> give a usage error and exit code 2.
 <code>[jev] enabled</code> and the other keys of the <code>[jev]</code> table do not change.</p>
 <p>The printed text gives the name of the provider that gave the answers.
 For example, <code>delta --decide --provider openai</code> prints <code>OpenAI suggestions</code>. With Jev, it prints <code>Jev suggestions</code>.</p>
 <p>To change a configuration to the new names, do these steps:</p>
 <ol>
+<li>Before you install 3.1.0, replace <code>--jev</code> with <code>--decide</code> and <code>--no-jev</code> with <code>--no-decide</code> in scripts and CI files. 3.0.0 reads the new options.</li>
 <li>In <code>systemap.toml</code>, replace each previous name in <code>[judgement] answered</code> with its new name.</li>
 <li>If you changed an <code>items</code> group, use <code>systemap audit --provider jev</code>.</li>
 <li>Examine the source of each <code>pending answer</code> line again. Then record the digest from that line.</li>
-<li>Replace <code>--jev</code> with <code>--decide</code> and <code>--no-jev</code> with <code>--no-decide</code> in scripts and CI files.</li>
-<li>Use <code>systemap judgement --strict</code>. Make sure that it prints no warning.</li>
+<li>Use <code>systemap judgement --strict</code>. Make sure that it prints no stale answer and no warning.</li>
 </ol>
 <h2 id="what-do-you-do-above-forty-components">What do you do above forty components?</h2>
 <p>A large repository can exceed the capacity of one readable canvas.
@@ -1578,7 +1586,7 @@ components that can become nested maps.</p>
 <ul>
 <li>
 <p><code>--decide</code> uses the module-pair answers of the decision provider instead of package groups.
-Set <code>TYPESAFE_API_KEY</code> for this option. <code>--jev</code> is the previous name of <code>--decide</code>. It stays until 3.1.0.</p>
+Set <code>TYPESAFE_API_KEY</code> for this option.</p>
 </li>
 <li>
 <p><code>--provider jev|openai</code> selects the decision provider.
@@ -1990,9 +1998,6 @@ The heading of the suggestions names the provider, for example <code>Jev suggest
 <p><code>--no-decide</code> sends nothing.</p>
 </li>
 <li>
-<p><code>--jev</code> and <code>--no-jev</code> are aliases: the previous names of <code>--decide</code> and <code>--no-decide</code>. They stay until 3.1.0.</p>
-</li>
-<li>
 <p><code>--provider jev|openai</code> selects the decision provider of <code>--decide</code>.
 With <code>openai</code>, <code>--decide</code> must have <code>OPENAI_API_KEY</code>.
 OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.</p>
@@ -2019,7 +2024,6 @@ evidence, unconfirmed agent drafts, and covered entry counts.</p>
 Without <code>--provider</code>, the command sends no data and exits 1.
 The finding kinds are <code>decision mis-fold</code>, <code>decision owner</code>, <code>decision sentence</code>, and
 <code>decision governs</code>. <code>--kind &quot;decision flow&quot;</code> also sends questions about flow claims.
-<code>--kind</code> also accepts the previous <code>jev</code> names until 3.1.0, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.</p>
 <p>Set <code>TYPESAFE_API_KEY</code> for Jev, or <code>OPENAI_API_KEY</code> for OpenAI, before you run the command.</p>
@@ -2727,7 +2731,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[judgement]</code></td>
 <td>none</td>
-<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. The previous <code>jev</code> names stay correct until 3.1.0, with a warning.</td>
+<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. A previous <code>jev</code> name gives a configuration error.</td>
 </tr>
 <tr>
 <td><code>[judgement] require_reviews</code></td>

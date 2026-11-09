@@ -14,12 +14,6 @@ Acceptance values:
    one time for each item, also if the answer is compared with many lines.
 5. If the callers give the current lines, an exact answer for a negative case gets no
    warning. Before the change, 4 cases got the warning "Change it to" a different line.
-6. The earlier `entry point` group line for a component name with a space changes to the
-   current line. Before the change, it stayed the same.
-7. The earlier parse error line of a module whose name has a space changes to the current
-   line, and an exact answer in the earlier form applies to the current line. The name
-   comes from a file name with a space. At commit d7d7a8b the line changed. At commit
-   de31fe3 it stayed the same, and the answer was stale.
 """
 
 from __future__ import annotations
@@ -33,58 +27,9 @@ from systemap.config import Answer
 
 # The name of each pattern, a current line, and the line that the earlier pattern gave.
 NEGATIVE: dict[str, tuple[str, str]] = {
-    "parser name": (
-        "unknown surface: module web.a (src/a.ts): the re-export target './b' is outside "
-        "the extracted module set. Names: x under Python 3.",
-        "unknown surface: module web.a (src/a.ts): the re-export target './b' is outside "
-        "the extracted module set. Names: x",
-    ),
-    "npm package": (
-        "unknown surface: module web.a (src/a.ts): the re-export target './b' is outside "
-        "the extracted module set. Names: c extends d): the npm tsconfig package could not "
-        "be read",
-        "unknown surface: module web.a (src/a.ts): the re-export target './b' is outside "
-        "the extracted module set. Names: c extends d): the configuration package could not "
-        "be read",
-    ),
-    "language syntax": (
-        "unknown surface: module web.a (src/a.ts): the re-export target './b: The parser "
-        "could not parse the TypeScript syntax.' is outside the extracted module set.",
-        "unknown surface: module web.a (src/a.ts): the re-export target './b: The parser "
-        "could not parse the source syntax.' is outside the extracted module set.",
-    ),
-    "parser version": (
-        "unknown surface: module web.a (src/a.ts): the re-export target './b' is outside "
-        "the extracted module set. Names: c (parser version 1)",
-        "unknown surface: module web.a (src/a.ts): the re-export target './b' is outside "
-        "the extracted module set. Names: c",
-    ),
-    "source excerpt": (
-        "unknown surface: module web.a (src/a.ts): the re-export target './b: The parser "
-        "could not parse the source syntax. Source excerpt: c' is outside the extracted "
-        "module set.",
-        "unknown surface: module web.a (src/a.ts): the re-export target './b: The parser "
-        "could not parse the source syntax.",
-    ),
-    "module line number": (
-        "unknown surface: module web.a (src/a:12): dynamic import",
-        "unknown surface: module web.a (src/a): dynamic import",
-    ),
-    "test file line number": (
-        "unknown surface: test file tests/a:3: source could not be read",
-        "unknown surface: test file tests/a: source could not be read",
-    ),
-    "entry kind identifier": (
-        "entry point 7 get_users into Api have no sequence (route) has no sequence (component Api)",
-        "entry point 7 get users into Api have no sequence (route) has no sequence (component Api)",
-    ),
     "provider pick": (
         "decision owner: pkg.x is claimed by no card; closest: Reader",
         "decision owner: pkg.x is claimed by no card",
-    ),
-    "decision kind name": (
-        "unknown surface: jev flow: extends 'x': the configuration package could not be read",
-        "unknown surface: decision flow: extends 'x': the configuration package could not be read",
     ),
     "crossing count": (
         "crossing import: Skill imports Config in 3 modules and no flow connects them",
@@ -105,15 +50,7 @@ NEGATIVE: dict[str, tuple[str, str]] = {
 }
 
 # The patterns whose fixed text at its fixed position does not agree with the case.
-ANCHORED = (
-    "parser name",
-    "npm package",
-    "language syntax",
-    "parser version",
-    "source excerpt",
-    "entry kind identifier",
-    "control character",
-)
+ANCHORED = ("control character",)
 
 # Hostile lines of about 132 KB.
 HOSTILE = (
@@ -200,27 +137,3 @@ def test_an_earlier_line_gets_a_warning_also_with_the_current_lines() -> None:
     found = answer_migrations.warnings([answer], {current})
     assert len(found) == 1
     assert f'Change it to "{current}"' in found[0]
-
-
-def test_an_entry_group_line_for_a_component_name_with_a_space_changes() -> None:
-    """Acceptance 6."""
-    earlier = "entry point 7 public_functions into My Api have no sequence (component My Api)"
-    current = "entry point 7 public functions into My Api have no sequence (component My Api)"
-    assert answer_migrations.current_line(earlier) == current
-
-
-# A Python module from the file `pkg/my file.py`, which Python could not read.
-SPACED = "unknown surface: module pkg.my file (pkg/my file.py): source could not be read: x"
-
-
-@pytest.mark.parametrize(
-    "earlier", [f"{SPACED} under Python 3.11.9", f"{SPACED} (parser version 3.11.9)"]
-)
-def test_an_earlier_parse_error_line_for_a_module_name_with_a_space_changes(
-    earlier: str,
-) -> None:
-    """Acceptance 7."""
-    assert answer_migrations.current_line(earlier) == SPACED
-    answer = Answer(items=(earlier,), reason="known", evidence="digest")
-    result = judgement.apply_answers([SPACED], [answer], {SPACED: "digest"})
-    assert (result.open, result.stale, result.pending) == ([], [], [])

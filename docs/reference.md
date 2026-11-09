@@ -350,10 +350,11 @@ A kind excluded from the report does not make its answer stale.
 
 The `decision mis-fold` and `decision owner` lines do not contain the component that the provider selects.
 The detail row gives that component. Thus a new model release that changes only that component
-does not open an answer again. Earlier versions put that component at the end of the line,
+does not open an answer again. Versions before 2.0.0 put that component at the end of the line,
 for example `jev mis-fold: Writer claims pkg.emit, which reads like Reader`.
-Previous versions also used the `jev` names.
-An answer with the earlier line text matches the current line, with the same evidence digest.
+Those versions also used the `jev` names. From 3.1.0, systemap does not read the `jev` names.
+Thus an answer with that earlier line is a stale answer. Its row gives the current line without the component,
+for example `decision mis-fold: Writer claims pkg.emit`.
 
 `systemap triage "<issue>" --provider jev` gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
@@ -367,7 +368,6 @@ With that line and without `--decide`, `delta` prints a warning that the line no
 Without `--decide`, `delta` sends no data to Jev.
 If the request cannot complete, `--decide` gives the cause.
 `--no-decide` sends nothing.
-`--jev` and `--no-jev` are the previous names of these options.
 If delta has no question for Jev, it sends nothing and prints no Jev line.
 
 Jev answers are suggestions for source examination. They are not evidence.
@@ -464,7 +464,7 @@ The 256 requests of the second flow measurement used 213,942 input tokens ($0.02
 
 ## How do you change to the new finding names?
 
-In this release, the diagnostic kinds of a decision provider have new names.
+In 2.0.0, the diagnostic kinds of a decision provider got new names.
 The previous names started with `jev`. The new names start with `decision`, because Jev or OpenAI can give the answers.
 
 | previous name | new name |
@@ -476,15 +476,17 @@ The previous names started with `jev`. The new names start with `decision`, beca
 | `jev governs` | `decision governs` |
 | `jev move` | `decision move` |
 
-This release also reads the previous names:
+2.0.0 and 3.0.0 also read the previous names. From 3.1.0, systemap does not read them:
 
-- An exact answer (`item` or `items`) with a previous name is an answer for the line with the new name.
-- A family answer, for example `kind = "jev flow"`, is an answer for the lines of the new diagnostic kind.
-- `audit --kind "jev flow"` selects the new diagnostic kind and prints a warning.
-- `systemap explain "jev flow"` gives the text of the new diagnostic kind.
-
-`audit` and `judgement` print one warning to stderr for each previous name in `[judgement] answered`.
-The warning gives the new name. From 3.1.0, systemap does not read the previous names.
+- An exact answer (`item` or `items`) with a previous name is not an answer for the line with the new name.
+  `judgement` and `audit` give the item as a stale answer. The row gives the current line, for example
+  `stale answer: 'jev flow: A -> B ...' has the previous kind name "jev flow", which systemap does not read. Change it to 'decision flow: A -> B ...' in [judgement] answered.`
+  A `reviewed` line with a previous name also gives this row.
+  An item with the new name in the same `items` group stays an `audit` item.
+  But the group is a `pending answer`, and its lines are open until you record a new digest.
+- A family answer with a previous name, for example `kind = "jev flow"`, gives a configuration error.
+- `audit --kind "jev flow"` gives a usage error.
+- `systemap explain "jev flow"` gives no explanation.
 
 The evidence digest of a line is the same for the previous name and the new name.
 systemap calculates the digest of a line from the same line with its previous name.
@@ -492,10 +494,20 @@ Thus an exact answer with one item keeps its `evidence` value after you change t
 But the digest of an `items` group also contains the text of each item.
 Thus a group with changed names gets a new digest, and `audit` prints a `pending answer` line.
 
+Some other lines also got a new form in 2.0.0 or before 2.0.0:
+
+- the parse error line with `under Python`,
+- the two lines in the next table,
+- the `entry point` line with a kind identifier,
+- the lines in the facts format 11 table.
+
+2.0.0 and 3.0.0 also read an answer item in these earlier forms. From 3.1.0, systemap does not read them.
+`judgement` then gives the current line as an open line, and the earlier item as a stale answer.
+The row is `stale answer: '<item>' is now missing. Remove it from [judgement] answered.`
+Examine the source again. Then record the answer again with the current line.
+
 The `unknown surface` line for a source parse error also has a new form, because a line must not name one language.
-The earlier line ended with `under Python 3.11.10`. The new line ends with `(parser version 3.11.10)`.
-In this release, an answer item in the earlier form is an answer for the line in the new form.
-The evidence digest of the item does not change.
+The earlier line ended with `under Python 3.11.10`. Then the line ended with `(parser version 3.11.10)`.
 
 Two other `unknown surface` lines also have a new form for the same cause:
 
@@ -504,25 +516,20 @@ Two other `unknown surface` lines also have a new form for the same cause:
 | `the npm tsconfig package could not be read` | `the configuration package could not be read` |
 | `The parser could not parse the TypeScript syntax.` | `The parser could not parse the source syntax.` |
 
-The same rule applies to these two lines.
-
 The `entry point` line for a group of entry points gave the kind identifier, for example
 `entry point 7 public_functions into Api have no sequence (component Api)`.
 The new line gives the `kind` value with a space in place of each `_`: `entry point 7 public functions into Api have no sequence (component Api)`.
-The same rule applies to this line. A kind without `_`, for example `route`, does not change.
+A kind without `_`, for example `route`, does not change.
 
 The `unknown surface` line for a TypeScript parse error also changed.
 Its source excerpt is the line of the error and the line before it, because the error can be one token, such as `','`.
 From facts format 11, the excerpt and the parser version are in rows below the line.
 The line ends with `The parser could not parse the source syntax.`
-An answer item in an earlier form applies to the current line of the same module.
 
 The parser can also refuse correct syntax.
 tree-sitter-typescript 0.23.2 refuses a generic function call with a `typeof import()` type argument and a comma after the last argument.
 For example, `f<typeof import('./a')>(g(),)` is correct TypeScript.
 At 2026-10-13, PyPI and npm have no grammar version after 0.23.2.
-
-`judgement` prints one warning to stderr for each item in the earlier form. The warning gives the new line.
 
 The `unknown surface` line for a re-export target outside the extracted module set also changed (facts format 10).
 The earlier line had the location `:1`, and a statement with two or more names gave one equal line for each name.
@@ -546,8 +553,7 @@ A recorded answer then stays applicable when a line is added above the cited sta
 | `... source could not be parsed: SyntaxError (parser version 3.11.10)` | `... source could not be parsed: SyntaxError` |
 
 The judgement report gives these values in rows below the line, and `judgement --json` gives them in `open[].sources`.
-An answer item in an earlier form applies to the line in the new form.
-`judgement` prints one warning to stderr for each item in an earlier form. The warning gives the new line.
+From 3.1.0, an answer item in an earlier form of this table is a stale answer.
 Two records with different line numbers can give the same line. Then one answer applies to the two records.
 
 Facts format 13 removes the counts from two lines, because a count can change while the finding stays the same.
@@ -573,7 +579,7 @@ The report gives the row `stale answer: '<item>' is no longer a finding: judgeme
 Remove the item from `[judgement] answered`.
 
 `--decide` is the new name of `--jev` in `delta` and `suggest`. `--no-decide` is the new name of `--no-jev`.
-The previous options stay until 3.1.0. They send the same requests as the new options.
+2.0.0 and 3.0.0 also read the previous options. From 3.1.0, `--jev` and `--no-jev` give a usage error and exit code 2.
 `[jev] enabled` and the other keys of the `[jev]` table do not change.
 
 The printed text gives the name of the provider that gave the answers.
@@ -581,11 +587,11 @@ For example, `delta --decide --provider openai` prints `OpenAI suggestions`. Wit
 
 To change a configuration to the new names, do these steps:
 
-1. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
-2. If you changed an `items` group, use `systemap audit --provider jev`.
-3. Examine the source of each `pending answer` line again. Then record the digest from that line.
-4. Replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files.
-5. Use `systemap judgement --strict`. Make sure that it prints no warning.
+1. Before you install 3.1.0, replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files. 3.0.0 reads the new options.
+2. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
+3. If you changed an `items` group, use `systemap audit --provider jev`.
+4. Examine the source of each `pending answer` line again. Then record the digest from that line.
+5. Use `systemap judgement --strict`. Make sure that it prints no stale answer and no warning.
 
 ## What do you do above forty components?
 
@@ -1269,7 +1275,7 @@ With a model, it also shows maps above forty components and large
 components that can become nested maps.
 
 - `--decide` uses the module-pair answers of the decision provider instead of package groups.
-  Set `TYPESAFE_API_KEY` for this option. `--jev` is the previous name of `--decide`. It stays until 3.1.0.
+  Set `TYPESAFE_API_KEY` for this option.
 
 - `--provider jev|openai` selects the decision provider.
   OpenAI has no measured threshold for the pair question. Thus `--provider openai` sends nothing and exits 1.
@@ -1527,8 +1533,6 @@ than one-third of the map.
 
 - `--no-decide` sends nothing.
 
-- `--jev` and `--no-jev` are aliases: the previous names of `--decide` and `--no-decide`. They stay until 3.1.0.
-
 - `--provider jev|openai` selects the decision provider of `--decide`.
   With `openai`, `--decide` must have `OPENAI_API_KEY`.
   OpenAI has no measured threshold for the move question. Thus delta sends only the owner questions and gives the cause.
@@ -1556,7 +1560,6 @@ Sends questions about semantic claims to the decision provider.
 Without `--provider`, the command sends no data and exits 1.
 The finding kinds are `decision mis-fold`, `decision owner`, `decision sentence`, and
 `decision governs`. `--kind "decision flow"` also sends questions about flow claims.
-`--kind` also accepts the previous `jev` names until 3.1.0, with a warning.
 Answers use the cache.
 The command exits 0 for a completed report, or 1 if it cannot complete.
 
@@ -2002,7 +2005,7 @@ Unknown keys are rejected.
 | `[facts]` | none | `model_sdks = [...]` adds import names to the SDK list of the language adapter. A `-` at the start removes a name of that list (`"-google.adk"`). The Python list contains Python import names, and the TypeScript list contains npm package names. |
 | `[flows]` | none | `observed_by = ["subprocess", "queue", ...]` identifies mechanism words as structural evidence. A word does not show evidence for a flow. |
 | `[rules]` | `unknown = "warn"` | `unknown = "fail"` makes `systemap check` and `systemap rules` exit 1 for an import rule with the result `unknown`. With `"warn"`, the commands print the result and do not reject the map. A different value or key gives a configuration error. |
-| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. The previous `jev` names stay correct until 3.1.0, with a warning. |
+| `[judgement]` | none | `answered = [{item = "<a judgement line>", reason = "...", evidence = "<SHA-256 digest>"}]` records an exact answer. `items = [...]` uses one digest for a group. Family forms are `crossing = ["A", "B", ...]`, `crossing_into = "A"`, `crossing_from = "A"`, `kind = "single module"`, and `module_sdk = "google.adk"`. They must have `policy = true`. `reviewed = ["<line>", ...]` records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes `"decision flow"`. A previous `jev` name gives a configuration error. |
 | `[judgement] require_reviews` | `false` | With `true`, each source component without a `source_review` digest gives a `missing source review` finding. Thus `judgement --strict` fails on a missing review. |
 | `[judgement] answered` citations | none | An exact answer can have `citations = [{file = "pkg/a.py", start_line = 1, end_line = 9, sha256 = "<digest>"}]`. `systemap decisions submit` writes them. An answer without citations stays correct. |
 | `[decisions]` | `provider = "jev"`, `max_contradicted = 3` | `provider` is the decision provider of `audit`, `triage`, `plan`, `delta --decide`, `suggest --decide`, and `judgement --order-by-drift`: `"jev"` or `"openai"`. The `--provider` option of a command replaces this value. A key in the environment does not select a provider. [Which decision provider answers the questions?](#which-decision-provider-answers-the-questions) gives the data that goes to OpenAI. `max_contradicted` is the quantity of `contradicted` verdicts for one target of `systemap decisions` before the decision request becomes unknown. The value is a limit on repeated work, not a measured value. It must be an integer of 1 or more. A `[decision]` table gives a configuration error that tells you to use `[decisions] provider`. |

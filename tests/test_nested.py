@@ -20,6 +20,7 @@ from typing import Any
 
 import pytest
 from conftest import page_detail_text, use_linked_pages, write_tree
+from test_delta_git import git
 from test_keyboard import DRIVER, needs_node
 
 from systemap import facts_file, judgement, nest, place, source_facts
@@ -711,18 +712,6 @@ def test_judgement_and_describe_lines_carry_the_maps_id(
     assert "\nGateway: canvas " in out and "\nStyle: canvas " in out
     assert "Gateway: regions: The component counts follow.\nGateway:   serve: 3 components (" in out
     assert "Style: positions: 0 pinned, 4 placed" in out
-
-
-def git(root: Path, *args: str) -> str:
-    proc = subprocess.run(
-        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        check=True,
-    )
-    return proc.stdout.strip()
 
 
 def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:

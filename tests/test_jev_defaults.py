@@ -1,6 +1,6 @@
 """When delta sends questions to Jev, and the hints that tell what Jev can add.
 
-delta sends questions to Jev only with --decide (or its previous name --jev). A key
+delta sends questions to Jev only with --decide. A key
 or `[jev] enabled = true` sends nothing. judgement and delta print hints on stderr.
 `[jev] enabled = false` stops the hints. check and judgement never send a question.
 """

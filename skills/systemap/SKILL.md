@@ -30,7 +30,7 @@ Read [references/language.md](references/language.md) before you write. Do not c
 ## Jev answers
 
 Jev is the TypeSafe model for questions that imports and names cannot answer.
-With `TYPESAFE_API_KEY`, use `suggest --decide` and `audit`. `--jev` is the previous name of `--decide`.
+With `TYPESAFE_API_KEY`, use `suggest --decide` and `audit`.
 The `delta` and `triage` commands can also use Jev.
 
 Without a key, use source examination in `references/second-pass.md`. If Jev fails, show the failure. Then use the same source examination procedure.

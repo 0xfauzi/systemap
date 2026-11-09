@@ -188,7 +188,7 @@ JEV = Thresholds(
     # P(invariant governs card) at or above this: 31% of governed cards found,
     # 1% of the rest suggested.
     governs_at=0.8,
-    # Pairs at or above this are one part, for `suggest --jev`: with the threshold
+    # Pairs at or above this are one part, for `suggest --decide`: with the threshold
     # chosen on four development maps and scored on the fifth, pairwise F1 beat one
     # card per package by 0.18 on average, and lost on two maps of five
     # (bench/jev/results/grouping-report.txt).

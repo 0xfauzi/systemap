@@ -123,6 +123,14 @@ After the agent did the four actions, the exit code was 0.</p>
 The <a href="reference.html#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide">reference</a> gives the options.</p>
 <p><code>delta</code> sends questions to a decision provider only with <code>--decide</code>. A key or <code>[jev] enabled = true</code> sends no request.
 The answers are suggestions under their own heading. They do not change the delta lines or the exit code.</p>
+<h2 id="changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</h2>
+<p>These changes can change the result of a CI job after you install 3.1.0:</p>
+<ul>
+<li><code>delta --jev</code>, <code>delta --no-jev</code>, and <code>suggest --jev</code> give a usage error and exit 2. Use <code>--decide</code> and <code>--no-decide</code>.</li>
+<li><code>audit --kind</code> with a previous <code>jev</code> name gives a usage error. A family answer with a previous <code>jev</code> name, for example <code>kind = &quot;jev flow&quot;</code>, gives a configuration error.</li>
+<li>An exact answer with a previous <code>jev</code> name or with a line form from before 2.0.0 matches no line. <code>judgement</code> gives it as a stale answer, and the current line is open. For a <code>jev</code> name, the row gives the new name.</li>
+<li><code>refresh</code> does not do the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. A flow review from 2.0.0 that gives only the claim is stale, and an answer with evidence from 2.0.0 is pending. If the configuration comes from 2.0.0, run <code>systemap refresh</code> on 3.0.0 before you install 3.1.0.</li>
+</ul>
 <h2 id="changes-that-the-upgrade-to-3-0-0-makes-in-ci">Changes that the upgrade to 3.0.0 makes in CI</h2>
 <p>These changes can change the result of a CI job after you install 3.0.0:</p>
 <ul>
@@ -131,7 +139,7 @@ The answers are suggestions under their own heading. They do not change the delt
 <li><code>audit</code>, <code>triage</code>, and <code>plan &quot;&lt;task&gt;&quot;</code> send data only with <code>--provider</code>. Without it, they print <code>no data was sent</code> and exit 1. Add <code>--provider jev</code> to each of these commands in a CI job.</li>
 <li><code>delta</code> sends questions only with <code>--decide</code>. With <code>[jev] enabled = true</code> and no <code>--decide</code>, it prints a warning and sends no question.</li>
 <li><code>journeys</code> starts the <code>[agent]</code> command only if the environment sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>.</li>
-<li>The previous <code>jev</code> names and options stay until 3.1.0.</li>
+<li>3.0.0 also reads the previous <code>jev</code> names and options. 3.1.0 does not read them.</li>
 </ul>
 <h2 id="changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</h2>
 <p>These changes can change the result of a CI job after you install 2.0.0:</p>
@@ -140,7 +148,7 @@ The answers are suggestions under their own heading. They do not change the delt
 <li>systemap reads the model file as data. A model file that needs code stops each command. Run <code>SYSTEMAP_TRUST_MODEL_CODE=1 systemap convert</code> one time.</li>
 <li>The facts format is 12. A facts file of an earlier format is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code>, and commit the facts file.</li>
 <li>Each exact answer that is not for a <code>crossing import</code> line is pending one time. <code>judgement</code> prints the new digest. Examine the source again, and write the digest in <code>evidence</code>.</li>
-<li>The <code>jev ...</code> finding kinds are now <code>decision ...</code> kinds. Some <code>unknown surface</code> and <code>entry point</code> lines have a new form. The earlier names and lines give a warning until 3.1.0.</li>
+<li>The <code>jev ...</code> finding kinds are now <code>decision ...</code> kinds. Some <code>unknown surface</code> and <code>entry point</code> lines have a new form. In 2.0.0 and 3.0.0, the earlier names and lines give a warning. 3.1.0 does not read them.</li>
 <li><code>judgement --strict</code> exits 1 for a model without components. <code>judgement --json</code> has schema version 3.</li>
 <li>A configured cache path, <code>out_dir</code>, or <code>model</code> that is absolute or has a <code>..</code> part is a configuration error.</li>
 <li>With <code>[judgement] require_reviews = true</code>, a component without a <code>source_review</code> digest is a finding, and <code>judgement --strict</code> exits 1.</li>
@@ -211,7 +219,7 @@ Version 2.0.0 does not have this option, so the delta job fails with exit code 2
 <p>The new workflow is advisory. For a workflow that fails on a map finding, run <code>systemap init --strict-ci</code> in step 2.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="coding-agents.html" rel="prev"><span class="kicker">Previous</span><span>Coding agents</span></a><a class="pager__a pager__next" href="live-map.html" rel="next"><span class="kicker">Next</span><span>The live map</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-to-3-0-0-makes-in-ci">Changes that the upgrade to 3.0.0 makes in CI</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-architecture-summary">The architecture summary</a></li><li class="toc__l2"><a href="#the-link-to-the-changes-view">The link to the Changes view</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#the-workflow-from-init">The workflow from init</a></li><li class="toc__l2"><a href="#advisory-and-strict">Advisory and strict</a></li><li class="toc__l2"><a href="#systemap-delta">systemap delta</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-to-3-1-0-makes-in-ci">Changes that the upgrade to 3.1.0 makes in CI</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-to-3-0-0-makes-in-ci">Changes that the upgrade to 3.0.0 makes in CI</a></li><li class="toc__l2"><a href="#changes-that-the-upgrade-from-1-2-0-makes-in-ci">Changes that the upgrade from 1.2.0 makes in CI</a></li><li class="toc__l2"><a href="#the-changes-view">The Changes view</a></li><li class="toc__l2"><a href="#the-architecture-summary">The architecture summary</a></li><li class="toc__l2"><a href="#the-link-to-the-changes-view">The link to the Changes view</a></li><li class="toc__l2"><a href="#upgrade-a-workflow-from-1-2-0">Upgrade a workflow from 1.2.0</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

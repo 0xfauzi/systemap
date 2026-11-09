@@ -11,6 +11,50 @@ A layer is a filtered view of the map.
 
 ### Changes that can break a script or a CI job
 
+- systemap does not read the previous names and line forms that 2.0.0 and 3.0.0 read with a warning.
+  3.0.0 said that it reads them until 3.1.0.
+  - `delta --jev`, `delta --no-jev`, and `suggest --jev` give a usage error and exit 2. Use `--decide` and `--no-decide`.
+  - `audit --kind "jev flow"` and the other previous `jev` names give a usage error and exit 2.
+  - A family answer with a previous name, for example `kind = "jev flow"`, gives a configuration error.
+  - `systemap explain "jev flow"` gives no explanation.
+  - An exact answer with a previous `jev` name matches no line. `judgement` and `audit` give it as a stale answer, and the row gives the current line, for example
+    `stale answer: 'jev sentence: ...' has the previous kind name "jev sentence", which systemap does not read. Change it to 'decision sentence: ...' in [judgement] answered.`
+    For a `jev mis-fold` or `jev owner` item that ends with the pick of the provider, the current line does not have the pick.
+    A `reviewed` line with a previous name also gives this row.
+    The evidence digest of a decision line does not change. Thus an exact answer with one item stays current after you change the item.
+    An `items` group with an item that has a previous name gets a new evidence digest.
+    Thus `audit` gives the group as a `pending answer`, and the other lines of the group are open again.
+    The digest of a group contains the text of each item. After you change the item, the group stays pending.
+    Record the new digest from the `pending answer` line.
+  - An exact answer in a line form from before 2.0.0 matches no line. These forms are:
+    the `unknown surface` line with `under Python <version>`, `the npm tsconfig package`, or `the TypeScript syntax`,
+    the `unknown surface` line with a line number in the location, a source excerpt, or a parser version,
+    and the `entry point` line with a kind identifier such as `public_functions`.
+    `judgement` gives the current line as an open line and the earlier item as a stale answer.
+    Examine the source again. Then record the answer with the current line.
+  - `judgement` and `audit` give no `warning:` line for these names and forms.
+
+  These earlier line forms stay:
+  - a line with a control character,
+  - the `crossing import` line and the `package_export` line with a count,
+  - an `unknown surface` line that moved to a nested map,
+  - a re-export target line without names. This form also reads the line number in the location.
+
+  The earlier answer items in these forms still select the current line.
+  `judgement` gives no warning for an item that moved to a nested map or for a re-export target line without names.
+  No release gave a `decision mis-fold` or `decision owner` line with the pick of the provider.
+  The stale-answer row of a `jev` item with the pick gives the current line without the pick.
+
+  Steps:
+  1. On 3.0.0, replace each `--jev` with `--decide` and each `--no-jev` with `--no-decide` in scripts and CI files. 3.0.0 reads the new options.
+  2. On 3.0.0, run `systemap judgement --strict`. Replace each item that a warning names.
+  3. Install this release.
+- From 3.1.0, systemap does not do the one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence. 3.0.0 said that this upgrade runs only in 3.0.
+  - A 2.0.0 flow review that gives only the claim is stale.
+  - An answer with 2.0.0 evidence is pending.
+  - `systemap refresh` does not write the current evidence of a 2.0.0 answer.
+
+  Step: if the configuration comes from systemap 2.0.0, run `systemap refresh` on 3.0.0 and commit the output. Then install this release.
 - `render`, `refresh`, and `live` write the canvas page by default (`[render] canvas = true`, step 5 of `docs/design/nested-canvas.md`).
   The canvas page draws all maps of the map tree on one canvas. The page of each nested map is a redirect page.
   The header has the views, the layers, Find, the theme, Reduce motion, the keyboard keys, and the source of the map. The Details panel gives the selected card. A dotted ring on an actor card shows an open boundary finding.

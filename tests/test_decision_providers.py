@@ -4,7 +4,7 @@ Acceptance values:
 
 - A refusal from an injected provider gives no finding and no crash for each question
   kind: the four audit questions (owner, sentence, flow, governs), triage, plan,
-  `suggest --jev`, and the two `delta --jev` questions (move and owner).
+  `suggest --decide`, and the two `delta --decide` questions (move and owner).
 - Triage and plan cannot give a result without an answer. They give the reason and
   exit 1. The other kinds give the count of refused questions.
 - The Jev adapter changes a Jev `noul` answer into a predicate answer, and a Jev
