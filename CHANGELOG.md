@@ -44,7 +44,7 @@ A layer is a filtered view of the map.
   The stored values change one time. For the 178 modules of this repository on 3.11, 178 syntax digests, 1,179 of 3,821 fingerprints, 476 of 664 previews and 44 of 1,211 signatures changed. On 3.13 and 3.14, 1,026 fingerprints changed.
   Each syntax digest changes. Thus each recorded source review of a Python component is stale one time. Examine the claims again, then record the reviews with `systemap review`.
   `bench/jev/README.md` gives the measurement and the counts for the standard library.
-  A configuration from systemap 2.0.0: run `systemap refresh` with systemap 3.0.0 first, then upgrade. This release cannot write the current evidence of an answer from 2.0.0 whose module has a signature or a preview that changed, because the 2.0.0 evidence has the earlier text. Such an answer stays pending.
+  A configuration from systemap 2.0.0 does not need systemap 3.0.0 first. The 2.0.0 evidence of an answer has the `ast.unparse` text of the signatures and previews. To calculate the 2.0.0 form, the upgrade gets this text again from the source (`python_earlier_text`). If `ast.unparse` of the current interpreter gives a different text, the answer stays pending, as in 3.0.0.
 - A Python syntax node class or field that systemap does not know stops the extraction with exit code 1. The error gives the class and the Python version.
   Before the change, `ast.dump` wrote such a node, and its text could change with the interpreter.
 - `systemap judgement` has two new finding kinds for each nested map: `boundary flow` and `boundary import`.
@@ -62,6 +62,9 @@ A layer is a filtered view of the map.
 ### Corrections
 
 - CI does the tests and the installation also on Python 3.14. The package classifiers include 3.14.
+- Each release does the one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence (issue 143).
+  3.0.0 had a version test: from 3.1.0, it did not do this upgrade. Thus a project that went from 2.0.0 directly to a later release would get stale flow reviews and pending answers.
+  This release removes the version test. Now `systemap refresh` and `systemap extract` do the upgrade on each version. You do not have to install 3.0 first.
 
 ## 3.0.0 - 2026-11-03
 

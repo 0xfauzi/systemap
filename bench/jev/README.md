@@ -6917,3 +6917,31 @@ The fix: `addChild` (`page_canvas_tree`) puts a text that comes after a text int
 Result: PASS. C3 of the fix is 96 percent of C3 of c7ca3c3.
 
 The screenshot comparison of the verifier (14 states, 1440 x 900 and 390 x 844, light and dark, the plain fixture and the injection fixture): 60 of 60 screenshots of each fixture are pixel-identical to c7ca3c3, and the serialized DOM, the focus and the live-region text of the 56 states are the same. Before the fix, 4 screenshots of each fixture were different. The injection probe gives `window.__x` = 0 and 0 `img[onerror]` at each step, at 1440 x 900 and 390 x 844.
+
+## The 2.0.0 form of the evidence after facts format 14 (issue 143, 2026-11-09)
+
+Script: `bench/jev/earlier_text_probe.py`. The acceptance values are in its docstring. They were written after a first probe in the scratchpad and before the run of the script.
+
+- Input: the tree of 80e418b (`git archive 80e418b`), with its 6 exact answers with 2.0.0 evidence digests, and the tree of the branch `claude/issue-143` after the merge of main (213 module records). CPython 3.11.15, 4 processors. The full test suite ran at the same time, so the times are approximate.
+
+| Measurement | Result |
+|---|---|
+| (a) recorded digests that the 2.0.0 form gives, with `earlier_text` | 6 of 6 |
+| (b) recorded digests that the 2.0.0 form gives, without `earlier_text` (the merge of main before the fix) | 3 of 6 |
+| (c) median time of `_earlier_facts`, tree of 80e418b (155 module records) | 0.415 s |
+| (c) median time of `_earlier_facts`, tree of the branch (213 module records) | 0.527 s |
+
+Result: PASS for (a). The answers that did not agree without `earlier_text` are `single module` lines for `systemap.scaffold`, `systemap.skill`, and `systemap.figure`. The code of v3.0.0 also gives 6 of 6 on the same tree.
+
+An additional comparison, with the scratchpad script and not with the script above: the 2.0.0 form of each module record (`judgement_evidence._answer_facts`) with `earlier_text` against the form that the code of v3.0.0 gives. The two forms are equal for 155 of 155 records of the tree of 80e418b, and for 213 of 213 records of the tree of the branch.
+
+Second run, after a change of the design: the module is now `python_earlier_text`, and `answer_upgrade` calls it through the language adapter (`earlier_record`). The reason is that a shared module must not examine a language (`tests/test_language_decoupling.py`). Same input and interpreter:
+
+| Measurement | Result |
+|---|---|
+| (a) with the module | 6 of 6 |
+| (b) without the module | 3 of 6 |
+| (c) median time, tree of 80e418b (155 module records) | 0.465 s |
+| (c) median time, tree of the branch (213 module records) | 0.528 s |
+
+Result: PASS for (a).

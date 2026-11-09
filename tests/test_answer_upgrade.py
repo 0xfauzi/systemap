@@ -10,7 +10,7 @@ fixture:
    the earlier `crossing import` line form. A second `extract` writes nothing.
 2. An answer with a 2.0.0 digest that does not agree with the source (a comment changed
    after the answer) stays pending, and `extract` writes nothing.
-3. From 3.1.0, `extract` writes nothing, and the answer with a 2.0.0 digest is pending.
+3. On 3.1.0 and on 4.0.0, `extract` also does the replacement of acceptance 1 (issue 143).
 
 A probe on this repository gave the evidence: the earlier form gave the 6 digests that
 80e418b recorded in `systemap.toml`.
@@ -21,9 +21,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from conftest import set_version
 from test_answer_identity import append, case, project, structural_lines
 
-from systemap import answer_write, config, extract, flow_review, judgement, judgement_json, nest
+from systemap import answer_write, config, extract, judgement, judgement_json, nest
 from systemap.cli import main
 
 __all__ = ["project"]
@@ -88,14 +89,19 @@ def test_an_answer_from_2_0_0_that_does_not_agree_stays_pending(project: Path) -
     assert len(pending(project)) == 2
 
 
-def test_from_3_1_0_an_answer_from_2_0_0_is_pending(
-    project: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("version", ["3.1.0", "4.0.0"])
+def test_a_later_version_also_upgrades_an_answer_from_2_0_0(
+    project: Path, version: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Acceptance 3."""
-    monkeypatch.setattr(flow_review, "VERSION", "3.1.0")
-    answer_earlier(project)
+    set_version(monkeypatch, version)
+    lines, earlier = answer_earlier(project)
     toml = project / "systemap.toml"
     before = toml.read_text(encoding="utf-8")
     assert main(["--root", str(project), "extract"]) == 0
-    assert toml.read_text(encoding="utf-8") == before
-    assert len(pending(project)) == 2
+    now = digests(project, lines, earlier=False)
+    expected = before
+    for line in lines:
+        expected = expected.replace(earlier[line], now[line])
+    assert toml.read_text(encoding="utf-8") == expected != before
+    assert pending(project) == []

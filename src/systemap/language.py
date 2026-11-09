@@ -142,6 +142,11 @@ class LanguageAdapter(RepositoryAdapter, Protocol):
 
     def empty_marker(self, record: Mapping[str, Any], raw: str) -> bool: ...
 
+    def earlier_record(self, root: Path, record: dict[str, Any]) -> dict[str, Any]:
+        """Give the module record as the 2.0.0 evidence of an answer has it
+        (`answer_upgrade`). The current facts do not change."""
+        ...
+
     def internal_uses(
         self,
         raw: str,

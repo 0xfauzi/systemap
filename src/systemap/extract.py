@@ -25,6 +25,7 @@ from systemap import (
     file_names,
     notice_text,
     python_calls,
+    python_earlier_text,
     python_entry,
     python_exports,
     python_repo,
@@ -120,6 +121,10 @@ class PythonLanguage(PythonRepository):
         if not record.get("completeness", {}).get("parsed"):
             return False
         return python_syntax.holds_no_code(raw)
+
+    def earlier_record(self, root: Path, record: dict[str, Any]) -> dict[str, Any]:
+        """Give the record with the 2.0.0 text of the signatures and previews."""
+        return python_earlier_text.record(root, record)
 
     def entry_label(self, point: Mapping[str, str]) -> str:
         return standard_label(point)
@@ -326,7 +331,7 @@ def parse_surface(
     # Every public module-level name with its kind, so an `entry` can be a
     # lower-case object (`app`, `root_agent`) as well as a function or class.
     names: list[dict[str, str]] = []
-    statements = _active_statements(tree.body)
+    statements = python_syntax.active_statements(tree.body)
     source = source_segment.Source(raw)
     # The class nodes that are errors. `_python_api` puts them in the `refusals` bucket.
     refusals: set[ast.ClassDef] = set()
@@ -390,7 +395,7 @@ def _surface_class(
     if node.name.startswith("_"):
         return
     classes, errors = records
-    is_error = _is_error(node, source)
+    is_error = source_segment.is_error(node, source)
     if is_error:
         refusals.add(node)
     record = {
@@ -435,18 +440,6 @@ def _surface_assignment(
         names.append({"name": target.id, "kind": "constant"})
 
 
-def _active_statements(body: list[ast.stmt]) -> list[ast.stmt]:
-    """Select top-level statements whose branch can be determined without module execution."""
-    out: list[ast.stmt] = []
-    for node in body:
-        if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
-            if isinstance(node.test.value, bool):
-                out.extend(_active_statements(node.body if node.test.value else node.orelse))
-                continue
-        out.append(node)
-    return out
-
-
 def _python_class_api(node: ast.ClassDef) -> str:
     members: list[str] = []
     for child in node.body:
@@ -463,14 +456,6 @@ def _python_class_api(node: ast.ClassDef) -> str:
             "members": members,
         },
         sort_keys=True,
-    )
-
-
-def _is_error(node: ast.ClassDef, source: source_segment.Source) -> bool:
-    """Tell if the name or the source text of a base of the class names an error."""
-    bases = [source.text(base) or "" for base in node.bases]
-    return node.name.endswith(("Error", "Exception")) or any(
-        "Error" in base or "Exception" in base for base in bases
     )
 
 

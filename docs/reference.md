@@ -254,12 +254,13 @@ An `entry point` line with the full evidence also has all entry point records.
 
 Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.
 
-In the 2.0 and 3.0 releases, the first `systemap refresh` or `systemap extract` examines each `evidence` value in the 2.0.0 form.
+In each release, the first `systemap refresh` or `systemap extract` examines each `evidence` value in the 2.0.0 form.
 If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
 The command changes only the `evidence` value, and it keeps all other text of the configuration file.
+The 2.0.0 form has the `ast.unparse` text of the Python signatures and `constants` previews. The command gets this text again from the source.
 
 A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
-From 3.1.0, an answer with a 2.0.0 value is pending. `judgement` prints the new digest in the `pending answer` line.
+`judgement` prints the new digest of such an answer in the `pending answer` line.
 
 Migration from facts format 10: the evidence of an `unknown surface` line of a module or a test file changed.
 Thus each of these exact answers is pending one time after the update.

@@ -142,3 +142,11 @@ def _parameter(item: ast.arg, default: ast.expr | None, source: Source) -> str:
     if default is not None:
         text += f"={source.text(default) or '...'}"
     return text
+
+
+def is_error(node: ast.ClassDef, source: Source) -> bool:
+    """Tell if the name or the source text of a base of the class names an error."""
+    bases = [source.text(base) or "" for base in node.bases]
+    return node.name.endswith(("Error", "Exception")) or any(
+        "Error" in base or "Exception" in base for base in bases
+    )
