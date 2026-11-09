@@ -90,6 +90,11 @@ def test_the_map_page_does_not_change() -> None:
     assert page_canvas_find.FIND in page_canvas.SCRIPT
 
 
+def test_the_canvas_script_gives_no_text_to_an_html_parser() -> None:
+    """The tree, the Sequences list, the Details panel and Find make their parts with `el`."""
+    assert re.search(r"innerHTML|outerHTML|insertAdjacentHTML", page_canvas.SCRIPT) is None
+
+
 @pytest.fixture(scope="module")
 def canvas(tmp_path_factory: pytest.TempPathFactory) -> Path:
     root = _made(tmp_path_factory.mktemp("find"), "[render]\ncanvas = true\n")

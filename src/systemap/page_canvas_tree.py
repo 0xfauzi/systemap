@@ -65,16 +65,19 @@ var TREE_EL = document.getElementById('canvas-tree'), LABEL = '', SAID_MAP = nul
 // canvas data goes to an HTML parser. The tree, the Sequences list, the Details panel and
 // Find can use it. Each key of `attrs` gives an attribute (`setAttribute`). A value of null,
 // undefined or false gives no attribute. The function does not set a name that starts with
-// "on", and it sets `href` only to a URL hash ("#..."). Each argument after `attrs` is an
+// "on", and it sets a URL attribute (`href`, `src`, `srcdoc`, `action`, `formaction`,
+// `data` or `xlink:href`) only to a URL hash ("#..."). Each argument after `attrs` is an
 // element, a text, a number, or an array of these. The function adds a text or a number as
-// text, and it adds nothing for null, undefined or false.
+// text, and it adds nothing for null, undefined or false. A text that comes after a text
+// goes into the same text node, as the HTML parser does. Thus the browser shapes the
+// glyphs of a line as one run.
 function el(tag, attrs) {
   var e = document.createElement(tag), k, v;
   for (k in attrs || {}) {
     v = attrs[k];
     if (v === null || v === undefined || v === false || /^on/i.test(k)) continue;
     v = String(v);
-    if (k.toLowerCase() === 'href' && v.charAt(0) !== '#') continue;
+    if (/^(href|src|srcdoc|action|formaction|data|xlink:href)$/i.test(k) && v.charAt(0) !== '#') continue;
     e.setAttribute(k, v);
   }
   for (var i = 2; i < arguments.length; i++) addChild(e, arguments[i]);
@@ -83,7 +86,9 @@ function el(tag, attrs) {
 function addChild(e, x) {
   if (x === null || x === undefined || x === false) return;
   if (Array.isArray(x)) x.forEach(function (y) { addChild(e, y); });
-  else e.append(typeof x === 'object' ? x : String(x));
+  else if (typeof x === 'object') e.append(x);
+  else if (e.lastChild && e.lastChild.nodeType === 3) e.lastChild.appendData(String(x));
+  else e.append(String(x));
 }
 function counted(n, one) { return n + ' ' + one + (n === 1 ? '' : 's'); }
 // The ID that the URL hash gives to a card: the ID of its map, a slash and the card ID.
@@ -116,17 +121,13 @@ function treeLink(hash, at, text) {
 // Tab (`readingOrder` in `page_canvas_keys`). The item of a card that opens a map holds the
 // lists of that map.
 function mapLists(m) {
-  var name = mapName(m), out = [];
-  out.push(el('ul', {'aria-label': 'Cards of ' + name}, readingOrder(m).map(function (c) {
+  var name = mapName(m);
+  return [el('ul', {'aria-label': 'Cards of ' + name}, readingOrder(m).map(function (c) {
     return el('li', null, treeLink(hashOf(cardId(c)), {'data-m': m.oi, 'data-c': c.i}, c.id), ' ' + factsText(c),
       c.child ? mapLists(c.child) : null);
-  })));
-  if (m.flows.length) {
-    out.push(el('ul', {'aria-label': 'Flows of ' + name}, m.flows.map(function (f) {
-      return el('li', null, treeLink(hashOf(m.id), {'data-m': m.oi, 'data-f': f.i}, 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a));
-    })));
-  }
-  return out;
+  })), m.flows.length ? el('ul', {'aria-label': 'Flows of ' + name}, m.flows.map(function (f) {
+    return el('li', null, treeLink(hashOf(m.id), {'data-m': m.oi, 'data-f': f.i}, 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a));
+  })) : null];
 }
 // A new list replaces the links. When a link of the list has the keyboard focus, the same
 // link of the new list gets it (`data-m` and `data-c` or `data-f`).

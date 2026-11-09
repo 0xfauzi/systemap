@@ -9,9 +9,10 @@ code and the code of the list and of the dialog are the same text as on the map 
 makes the rows and their glyphs with DOM functions (`el` in `page_canvas_tree`), not with
 HTML text. Thus no text of the canvas data goes to an HTML parser. The text for no result
 is an option that is not available, because the list has the role listbox. The ranking is
-the ranking of step 8 of docs/design/nested-parts.md (`RANK`): the group "Other maps" comes after the groups of the current map, it shows 8 rows or fewer, and its rows
-give the actors and the flows after the internal components. The name of that group does
-not show all its rows.
+the ranking of step 8 of docs/design/nested-parts.md (`RANK`): the group "Other maps"
+comes after the groups of the current map, it shows 8 rows or fewer, and its rows give the
+actors and the flows after the internal components. The name of that group does not show
+all its rows.
 
 The results come from the canvas data (`DATA.maps`) when the dialog opens. Thus the page
 has no other data for the search. These are the groups:

@@ -6861,3 +6861,59 @@ Result: PASS. The largest p95 is 16.8 ms. The C3 load at 1x is 82 ms (M11 tree) 
 
 - At the card Routes of the fixture of `tests/test_nest_join.py` (`Gateway/index.html#Routes`, a card of 864 x 323 px), the canvas now draws FLOWS and MODULES at rest (acceptance 9 of `tests/test_canvas_redirect_browser.py`). Before the fix, it drew no list there. The lists now start when 3 lines or more stay under the description, in place of 7 to 9 lines before the description.
 - The rest test (acceptance 11 of `tests/test_canvas_details_browser.py`) took 30.52 s and 30.99 s in two earlier measurements, with 48 zooms and a wait of 450 ms. With 24 zooms and 250 ms, it examined 81 texts and failed its count of 100. With 32 zooms and 250 ms, it took 14.65 s and examined 100 or more texts, with 0 partly transparent texts.
+
+### DOM functions in place of innerHTML: C3 and the time of the tree list (2026-11-09)
+
+Acceptance value, written before the measurement: the median C3 (`systemapCanvas.ready`) at 1x of the commit c1e3e48 is not more than 110 percent of the median C3 of c7ca3c3.
+
+- Page: the M11 shape of `bench/jev/canvas_frames.py` (`nested_tree`, `write_page`), made with the code of each commit. Chromium of Playwright 1.63.0, viewport 1440 x 900, no CPU throttling. 15 loads of each page, in alternate order.
+- `treeMs` is the time to write the list of the tree (`buildTree`). It is after the first frame, thus it is not in C3.
+
+| Commit | Median C3 | Median treeMs |
+|---|---|---|
+| c7ca3c3 (innerHTML) | 61.3 ms | 14.9 ms |
+| c1e3e48 (DOM functions) | 60.9 ms | 14.0 ms |
+
+Result: PASS. C3 of c1e3e48 is 99 percent of C3 of c7ca3c3.
+
+### DOM functions in place of innerHTML: C2 and C3, A/B with the quiet gate (`bench/jev/canvas_frames.py`, 3 pairs)
+
+Scope: A is a `git archive` copy of c7ca3c3 (innerHTML). B is a `git archive` copy of c1e3e48 (DOM functions). The two copies use the default configuration. `canvas_frames.py` and `canvas_frames.js` are the same in A and B. Each copy operates its own `canvas_frames.py` with PYTHONPATH on its own `src`, with the Python of the worktree. The script is not in the repository: `dom-verify-timing/frames_ab.py` in the scratchpad of the verifier. Its docstring has the acceptance values, written before the first run on 2026-11-09.
+
+Order A1, B1, B2, A2, A3, B3. The quiet gate: before each run, 30 s with no foreign chrome, chromium, headless_shell, node or pytest process (`ps` each 1 s, 900 s or less). A process of the script itself is a descendant of the script or has the token of the script in its environment. During the run, a sampler recorded the foreign processes and the load average each 2 s. A run with a foreign process in a sample was made again, 3 attempts or fewer.
+
+The attempts 1 and 2 of A1 were not quiet: the browser tests and Node scripts of other agents operated during them (8 and 63 foreign processes). These two attempts are not in the table. The attempt 3 of A1 and the other 5 runs were quiet in their first attempt. Each run gave exit 0 and took 86 to 89 s. The largest 1-minute load average in a quiet run was 1.39 (4 CPUs).
+
+Acceptance values:
+
+1. Each B row at or below its limit (p95 35.0 ms at 4x, 17.5 ms at 1x; C3 at 1x 1,500 ms or less).
+2. The median p95 of B is not more than one tick (16.67 ms) above the median of A.
+3. C3 at 1x: a fail if the median of B is more than 10 percent above the median of A on the M11 tree and on the M11 shape.
+
+| Data | Scenario | CPU | A (3 runs) | B (3 runs) | Median B - A |
+|---|---|---|---|---|---|
+| M11 tree | C3 load | 4x | 386, 370, 312 ms | 311, 283, 280 ms | -87 ms |
+| M11 shape | C3 load | 4x | 282, 245, 267 ms | 282, 376, 280 ms | +15 ms |
+| M11 tree | C3 load | 1x | 79, 77, 93 ms | 77, 75, 74 ms | -4 ms (-5.1 percent) |
+| M11 shape | C3 load | 1x | 74, 69, 75 ms | 63, 74, 84 ms | 0 ms (0 percent) |
+
+Each frame row (pan-fit, all-open and dive of the M11 tree and the M11 shape, pan-fit and dive of 400 cards, pan-fit of 1,500 cards, at 4x and 1x) has a p95 from 16.7 to 16.8 ms in each quiet run of A and B. The largest difference of the medians of B and A is +0.1 ms. The largest single frame interval in a quiet run: 66.6 ms in A (A2), 50.0 ms in B (B1, B2 and B3). Each of these intervals is in the all-open scenario at 4x, and the p95 does not include them.
+
+Result: PASS for acceptance 1, 2 and 3. The largest p95 of B is 16.8 ms. The largest C3 of B at 1x is 84 ms. C3 at 1x of B is 5.1 percent below A on the M11 tree and the same as A on the M11 shape.
+
+### DOM functions in place of innerHTML: C3 after the fix of the text nodes (2026-11-09)
+
+Acceptance value, the value of the task before the measurement: the median C3 (`systemapCanvas.ready`) at 1x of the fix is not more than 110 percent of the median C3 of c7ca3c3.
+
+The fix: `addChild` (`page_canvas_tree`) puts a text that comes after a text into the same text node, as the HTML parser does. Before the fix, the paragraph "Imports: none recorded." of the Details panel had three text nodes, and Chromium shaped two glyphs with a different anti-aliasing (75 pixels, at 1440 x 900 only).
+
+- Page: the M11 shape of `bench/jev/canvas_frames.py` (`nested_tree`, `write_page`), made with the code of c7ca3c3 and with the code of the worktree after the fix. Chromium of Playwright, viewport 1440 x 900, no CPU throttling. 15 loads of each page, in alternate order. The script is not in the repository: `dom-verify-review/c3.js` in the scratchpad.
+
+| Code | Median C3 | Median treeMs |
+|---|---|---|
+| c7ca3c3 (innerHTML) | 59.3 ms | 14.3 ms |
+| the fix (DOM functions, joined text nodes) | 57.2 ms | 13.9 ms |
+
+Result: PASS. C3 of the fix is 96 percent of C3 of c7ca3c3.
+
+The screenshot comparison of the verifier (14 states, 1440 x 900 and 390 x 844, light and dark, the plain fixture and the injection fixture): 60 of 60 screenshots of each fixture are pixel-identical to c7ca3c3, and the serialized DOM, the focus and the live-region text of the 56 states are the same. Before the fix, 4 screenshots of each fixture were different. The injection probe gives `window.__x` = 0 and 0 `img[onerror]` at each step, at 1440 x 900 and 390 x 844.

@@ -12,10 +12,10 @@ listbox. The sequences of the current map come first, then the sequences of the 
 in tree order, in one group for each map. The page makes the listbox with DOM functions
 (`el`), so no text of the canvas data goes to an HTML parser. In the listbox, the arrow
 keys, Home, End and a letter move the keyboard focus, Enter or Space selects, Escape closes
-the list, and Tab closes it and goes on. The arrow keys move between the controls of the toolbar. The keys
-of the toolbar do not move the camera (`ownKeys`). The page gives no new key for the
-steps: the arrow keys move the camera on the canvas. The bar is part of the top band of
-the screen (`band`), so the fit and the path stay below it.
+the list, and Tab closes it and goes on. The arrow keys move between the controls of the
+toolbar. The keys of the toolbar do not move the camera (`ownKeys`). The page gives no new
+key for the steps: the arrow keys move the camera on the canvas. The bar is part of the
+top band of the screen (`band`), so the fit and the path stay below it.
 
 The route. A choice moves the camera to the fit of the map of the sequence. In that map,
 the flows of the route have their layer colors and their arrowheads, and each step has its
