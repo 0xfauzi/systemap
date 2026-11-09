@@ -163,7 +163,9 @@ def _judged_ports(cfg: Any, tree: nest.Tree, facts: dict[str, Any], ports: list[
     assert {line for port in ports for line in port.get("n", [])} <= set(judged)
     assert canvas_data.build(cfg, tree, facts, judged)["maps"][1]["ports"] == ports
     closed = canvas_data.build(cfg, tree, facts, open_lines=())["maps"][1]["ports"]
-    assert closed == [{k: v for k, v in port.items() if k != "n"} for port in ports if "f" in port]
+    assert closed == [
+        {k: v for k, v in port.items() if k not in ("n", "w")} for port in ports if "f" in port
+    ]
 
 
 def test_two_builds_give_the_same_bytes(levels: Any) -> None:

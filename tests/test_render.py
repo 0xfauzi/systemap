@@ -184,10 +184,10 @@ LINE_ENDS = "\u2028\u2029\u0085\x0b\x0c\x1c\x1d\x1e"
 
 
 def test_compact_ends_a_line_only_at_a_line_feed() -> None:
-    """Before the fix, _compact cut the string at U+2028 and the page script stopped (llm-2)."""
+    """Before the fix, compact cut the string at U+2028 and the page script stopped (llm-2)."""
     for char in LINE_ENDS:
         js = f'var a = "x{char}y"\n  // note\nvar b = 1'
-        assert page._compact(js) == f'var a = "x{char}y"\nvar b = 1'
+        assert page.compact(js) == f'var a = "x{char}y"\nvar b = 1'
 
 
 def test_compact_joins_a_line_only_after_a_safe_end() -> None:
@@ -197,7 +197,7 @@ def test_compact_joins_a_line_only_after_a_safe_end() -> None:
     line. A line with a different end keeps its line feed, because a line feed can end
     a statement there."""
     js = "if(a){\n  f(1,\n    2);\n}\nvar u = 'http://x'; // note,\ng();\nh() /* x */;\nk()\nm()"
-    assert page._compact(js) == (
+    assert page.compact(js) == (
         "if(a){f(1,2);}\nvar u = 'http://x'; // note,\ng();h() /* x */;\nk()\nm()"
     )
 
@@ -205,7 +205,7 @@ def test_compact_joins_a_line_only_after_a_safe_end() -> None:
 def test_map_text_with_line_ends_keeps_each_page_script_whole(sample: Sample) -> None:
     """Map text with each line end gives scripts without a raw U+2028, U+2029 or U+0085.
 
-    Before the fix, the DETAIL line of the main script had a raw U+2028, and _compact cut
+    Before the fix, the DETAIL line of the main script had a raw U+2028, and compact cut
     that line in two. The browser then stopped the script with a SyntaxError (llm-2)."""
     text = f"Reads the input{LINE_ENDS}and gives a request."
     first = sample.model.components[0]

@@ -21,6 +21,10 @@ The header holds these controls, from left to right:
   their place, as the linked page does on a phone.
 - The Find button (`find-open`). It is hidden until the search part of the renderer wires
   its dialog and removes the `hidden` attribute.
+- The tools (`_tools`), as on the linked page (`page._tools`): the source of the map (the
+  commit of the facts and its source records), the theme, Reduce motion, the Keyboard keys
+  and the Details panel (`page_canvas_details`). On a narrow screen, they go into one Tools
+  menu (`tools-open`).
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from systemap import page
 from systemap.page import esc
 from systemap.page_icons import icon
 
@@ -85,6 +90,50 @@ def _find() -> str:
     )
 
 
+def _records(data: Mapping[str, Any]) -> str:
+    """Give the source records of the page, with the words of the linked page
+    (`page.unknown_records` and `page.source_records`)."""
+    top = (data.get("maps") or [{}])[0]
+    return page.unknown_records(data.get("unknown") or []) + page.source_records(
+        str(data.get("rev") or ""), top.get("ff", ""), top.get("mf", "")
+    )
+
+
+def _snap(data: Mapping[str, Any]) -> str:
+    """Give the button with the commit of the facts. It opens the source records."""
+    commit = str(data.get("rev") or "")[:7]
+    text = f"at <code>{esc(commit)}</code>" if commit else "commit not recorded"
+    return (
+        '<button type="button" class="cbar__snap" id="snap" aria-expanded="false" '
+        f'aria-controls="snap-pop" title="Source of this map">{text}</button>'
+        '<div class="csnap__pop cpop" id="snap-pop" role="region" aria-label="Source of this map" '
+        f'hidden><p class="csnap__k">SOURCE OF THIS MAP</p>{_records(data)}</div>'
+    )
+
+
+def _tools(data: Mapping[str, Any]) -> str:
+    """Give the tools and the button of the Tools menu. The theme buttons are one toggle:
+    the header shows only the button of the scheme that is not in use."""
+    return (
+        '<div class="cbar__tools" id="canvas-tools" role="group" aria-label="Tools">'
+        + _snap(data)
+        + page.scheme_buttons()
+        + page.tool("reduce-motion", "Reduce motion", "motion", ' aria-pressed="false"')
+        + page.tool(
+            "keys-open", "Keyboard keys", "help", ' aria-haspopup="dialog" aria-keyshortcuts="?"'
+        )
+        + page.tool(
+            "details-toggle",
+            "Details",
+            "panel",
+            ' aria-pressed="false" aria-controls="cdetails" aria-keyshortcuts="D"',
+        )
+        + "</div>"
+        '<button type="button" class="cbar__more" id="tools-open" aria-expanded="false" '
+        f'aria-controls="canvas-tools" aria-label="Tools" title="Tools">{icon("down")}</button>'
+    )
+
+
 def html_of(data: Mapping[str, Any], tools: str = "") -> str:
     """Give the header element of the canvas page of the canvas data `data`.
 
@@ -98,6 +147,7 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
         + tools
         + '<span class="cbar__space"></span>'
         + _find()
+        + _tools(data)
         + "</header>"
     )
 
@@ -107,10 +157,11 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
 # view, also with two rows on a phone, does not cover it. `data-fit` is set by the
 # script: 1 when the layer buttons do not fit (the select shows), 2 when the name and the
 # label of Find also do not fit (they go, and a screen reader still reads the name and the
-# label of the select). `cview` is the fade of the bar of a view (the toolbar of the
-# Sequences view, the bar of the Changes view and the text for a page without a revision
-# comparison): 160 ms, and none with reduced motion. During the fade out, the bar has no
-# visibility, so it has no keyboard focus and no screen reader reads it.
+# label of the select). `data-menu` is set when the tools also do not fit: they go into
+# the Tools menu (`page_canvas_details`). `cview` is the fade of the bar of a view (the
+# toolbar of the Sequences view, the bar of the Changes view and the text for a page
+# without a revision comparison): 160 ms, and none with reduced motion. During the fade
+# out, the bar has no visibility, so it has no keyboard focus and no screen reader reads it.
 CSS = """
 .cbar{position:fixed;left:0;right:0;top:0;z-index:4;box-sizing:border-box;height:48px;
 display:flex;align-items:center;gap:12px;padding:0 16px;overflow:hidden;
@@ -140,7 +191,7 @@ border-color:var(--line-2);background:var(--map);color:var(--ink-2)}
 .cbar__find[hidden]{display:none}
 .cbar__find kbd{font:11px/16px var(--fm);color:var(--ink-3);border:1px solid var(--line-2);
 border-radius:4px;padding:0 5px}
-.cbar .icon{width:16px;height:16px;fill:currentColor}
+.cbar .icon{width:16px;height:16px;fill:none}
 .cbar[data-fit] .cbar__layers{display:none}
 .cbar[data-fit] .cbar__pick{display:flex}
 .cbar[data-fit="2"]{gap:6px;padding:0 8px}

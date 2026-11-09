@@ -37,12 +37,14 @@ from typing import Any
 
 from systemap import (
     change,
+    config,
     delta,
     figure,
     file_write,
     out_paths,
     page_csp,
     page_live,
+    render_pages,
     repo_files,
     serve_guard,
     terminal_text,
@@ -649,9 +651,20 @@ def _inputs(root: Path, live: LiveMap) -> list[Path]:
 
 
 def cmd_live(args: argparse.Namespace) -> int:
-    from systemap.cli import _root
+    from systemap.cli import _root, warn
 
-    return run(_root(args), int(args.port), args.base, not args.no_watch, printer(bool(args.json)))
+    root = _root(args)
+    warn(*_notice(root))
+    return run(root, int(args.port), args.base, not args.no_watch, printer(bool(args.json)))
+
+
+def _notice(root: Path) -> list[str]:
+    """Give the notice line of `[render] canvas = false`. A configuration error gives no
+    line here: the render of the first version gives that error."""
+    try:
+        return render_pages.notice(config.load(root))
+    except ConfigError:
+        return []
 
 
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:

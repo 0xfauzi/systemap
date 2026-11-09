@@ -229,7 +229,7 @@ class Config:
     rules_unknown: str = "warn"
     require_reviews: bool = False  # [judgement] require_reviews: a missing review is a finding
     max_contradicted: int = 3  # [decisions] max_contradicted: a loop bound, not a measurement
-    render_canvas: bool = False  # [render] canvas: write the canvas page (config_render)
+    render_canvas: bool = True  # [render] canvas: write the canvas page (config_render)
     source: str = ""
 
     @property

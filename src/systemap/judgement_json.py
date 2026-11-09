@@ -17,6 +17,7 @@ from systemap import (
     audit,
     flow_review,
     judgement,
+    judgement_evidence,
     nest,
     nest_join,
     review_policy,
@@ -144,6 +145,37 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
         boundary,
         found,
     )
+
+
+def open_boundary(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> frozenset[str]:
+    """This function gives the open `boundary flow` and `boundary import` lines of the
+    tree. The set is the set of boundary lines in `evaluate(...).result.open`.
+
+    The function applies the answers only to the boundary lines, with the evidence of the
+    boundary lines (`judgement_evidence.boundary_evidence`). Thus it does not make the
+    other judgement lines. An exact answer for a boundary line that also names a different
+    line has a digest of all its items. For such an answer, the function uses `evaluate`.
+    A tree with no nested map has no boundary line."""
+    if not tree.nested:
+        return frozenset()
+    lines = [line for m in tree.reported for line in nest_join.lines(tree, m, facts)]
+    given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
+    given = answer_migrations.current_lines(given, lines)
+    present = set(lines)
+    if any(_names_other_lines(a, lines, present) for a in given):
+        judged = evaluate(tree, facts, cfg).result.open
+        return frozenset(line for line in judged if nest_join.is_line(tree, line))
+    evidence = judgement_evidence.boundary_evidence(tree, facts, lines)
+    return frozenset(judgement.apply_answers(lines, given, evidence).open)
+
+
+def _names_other_lines(answer: Answer, lines: list[str], present: set[str]) -> bool:
+    """Tell if an exact answer selects a boundary line and has an item that is not a
+    boundary line."""
+    if not answer.items or not any(judgement.answers(answer, line, present) for line in lines):
+        return False
+    items = answer_migrations.current_items(answer.items, present)
+    return any(item not in present for item in items)
 
 
 def boundary_findings(

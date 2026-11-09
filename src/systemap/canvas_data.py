@@ -35,8 +35,8 @@ The keys of a map:
   `p` (the card text), and `d` (the `does` text). It can also have `m` (the
   `implemented_by` claims), `s` (the source state), `as` (the assurance level and the
   freshness), `l` (the layers that have the card as a subject, except `structure`,
-  which has all cards), `u` (the claims that cover no module), and `o` (the ID of the
-  map that the card opens).
+  which has all cards), `u` (the claims that cover no module), `nt` (the `note` text),
+  and `o` (the ID of the map that the card opens).
 - `flows`: each flow has `s` (the source), `t` (the destination), `a` (the artifact),
   `k` (the kind), `l` (the layer), `ev` (the evidence state), `p` (the route points),
   and `lb` (the label box). It can also have `id` (the flow id) and `as`. The route
@@ -51,13 +51,18 @@ The keys of a map:
   line that crosses no other card. The page draws
   the boundary flow from the portal to the frame, then along `fp` to the actor card, and
   then along the route of the nested flow. A port without `fp` has no side for this line.
-  `n` gives the `boundary flow` and `boundary import` lines of the port. A line that has
-  no nested flow gives a port without `f`.
+  `n` gives the `boundary flow` and `boundary import` lines of the port, and `w` gives the
+  form of each line: "i" for a `boundary import` line, "p" for a nested flow with no
+  parent flow, and "n" for a parent flow with no nested flow. A line that has no nested
+  flow gives a port without `f`.
 - `ch`: the revision comparison of the map (`page_data.comparison`), if `build`
   received changes for the map. Such a map also has the change keys `cm`, `cl`, `cr`
   and `ci` (`canvas_changes`): the change marks of the cards, the lost flows, and the
   roll-up of the map changes.
 - `sq`: the sequences of the map (`canvas_sequences`), only in a map that has sequences.
+- `mf`, `ff`, `iv`, `ir`, `md`, `fr` and `sr`: the model file and the facts file (only in
+  the top map), the rules, the modules, the file rule and the source records for the
+  Details panel (`canvas_details`).
 
 An example from the fixture of tests/test_nest_join.py, after `place`: the card Gateway
 and its flow to Auth in the top map, and a port of the map inside Gateway.
@@ -81,6 +86,7 @@ from typing import Any
 from systemap import (
     assurance,
     canvas_changes,
+    canvas_details,
     canvas_sequences,
     evidence,
     nest,
@@ -112,10 +118,6 @@ def _num(value: float) -> float | int:
 
 def _box(box: Collection[float]) -> list[float | int]:
     return [_num(v) for v in box]
-
-
-def _level(claim: assurance.Claim | None) -> dict[str, list[str]]:
-    return {"as": [claim.level, claim.freshness]} if claim is not None else {}
 
 
 def _some(**fields: Any) -> dict[str, Any]:
@@ -161,8 +163,8 @@ def _card(
         "r": c.home,
         "p": m.meaning.plain.get(c.id, ""),
         "d": c.does,
-        **_some(m=list(c.implemented_by), s=state, u=unresolved),
-        **_level(found.get(c.id)),
+        **_some(m=list(c.implemented_by), s=state, u=unresolved, nt=c.note),
+        **canvas_details.level(found.get(c.id)),
         **extra,
     }
 
@@ -186,7 +188,7 @@ def _flows(
             "p": [_box(point) for point in routes[i].points],
             "lb": _box(seats[i].box),
             **_some(id=f.id),
-            **_level(found.get(f.key)),
+            **canvas_details.level(found.get(f.key)),
         }
         for i, f in enumerate(model.flows)
     ]
@@ -230,7 +232,7 @@ def _flow_ports(
     m: nest.Map,
     parent: Model,
     routes: Mapping[int, Route],
-    lines: dict[tuple[str, str, str], list[str]],
+    lines: dict[tuple[str, str, str], list[tuple[str, str]]],
     boxes: Mapping[str, Box],
 ) -> list[dict[str, Any]]:
     """Give one port for each nested flow between an internal component and an actor.
@@ -259,13 +261,25 @@ def _flow_ports(
                 "f": i,
                 "pf": _parent_flows(parent, m.card, other, way),
                 "at": _box(end),
-                **_some(
-                    fp=_frame_path(other, boxes, size, side),
-                    n=lines.pop((inner, other, way), []),
-                ),
+                **_some(fp=_frame_path(other, boxes, size, side)),
+                **_lines(lines.pop((inner, other, way), [])),
             }
         )
     return out
+
+
+def _form(one: nest_join.Finding) -> str:
+    """Give the form of a boundary line for the page (`page_canvas_ports.WORDS`): "i" for a
+    `boundary import` line, "p" for a nested flow with no parent flow, and "n" for a parent
+    flow with no nested flow."""
+    if one.imports:
+        return "i"
+    return "p" if one.inner else "n"
+
+
+def _lines(pairs: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """Give `n` (the lines) and `w` (their forms) of a port, or no keys."""
+    return _some(n=[line for line, _ in pairs], w=[form for _, form in pairs])
 
 
 def _ports(
@@ -282,19 +296,19 @@ def _ports(
     line gives a port without a flow, one port for each actor, component, and direction.
     """
     parent = tree.get(m.parent or "")
-    at_flow: dict[tuple[str, str, str], list[str]] = {}
-    alone: dict[tuple[str, str, str], list[str]] = {}
+    at_flow: dict[tuple[str, str, str], list[tuple[str, str]]] = {}
+    alone: dict[tuple[str, str, str], list[tuple[str, str]]] = {}
     for one in nest_join.map_findings(tree, m, facts):
         if open_lines is not None and one.line not in open_lines:
             continue
         way = "out" if one.parent_flow[0] == m.card else "in"
         key = (one.inner, one.other, way)
         held = at_flow if one.kind == nest_join.FLOW_KIND and one.inner else alone
-        held.setdefault(key, []).append(one.line)
+        held.setdefault(key, []).append((one.line, _form(one)))
     out = _flow_ports(m, parent.model, routes, at_flow, boxes)
     for (inner, other, way), lines in sorted(alone.items()):
         pf = _parent_flows(parent.model, m.card, other, way)
-        out.append({"x": other, "d": way, "pf": pf, "n": sorted(lines), **_some(i=inner)})
+        out.append({"x": other, "d": way, "pf": pf, **_lines(sorted(lines)), **_some(i=inner)})
     return out
 
 
@@ -359,6 +373,7 @@ def _map(
         out["ch"] = comparison
         out |= canvas_changes.keys(tree, m, backed, change, found)
     out.update(canvas_sequences.of_map(m, facts))
+    out.update(canvas_details.of_map(cfg, m, facts, claims))
     return out
 
 
@@ -371,8 +386,9 @@ def build(
 ) -> dict[str, Any]:
     """Give the canvas data of all maps of the tree (see the module docstring).
 
-    `open_lines` gives the open lines of the judgement (`judgement_json.evaluate`). Without
-    it, the ports give all of their boundary lines. `changes` gives the change data of each
+    `open_lines` gives the open boundary lines of the judgement
+    (`judgement_json.open_boundary`). Without it, the ports give all of their boundary
+    lines. `changes` gives the change data of each
     map by map ID (`change.for_page`). A map without change data has no `ch`."""
     changes = changes or {}
     chosen = None if open_lines is None else frozenset(open_lines)

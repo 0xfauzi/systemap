@@ -11,7 +11,8 @@ canvas, and before the first card Shift+Tab does the same. Thus the canvas does 
 the keyboard focus.
 
 When the box of the focused card is not fully in the free box of the screen, the camera
-moves the card to the middle of the free box, at the same zoom. When the card is larger
+moves the card to the middle of the free box, at the same zoom. An open Details panel is
+not in the free box (WCAG 2.2 2.4.11, Focus Not Obscured). When the card is larger
 than the free box, the camera zooms out to the card, with a margin of 20 % of the screen.
 
 Enter on a card that opens a map goes into that map. Enter on a different card selects
@@ -95,9 +96,14 @@ function liveFocus() {
 }
 // Move the camera when the box of the focused card is not fully in the free box. A
 // flight into the map of the card (`enterKey`) continues: it shows the map of the card.
+// An open Details panel is not in the free box: on a wide screen the panel is at the
+// right, and on a narrow screen it is at the bottom.
 function showFocus(c) {
   if (flight && flight.into === c.map) return;
   var r = screenBox(c), g = gutters(), x0 = g.x, y0 = g.top, x1 = W - g.x, y1 = H - g.bottom;
+  var p = document.getElementById('cdetails'), b = p && !p.hidden && p.classList.contains('on') ? p.getBoundingClientRect() : null;
+  if (b && b.left > (x0 + x1) / 2) x1 = Math.min(x1, b.left - 8);
+  else if (b) y1 = Math.min(y1, b.top - 8);
   if (r[0] >= x0 && r[1] >= y0 && r[0] + r[2] <= x1 && r[1] + r[3] <= y1) return;
   if (r[2] > x1 - x0 || r[3] > y1 - y0) { flyTo(worldBox(c), 0.2); return; }
   var w = worldBox(c), k = cam.k;

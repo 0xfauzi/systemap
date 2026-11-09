@@ -3,11 +3,13 @@
 The canvas page (`canvas_page`) has an empty `nav` element after the canvas. After the
 first frame is on the screen, this part writes the list of the tree into it from the
 canvas data, in one step (`buildTree`). Thus the page bytes do not grow with the list, and
-the list does not make the time to the first frame longer. The list gives each map, its
-cards and its flows. Each card has its name, its card text, its `does` text and its facts: the
-modules, the count of flows in and out, the assurance level and the freshness. The cards
-of a map are in the reading order of Tab (`page_canvas_keys`): the rows from the top to the
-bottom, and in each row the cards from the left to the right.
+the list does not make the time to the first frame longer. The script makes the list with
+DOM functions (`el`), not with HTML text. Thus no text of the canvas data goes to an HTML
+parser. The list gives each map, its cards and its flows. Each card has its name, its card
+text, its `does` text and its facts: the modules, the count of flows in and out, the
+assurance level and the freshness. The cards of a map are in the reading order of Tab
+(`page_canvas_keys`): the rows from the top to the bottom, and in each row the cards from
+the left to the right.
 A card that opens a map holds the list of that map.
 
 Each item is a link. Its `href` is the URL hash of its card, or of its map for a flow, for
@@ -25,6 +27,14 @@ focused card before a screen reader reads it.
 The script writes the list again after a change of the view (`buildTree`). When a link of
 the list has the keyboard focus, the same link of the new list gets it. Thus the focus does
 not go to the body of the page.
+
+The URL hash `#changes`, the link of a pull request comment (`delta_link.CHANGES`), opens
+the Changes view at the top map. `#Gateway/changes` opens it at the map Gateway. The small
+page of a nested map gives such a hash for `Gateway/index.html#changes`
+(`canvas_redirect`). A map or a card with the ID `changes` keeps its link: then the hash
+moves the camera to that map or card, as each other hash does, and the view does not
+change. When the camera stops in the Changes view at the map of the hash, the hash stays.
+Thus a load of the page again opens the same view.
 
 A view part can add words (`viewFacts` and `viewSay` in `page_canvas_view`): the words of
 the current view for each card in the list, and for each map in the live region and in the
@@ -48,12 +58,37 @@ HTML = (
     '<p id="canvas-said" class="sr-only" aria-live="polite"></p>'
 )
 
-# The list text has "<\\/" in place of "</": the page embeds the script in a script element.
 TREE = r"""
 // ---- the list of the tree and the canvas label -------------------------------------
 var TREE_EL = document.getElementById('canvas-tree'), LABEL = '', SAID_MAP = null, TREE_MS = null;
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, function (ch) { return ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : '&quot;'; });
+// Make the HTML element `tag` with DOM functions, not with HTML text. Thus no text of the
+// canvas data goes to an HTML parser. The tree, the Sequences list, the Details panel and
+// Find can use it. Each key of `attrs` gives an attribute (`setAttribute`). A value of null,
+// undefined or false gives no attribute. The function does not set a name that starts with
+// "on", and it sets a URL attribute (`href`, `src`, `srcdoc`, `action`, `formaction`,
+// `data` or `xlink:href`) only to a URL hash ("#..."). Each argument after `attrs` is an
+// element, a text, a number, or an array of these. The function adds a text or a number as
+// text, and it adds nothing for null, undefined or false. A text that comes after a text
+// goes into the same text node, as the HTML parser does. Thus the browser shapes the
+// glyphs of a line as one run.
+function el(tag, attrs) {
+  var e = document.createElement(tag), k, v;
+  for (k in attrs || {}) {
+    v = attrs[k];
+    if (v === null || v === undefined || v === false || /^on/i.test(k)) continue;
+    v = String(v);
+    if (/^(href|src|srcdoc|action|formaction|data|xlink:href)$/i.test(k) && v.charAt(0) !== '#') continue;
+    e.setAttribute(k, v);
+  }
+  for (var i = 2; i < arguments.length; i++) addChild(e, arguments[i]);
+  return e;
+}
+function addChild(e, x) {
+  if (x === null || x === undefined || x === false) return;
+  if (Array.isArray(x)) x.forEach(function (y) { addChild(e, y); });
+  else if (typeof x === 'object') e.append(x);
+  else if (e.lastChild && e.lastChild.nodeType === 3) e.lastChild.appendData(String(x));
+  else e.append(String(x));
 }
 function counted(n, one) { return n + ' ' + one + (n === 1 ? '' : 's'); }
 // The ID that the URL hash gives to a card: the ID of its map, a slash and the card ID.
@@ -78,26 +113,21 @@ function factsText(c) {
   if (more) out.push(more);
   return out.join(' ');
 }
-function link(hash, data, text) { return '<a href="' + esc(hash || '#') + '" ' + data + '>' + esc(text) + '<\/a>'; }
+// A link of the list: `at` gives the data attributes of its map and its card or flow.
+function treeLink(hash, at, text) {
+  return el('a', Object.assign({href: hash || '#'}, at), text);
+}
 // The lists of the cards and of the flows of a map. The cards are in the reading order of
 // Tab (`readingOrder` in `page_canvas_keys`). The item of a card that opens a map holds the
 // lists of that map.
 function mapLists(m) {
-  var name = esc(mapName(m)), at = 'data-m="' + m.oi + '" ', out = ['<ul aria-label="Cards of ' + name + '">'];
-  readingOrder(m).forEach(function (c) {
-    out.push('<li>', link(hashOf(cardId(c)), at + 'data-c="' + c.i + '"', c.id), ' ', esc(factsText(c)));
-    if (c.child) out.push(mapLists(c.child));
-    out.push('<\/li>');
-  });
-  out.push('<\/ul>');
-  if (m.flows.length) {
-    out.push('<ul aria-label="Flows of ' + name + '">');
-    m.flows.forEach(function (f) {
-      out.push('<li>', link(hashOf(m.id), at + 'data-f="' + f.i + '"', 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a), '<\/li>');
-    });
-    out.push('<\/ul>');
-  }
-  return out.join('');
+  var name = mapName(m);
+  return [el('ul', {'aria-label': 'Cards of ' + name}, readingOrder(m).map(function (c) {
+    return el('li', null, treeLink(hashOf(cardId(c)), {'data-m': m.oi, 'data-c': c.i}, c.id), ' ' + factsText(c),
+      c.child ? mapLists(c.child) : null);
+  })), m.flows.length ? el('ul', {'aria-label': 'Flows of ' + name}, m.flows.map(function (f) {
+    return el('li', null, treeLink(hashOf(m.id), {'data-m': m.oi, 'data-f': f.i}, 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a));
+  })) : null];
 }
 // A new list replaces the links. When a link of the list has the keyboard focus, the same
 // link of the new list gets it (`data-m` and `data-c` or `data-f`).
@@ -107,7 +137,8 @@ function buildTree() {
   if (a && a.tagName === 'A' && TREE_EL.contains(a)) {
     keep = ['data-m', 'data-c', 'data-f'].map(function (n) { return a.hasAttribute(n) ? '[' + n + '="' + a.getAttribute(n) + '"]' : ''; }).join('');
   }
-  TREE_EL.innerHTML = '<ul><li>' + link('', 'data-m="0"', 'Map: ' + mapName(TOP)) + ' ' + esc(sizeText(TOP) + '.' + viewSay(TOP)) + mapLists(TOP) + '<\/li><\/ul>';
+  TREE_EL.replaceChildren(el('ul', null, el('li', null, treeLink('', {'data-m': 0}, 'Map: ' + mapName(TOP)),
+    ' ' + sizeText(TOP) + '.' + viewSay(TOP), mapLists(TOP))));
   var back = keep && TREE_EL.querySelector('a' + keep);
   if (back) back.focus({preventScroll: true});
   TREE_MS = performance.now() - t0;
@@ -133,12 +164,37 @@ function hashId() { try { return decodeURIComponent(location.hash.slice(1)); } c
 function setHash(h) {
   try { history.replaceState(null, '', h || location.pathname + location.search); } catch (e) { /* a file page can refuse it */ }
 }
-// The goal that the URL hash gives: a map, or a card of a map. When the hash names no map
-// and no card, it is the top map.
+// The goal that the URL hash gives: a map, or a card of a map. The view link `#changes`
+// (`delta_link.CHANGES`) or `#<map>/changes` also sets the Changes view (`linkedMap`). When
+// the hash names no map and no card, it is the deepest map that the start of the hash names
+// (`hashMap`), or the top map, and the live region tells the reader. These words also give
+// the map, thus `tell` does not write the region again when the camera stops in that map.
 function hashGoal() {
-  var id = hashId(), c = hashCard(id);
+  var id = hashId(), c = hashCard(id), v;
   if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
-  return c ? goalOf(c.map, c, null) : goalOf(TOP, null, null);
+  if (c) return goalOf(c.map, c, null);
+  if ((v = linkedMap(id))) { setView('changes'); return goalOf(v, null, null); }
+  v = hashMap(id);
+  if (id) { say('No map and no card has the link #' + id + '. Open map: ' + mapName(v) + '.'); SAID_MAP = v; }
+  return goalOf(v, null, null);
+}
+// The deepest map whose ID starts the ID `id` of a URL hash, or the top map. Thus an old
+// link to a card that is not in a nested map any more stays in that map.
+function hashMap(id) {
+  for (var cut = id.lastIndexOf('/'); cut > 0; cut = id.lastIndexOf('/', cut - 1)) {
+    var m = MAPS[id.slice(0, cut)];
+    if (m && m.T) return m;
+  }
+  return TOP;
+}
+// The map of the view link of the ID `id` of a URL hash: the top map for `changes`, and the
+// map M for `M/changes`, or null. A map or a card with the ID keeps its link, because
+// `hashGoal` looks for them first.
+function linkedMap(id) {
+  if (!VIEWS.changes) return null;
+  if (id === 'changes') return TOP;
+  var cut = id.lastIndexOf('/'), m = cut > 0 && id.slice(cut + 1) === 'changes' ? MAPS[id.slice(0, cut)] : null;
+  return m && m.T ? m : null;
 }
 // The card that the ID `id` of a URL hash names, when it is a card that opens no map. An
 // empty ID names no card.

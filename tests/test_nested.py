@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import page_detail_text, write_tree
+from conftest import page_detail_text, use_linked_pages, write_tree
 from test_keyboard import DRIVER, needs_node
 
 from systemap import facts_file, judgement, nest, place, source_facts
@@ -456,6 +456,7 @@ def test_a_sub_maps_actors_are_cards_of_the_parent(
 def test_pages_are_written_per_map_with_the_links_up_and_down(
     nested: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    use_linked_pages(nested)
     assert run("--root", str(nested), "refresh") == 0
     top = (nested / "docs/map/index.html").read_text(encoding="utf-8")
     gateway = (nested / "docs/map/Gateway/index.html").read_text(encoding="utf-8")
@@ -540,7 +541,8 @@ def test_the_map_inside_a_card_opens_in_place(nested: Path) -> None:
     """The Node driver: the panel's preview and button; the button, a
     double-click and a second Enter open the overlay; Escape and the close
     control close it and hand the focus back to the opener, the selection
-    kept; a card without a map is left alone by the same keys."""
+    kept; a card without a map is left alone by the same keys (linked pages)."""
+    use_linked_pages(nested)
     assert run("--root", str(nested), "refresh") == 0
     args = [
         shutil.which("node") or "node",
@@ -613,7 +615,7 @@ def test_figure_draws_one_map_by_id(nested: Path, capsys: pytest.CaptureFixture[
     )
     text = out.read_text(encoding="utf-8")
     assert "Inside Style: Control flow: Which components cause other components to act?" in text
-    assert "The page at <code>docs/map/Style/index.html</code>" in text
+    assert "The page at <code>docs/map/index.html#Style</code>" in text
     # The top map by default: the mark, the legend row, the panel names the map without a link.
     assert run("--root", str(nested), "figure", "--interactive", "--out", str(out)) == 0
     text = out.read_text(encoding="utf-8")
@@ -725,7 +727,8 @@ def git(root: Path, *args: str) -> str:
 
 def test_the_page_names_the_commit_the_facts_are_from(nested: Path) -> None:
     """The facts record HEAD at extraction, one commit before the one that
-    records them; the page calls the sha what it is, on every map's page."""
+    records them; the page calls the sha what it is, on every linked page."""
+    use_linked_pages(nested)
     git(nested, "init", "-q")
     git(nested, "add", "-A")
     git(nested, "commit", "-q", "-m", "base")

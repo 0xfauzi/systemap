@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import Sample, write_tree
+from conftest import Sample, use_linked_pages, write_tree
 
 from systemap import config, delta_model, nest, page, page_changes
 from systemap.cli import main
@@ -402,7 +402,8 @@ def test_a_group_shows_ten_rows_and_the_quantity_of_the_others() -> None:
 
 
 def test_render_with_a_base_shows_the_map_changes(repo: Path) -> None:
-    """The page that `systemap render --base` writes has the map changes."""
+    """The linked page that `systemap render --base` writes has the map changes."""
+    use_linked_pages(repo)
     assert main(["--root", str(repo), "extract"]) == 0
     assert main(["--root", str(repo), "render", "--base", "HEAD~1"]) == 0
     html = (repo / "docs/map/index.html").read_text(encoding="utf-8")

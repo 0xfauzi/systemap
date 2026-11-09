@@ -119,8 +119,8 @@ _SCRIPT = r"""
 """
 
 # The result helpers: `add` puts a result in `items`, and `line` and `badge` give the
-# glyph of a flow and of a number. The Find dialog of the canvas page uses them too
-# (`page_canvas_find`).
+# glyph of a flow and of a number. The Find dialog of the canvas page has its own helpers,
+# which make elements (`page_canvas_find.ITEMS`).
 ITEMS = r"""  function add(g, t, s, run, o){
     o = o || {};
     items.push({g:g, t:t, s:s || '', run:run, keys:o.keys || [], words:o.words || '',
@@ -300,7 +300,8 @@ _RANK = r"""  function rank(text){
 """
 
 # The list and the dialog: the rows, the selection, open, close, the result action and the
-# keys. The canvas page uses the same text, with its own results (`build`) and ranking (`rank`).
+# keys. The canvas page uses the same text, with its own results (`build`), ranking (`rank`)
+# and rows (`name`, `row` and `render` in `page_canvas_find`).
 LIST = r"""  // ---- the list -------------------------------------------------------------
   function name(r){
     var t = r.it.t, f = r.first;

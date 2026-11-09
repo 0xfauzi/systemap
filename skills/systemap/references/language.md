@@ -248,6 +248,9 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | benchmark | A recorded comparison of program or model results under specified conditions (category 7). |
 | camera | The transform that positions and scales the map within its viewport. |
 | canvas page | The page that draws all maps of a map tree on one canvas element. |
+| redirect page | The small page of a nested map that opens the canvas page at that map with the URL hash. |
+| linked page | The page of one map, with links to the pages of its parent map and its nested maps. `[render] canvas = false` selects it for one release. |
+| release | A published version of systemap with a version number. |
 | claim | An authored statement about source behavior or a map relationship. |
 | CLI output | Text that a command writes for a person or another program. |
 | compiler | A program that translates or analyses source code. |

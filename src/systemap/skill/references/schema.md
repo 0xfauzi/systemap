@@ -174,8 +174,8 @@ The checker gives the actual available dimensions when text does not fit.
 Do not remove part of an identifier or invent a shorter source name.
 
 `note` gives a source limitation or other necessary qualification.
-The inspector shows it below the interface.
-A dot on the card also gives the note as hover text.
+On the canvas page, the Details panel shows it below the `does` text.
+On the linked page, the inspector shows it below the interface, and a dot on the card gives the note as hover text.
 
 ### Nested map
 
@@ -188,9 +188,9 @@ Its actors use the identifiers of adjacent components on the parent map.
 An actor cannot have a nested map.
 
 The parent card keeps its flows and shows a second card behind it.
-The inspector has a preview and an open button.
-Double-click or a second Enter also opens the nested map.
-`docs/map/Gateway/index.html` has a parent link.
+The card shows a preview of the nested map. Zoom in, double-click, or press Enter to open the nested map.
+`docs/map/Gateway/index.html` is a redirect page.
+It opens the canvas page with the URL hash `#Gateway`.
 A nested map can also have nested maps, with identifiers such as `Gateway/Routes`.
 See `references/layout.md` for thresholds and commands.
 

@@ -55,8 +55,9 @@ mark fades in. A card or a flow that the frame before did not draw starts at its
 With reduced motion, a value changes in one frame. The values of a card are kept on the
 card, so a frame calls the part of the view one time for each card and each flow that it
 draws (`STATS.hooks`). In the Map view with all layers, a card or a flow that has the plain
-value keeps it with no call (`VIEW_IDLE`). Thus the seam adds almost no work to a frame of
-the default view. The marks image of a large map has the values of the view. After a
+value keeps it with no call (`VIEW_IDLE`), except an actor card with an open port, which
+has a mark in the Map view (`page_canvas_ports`). Thus the seam adds almost no work to a
+frame of the default view. The marks image of a large map has the values of the view. After a
 view change, the frame draws the new image, and the old image over it with an opacity that
 goes from 1 to 0 (`viewMarks`). An image gets the values with no fade (`viewAim`), in one
 object for each card and flow, so that an image makes no new objects.
@@ -136,9 +137,10 @@ function viewCard(c) {
   }
   if (c._vAt === drawn) return c._v;
   // In the Map view with all layers, the value of each card is the plain value. A card that
-  // has the plain value keeps it, with no call of the view part (`VIEW_IDLE`).
+  // has the plain value keeps it, with no call of the view part (`VIEW_IDLE`). A card with
+  // the mark of an open port (`_pm`, `page_canvas_ports`) has a mark in that view too.
   var v = c._v;
-  if (VIEW_IDLE && v && v.a === 1 && v.d === 0 && v.key === '') {
+  if (VIEW_IDLE && v && v.a === 1 && v.d === 0 && v.key === '' && !c._pm) {
     c._vAt = drawn;
     if (VIEW_LOG && VIEW_LOG.cur) VIEW_LOG.cur.cards.push([c.map.oi, c.i, 1, 0]);
     return v;
@@ -303,13 +305,18 @@ function viewMarks(m, ox, oy, mw, mh, alpha) {
 function headButtons(sel) { return HEAD_EL ? Array.prototype.slice.call(HEAD_EL.querySelectorAll(sel)) : []; }
 var VIEW_BTNS = headButtons('[data-view]'), LAYER_BTNS = headButtons('[data-layer]');
 var LAYER_SELECT = document.getElementById('canvas-layer');
-// The height of the header. It is constant for a screen (`measure` reads it).
+// The height of the header. It is constant for a screen (`measure` reads it). When the
+// header goes into the Tools menu or out of it, the menu closes (`MENU_SHUT`).
+var MENU_SHUT = null;
 function headMeasure() {
   HEAD_BASE = HEAD_EL ? HEAD_EL.getBoundingClientRect().height : 0;
   if (HEAD_EL) {
-    HEAD_EL.removeAttribute('data-fit');
+    var menu = HEAD_EL.hasAttribute('data-menu');
+    HEAD_EL.removeAttribute('data-fit'); HEAD_EL.removeAttribute('data-menu');
     if (HEAD_EL.scrollWidth > HEAD_EL.clientWidth + 1) HEAD_EL.setAttribute('data-fit', '1');
     if (HEAD_EL.scrollWidth > HEAD_EL.clientWidth + 1) HEAD_EL.setAttribute('data-fit', '2');
+    if (HEAD_EL.scrollWidth > HEAD_EL.clientWidth + 1) HEAD_EL.setAttribute('data-menu', '');
+    if (MENU_SHUT && menu !== HEAD_EL.hasAttribute('data-menu')) MENU_SHUT();
   }
   headBand(true);
 }
@@ -370,7 +377,11 @@ function viewWords(modeChanged) {
 function viewFacts(c) { var v = VIEWS[VIEW.mode]; return v && v.facts ? v.facts(c) : ''; }
 function viewSay(m) { var v = VIEWS[VIEW.mode]; return v && v.say ? v.say(m) : ''; }
 // The current map is m (`relabel`): each view part with `here` gets it.
-function viewHere(m) { MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.here) v.here(m); }); }
+var HERE_HOOKS = [];
+function viewHere(m) {
+  MODES.forEach(function (mode) { var v = VIEWS[mode]; if (v && v.here) v.here(m); });
+  HERE_HOOKS.forEach(function (f) { f(m); });
+}
 function headSync() {
   VIEW_BTNS.forEach(function (b) {
     var mode = b.getAttribute('data-view');
@@ -426,7 +437,7 @@ function ownKeys(e) {
   var t = e.target, tag = t && t.tagName;
   if (document.querySelector('dialog[open]')) return true;
   if (!t || !t.closest || t === cv) return false;
-  if ((HEAD_EL && HEAD_EL.contains(t)) || t.closest('dialog, [role="dialog"]')) return true;
+  if ((HEAD_EL && HEAD_EL.contains(t)) || t.closest('dialog, [role="dialog"], [data-own-keys]')) return true;
   return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || !!t.isContentEditable;
 }
 // The state of the view for the tests: the mode, the layer, the epoch and the fade of each

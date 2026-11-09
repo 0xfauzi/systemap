@@ -37,6 +37,7 @@ from systemap import (
     config,
     facts_file,
     flow_ids,
+    judgement_json,
     nest,
     page_csp,
     page_sequences,
@@ -162,7 +163,9 @@ def test_the_page_has_the_toolbar(tmp_path: Path) -> None:
     match = DATA.search(text)
     assert match is not None
     assert json.loads(match.group(1)) == json.loads(
-        canvas_data.text(canvas_data.build(cfg, tree, facts))
+        canvas_data.text(
+            canvas_data.build(cfg, tree, facts, judgement_json.open_boundary(tree, facts, cfg))
+        )
     )
     directives = dict(part.split(" ", 1) for part in page_csp.of_page(text).split("; "))
     scripts = re.findall(r"<script>(.*?)</script>", text, re.S | re.I)

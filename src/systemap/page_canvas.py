@@ -5,12 +5,15 @@ scene part (`page_canvas_scene`), the view part (`page_canvas_view`), the drawin
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
 (`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
 (`page_canvas_keys`), the part of the tree list (`page_canvas_tree`), the Sequences view
-(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the part in this
-module and the Find dialog (`page_canvas_find`). The page CSP (`page_csp`) gets the digest
+(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the reader tools and
+the Details panel (`page_canvas_details`), the marks of the open ports
+(`page_canvas_ports`), the part in this module and the Find dialog (`page_canvas_find`).
+The page CSP (`page_csp`) gets the digest
 of that element.
 
 Camera. The wheel and the pinch zoom at the pointer, and a drag moves the map. A
-double-click with a mouse goes into the card under the pointer. A tap with a finger or a
+double-click with a mouse goes into the card under the pointer, and a click selects
+it (`page_canvas_details`). A tap with a finger or a
 pen selects the card, and a second tap on that card goes into it when it opens a map
 (`tapAt` in `page_canvas_touch`). A tap on empty space removes the selection. A gesture
 with two fingers is not a tap. Esc goes out one level, F fits the current map, and + and
@@ -32,7 +35,8 @@ The URL hash holds the camera target: the ID of the open map, for example
 `#Gateway/Routes`, or the ID of a card in a map (`page_canvas_tree`). A link with a hash
 opens the canvas at that map or card. When the camera stops, the script writes the hash
 of the current map with `history.replaceState`. A hash that names a card of the current
-map stays.
+map stays. In the Changes view, the view link of the current map (`#changes` or
+`#Gateway/changes`, `linkedMap` in `page_canvas_tree`) also stays.
 
 `?hud` shows a frame readout at the top right: the frames in the last second, the time
 of the last draw, the resolution, and the count of drawn cards and images. A person can
@@ -43,11 +47,13 @@ state to the tests and the measurement scripts. It changes nothing on the page.
 from __future__ import annotations
 
 from systemap.page_canvas_changes import PART as CHANGES_PART
+from systemap.page_canvas_details import DETAILS
 from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
 from systemap.page_canvas_find import FIND
 from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_keys import KEYS
+from systemap.page_canvas_ports import PORTS
 from systemap.page_canvas_scene import SCENE
 from systemap.page_canvas_sequences import SEQ_PART
 from systemap.page_canvas_text import TEXT
@@ -56,6 +62,8 @@ from systemap.page_canvas_tree import CSS as TREE_CSS
 from systemap.page_canvas_tree import TREE
 from systemap.page_canvas_view import VIEW_PART
 
+# The notice of `systemap live` (`page_live.NOTICE_ID`) is over the help line of the canvas,
+# not on it. The notice has a style attribute, thus the rule has !important.
 CSS = (
     """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
@@ -68,6 +76,7 @@ outline:none;cursor:grab}
 #canvas:focus-visible+#still{box-shadow:inset 0 0 0 2px var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
 white-space:nowrap}
+#live-notice{bottom:44px!important}
 """
     + TREE_CSS
 )
@@ -195,6 +204,7 @@ function settled() {
   var m = currentMap(), want = hashOf(m.id), hc = hashCard(hashId());
   tell(m);
   if (hc && hc.map === m) want = location.hash;
+  if (VIEW.mode === 'changes' && linkedMap(hashId()) === m) want = location.hash;
   if (want !== location.hash && (want || location.hash)) setHash(want);
 }
 
@@ -282,7 +292,9 @@ function up(e) {
   if (!was || didMove || e.type === 'pointercancel') return;
   var h = hitAt(p[0], p[1]);
   if (h) { h.go(); return; }
-  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]);
+  // A click with a mouse selects the card, for the Details panel. Only a tap goes in.
+  // Only the main button selects: a right click or a middle click does not.
+  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]); else if (e.button === 0) select(pickClosed(p[0], p[1]));
 }
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
@@ -466,6 +478,9 @@ window.systemapCanvas = {
   // of its bar, and the mark and the alpha of each card of a map. `viewLog` records the fade
   // of each view in each frame (`show`).
   changes: changeState,
+  // The open ports (`page_canvas_ports`): the words, the tag and the alpha of the mark of
+  // each marked card of a map.
+  ports: portState,
   // The Sequences view (`page_canvas_sequences`): `seqState` gives the sequence, the mode,
   // the step and the flows and the cards of the route. `seqLog` starts a record of the
   // marks of the route in each frame, and `seqLogged` gives it and stops it.
@@ -488,6 +503,8 @@ SCRIPT = (
     + TREE
     + SEQ_PART
     + CHANGES_PART
+    + DETAILS
+    + PORTS
     + _INPUT
     + FIND
     + "})();\n"
