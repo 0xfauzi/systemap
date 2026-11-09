@@ -234,6 +234,39 @@ JUDGEMENT = {
             "this line. `systemap check` does not reject the map for these lines."
         ),
     ),
+    "boundary flow": Lesson(
+        means=(
+            "A nested flow to or from an actor has no parent flow between the component that "
+            "opens the map and that actor, in the same direction. Or, a parent flow of the "
+            "component that opens the map has no nested flow with that actor, in the same "
+            "direction."
+        ),
+        why=(
+            "The flows that cross the boundary of a nested map must agree with the flows of "
+            "the parent map. If they do not agree, one of the two maps does not show the "
+            "connection correctly."
+        ),
+        do=(
+            "Examine the source. Add the missing flow in the nested map or in the parent map, "
+            "or remove the flow that is not correct. If the parent flow is a summary with no "
+            "single nested end, record the reason."
+        ),
+    ),
+    "boundary import": Lesson(
+        means=(
+            "A module of a nested component imports a module of a component outside the "
+            "nested map. That component is not an actor of the nested map, or no nested flow "
+            "connects the nested component and the actor."
+        ),
+        why=(
+            "The nested map does not show a connection that is in the code. A person who "
+            "reads only the nested map does not see this connection."
+        ),
+        do=(
+            "Add the actor and a flow with source evidence. Or move the modules to the "
+            "applicable component, or record why the import does not make a flow necessary."
+        ),
+    ),
 }
 
 # ---- the lines `systemap delta` prints --------------------------------------------

@@ -12,7 +12,7 @@ from typing import Any, TypeVar
 
 import pytest
 
-from systemap import agent, contract, extract, jev, model_load
+from systemap import agent, claim_index, contract, extract, jev, judgement_evidence, model_load
 from systemap import theme as theme_mod
 from systemap.cli import main
 from systemap.config import Config
@@ -77,6 +77,14 @@ def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
     The OpenAI key is also removed. A test that selects OpenAI injects its transport."""
     monkeypatch.delenv(jev.KEY_ENV, raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def fresh_name_indexes() -> None:
+    """Each test starts without the kept module indexes of an earlier test. A test can
+    change the module records of a facts object in place, which the indexes do not see."""
+    claim_index.clear()
+    judgement_evidence.words.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -386,6 +394,32 @@ def sample(tmp_path: Path) -> Sample:
     return Sample(cfg, model, meaning, theme_mod.resolve({}, all_layers(model, meaning)), facts)
 
 
+@pytest.fixture(scope="session")
+def self_map_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The linked page of the self-map, written into a temporary folder.
+
+    The committed page docs/map/index.html is the canvas page from step 5 of
+    docs/design/nested-canvas.md. The tests of the linked page script use this page in
+    its place. Acceptance: the page has the bytes that `systemap render` gives for the
+    top map of this repository with `[render] canvas = false` and the committed facts.
+    Before step 5, these bytes were equal to the bytes of the committed page.
+    """
+    from dataclasses import replace
+
+    from systemap import config, facts_file, nest, render_pages
+
+    root = Path(__file__).resolve().parent.parent
+    cfg = replace(config.load(root), render_canvas=False)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
+    assert facts, "the committed facts; run systemap refresh"
+    tree = nest.load(cfg)
+    top, html = render_pages.pages(cfg, tree, facts)[0]
+    assert top is tree.top
+    out = tmp_path_factory.mktemp("self-map") / "index.html"
+    out.write_text(html, encoding="utf-8")
+    return out
+
+
 # ---- the two-card model: what a first draft of a two-file package looks like ------
 # `systemap init` writes an empty model; the tests that need a map that passes
 # the check write this one over it, with the ignore for the package root.
@@ -532,3 +566,14 @@ def set_version(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
 
     monkeypatch.setattr(systemap, "__version__", version)
     monkeypatch.setattr(flow_review, "VERSION", version, raising=False)
+
+
+# The setting that keeps the linked pages for one release (`config_render`). A test of a
+# part of the linked page that the canvas page does not have adds it.
+LINKED_PAGES = "\n[render]\ncanvas = false\n"
+
+
+def use_linked_pages(root: Path) -> None:
+    """Add `[render] canvas = false` to the configuration of `root`."""
+    toml = root / "systemap.toml"
+    toml.write_text(toml.read_text(encoding="utf-8") + LINKED_PAGES, encoding="utf-8")

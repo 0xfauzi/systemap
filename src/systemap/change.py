@@ -22,6 +22,7 @@ from typing import Any
 from systemap import (
     change_tests,
     change_text,
+    claim_index,
     delta_git,
     delta_model,
     extraction,
@@ -673,11 +674,14 @@ def compute(
     }
 
     # Reach: every component with a module that imports a changed module.
+    # The first component in model order owns a module, as in the scan before.
+    owners: dict[str, str] = {}
+    for c in reversed(model.components):
+        patterns = tuple(p for p in c.implemented_by if "/" not in p)
+        owners.update(dict.fromkeys(claim_index.claimed(patterns, records), c.id))
+
     def owner_of(module_id: str) -> str:
-        for c in model.components:
-            if any(covers(p, module_id, records) for p in c.implemented_by if "/" not in p):
-                return c.id
-        return ""
+        return owners.get(module_id, "")
 
     adjacent: set[str] = set()
     for module_id, record in fact_components.items():

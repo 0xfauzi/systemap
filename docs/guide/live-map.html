@@ -77,7 +77,10 @@ If a scan fails, the command gives the error one time, and the scans continue.</
 <span class="ln" style="--i:0">map/model.py could not import: NameError: name 'Meanin' is not defined</span></code></pre>
 <p>If the first version fails, the page gives the error.</p>
 <h2 id="the-reload-that-keeps-your-view">The reload that keeps your view</h2>
-<p>When a newer version is on the server, a script keeps your view in the session storage of the browser.
+<p>When a newer version is on the server, the page loads again.
+The canvas page keeps only the URL hash: the open map and the selected card.
+It does not keep the view, the layer, or the sequence.</p>
+<p>With <code>[render] canvas = false</code>, a script of the linked page keeps your view in the session storage of the browser.
 Then it loads the page again. The new page puts back:</p>
 <ul>
 <li>the view and the layer,</li>

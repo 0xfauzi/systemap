@@ -116,7 +116,12 @@ _SCRIPT = r"""
   // ---- the results ----------------------------------------------------------
   // A quiet result shows only for a search text: the list with no text gives
   // the views, the layers, the sequences and the actions.
-  function add(g, t, s, run, o){
+"""
+
+# The result helpers: `add` puts a result in `items`, and `line` and `badge` give the
+# glyph of a flow and of a number. The Find dialog of the canvas page has its own helpers,
+# which make elements (`page_canvas_find.ITEMS`).
+ITEMS = r"""  function add(g, t, s, run, o){
     o = o || {};
     items.push({g:g, t:t, s:s || '', run:run, keys:o.keys || [], words:o.words || '',
       more:o.more || [], glyph:o.glyph || '<i></i>', quiet:!!o.quiet,
@@ -129,7 +134,9 @@ _SCRIPT = r"""
   }
   function badge(n, square){
     return '<b class="pal__n' + (square ? ' sq' : '') + '">' + esc(n) + '</b>'; }
-  function views(LAY){
+"""
+
+_SCRIPT_REST = r"""  function views(LAY){
     [['understand', 'Map', 'map', 'What are the components and their connections?'],
       ['trace', 'Sequences', 'route', 'Which steps make one operation?'],
       ['change', 'Changes', 'change', 'What did this change touch?']].forEach(function(v){
@@ -218,7 +225,11 @@ _SCRIPT = r"""
     views(LAY); parts(); flows(LAY); sequences(); rules(); actions();
   }
 
-  // ---- matching: the start of the name, the start of a word, then a part ------
+"""
+
+# The match code of the results. The Find dialog of the canvas page (`page_canvas_find`) uses
+# the same text, so the two pages give the same score to a result.
+MATCH = r"""  // ---- matching: the start of the name, the start of a word, then a part ------
   function wordStart(text, j){
     var a = text.charAt(j - 1), b = text.charAt(j);
     return !/[A-Za-z0-9]/.test(a) || (/[a-z]/.test(a) && /[A-Z]/.test(b));
@@ -267,7 +278,9 @@ _SCRIPT = r"""
     }
     return {it:it, s:total, first:first, q:tokens[0] || '', module:module};
   }
-  function rank(text){
+"""
+
+_RANK = r"""  function rank(text){
     var tokens = text.split(/\s+/).filter(Boolean), groups = {};
     items.forEach(function(it){
       if(it.quiet && !tokens.length){ return; }
@@ -284,7 +297,12 @@ _SCRIPT = r"""
     });
   }
 
-  // ---- the list -------------------------------------------------------------
+"""
+
+# The list and the dialog: the rows, the selection, open, close, the result action and the
+# keys. The canvas page uses the same text, with its own results (`build`), ranking (`rank`)
+# and rows (`name`, `row` and `render` in `page_canvas_find`).
+LIST = r"""  // ---- the list -------------------------------------------------------------
   function name(r){
     var t = r.it.t, f = r.first;
     if(!f || !f.name || f.i === undefined){ return esc(t); }
@@ -394,9 +412,8 @@ _SCRIPT = r"""
     Array.prototype.slice.call(document.querySelectorAll('[data-mod-key]')).forEach(function(n){
       n.textContent = '⌘K'; });
   }
-})();
 """
 
-SCRIPT = _SCRIPT.replace(
+SCRIPT = (_SCRIPT + ITEMS + _SCRIPT_REST + MATCH + _RANK + LIST + "})();\n").replace(
     "ICONS_JSON", json.dumps({name: icon(name) for name in _GLYPHS}).replace("</", "<\\/")
 )

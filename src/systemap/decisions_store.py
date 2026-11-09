@@ -25,11 +25,16 @@ An unknown request is not a pass. It stays unknown until the source of its targe
 Delete the store to start a new session. The counts and the history then start again.
 A store that does not contain correct JSON, or that has a different version or form, gives
 `file_write.RefusedFile`. It is not read as an empty store.
+
+`save` holds `.systemap/write.lock`. It reads the store again, and it replaces only the
+records of the stated keys. Thus it keeps the records that a different command wrote
+after this command read the store.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -82,13 +87,19 @@ def load(root: Path) -> dict[str, dict[str, Any]]:
     return {k: v for k, v in records.items() if isinstance(v, dict)}
 
 
-def save(root: Path, records: dict[str, dict[str, Any]]) -> None:
+def save(root: Path, records: dict[str, dict[str, Any]], keys: Iterable[str] | None = None) -> None:
     """Write the store in one replacement, so that a stopped command leaves a complete file.
 
-    The store and its folder must be in the repository (`file_write`)."""
-    text = json.dumps({"version": VERSION, "records": records}, indent=2, sort_keys=True)
-    file_write.write_atomic(root, path(root), text + "\n")
-    file_write.ignore_caches(root, path(root))
+    Under the write lock, the function reads the store again. It puts the record of each
+    key in `keys` into the stored records. Without `keys`, it puts all the records into
+    them. A stored record of a different key stays. The store and its folder must be in
+    the repository (`file_write`)."""
+    with file_write.exclusive(root):
+        changed = records if keys is None else {k: records[k] for k in keys if k in records}
+        merged = {**load(root), **changed}
+        text = json.dumps({"version": VERSION, "records": merged}, indent=2, sort_keys=True)
+        file_write.write_atomic(root, path(root), text + "\n")
+        file_write.ignore_caches(root, path(root))
 
 
 def _same_source(record: dict[str, Any], request: Request) -> bool:

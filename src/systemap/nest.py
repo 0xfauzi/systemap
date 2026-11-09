@@ -7,7 +7,7 @@ ancestor model.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,8 +15,8 @@ from urllib.parse import quote
 
 from systemap import repo_files
 from systemap import theme as theme_mod
-from systemap.config import Config, ConfigError, load_model
-from systemap.model import Component, Meaning, Model, all_layers
+from systemap.config import ArgumentError, Config, ConfigError, load_model
+from systemap.model import Component, Layer, Meaning, Model, all_layers
 
 # Past this many cards a single map stops working; `systemap suggest`
 # says so and names the cards to open.
@@ -24,10 +24,12 @@ CARDS_PER_MAP = 40
 # A card whose modules exceed this many is a candidate to open, whatever
 # the map's size; the skill's target is three to ten modules per card.
 MODULES_PER_CARD = 10
-# The deepest chain of nested maps. The top map is level 0. The tests and the
-# documentation use at most 2 levels. A chain of about 1000 levels used all of the
+# The deepest chain of nested maps. The top map is level 0. The fixture
+# tests/three_levels.py has maps on levels 1, 2, and 3. A chain of about 1000 levels used all of the
 # Python stack in the earlier recursive walk.
 MAX_NESTING = 16
+# The `--map` value that selects the top map. A card ID cannot be "." (`_one_segment`).
+TOP_ID = "."
 
 
 @dataclass(frozen=True)
@@ -74,9 +76,25 @@ class Map:
 class Tree:
     """This record lists the top map first, then nested maps in component depth-first
     order.
+
+    After a scoped load (`load` with `only`), `selected` is the ID of the selected map.
+    The tree then has only the ancestors of that map, the map, and its descendants.
     """
 
     maps: tuple[Map, ...]
+    selected: str | None = None
+
+    @property
+    def partial(self) -> bool:
+        """This property tells if a scoped load made the tree. Such a tree can be not
+        complete, and its results are not the results of the full tree."""
+        return self.selected is not None
+
+    @property
+    def reported(self) -> tuple[Map, ...]:
+        """This property gives the maps that a command reports: all maps, or only the
+        selected map after a scoped load."""
+        return self.maps if self.selected is None else (self.get(self.selected),)
 
     @property
     def top(self) -> Map:
@@ -122,13 +140,18 @@ def _child_id(parent: Map, card: str) -> str:
     return f"{parent.id}/{card}" if parent.id else card
 
 
-def load(cfg: Config) -> Tree:
+def load(cfg: Config, only: str | None = None) -> Tree:
     """This function loads all model modules in the map tree.
 
     An import error, missing MODEL or MEANING, missing file, or model cycle gives a
     configuration error. A model file that is not in the repository also gives a
     configuration error. A chain of nested maps with more than `MAX_NESTING` levels also
     gives a configuration error.
+
+    With a map ID in `only`, the function loads the ancestors of that map, the map, and
+    its descendants. It does not read the files of other maps. Thus an error in a
+    different map does not stop the load. `TOP_ID` selects the top map. An unknown map ID
+    gives `ArgumentError`.
     """
     if not repo_files.inside(cfg.root, cfg.model_path):
         raise ConfigError(
@@ -136,30 +159,67 @@ def load(cfg: Config) -> Tree:
             "repository."
         )
     model, meaning = load_model(cfg.model_path, cfg.model, cfg.root)
-    theme = _theme(cfg, model, meaning)
+    theme = theme_of(cfg, all_layers(model, meaning))
     top = Map("", cfg.model_path, cfg.model, model, meaning, theme, None, "", cfg.root)
     maps = [top]
-    _walk(cfg, top, maps)
-    return Tree(tuple(maps))
+    loaded = {top.path.resolve(): top.id}
+    if only is None:
+        _walk(cfg, top, maps, [top.path.resolve()], loaded)
+        return Tree(tuple(maps))
+    selected, above = _ancestors(cfg, maps, "" if only == TOP_ID else only, loaded)
+    _walk(cfg, selected, maps, above, loaded)
+    return Tree(tuple(maps), selected.id)
 
 
-def _theme(cfg: Config, model: Model, meaning: Meaning) -> dict[str, Any]:
+def _ancestors(
+    cfg: Config, maps: list[Map], map_id: str, loaded: dict[Path, str]
+) -> tuple[Map, list[Path]]:
+    """Load each map on the path from the top map to the selected map.
+
+    The function adds the maps to `maps` and gives the selected map with the model files
+    above it. A segment that is not a component that opens a map gives ArgumentError."""
+    current = maps[0]
+    above = [current.path.resolve()]
+    for card in map_id.split("/") if map_id else []:
+        found = next((c for c, _target in _openers(current) if c.id == card), None)
+        if found is None or found.map is None:
+            raise _not_opened(current, map_id, card)
+        child = _child(cfg, current, found, found.map, above, loaded)
+        maps.append(child)
+        above.append(child.path)
+        current = child
+    return current, above
+
+
+def _not_opened(m: Map, map_id: str, card: str) -> ArgumentError:
+    """Give the error for a map ID with a segment that does not open a map."""
+    known = ", ".join(_child_id(m, c.id) for c, _target in _openers(m)) or "none"
+    where = f"the map {m.id}" if m.id else "the top map"
+    return ArgumentError(
+        f"unknown map id: {map_id}. In {where}, {card} is not a component that opens a "
+        f"map. The maps that {where} opens are {known}. Use {TOP_ID} for the top map."
+    )
+
+
+def theme_of(cfg: Config, layers: Iterable[Layer]) -> dict[str, Any]:
+    """Give the theme of the configuration, with one color for each layer."""
     try:
-        return theme_mod.resolve(cfg.theme, all_layers(model, meaning))
+        return theme_mod.resolve(cfg.theme, layers)
     except ValueError as exc:
         raise ConfigError(f"{cfg.source or 'theme'}: {exc}") from exc
 
 
-def _walk(cfg: Config, top: Map, maps: list[Map]) -> None:
-    """Load the nested maps below the top map in depth-first order.
+def _walk(
+    cfg: Config, start: Map, maps: list[Map], above: list[Path], loaded: dict[Path, str]
+) -> None:
+    """Load the nested maps below the start map in depth-first order.
 
     The walk uses a stack, not recursion. Each stack item has three parts: a map, its
     components that open a nested map and that the walk did not examine, and the model
-    files above it. The order
-    of the maps and of the errors is the order of a recursive walk.
+    files above it. `above` gives the model files from the top map to the start map. The
+    order of the maps and of the errors is the order of a recursive walk.
     """
-    loaded = {top.path.resolve(): top.id}
-    stack = [(top, _openers(top), [top.path.resolve()])]
+    stack = [(start, _openers(start), above)]
     while stack:
         parent, cards, above = stack[-1]
         found = next(cards, None)
@@ -191,7 +251,7 @@ def _child(
     model, meaning = load_model(path, rel, cfg.root)
     child_id = _child_id(parent, c.id)
     loaded[path] = child_id
-    theme = _theme(cfg, model, meaning)
+    theme = theme_of(cfg, all_layers(model, meaning))
     return Map(child_id, path, rel, model, meaning, theme, parent.id, c.id, cfg.root)
 
 

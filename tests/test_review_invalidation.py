@@ -49,13 +49,14 @@ def _pending(
     )
 
 
-def test_python_syntax_hash_retains_python_311_representation(tmp_path: Path) -> None:
+def test_python_syntax_hash_is_the_digest_of_the_syntax_text(tmp_path: Path) -> None:
+    """Format 14 (issue 136): the syntax text of systemap replaced the 3.11 `ast.dump`
+    form. The text does not include empty lists on each Python version."""
     source = tmp_path / "source.py"
     source.write_text("def f(x):\n return x\n", encoding="utf-8")
     baseline = (
-        "Module(body=[FunctionDef(name='f', args=arguments(posonlyargs=[], "
-        "args=[arg(arg='x')], kwonlyargs=[], kw_defaults=[], defaults=[]), "
-        "body=[Return(value=Name(id='x', ctx=Load()))], decorator_list=[])], type_ignores=[])"
+        "Module(body=[FunctionDef(name='f', args=arguments(args=[arg(arg='x')]), "
+        "body=[Return(value=Name(id='x', ctx=Load()))])])"
     )
     record = extract.collect_module(source, tmp_path)
     assert record is not None
@@ -100,7 +101,7 @@ def test_historical_cache_discards_pre_portability_hashes(
     cache.write_text(json.dumps(old), encoding="utf-8")
     monkeypatch.setattr(extraction, "FORMAT", current_format)
     fresh = history.facts_at(cfg, sha)
-    assert fresh["version"] == current_format == 13
+    assert fresh["version"] == current_format == 14
     assert fresh["components"]["pkg.reader"]["syntax_sha"] != "obsolete-python-313-hash"
 
 

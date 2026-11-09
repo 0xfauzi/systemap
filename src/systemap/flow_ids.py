@@ -180,6 +180,14 @@ def step_flow(step: Step, flows: tuple[Flow, ...]) -> tuple[Flow | None, str]:
     return on_edge[0], ""
 
 
+def step_index(step: Step, model: Model, edge_index: Mapping[str, int]) -> int:
+    """Give the index of the flow of a sequence step, or -1 if the step names no one flow.
+
+    `edge_index` gives the index of each flow key in the flows of the model."""
+    found = step_flow(step, model.flows)[0]
+    return -1 if found is None else edge_index[found.key]
+
+
 def resolve(model: Model, meaning: Meaning) -> Meaning:
     """Give the meaning with the edge of each step that names its flow by id only.
 

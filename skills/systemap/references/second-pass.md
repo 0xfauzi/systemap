@@ -111,6 +111,15 @@ An import across its boundary belongs to the applicable components on the parent
 Entry points and SDK imports use the deepest map with the applicable source assignment.
 A sequence on any map can cover an exact entry identity.
 
+Two finding kinds examine the boundary of a nested map:
+
+| kind | finding | agent that acts first |
+|---|---|---|
+| `boundary flow` | A nested flow with an actor has no parent flow in the same direction, or a parent flow has no nested flow with the actor. | The agent of the parent map, because the parent flow can change. |
+| `boundary import` | A nested component imports a module of an adjacent component, and the nested map has no actor or no flow for it. | The part agent of the nested map. It writes a boundary request if the parent map must change. |
+
+`references/parts.md` gives the procedure with part agents.
+
 ## Completion conditions
 
 The work must agree with all of these conditions:

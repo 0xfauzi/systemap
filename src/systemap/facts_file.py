@@ -24,14 +24,17 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 13, with portable syntax hashes, compiler provenance, "
+        "The facts format is 14, with portable syntax hashes, compiler provenance, "
         "the digests of the configuration values that extraction reads, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
         "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
         "`cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, "
         "`declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. "
-        "`extract --check` marks older formats stale",
+        "`extract --check` marks older formats stale. In format 14, the Python syntax "
+        "digest and the `api` fingerprints come from the syntax text of systemap "
+        "(`systemap.syntax_text`). The signatures and the constant values come from the "
+        "source text. These values are the same on each supported Python version",
     ),
     (
         "facts",
@@ -110,7 +113,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "module",
         "syntax_sha",
-        "The parsed-syntax digest for source review. Comments and text format do not change it",
+        "The parsed-syntax digest for source review. Comments and text format do not change "
+        "it. A Python syntax node class that systemap does not know stops the extraction "
+        "with an error that gives the class and the Python version",
     ),
     (
         "module",
@@ -122,7 +127,9 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "module",
         "functions",
-        "Public functions with `name` and `signature`. A function with overload "
+        "Public functions with `name` and `signature`. The Python adapter takes the "
+        "annotations and the default values of a signature from the source text. "
+        "A function with overload "
         "signatures has one record for each signature, and one record in `names`",
     ),
     (
@@ -146,7 +153,13 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "adapter records the `type` statement as `type_alias`. Python 3.11 cannot parse "
         "this statement",
     ),
-    ("module", "constants", "The first 14 UPPER_CASE assignments, with `name` and `value`"),
+    (
+        "module",
+        "constants",
+        "The first 14 UPPER_CASE assignments, with `name` and `value`. The Python adapter "
+        "takes the value from the source text, on one line without comments, with not more "
+        "than 80 characters",
+    ),
     (
         "module",
         "names",

@@ -9,7 +9,8 @@ current digest.
 agrees with the earlier form of the evidence at this source. Then the answer was current
 before the update, and nothing changed after it. The new digest keeps the answer current.
 A 2.0.0 digest that does not agree with the source stays in the file, and the answer
-stays pending, as before. Each release does the replacement, as for the flow reviews
+stays pending, as before. The earlier form has the 2.0.0 text of the Python signatures
+and previews (`python_earlier_text`). Each release does the replacement, as for the flow reviews
 (`flow_review.needs_record`). Thus a project can go from 2.0.0 to any later release.
 
 The replacement does not examine an answer. It writes only the `evidence` value, and it
@@ -30,6 +31,7 @@ from systemap import (
     judgement,
     nest,
 )
+from systemap import language as languages
 from systemap.config import Answer, Config
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -72,8 +74,26 @@ def _renewed(
     if not changed:
         return {}
     lines = list(dict.fromkeys(keys[item] for a, _d in changed for item in a.items))
-    before = judgement.evidence_for_tree(tree, facts, cfg.root, lines, earlier=True)
+    before = judgement.evidence_for_tree(
+        tree, _earlier_facts(cfg, facts), cfg.root, lines, earlier=True
+    )
     return {a.evidence: d for a, d in changed if a.evidence == _digest(a, keys, before)}
+
+
+def _earlier_facts(cfg: Config, facts: dict[str, Any]) -> dict[str, Any]:
+    """Give the facts with the records of the 2.0.0 evidence. The language adapter gives
+    each record (`earlier_record`). For Python, the record has the 2.0.0 text of the
+    signatures and previews (`python_earlier_text`)."""
+    if not cfg.language:
+        return facts
+    language = languages.adapter(cfg.language)
+    components = facts.get("components", {})
+    return {
+        **facts,
+        "components": {
+            name: language.earlier_record(cfg.root, module) for name, module in components.items()
+        },
+    }
 
 
 def _evidence_line(answer: Answer, item: str) -> str:

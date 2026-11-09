@@ -87,6 +87,12 @@ def record(cfg: Config, tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
 
 
 def _move(cfg: Config, m: nest.Map) -> str:
+    """Hold the lock of the model file and the contract file from the read to the write."""
+    with file_write.exclusive_files((m.path, contract.path_for(m.path))):
+        return _move_locked(cfg, m)
+
+
+def _move_locked(cfg: Config, m: nest.Map) -> str:
     source = source_text.decode(m.path.read_bytes())
     moved = contract_edit.taken(source)
     new_model = contract_edit.model_text(source, moved)

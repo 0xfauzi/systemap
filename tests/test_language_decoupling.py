@@ -308,6 +308,9 @@ ADAPTERS = {
     "python_tree.py": "The Python syntax tree cache.",
     "python_tests.py": "The Python test reader.",
     "python_exports.py": "The Python rules for a star re-export.",
+    "syntax_text.py": "The Python syntax text for the digests and the fingerprints.",
+    "source_segment.py": "The Python source text of a syntax node.",
+    "python_earlier_text.py": "The 2.0.0 text of the Python signatures and previews.",
     "typescript.py": "The TypeScript adapter.",
     "typescript_repo.py": "The TypeScript repository adapter.",
     "typescript_config.py": "The tsconfig reader of the TypeScript adapter.",
@@ -333,6 +336,7 @@ MODEL_READERS = {
     "review.py": "It records source reviews in the Python model file.",
     "review_upgrade.py": "It records earlier flow review digests in the Python model file.",
     "contract_edit.py": "It moves the rules of the Python model file to the contract file.",
+    "parts.py": "It gives the name of the Python model file of each nested map.",
 }
 SUFFIXES = {".py", ".ts", ".tsx", ".mts", ".cts", "*.py", "*.ts", "__init__.py", "__init__"}
 LANGUAGE_NAMES = {"python", "typescript"}

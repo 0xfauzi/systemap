@@ -356,8 +356,9 @@ def short_entry(point: dict[str, str]) -> str:
     return name
 
 
-def _entry(journey: Journey, points: list[dict[str, str]]) -> str:
-    """Give the entry point name of a sequence: the recorded start or its first covered command."""
+def entry(journey: Journey, points: list[dict[str, str]]) -> str:
+    """Give the short entry point name of a sequence: the recorded start names the entry
+    point, or the first covered command does. The canvas data uses it too (`canvas_sequences`)."""
     if journey.starts:
         for p in points:
             if journey.starts in (p.get("name"), entry_label(p)):
@@ -415,7 +416,7 @@ def data(
         members = _members(journey)
         out.append(
             {
-                "entry": _entry(journey, points),
+                "entry": entry(journey, points),
                 "glyph": _glyph(model, journey),
                 "start": _start(journey),
                 "regions": len({where[c] for c in members if where.get(c) in regions}),

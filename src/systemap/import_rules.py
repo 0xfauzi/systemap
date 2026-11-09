@@ -100,7 +100,9 @@ def evaluate(
 
 def run_tree(tree: nest.Tree, facts: Mapping[str, Any]) -> list[MapOutcomes]:
     """Give the rule results of each map in tree order."""
-    return [MapOutcomes(m.id, m.prefix, m.rel, tuple(evaluate(m.model, facts))) for m in tree.maps]
+    return [
+        MapOutcomes(m.id, m.prefix, m.rel, tuple(evaluate(m.model, facts))) for m in tree.reported
+    ]
 
 
 def _evaluate(

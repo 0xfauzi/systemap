@@ -204,6 +204,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | journey | The existing schema and command term for a sequence. |
 | JSON, JSONC | Data formats for structured records and configuration. |
 | layer | A map view that shows a specified set of components and flows. |
+| lock file | A file that permits only one command at a time to write specified files. |
 | map | The authored model and its visual representation of a system. |
 | metadata | Data about a source record, output, or interface item. |
 | model | The structured map description, or a named machine-learning system. |
@@ -246,6 +247,10 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | barycenter | The weighted mean position used by the layout procedure (category 7). |
 | benchmark | A recorded comparison of program or model results under specified conditions (category 7). |
 | camera | The transform that positions and scales the map within its viewport. |
+| canvas page | The page that draws all maps of a map tree on one canvas element. |
+| redirect page | The small page of a nested map that opens the canvas page at that map with the URL hash. |
+| linked page | The page of one map, with links to the pages of its parent map and its nested maps. `[render] canvas = false` selects it for one release. |
+| release | A published version of systemap with a version number. |
 | claim | An authored statement about source behavior or a map relationship. |
 | CLI output | Text that a command writes for a person or another program. |
 | compiler | A program that translates or analyses source code. |
@@ -277,7 +282,16 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | label | The text that identifies a user interface control or a map flow. |
 | list | A user interface group with one selection control for each record. |
 | pointer | The screen position that receives mouse or touch input. |
-| preview | A temporary map view that shows a flow before selection. |
+| wheel | The scroll wheel of a mouse, or the scroll movement of a touchpad. |
+| pinch | A touch input with two fingers that changes the distance between them. |
+| drag | A pointer movement while a mouse button or a finger stays down. |
+| double-click | Two clicks of a mouse button at one pointer position in a short time. |
+| tap | One short touch of a finger on a touch screen. |
+| preview | A temporary map view that shows a flow before selection. In the canvas page, the small view of a nested map in the card that opens it. |
+| portal | In the canvas page, a label at the screen edge for a neighbour of the open map that is not on the screen. |
+| ring | In the canvas page, a line at the screen edge for the frame of an open map that is larger than the screen. |
+| level of detail | The quantity of card information that the screen size of a card selects. |
+| URL hash | The part of a page address after the `#` character. |
 | measurement | A quantitative value with specified units and conditions (category 7). |
 | module match | A paired source module record in a revision comparison. |
 | newline | The character or character sequence that ends a text line. |
@@ -335,6 +349,23 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | line span | The first and the last line number of a citation. |
 | decision store | The local file `.systemap/decisions.json` that records the verdicts of a working copy. |
 | session | One continuous period of work of a coding agent. |
+| sub-agent | An agent that a different agent starts for one task. It does not get the session text of the agent that starts it. |
+| main agent | The agent that writes the top map, divides the work, and examines the results of the part agents together. |
+| nested map | A map that shows the internal components of one component of a parent map. |
+| nested part | One nested map, its contract file, and the model files with its file prefix. |
+| part agent | The agent that makes the nested map of one nested part. |
+| part plan | The output of `systemap parts`: the facts for each nested part of one map. |
+| result file | The file in which a part agent records its verdicts, answers, boundary requests, and questions. |
+| write set | The files that one agent can change. |
+| stem | The file name of the model file of a nested map without `.py`: its map ID in lower case, with `_` in place of each `/`. |
+| file prefix | The start of the names of the model files of one nested part: the stem and `_`. |
+| map prefix | The map ID and `: ` at the start of a finding line of a nested map, for example `Gateway: `. |
+| boundary flow | A flow between a component that opens a nested map and an adjacent component of the parent map. |
+| boundary import | An import from a module of a nested part to a module of a component outside that nested part. |
+| boundary request | A change to a module claim or to a boundary flow that a part agent asks the main agent to make. |
+| contract commit | The Git commit with the top map, the boundary rules, the stubs, and the `map=` fields. |
+| stub | A nested model file that has only the components from `systemap parts --stub`. |
+| Git worktree | A different folder with the files of one Git repository, with its own branch. |
 
 | Term | Technical meaning |
 |---|---|
@@ -361,6 +392,8 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | font size | The font dimension in CSS pixels that controls the scale of its glyphs. |
 | font unit | A unit in the coordinate system of a font (category 9). |
 | frame | One image in a video or animation. |
+| frame interval | The time between the starts of two frames that the browser draws (category 7). |
+| CPU throttling | A browser setting that makes the processor speed slower by a specified factor. |
 | glyph | A shape that a font supplies for a character or a group of characters. |
 | image | A digital figure that software keeps or shows. |
 | infinity | The mathematical value that is more than all finite numbers (category 7). |
@@ -433,7 +466,9 @@ Use these verbs only for the specified computer operation.
 | index | Associate software records with lookup keys. |
 | pair | Associate source records as candidates in a revision comparison. |
 | route | Calculate a map flow path around layout bounds. |
+| zoom | Change the scale of the camera. |
 | return | Supply the result of a software function to its caller. |
+| merge | Combine two Git branches with `git merge`. |
 
 Do not use these verbs for general human actions.
 Use "examine the source" for a human source review.

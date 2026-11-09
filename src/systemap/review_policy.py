@@ -32,7 +32,7 @@ def missing_lines(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
         return []
     return [
         m.prefix + line(card.id)
-        for m in tree.maps
+        for m in tree.reported
         for card in m.model.components
         if card.kind != "actor"
         and card_review.state(card, m.model, m.meaning, facts) == card_review.MISSING

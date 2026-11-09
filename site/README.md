@@ -35,7 +35,7 @@ The build also stops if a page loads a file from a different site.
 | `src/systemap/fonts/Inter-OFL.txt` | `docs/assets/Inter-OFL.txt` |
 | `src/systemap/page.py` (`MARK`), `theme.py` | `docs/assets/mark.svg`, the icon of the browser tab |
 | `site/delta.txt`, `site/check.txt` | the recorded `systemap delta` and `systemap check` output on the landing page |
-| `docs/screenshots/view-*.webp` | the three views on the landing page, in Ink and Paper, for a wide window and a phone |
+| `docs/screenshots/view-*.webp` | the three views of the canvas page on the landing page, in Ink and Paper, for a wide window and a phone. `scripts/screenshots.py` writes them. |
 
 The two `.txt` files keep the full output. The landing page shows the lines from `delta:` to the line
 before `next to the change:`, and from `coverage:` to the line before `  fix:`.

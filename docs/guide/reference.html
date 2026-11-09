@@ -315,6 +315,14 @@ For each finding, change the model or record the reason for its stored state.</p
 <td>model sdk</td>
 <td>A module imports a model SDK or agent framework. Its component is neither an agent nor <code>calls_model</code>. Examples are anthropic, openai, and google.adk. <code>[facts] model_sdks</code> can add or remove names from the built-in list.</td>
 </tr>
+<tr>
+<td>boundary flow</td>
+<td>Only in a nested map. A nested flow between an internal component and the actor X has no parent flow between the component that opens the map and X, in the same direction, for example <code>Gateway: boundary flow: Routes sends to actor Auth, and the parent map has no flow from Gateway to Auth</code>. Or, a parent flow between the component that opens the map and X has no nested flow with the actor X, in the same direction, for example <code>Gateway: boundary flow: the parent flow from Gateway to Auth has no nested flow to actor Auth</code>. Add the missing flow, remove the incorrect flow, or record the reason.</td>
+</tr>
+<tr>
+<td>boundary import</td>
+<td>Only in a nested map. A module of an internal component imports a module of the component X outside the map. X is not an actor of the nested map, for example <code>Gateway: boundary import: Routes imports Auth, and Auth is not an actor of the map inside Gateway</code>. Or, no nested flow connects the component and the actor X, for example <code>Gateway: boundary import: Routes imports Auth, and no flow connects Routes and actor Auth</code>. X is the component that claims the imported module in the nearest map above the nested map. A <code>count:</code> row below the line gives the importing modules, and <code>--verbose</code> lists the imports.</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -396,7 +404,8 @@ An <code>entry point</code> line with the full evidence also has all entry point
 <p>Migration from systemap 2.0.0: the evidence of each exact answer changed. It contains the cited facts, and not the source files and the tests.</p>
 <p>In each release, the first <code>systemap refresh</code> or <code>systemap extract</code> examines each <code>evidence</code> value in the 2.0.0 form.
 If the value agrees with the current source, the command replaces it with the new digest one time. The answer stays current.
-The command changes only the <code>evidence</code> value, and it keeps all other text of the configuration file.</p>
+The command changes only the <code>evidence</code> value, and it keeps all other text of the configuration file.
+The 2.0.0 form has the <code>ast.unparse</code> text of the Python signatures and <code>constants</code> previews. The command gets this text again from the source.</p>
 <p>A 2.0.0 value that does not agree with the source stays, and the answer stays pending, as before.
 <code>judgement</code> prints the new digest of such an answer in the <code>pending answer</code> line.</p>
 <p>Migration from facts format 10: the evidence of an <code>unknown surface</code> line of a module or a test file changed.
@@ -866,10 +875,12 @@ Coverage counts the parent component one time.</p>
 A nested finding has its map id, as in <code>Gateway: map layout: clean ...</code>.</p>
 </li>
 <li>
-<p><code>refresh</code> and <code>render</code> write one page per map.
-The top page is <code>docs/map/index.html</code>.
-The nested page is <code>docs/map/Gateway/index.html</code>.
-Each page has a link to the other.</p>
+<p><code>refresh</code> and <code>render</code> write the canvas page <code>docs/map/index.html</code>.
+The canvas page draws all maps of the tree.
+Each nested map also gets a redirect page, for example <code>docs/map/Gateway/index.html</code>.
+The redirect page opens the canvas page at that map, with the URL hash <code>#Gateway</code>.
+Thus a link to <code>Gateway/index.html</code> stays correct.
+With <code>[render] canvas = false</code>, the commands write one linked page for each map, with links between them.</p>
 </li>
 <li>
 <p><code>figure --map Gateway</code> renders one map.
@@ -895,14 +906,62 @@ A moved module shows its component and model file.</p>
 </li>
 <li>
 <p><code>suggest</code> shows maps above forty components.
-It lists the components with the most modules as possible nested maps.</p>
+It lists the components with the most modules as possible nested maps.
+For each component, it gives the <code>map=</code> value: the map id in lower case, with <code>_</code> in place of each <code>/</code>, and <code>.py</code>.
+For example, the map <code>Gateway/Routes</code> has the file <code>map/gateway_routes.py</code> and the value <code>map=&quot;gateway_routes.py&quot;</code>.
+All model files are in the folder of the top model file.</p>
 </li>
 </ul>
+<p>These commands accept <code>--map ID</code>: <code>check</code>, <code>judgement</code>, <code>rules</code>, <code>place</code>, <code>describe</code>, <code>journeys</code>, <code>review</code>, <code>decisions pending</code>, and <code>decisions status</code>.
+With <code>--map ID</code>, the command reads only the model files of that map, of its parent maps, and of its nested maps.
+Thus an error in the model file of a different map does not stop the command.
+The command reports only the map <code>ID</code>. Use <code>--map .</code> for the top map.
+<code>check --map</code> examines the facts, but a run with <code>--map</code> does not examine the pages or the global entry coverage.
+<code>judgement --map</code> gives no <code>entry point</code> line and prints <code>entry coverage: not examined in a run with --map</code>.
+An exact answer for a line of a different map, or for an <code>entry point</code> line, is not stale in a run with <code>--map</code>.
+<code>decisions pending --map ID</code> gives the requests of that map, with the same request IDs as a run without <code>--map</code>. It gives no request for an <code>entry point</code> line.
+<code>describe --map</code> and <code>journeys --map</code> examine only the sequences of the loaded maps. A sequence of a sibling map is not examined.
+With <code>--json</code>, <code>judgement</code>, <code>rules</code>, <code>decisions pending</code>, and <code>decisions status</code> add the field <code>scope</code> in a run with <code>--map</code>.
+<code>place --map ID</code> writes only the model file of that map.
+Only a run without <code>--map</code> gives the result for completion.
+<code>refresh</code>, <code>extract</code>, and <code>decisions submit</code> write the shared files of all maps. Thus they refuse <code>--map</code> with exit code <code>2</code>.</p>
 <p>A second nested level uses an id such as <code>Gateway/Routes</code>.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
 The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/test_nested.py"><code>tests/test_nested.py</code></a> has five top-level
-components. Two open nested maps.</p>
+components. Two open nested maps.
+The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/three_levels.py"><code>tests/three_levels.py</code></a> has 11 maps with its default sizes: the top map and 10 nested maps on three levels below it.</p>
+<h3 id="map-a-large-system-in-nested-parts">Map a large system in nested parts</h3>
+<p>If a map needs two or more nested maps, more than one agent can do the work.
+The skill gives the procedure in <a href="https://github.com/0xfauzi/systemap/blob/main/src/systemap/skill/references/parts.md"><code>references/parts.md</code></a>.
+The procedure is the same with sub-agents and without sub-agents.
+Without sub-agents, one agent does the nested parts in sequence and commits after each nested part.</p>
+<ol>
+<li>The main agent writes the top map with forty components or fewer, and gives each module a component assignment.
+It writes the layer IDs, the regions, and the artifacts of the flows between top components in the top <code>MEANING</code>.</li>
+<li>For each nested part, the main agent writes one <code>allow_imports</code> rule in the top contract.
+The rule records the imports of the component at that commit. The reason must say that the rule does not show that the boundary is correct.</li>
+<li>For each nested part, the main agent runs <code>systemap parts --stub CARD</code>, sets <code>map=</code>, and runs <code>systemap refresh</code> and <code>systemap check</code>.
+Then it runs <code>systemap parts</code> and commits. This commit is the contract commit.</li>
+<li>Each part agent gets one nested part, the message in <code>references/parts.md</code>, and its own Git worktree from the contract commit.
+It writes only its write set: its model file, its contract file, the model files with its file prefix, and its result file.
+A nested part with nested parts also writes their plan and result files.
+It uses <code>--map ID</code> with <code>check</code>, <code>judgement</code>, <code>place</code>, <code>review</code>, <code>describe</code>, <code>journeys</code>, and <code>decisions pending</code>.
+It does not run <code>extract</code>, <code>refresh</code>, <code>render</code>, <code>init</code>, <code>triage</code>, or <code>decisions submit</code>.
+It records answers only in the forms <code>item</code> and <code>items</code>. It writes a boundary request for a change to a module claim or a boundary flow.</li>
+<li>After each part agent has stopped, the main agent examines each branch in the plan <code>order</code>.
+It compares the changed files with the write set before it merges the branch. Then it runs <code>systemap parts --results</code> and <code>systemap check --map ID</code>.
+It submits the verdicts of each nested part that no boundary request changes. Then it decides the boundary requests and sends each nested part with open lines back one time. After that, it runs the full checks without <code>--map</code>.</li>
+</ol>
+<p>Only the main agent writes <code>systemap.toml</code>, <code>.systemap/decisions.json</code>, the top model, the top contract, the plan, and <code>docs/map/</code>.
+The lock files stop a second writer in the same folder with an error. They do not merge two writes.
+Git does not track <code>.systemap/</code>, so the main agent copies <code>.systemap/decisions.json</code> into each worktree.
+A part agent that finds <code>.systemap/write.lock</code> held by a different command stops and tells the main agent. It does not remove the lock.</p>
+<p>The <code>boundary flow</code> and <code>boundary import</code> lines show where a nested map and its parent map do not agree about a flow or an import across the boundary.
+The <a href="#what-does-the-second-pass-find">second pass</a> gives the lines.
+Only a run without <code>--map</code> gives the result for completion.</p>
+<p>Two values in the procedure are not measurements. One is the limit of five part agents at one time.
+The other is 400 modules, the size above which a nested part gets its own nested parts. A measurement is necessary before a change to these values.</p>
 <h2 id="what-does-a-model-contain">What does a model contain?</h2>
 <p>The agent writes one model file in Python syntax with the frozen dataclasses of <code>systemap</code>.
 systemap reads the file as data. It does not run the file as Python code.
@@ -1098,6 +1157,18 @@ These files are the Jev, OpenAI, and agent caches, the facts cache in <code>.sys
 The file has the line <code>*</code>. Thus <code>git add -A</code> does not add these files to the repository.
 The command does not change an existing <code>.systemap/.gitignore</code> file, also if it is a link or a folder.
 It does not change the <code>.gitignore</code> file in the repository root.</p>
+<p>Only one command at a time can write the shared files.
+<code>extract</code>, <code>refresh</code>, <code>render</code>, <code>figure --out</code>, and <code>decisions submit</code> make the lock file <code>.systemap/write.lock</code>.
+The lock file contains the process ID, the command, and the time.
+If a different command holds the lock, the command stops with exit code <code>1</code>.
+It does not wait, and it writes no file that the lock controls.
+Each write of a model file also makes the lock file <code>&lt;model file&gt;.lock</code>, for example <code>map/gateway.py.lock</code>.
+Thus two commands can write two different model files at the same time.
+A command removes its lock file when it stops, also after an error.
+If a process stops before it can remove its lock file, the file stays.
+Then the error gives the path and the command that holds the lock.
+If no systemap command operates, remove the lock file. Then use the command again.
+Do not commit a lock file. A committed lock file stops each write in each clone of the repository.</p>
 <h3 id="systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></h3>
 <p>Writes <code>systemap.toml</code>, an initial model, an empty contract file, the skill directory, and a GitHub
 workflow. The workflow pins this version.
@@ -1192,9 +1263,14 @@ A missing value is not known. Then the entry point must have its own sequence.</
 <p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
 </li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 13.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 14.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
+<p>In format 14, the Python syntax digest and the <code>api</code> fingerprints come from the syntax text of systemap (<code>systemap.syntax_text</code>).
+The signatures and the constant values come from the source text.
+Thus each supported Python version gives the same stored values.
+If the syntax tree has a node class that the syntax text does not know, the extraction stops.
+The error gives the class and the Python version.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
 The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.
 <code>judgement</code> gives no line about a test file.</p>
@@ -1297,6 +1373,36 @@ The error gives the flow or the component. <code>systemap describe</code> also e
 <p>Writes the page from the facts and model.
 Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
 Thus they do not tell you to use <code>systemap extract</code> when <code>extract</code> cannot operate.</p>
+<p>The command writes the canvas page. This is the default from step 5 of <code>docs/design/nested-canvas.md</code>.
+The canvas page draws all maps of the tree on one <code>&lt;canvas&gt;</code> element.
+A card that opens a map shows a preview of that map. When the camera zooms in, the preview grows into the map.
+The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
+A click on a card selects it, and a double-click on a card goes into the card.
+On a touch screen, a tap selects a card, and a second tap on the card goes into it.
+Esc goes out one level, F fits the current map, <code>+</code> and <code>-</code> zoom the camera, and the arrow keys move the map.
+The F key does not show the map in full screen, as on the linked page.
+The header has the views Map, Sequences, and Changes, the layers, and Find (Ctrl+K, Cmd+K, or /).
+The path of the open maps is at the top left of the canvas. A click on a part of the path moves the camera to that map.
+When the frame of an open map is larger than the screen, a ring stays at the screen edge.
+When a neighbour of the open map is not on the screen, a portal at the screen edge gives it. A click on the portal moves the camera to the neighbour.
+The URL hash holds the ID of the open map, for example <code>index.html#Gateway/Routes</code>.
+A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</code> opens <code>index.html#Gateway/Routes</code>.
+Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
+The page uses the system setting for reduced motion. Then each camera move occurs at one time.
+The header also has the theme button, the Reduce motion button, the Keyboard keys (the <code>?</code> key), and the source button. On a narrow screen, these buttons are in one Tools menu.
+The Details panel (the D key) gives the selected card: its kind and text, its <code>note</code> text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
+In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
+Thus such an answer changes the canvas page. After you record it, run <code>systemap refresh</code>. If you do not, <code>check</code> and <code>render --check</code> report the page as stale.
+The canvas page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the canvas page cannot show in a frame of a different page.
+The page data is in the element <code>script#canvas-data</code>. The page has no <code>window.systemapWorkspace</code> object.
+With <code>?hud</code> after the page address, the page shows the frames in each second and the time of each frame.</p>
+<p>With <code>[render] canvas = false</code>, the command writes the linked page of each map, as before step 5.
+Then <code>render</code>, <code>refresh</code>, and <code>live</code> write this line on stderr. The exit code does not change.</p>
+<pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the canvas page.
+</code></pre>
+<p>The linked pages stay for one release. A later release removes them.
+The canvas page does not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the canvas page stale.
+A change of the <code>note</code> text makes the canvas page stale.</p>
 <ul>
 <li>
 <p><code>--check</code> exits 1 if the page is stale.
@@ -1306,6 +1412,9 @@ Thus a page that <code>render --base REF</code> wrote is stale for <code>render 
 <li>
 <p><code>--base REF</code> adds a change map relative to that revision.
 The page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
+The canvas page and the linked page both obey this link.
+On the canvas page, <code>#Gateway/changes</code> opens the Changes view at the map <code>Gateway</code>.
+A map or a card with the ID <code>changes</code> keeps its link.
 The Changes panel lists the map changes: the components, flows, sequences, and rules
 that the change added, removed, or changed in the model.
 The list compares the committed model at the merge base with the model on disk.
@@ -1476,6 +1585,41 @@ Set <code>TYPESAFE_API_KEY</code> for this option. <code>--jev</code> is the pre
 OpenAI has no measured threshold for the pair question. Thus <code>--provider openai</code> sends nothing and exits 1.</p>
 </li>
 </ul>
+<h3 id="systemap-parts-map-id-json-stub-card-results"><code>systemap parts [--map ID] [--json] [--stub CARD] [--results]</code></h3>
+<p>Gives the part plan of the nested maps of one map.
+A nested part is one nested map, its contract file, and the model files with its file prefix.
+The command does not select the boundaries of the nested parts.
+It gives the facts for the boundaries that <code>map=</code> sets.
+It reads the stored facts and sends no data out.</p>
+<ul>
+<li>Without an option, the command writes <code>parts/plan.json</code> beside the top model, for example <code>map/parts/plan.json</code>.
+It prints one line for each nested part of the top map: its model file, its module count, its entry point count, and its actors.
+The plan gives these fields for each nested part: the model file, the contract file, the file prefix, the result file, the modules, the <code>suggest</code> groups, the modules alone in their package, the actors, the boundary flows, the boundary imports, the import rules, the entry points, the state (<code>stub</code> or <code>mapped</code>), and <code>level_2</code>.
+An actor is a component of the parent map that has a flow with the card, that a module of the card imports, or that imports a module of the card.
+Each entry point goes to the deepest map that claims its module.
+A nested part with more than 400 modules has <code>level_2</code> true. The value 400 is forty components with ten modules each. It is not a measurement.</li>
+<li><code>--map ID</code> gives the record of the nested part <code>ID</code> from the plan of its parent map.
+If the map <code>ID</code> has nested maps, the command also writes their plan, for example <code>map/parts/gateway_plan.json</code>.</li>
+<li><code>--stub CARD</code> writes the stub of a new nested map for the component <code>CARD</code>.
+The file name is the same file name that <code>systemap suggest</code> gives, for example <code>map/gateway.py</code>.
+The stub has one component for each <code>suggest</code> group, the component <code>&lt;CARD&gt;Other</code> for the modules alone in their package, the symbol claims of the card, the actors, and positions.
+The command does not write over a file.
+If the stub fails the model checks or the nesting check, the command writes no file and gives the problems.
+The actors of a nested map must be components of its parent map. Thus a stub that needs an actor that the parent map does not have gives exit code <code>2</code>.</li>
+<li><code>--results</code> examines the result file <code>parts/&lt;stem&gt;.json</code> of each nested part against the plan.
+An answer in a result file must have the form <code>item</code> or <code>items</code>.
+Each file in <code>files</code> must be in the write set of the nested part: its model file, its contract file, the model files with its file prefix, its result file, and the plan and the result files of its own nested parts (<code>parts/&lt;stem&gt;_*.json</code>).</li>
+<li><code>--json</code> writes one JSON object.</li>
+</ul>
+<p>The plan has two digests. <code>facts_digest</code> is the SHA-256 of the source facts. It does not contain <code>built_at_commit</code> or the provenance values of one computer. Thus a refresh at a new commit with the same source facts does not change it.
+<code>contract_digest</code> is the SHA-256 of the contract of the parent map and of each map above it: the layer IDs, the region IDs, the flow artifacts, the identity and claims of each component, the flows, the invariants, and the import rules.
+A change to a position or to a description does not change <code>contract_digest</code>.
+If a digest is different from the current tree, <code>parts --map ID</code> and <code>parts --results</code> stop with exit code <code>1</code> and the text <code>The plan is stale. Do systemap parts again.</code>
+<code>check --map ID</code> gives the same text as a warning and keeps its exit code. If no plan exists, <code>check --map ID</code> says nothing about a plan.</p>
+<p>The plan refuses a nested map whose stem is <code>model</code>, <code>contract</code>, or <code>plan</code>, or ends in <code>_contract</code> or <code>_plan</code>.
+It also refuses two stems that are the same in lower case, and a file prefix <code>&lt;stem&gt;_</code> that is the start of a different stem.
+A stem that the plan refuses gives exit code <code>2</code>.
+The commands that write a plan or a stub hold the write lock <code>.systemap/write.lock</code>.</p>
 <h3 id="systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-provider-jev-openai"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]</code></h3>
 <p>Prints the second-pass findings.
 These include single-module components, possible incorrect assignments, missing
@@ -1579,7 +1723,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 7. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>.</td>
+<td>The version of this schema. The value is 8. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>. Version 8 added <code>open[].map_id</code>, <code>open[].parent_flow</code>, <code>open[].nested_flows</code>, and <code>open[].import_pairs</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1599,7 +1743,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>open[].detail</code></td>
 <td>list of strings</td>
-<td>The imports of a crossing-import finding, as <code>--verbose</code> prints them. For other kinds, the list is empty.</td>
+<td>The imports of a <code>crossing import</code> or a <code>boundary import</code> finding, as <code>--verbose</code> prints them. For other kinds, the list is empty.</td>
 </tr>
 <tr>
 <td><code>open[].evidence</code></td>
@@ -1619,7 +1763,27 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>open[].count</code></td>
 <td>integer or null</td>
-<td>The count that the row below the line gives: the importing modules of a <code>crossing import</code> finding, or the targets of a <code>package_export</code> finding. For other findings, the value is null.</td>
+<td>The count that the row below the line gives: the importing modules of a <code>crossing import</code> or a <code>boundary import</code> finding, or the targets of a <code>package_export</code> finding. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].map_id</code></td>
+<td>string or null</td>
+<td>The ID of the nested map of a <code>boundary flow</code> or <code>boundary import</code> finding. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].parent_flow</code></td>
+<td>object or null</td>
+<td>For a boundary finding: <code>src</code> and <code>dst</code> of the parent flow that the finding is about, and <code>artifacts</code>, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For a <code>boundary import</code> finding, the direction is from the card to X. If the parent map has only a flow from X to the card, the direction is from X to the card. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].nested_flows</code></td>
+<td>list of objects or null</td>
+<td>For a boundary finding: each flow of the nested map with the actor that the finding names, with <code>src</code>, <code>dst</code>, and <code>artifact</code>. For other findings, the value is null.</td>
+</tr>
+<tr>
+<td><code>open[].import_pairs</code></td>
+<td>list of objects or null</td>
+<td>For a <code>boundary import</code> finding: each import, with <code>module</code> and <code>imports</code>. For a <code>boundary flow</code> finding, the list is empty. For other findings, the value is null.</td>
 </tr>
 <tr>
 <td><code>open[].drift</code></td>
@@ -2611,6 +2775,11 @@ Unknown keys are rejected.</p>
 <td>Color-token overrides. <code>scheme = &quot;dark&quot;</code> (Ink) or <code>scheme = &quot;light&quot;</code> (Paper) selects the default palette. The page offers both palettes. The earlier names <code>warm</code>, <code>graphite</code>, and <code>clay</code> give a configuration error. <code>[theme.light]</code> overrides one palette. <code>[theme.layers]</code> sets a color per layer ID, also for standard IDs. <code>[theme.marks]</code> selects a mark per agent kind. The <code>bg</code>, <code>raised</code>, <code>change</code>, and <code>reach</code> tokens, the <code>[theme.layers]</code> values, and the <code>layer_palette</code> items must be colors in the form <code>#RRGGBB</code>. The page uses theme values in HTML and CSS without conversion. Thus a value cannot contain <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>&quot;</code>, <code>;</code>, <code>{</code>, or <code>}</code>. A font value (<code>font_ui</code>, <code>font_mono</code>) can contain <code>&quot;</code>. A <code>[theme.marks]</code> value must be <code>ring</code>, <code>notch</code>, or <code>dotted</code>. A key in a theme table, such as <code>[theme.delta]</code>, can contain only letters, digits, <code>_</code>, and <code>-</code>. The page uses these keys in CSS names.</td>
 </tr>
 <tr>
+<td><code>[render]</code></td>
+<td><code>canvas = true</code></td>
+<td><code>render</code>, <code>refresh</code>, and <code>live</code> write the canvas page: all maps of the tree on one canvas (<code>docs/design/nested-canvas.md</code>). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. <code>canvas = true</code> has no effect. <code>canvas = false</code> makes the commands write the linked pages, with no new feature, for one release. Then <code>render</code>, <code>refresh</code>, and <code>live</code> write one line on stderr about the next release. A later release removes the linked pages and this key. <code>check</code> and <code>render --check</code> compare the pages of the current value. A different value or key gives a configuration error.</td>
+</tr>
+<tr>
 <td><code>[[figures]]</code></td>
 <td>none</td>
 <td>Figures for <code>refresh</code>. Keys are <code>out</code>, <code>mode</code> (<code>system</code> or <code>reach</code>), <code>components</code>, <code>caption</code>, <code>interactive</code>, <code>layer</code>, and <code>map</code>. <code>layer</code> selects that layer's flows. <code>map</code> identifies a nested map. An <code>out</code> with <code>.svg</code> suffix writes the drawing alone. An <code>out</code> that is not in <code>out_dir</code> gives exit code 2.</td>
@@ -2721,7 +2890,7 @@ Each unknown record must have a correction or accepted answer under
 <code>[judgement] answered</code> before <code>judgement --strict</code> accepts it.</p>
 <nav class="pager" aria-label="Pages"><a class="pager__a" href="limits.html" rel="prev"><span class="kicker">Previous</span><span>Limits</span></a><a class="pager__a pager__next" href="benchmarks.html" rel="next"><span class="kicker">Next</span><span>Benchmarks</span></a></nav>
 </main>
-<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l3"><a href="#a-flow-review-from-systemap-2-0-0">A flow review from systemap 2.0.0</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#what-does-the-contract-contain">What does the contract contain?</a></li><li class="toc__l3"><a href="#the-rules-of-a-map-from-before-the-contract-file">The rules of a map from before the contract file</a></li><li class="toc__l2"><a href="#how-strong-is-the-evidence-for-each-claim">How strong is the evidence for each claim?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-provider-jev-openai"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-provider-p-dry-run-kind-kind"><code>systemap audit --provider P [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-provider-p-and-systemap-plan-check-id-base-ref">systemap plan &quot;&lt;task&gt;&quot; --provider P and systemap plan --check ID [--base REF]</a></li><li class="toc__l3"><a href="#systemap-triage-text-provider-p"><code>systemap triage TEXT --provider P</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
+<aside class="toc" id="toc" aria-label="On this page"><p class="kicker">On this page</p><ul><li class="toc__l2"><a href="#what-does-systemap-check-reject">What does systemap check reject?</a></li><li class="toc__l3"><a href="#a-flow-review-from-systemap-2-0-0">A flow review from systemap 2.0.0</a></li><li class="toc__l2"><a href="#how-do-two-flows-connect-one-pair-of-components">How do two flows connect one pair of components?</a></li><li class="toc__l2"><a href="#what-does-the-second-pass-find">What does the second pass find?</a></li><li class="toc__l2"><a href="#what-questions-does-jev-answer">What questions does Jev answer?</a></li><li class="toc__l2"><a href="#which-decision-provider-answers-the-questions">Which decision provider answers the questions?</a></li><li class="toc__l2"><a href="#how-do-you-change-to-the-new-finding-names">How do you change to the new finding names?</a></li><li class="toc__l2"><a href="#what-do-you-do-above-forty-components">What do you do above forty components?</a></li><li class="toc__l3"><a href="#map-a-large-system-in-nested-parts">Map a large system in nested parts</a></li><li class="toc__l2"><a href="#what-does-a-model-contain">What does a model contain?</a></li><li class="toc__l2"><a href="#what-does-the-contract-contain">What does the contract contain?</a></li><li class="toc__l3"><a href="#the-rules-of-a-map-from-before-the-contract-file">The rules of a map from before the contract file</a></li><li class="toc__l2"><a href="#how-strong-is-the-evidence-for-each-claim">How strong is the evidence for each claim?</a></li><li class="toc__l2"><a href="#which-command-do-you-use">Which command do you use?</a></li><li class="toc__l3"><a href="#systemap-init-no-ci-strict-ci"><code>systemap init [--no-ci | --strict-ci]</code></a></li><li class="toc__l3"><a href="#systemap-extract-check"><code>systemap extract [--check]</code></a></li><li class="toc__l3"><a href="#systemap-facts"><code>systemap facts</code></a></li><li class="toc__l3"><a href="#systemap-place-all-print-keep-order"><code>systemap place [--all] [--print] [--keep-order]</code></a></li><li class="toc__l3"><a href="#systemap-render-check-base-ref"><code>systemap render [--check] [--base REF]</code></a></li><li class="toc__l3"><a href="#systemap-check-brief"><code>systemap check [--brief]</code></a></li><li class="toc__l3"><a href="#systemap-figure-out-file"><code>systemap figure --out FILE</code></a></li><li class="toc__l3"><a href="#systemap-refresh"><code>systemap refresh</code></a></li><li class="toc__l3"><a href="#systemap-suggest-decide"><code>systemap suggest [--decide]</code></a></li><li class="toc__l3"><a href="#systemap-parts-map-id-json-stub-card-results"><code>systemap parts [--map ID] [--json] [--stub CARD] [--results]</code></a></li><li class="toc__l3"><a href="#systemap-judgement-strict-kind-kind-verbose-brief-json-order-by-drift-provider-jev-openai"><code>systemap judgement [--strict] [--kind KIND] [--verbose] [--brief] [--json] [--order-by-drift] [--provider jev|openai]</code></a></li><li class="toc__l3"><a href="#systemap-rules-brief-json"><code>systemap rules [--brief] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-delta-base-ref-head-ref-comment-file-pr-n-decide-no-decide"><code>systemap delta --base REF [--head REF] [--comment FILE --pr N] [--decide | --no-decide]</code></a></li><li class="toc__l3"><a href="#systemap-describe"><code>systemap describe</code></a></li><li class="toc__l3"><a href="#systemap-audit-provider-p-dry-run-kind-kind"><code>systemap audit --provider P [--dry-run] [--kind KIND]...</code></a></li><li class="toc__l3"><a href="#systemap-plan-task-provider-p-and-systemap-plan-check-id-base-ref">systemap plan &quot;&lt;task&gt;&quot; --provider P and systemap plan --check ID [--base REF]</a></li><li class="toc__l3"><a href="#systemap-triage-text-provider-p"><code>systemap triage TEXT --provider P</code></a></li><li class="toc__l3"><a href="#systemap-journeys-limit-n-dry-run"><code>systemap journeys [--limit N] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-history-since-when-every-days-top-n-ref-ref"><code>systemap history [--since WHEN] [--every DAYS] [--top N] [--ref REF]</code></a></li><li class="toc__l3"><a href="#systemap-explain-kind"><code>systemap explain [KIND]</code></a></li><li class="toc__l3"><a href="#systemap-convert"><code>systemap convert</code></a></li><li class="toc__l3"><a href="#systemap-review-id-flow-id-flow-src-dst-map-id-dry-run"><code>systemap review ID | --flow ID | --flow &#x27;SRC-&gt;DST&#x27; [--map ID] [--dry-run]</code></a></li><li class="toc__l3"><a href="#systemap-decisions-pending-submit-file-status"><code>systemap decisions pending | submit FILE | status</code></a></li><li class="toc__l3"><a href="#systemap-serve-port-8765"><code>systemap serve [--port 8765]</code></a></li><li class="toc__l3"><a href="#systemap-live-port-8765-base-ref-no-watch-json"><code>systemap live [--port 8765] [--base REF] [--no-watch] [--json]</code></a></li><li class="toc__l3"><a href="#systemap-skill-dir-path-print"><code>systemap skill [--dir PATH] [--print]</code></a></li><li class="toc__l2"><a href="#what-can-you-configure">What can you configure?</a></li></ul></aside>
 </div>
 <footer class="foot" id="footer">
 <div class="foot__in">

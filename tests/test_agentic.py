@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import init_two_cards, page_detail, write_tree
+from conftest import init_two_cards, page_detail, use_linked_pages, write_tree
 from test_layers import agent_model
 
 from systemap import check, judgement, skill
@@ -129,6 +129,8 @@ def test_calls_model_in_the_model_module(
         },
     )
     init_two_cards(tmp_path, "--no-ci")
+    # The test reads the detail data and the layer buttons of the linked page.
+    use_linked_pages(tmp_path)
     assert run("--root", str(tmp_path), "extract") == 0
     capsys.readouterr()
     assert run("--root", str(tmp_path), "judgement") == 0
@@ -164,6 +166,8 @@ def test_entry_is_optional_for_store_and_context_kinds(
 ) -> None:
     write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
     init_two_cards(tmp_path, "--no-ci")
+    # The test reads the detail data of the linked page.
+    use_linked_pages(tmp_path)
     assert run("--root", str(tmp_path), "extract") == 0
     model = tmp_path / "map/model.py"
     text = model.read_text(encoding="utf-8")

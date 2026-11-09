@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from systemap import nest
+from systemap import nest, parts
 from systemap.model import claimed
 from systemap.source_facts import empty_markers, is_empty_marker, package_of
 
@@ -193,10 +193,13 @@ def nesting_lines(tree: nest.Tree, facts: dict[str, Any]) -> list[str]:
             out.append(
                 f"nesting: {name} has {n} components, more than {nest.CARDS_PER_MAP}. A nested "
                 f"map can reduce the component count. Open a map in a component with many "
-                f'modules. Set map="map/<card>.py" in that component. Use the same module set '
-                f"in the nested map:"
+                f"modules. In that component, set map to the file name in the list. Use the "
+                f"same module set in the nested map:"
             )
-            out += [f"  {cid}: {held[cid]} modules" for cid in candidates]
+            out += [
+                f'  {cid}: {held[cid]} modules, map="{parts.file_name(parts.map_id(m.id, cid))}"'
+                for cid in candidates
+            ]
             continue
         wide = [cid for cid in ranked if held[cid] > nest.MODULES_PER_CARD]
         if wide:

@@ -204,3 +204,25 @@ def test_ci_runs_the_pre_commit_hooks_and_the_tree_secret_scan() -> None:
     job = text.split("\n  pre-commit:\n", 1)[1]
     assert "run: uv run pre-commit run --all-files" in job
     assert "run: uv run pre-commit run --hook-stage manual gitleaks-tree --all-files" in job
+
+
+def test_the_canvas_browser_job_collects_each_browser_test_file() -> None:
+    """Each test file that reads SYSTEMAP_BROWSER_TESTS and needs Playwright runs in the
+    CI job canvas-browser. Only that job installs Playwright. Before the change, the job
+    did not collect the four browser test files of the header, Sequences, Changes and
+    Find."""
+    root = Path(__file__).resolve().parent.parent
+    text = (root / ".github/workflows/systemap.yml").read_text(encoding="utf-8")
+    job = text.split("\n  canvas-browser:\n", 1)[1].split("\n  plugin:\n", 1)[0]
+    found = re.search(r"run: uv run pytest -q (.+)\n", job)
+    assert found is not None
+    collected = {path.name for pattern in found.group(1).split() for path in root.glob(pattern)}
+    needed = {
+        path.name
+        for path in (root / "tests").glob("test_*.py")
+        if path.name != Path(__file__).name
+        and "SYSTEMAP_BROWSER_TESTS" in path.read_text(encoding="utf-8")
+        and "playwright" in path.read_text(encoding="utf-8").lower()
+    }
+    assert needed, "no browser test file"
+    assert needed <= collected, sorted(needed - collected)

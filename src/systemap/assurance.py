@@ -260,7 +260,7 @@ def clear_claims() -> None:
 def of_tree(tree: nest.Tree, facts: dict[str, Any]) -> list[Claim]:
     """Give the claims of each map in tree order. `judgement --json` and the PR summary
     use this function."""
-    return [claim for m in tree.maps for claim in of_model(m.model, m.meaning, facts, m.id)]
+    return [claim for m in tree.reported for claim in of_model(m.model, m.meaning, facts, m.id)]
 
 
 def counts(claims: Iterable[Claim]) -> dict[str, int]:

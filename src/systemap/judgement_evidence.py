@@ -24,7 +24,13 @@ records.
 systemap 2.0.0 recorded the evidence in an earlier form (`earlier=True`): the full module
 record without the syntax fingerprints, and the digest of the source file of each module,
 for each line. A crossing-import line also had the source of the two modules of each
-import. `answer_upgrade` uses this form one time to replace a current 2.0.0 digest.
+import. `answer_upgrade` uses this form one time to replace a current 2.0.0 digest. It
+gives the records with the 2.0.0 text of the Python signatures and previews
+(`python_earlier_text`).
+
+A `boundary flow` or `boundary import` line has the evidence of `nest_join.state`: the
+claims of the opening card and of the component that the actor stands for, the parent
+flows between them, the nested flows with the actor, and the import pairs.
 
 A `step source` line also has the claim of its sequence step: the step record and the
 map claims of its acting and measured components. Thus a change to the step changes the
@@ -47,14 +53,25 @@ and the entry point records.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import hashlib
 import json
 import re
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from systemap import card_review, contract_file, flow_ids, model_load, nest, repo_files, step_refs
+from systemap import (
+    card_review,
+    claim_index,
+    contract_file,
+    flow_ids,
+    model_load,
+    nest,
+    nest_join,
+    repo_files,
+    step_refs,
+)
 from systemap.model import Component, claimed, is_symbol, source_parsed
 from systemap.source_facts import Located, entry_identity, located_records, repository_records
 from systemap.source_text import text_digest
@@ -149,8 +166,63 @@ def about_behavior(m: nest.Map, line: str) -> bool:
 
 
 def names(name: str, text: str) -> bool:
-    """Find the exact name as a full word. A dotted name that contains it is not a match."""
+    """Find the exact name as a full word. A dotted name that contains it is not a match.
+
+    A name of word characters, dots and hyphens is found in the words of the text
+    (`words`), with no new pattern for each name. A large tree has thousands of lines and
+    modules, and one pattern for each pair took most of the time of `judgement`
+    (bench/jev/README.md). A different name uses the pattern."""
+    if _RUN.fullmatch(name):
+        return name in words(text)
     return re.search(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)", text) is not None
+
+
+_RUN = re.compile(r"[\w.-]+")  # a name that `words` can find, and a run of the text
+_END = re.compile(r"\.(?!\w)")
+
+
+@dataclasses.dataclass(frozen=True)
+class _NameTable:
+    names: list[str]
+    runs: dict[str, list[int]]  # a name that `words` can find, to its positions
+    others: list[tuple[int, re.Pattern[str]]]  # each other name, with its pattern
+
+
+def _name_table(modules: Iterable[str]) -> _NameTable:
+    names = list(modules)
+    runs: dict[str, list[int]] = {}
+    others: list[tuple[int, re.Pattern[str]]] = []
+    for i, name in enumerate(names):
+        if _RUN.fullmatch(name):
+            runs.setdefault(name, []).append(i)
+        else:
+            others.append((i, re.compile(rf"(?<![\w.-]){re.escape(name)}(?![\w-]|\.\w)")))
+    return _NameTable(names, runs, others)
+
+
+def named_modules(modules: Iterable[str], text: str) -> list[str]:
+    """Give each module name that `names` finds in the text, in the order of `modules`.
+
+    The names are sorted into two groups one time for each module collection
+    (`claim_index.kept_for`). A name that `words` can find is a set lookup. Each other
+    name, for example a path, has a pattern that is compiled one time."""
+    table = claim_index.kept_for(modules, "names", _name_table)
+    hits = {i for word in words(text) for i in table.runs.get(word, ())}
+    hits.update(i for i, pattern in table.others if pattern.search(text))
+    return [table.names[i] for i in sorted(hits)]
+
+
+@functools.lru_cache(maxsize=4096)
+def words(text: str) -> frozenset[str]:
+    """Give each name of word characters, dots and hyphens that `names` finds in the text.
+
+    Such a name starts where a run of these characters starts. It ends at the end of the
+    run, or before a dot that no word character follows."""
+    out: set[str] = set()
+    for run in _RUN.findall(text):
+        out.add(run)
+        out.update(run[: dot.start()] for dot in _END.finditer(run))
+    return frozenset(out)
 
 
 def map_of(tree: nest.Tree, line: str) -> nest.Map:
@@ -177,7 +249,7 @@ def line_modules(m: nest.Map, line: str, facts: dict[str, Any]) -> list[str]:
     """Give the modules of the components and the modules that a judgement line names."""
     bare = line[len(m.prefix) :]
     modules = [module for card in named_cards(m, line) for module in card_modules(card, facts)]
-    modules += [name for name in facts.get("components", {}) if names(name, bare)]
+    modules += named_modules(facts.get("components", {}), bare)
     return modules
 
 
@@ -371,8 +443,8 @@ def tree_evidence(
     located = located_records(facts)
     records = repository_records(facts)
     model_hashes: dict[str, str] = {}
-    out: dict[str, str] = {}
-    for key in lines:
+    out = boundary_evidence(tree, facts, lines)
+    for key in _without(lines, out):
         m = map_of(tree, key)
         bare = key[len(m.prefix) :]
         state = located_state(root, located.get(bare, []))
@@ -389,6 +461,17 @@ def tree_evidence(
             state = full_state(components, root, model_hashes[m.id], points, behavior, earlier)
         out[key] = digest(state)
     return out
+
+
+def _without(lines: list[str], done: Mapping[str, str]) -> list[str]:
+    """Give the lines that have no digest in `done`."""
+    return [key for key in lines if key not in done]
+
+
+def boundary_evidence(tree: nest.Tree, facts: dict[str, Any], lines: list[str]) -> dict[str, str]:
+    """Give the evidence digest of each boundary line of `lines` (`nest_join.state`)."""
+    found = nest_join.states(tree, facts, set(lines)) if tree.nested else {}
+    return {line: digest(state) for line, state in found.items()}
 
 
 def _named_state(
