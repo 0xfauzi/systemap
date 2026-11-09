@@ -349,10 +349,11 @@ A kind excluded from the report does not make its answer stale.
 
 The `decision mis-fold` and `decision owner` lines do not contain the component that the provider selects.
 The detail row gives that component. Thus a new model release that changes only that component
-does not open an answer again. Earlier versions put that component at the end of the line,
-for example `decision mis-fold: Writer claims pkg.emit, which reads like Reader`.
-An answer with the earlier line text matches the current line, with the same evidence digest.
-Versions before 2.0.0 used the `jev` names. From 3.1.0, systemap does not read the `jev` names.
+does not open an answer again. Versions before 2.0.0 put that component at the end of the line,
+for example `jev mis-fold: Writer claims pkg.emit, which reads like Reader`.
+Those versions also used the `jev` names. From 3.1.0, systemap does not read the `jev` names.
+Thus an answer with that earlier line is a stale answer. Its row gives the current line without the component,
+for example `decision mis-fold: Writer claims pkg.emit`.
 
 `systemap triage "<issue>" --provider jev` gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
@@ -480,7 +481,8 @@ The previous names started with `jev`. The new names start with `decision`, beca
   `judgement` and `audit` give the item as a stale answer. The row gives the current line, for example
   `stale answer: 'jev flow: A -> B ...' has the previous kind name "jev flow", which systemap does not read. Change it to 'decision flow: A -> B ...' in [judgement] answered.`
   A `reviewed` line with a previous name also gives this row.
-  An item with the new name in the same answer stays an `audit` item.
+  An item with the new name in the same `items` group stays an `audit` item.
+  But the group is a `pending answer`, and its lines are open until you record a new digest.
 - A family answer with a previous name, for example `kind = "jev flow"`, gives a configuration error.
 - `audit --kind "jev flow"` gives a usage error.
 - `systemap explain "jev flow"` gives no explanation.
@@ -584,10 +586,10 @@ For example, `delta --decide --provider openai` prints `OpenAI suggestions`. Wit
 
 To change a configuration to the new names, do these steps:
 
-1. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
-2. If you changed an `items` group, use `systemap audit --provider jev`.
-3. Examine the source of each `pending answer` line again. Then record the digest from that line.
-4. Replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files.
+1. Before you install 3.1.0, replace `--jev` with `--decide` and `--no-jev` with `--no-decide` in scripts and CI files. 3.0.0 reads the new options.
+2. In `systemap.toml`, replace each previous name in `[judgement] answered` with its new name.
+3. If you changed an `items` group, use `systemap audit --provider jev`.
+4. Examine the source of each `pending answer` line again. Then record the digest from that line.
 5. Use `systemap judgement --strict`. Make sure that it prints no stale answer and no warning.
 
 ## What do you do above forty components?

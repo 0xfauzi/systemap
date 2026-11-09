@@ -3,8 +3,7 @@
 In 3.0.0, `audit` gave a warning for each previous kind name in `[judgement] answered`.
 From 3.1.0, systemap does not read the previous names. Acceptance values:
 
-1. `audit` gives no warning for an item with a previous kind name, and for a current
-   judgement line whose text looks like such an item.
+1. `audit` gives no warning for an item with a previous kind name.
 2. `audit` calculates no judgement lines for the answers.
 3. `judgement` and `audit` give an item with a previous kind name as a stale answer.
    The row gives the current line.
@@ -17,20 +16,30 @@ From 3.1.0, systemap does not read the previous names. Acceptance values:
 7. An item with a previous kind name gets no "Change it to" warning for an earlier form,
    because that change does not make the item current. `judgement` gives the item one
    time, also if the answer is not an audit answer.
+8. `audit` gives a reviewed line of a family answer with a previous kind name as a
+   stale answer.
+9. An `items` group from 3.0.0 with a current item and an item with a previous name is
+   pending in `audit`, and its current lines are open. After the change of the name,
+   the group stays pending until the maintainer records the new digest.
+10. `judgement --json` gives each item and reviewed line with a previous kind name one
+    time in `stale_answers`. With `--map`, it gives only the items of that map.
 """
 
 from __future__ import annotations
 
+import json
+import shutil
 from pathlib import Path
 
 import pytest
 from test_audit_findings import Fake, audit_args, two_cards
+from test_scoped_maps import CHOSEN, SIBLING, built
 
-from systemap import answer_migrations, audit, decision_kinds, jev_cli, judgement_json
+from systemap import answer_migrations, audit, decision_kinds, jev_cli, judgement, judgement_json
 from systemap.cli import main
 from systemap.config import Answer
 
-__all__ = ["two_cards"]
+__all__ = ["built", "two_cards"]
 
 # A current line that looks like a decision line with the previous kind name "jev flow".
 CURRENT = "unknown surface: jev flow: extends 'x': the configuration package could not be read"
@@ -43,23 +52,6 @@ def answer(root: Path, item: str) -> None:
     entry = f'{{ item = "{item}", reason = "The line is correct." }}'
     text = toml.read_text(encoding="utf-8")
     toml.write_text(text + f"\n[judgement]\nanswered = [\n    {entry},\n]\n", encoding="utf-8")
-
-
-def with_current_line(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Add CURRENT to the judgement lines. The fixture has no line of this form."""
-    real = judgement_json.current_lines
-    monkeypatch.setattr(judgement_json, "current_lines", lambda *args: [*real(*args), CURRENT])
-
-
-def test_an_exact_current_line_gets_no_previous_name_warning_in_audit(
-    two_cards: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Acceptance 1."""
-    with_current_line(monkeypatch)
-    answer(two_cards, CURRENT)
-    capsys.readouterr()
-    assert jev_cli.cmd_audit(audit_args(two_cards, dry_run=True), send=Fake()) == 0
-    assert "warning:" not in capsys.readouterr().err
 
 
 def test_an_earlier_decision_line_gets_no_warning_in_audit(
@@ -182,3 +174,78 @@ def test_the_audit_report_gives_the_current_line_for_a_previous_name() -> None:
         "[judgement] answered."
     ) in rows
     assert f"  stale answer: {CURRENT_ITEM}" in rows
+
+
+REVIEWED = "decision sentence: Reader's sentence may not describe its modules"
+
+
+def test_audit_gives_a_reviewed_line_with_a_previous_name() -> None:
+    """Acceptance 8."""
+    family = Answer(
+        items=(), kind=decision_kinds.SENTENCE, policy=True, reason="r", reviewed=(EARLIER,)
+    )
+    found = [audit.Line(REVIEWED)]
+    result = audit.apply_reviewed(found, [family], {REVIEWED: "d"}, audit.KINDS)
+    assert result.stale == [EARLIER]
+    rows = audit.report([], 0, result.stale, "usage", teach=False)
+    assert f"  stale answer: {answer_migrations.stale(EARLIER)}" in rows
+
+
+def test_a_group_from_3_0_0_with_a_previous_name_is_pending_in_audit() -> None:
+    """Acceptance 9. 3.0.0 gave the earlier item the evidence of its current line."""
+    evidence = {CURRENT_ITEM: "dA", REVIEWED: "dB"}
+    recorded = judgement.answer_digest((CURRENT_ITEM, EARLIER), {CURRENT_ITEM: "dA", EARLIER: "dB"})
+    found = [audit.Line(CURRENT_ITEM), audit.Line(REVIEWED)]
+    group = Answer(items=(CURRENT_ITEM, EARLIER), reason="r", evidence=recorded)
+    result = audit.apply_reviewed(found, [group], evidence, audit.KINDS)
+    assert [x.text for x in result.open] == [CURRENT_ITEM, REVIEWED]
+    assert result.stale == [EARLIER]
+    assert len(result.pending) == 1 and "must have a new source review" in result.pending[0]
+    changed = Answer(items=(CURRENT_ITEM, REVIEWED), reason="r", evidence=recorded)
+    result = audit.apply_reviewed(found, [changed], evidence, audit.KINDS)
+    assert [x.text for x in result.open] == [CURRENT_ITEM, REVIEWED]
+    assert result.stale == [] and len(result.pending) == 1
+    new = judgement.answer_digest((CURRENT_ITEM, REVIEWED), evidence)
+    current = Answer(items=(CURRENT_ITEM, REVIEWED), reason="r", evidence=new)
+    result = audit.apply_reviewed(found, [current], evidence, audit.KINDS)
+    assert (result.open, result.pending) == ([], [])
+
+
+def _json_stale(root: Path, capsys: pytest.CaptureFixture[str], *argv: str) -> list[str]:
+    capsys.readouterr()
+    main(["--root", str(root), "judgement", "--json", *argv])
+    stale: list[str] = json.loads(capsys.readouterr().out)["stale_answers"]
+    return stale
+
+
+def test_judgement_json_gives_each_previous_name_one_time(
+    two_cards: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 10."""
+    toml = two_cards / "systemap.toml"
+    entries = (
+        f'{{ item = "{EARLIER}", reason = "The line is correct." }},\n'
+        '    { kind = "decision sentence", policy = true, reason = "r", '
+        f'reviewed = ["{EARLIER}"] }},'
+    )
+    text = toml.read_text(encoding="utf-8")
+    toml.write_text(text + f"\n[judgement]\nanswered = [\n    {entries}\n]\n", encoding="utf-8")
+    assert _json_stale(two_cards, capsys).count(EARLIER) == 1
+
+
+def test_judgement_json_with_a_map_gives_the_previous_names_of_that_map(
+    built: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 10, with `--map`."""
+    root = tmp_path / "copy"
+    shutil.copytree(built, root)
+    rest = "jev flow: A -> B ('x'): the code where they meet may not carry it"
+    chosen, sibling = f"{CHOSEN}: {rest}", f"{SIBLING}: {rest}"
+    toml = root / "systemap.toml"
+    entries = "".join(
+        f'\n[[judgement.answered]]\nitem = "{item}"\nreason = "A test."\n'
+        for item in (chosen, sibling)
+    )
+    toml.write_text(toml.read_text(encoding="utf-8") + entries, encoding="utf-8")
+    assert _json_stale(root, capsys, "--map", CHOSEN) == [chosen]
+    assert sorted(_json_stale(root, capsys)) == sorted([chosen, sibling])

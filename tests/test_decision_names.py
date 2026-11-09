@@ -22,6 +22,7 @@ The transports are injected. No test calls Jev or OpenAI.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -154,6 +155,12 @@ def test_an_earlier_family_kind_is_a_configuration_error(
         load_config(root)
     assert main(["--root", str(root), "judgement"]) == 2
     assert "kind must be one of" in capsys.readouterr().err
+    hint = (
+        '"jev flow" is the previous name of "decision flow". '
+        'systemap does not read it from 3.1.0. Change it to "decision flow".'
+    )
+    with pytest.raises(ConfigError, match=re.escape(hint)):
+        load_config(root)
 
 
 def test_a_nested_line_with_an_earlier_name_does_not_migrate() -> None:

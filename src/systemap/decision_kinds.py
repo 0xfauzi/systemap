@@ -7,13 +7,15 @@ answers.
 Before 2.0.0, each kind name started with "jev". 2.0.0 and 3.0.0 also read an answer in
 `[judgement] answered` with a previous name. From 3.1.0, systemap does not read the
 previous names: an answer item with a previous name matches no line. `PREVIOUS` gives
-the previous name of each kind for two uses only:
+the previous name of each kind for three uses only:
 
 - The evidence digest of a line is the digest of the same line with its previous kind
   name (`previous_line`). Thus a digest recorded before the rename stays correct.
 - `renamed` finds an answer item with a previous name of an audit kind. `audit` then
   takes the answer as an audit answer, and the judgement report gives the item as a
   stale answer with the current line.
+- `previous_name_note` gives the new name in the configuration error for a family
+  answer with a previous name.
 
 The word "decision" in the line also does not select a module or a component with that
 name.
@@ -41,7 +43,8 @@ PREVIOUS = {
     "jev move": MOVE,
 }
 _LATER = {new: old for old, new in PREVIOUS.items()}
-_NAMES = (*KINDS, MOVE)
+# Each current name has a previous name.
+_NAMES = tuple(_LATER)
 
 
 def _parts(line: str, names: tuple[str, ...] = _NAMES) -> tuple[str, str, str] | None:
@@ -73,7 +76,7 @@ def previous_line(line: str) -> str:
     if found is None:
         return line
     prefix, name, rest = found
-    return f"{prefix}{_LATER.get(name, name)}: {rest}"
+    return f"{prefix}{_LATER[name]}: {rest}"
 
 
 # The previous names of the kinds that `[judgement] answered` can contain. A `decision
@@ -90,3 +93,14 @@ def renamed(line: str) -> tuple[str, str] | None:
     if found is None or " " in found[0].removesuffix(": "):
         return None
     return found[1], PREVIOUS[found[1]]
+
+
+def previous_name_note(kind: str) -> str:
+    """Give the new name for a family answer kind with a previous name, or ""."""
+    now = PREVIOUS.get(kind)
+    if now not in KINDS:
+        return ""
+    return (
+        f'. "{kind}" is the previous name of "{now}". '
+        f'systemap does not read it from 3.1.0. Change it to "{now}".'
+    )

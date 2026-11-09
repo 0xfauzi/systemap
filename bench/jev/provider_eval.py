@@ -38,8 +38,9 @@ Acceptance value, written before the first OpenAI request of the bench rows:
   Triage: top-1.
 - A kind that fails is not available for OpenAI: `decision.thresholds("openai")` gives
   no value for it.
-- The same-pair kind (`suggest --jev`) and the move kind (`delta --jev`) have no holdout
-  rows. Thus they cannot satisfy the value, and the experiment does not send their rows.
+- The same-pair kind (`suggest --decide`) and the move kind (`delta --decide`) have no
+  holdout rows. Thus they cannot satisfy the value, and the experiment does not send
+  their rows.
 
 Each set operates one time: development, and then holdout.
 """

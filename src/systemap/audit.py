@@ -425,11 +425,13 @@ def is_audit_answer(answer: Answer) -> bool:
     matches no line, and `judgement` gives it as a stale answer."""
     if answer.kind:
         return answer.kind in KINDS
-    return bool(answer.items) and all(_audit_item(i) for i in answer.items)
+    return bool(answer.items) and all(_item_kind(i) in KINDS for i in answer.items)
 
 
-def _audit_item(item: str) -> bool:
-    return decision_kinds.kind_of(item) in KINDS or decision_kinds.renamed(item) is not None
+def _item_kind(item: str) -> str | None:
+    """Give the kind of an audit item. An item with a previous name has the new kind."""
+    names = decision_kinds.renamed(item)
+    return names[1] if names else decision_kinds.kind_of(item)
 
 
 def _covers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
@@ -439,10 +441,14 @@ def _covers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
 
 
 def _stale(mine: list[Answer], texts: list[str]) -> list[str]:
-    """Give the configured items and kinds that match no current line."""
+    """Give the configured items and kinds that match no current line.
+
+    A reviewed line with a previous kind name is also stale (`_stale_row`)."""
     present = set(texts)
     stale = [i for a in mine for i in a.items if migrated(i, present) not in present]
-    return stale + [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+    stale += [a.label for a in mine if a.kind and not any(_covers(a, t) for t in texts)]
+    renamed = (r for a in mine for r in a.reviewed if decision_kinds.renamed(r))
+    return stale + [r for r in dict.fromkeys(renamed) if r not in stale]
 
 
 def evidence(
@@ -477,12 +483,6 @@ def _asked_about(answer: Answer, kinds: Iterable[str]) -> bool:
     """Determine whether the answer names types selected in this run."""
     names = [answer.kind] if answer.kind else [_item_kind(i) for i in answer.items]
     return all(n is not None and n in kinds for n in names)
-
-
-def _item_kind(item: str) -> str | None:
-    """Give the kind of an audit item. An item with a previous name has the new kind."""
-    names = decision_kinds.renamed(item)
-    return names[1] if names else decision_kinds.kind_of(item)
 
 
 def apply(

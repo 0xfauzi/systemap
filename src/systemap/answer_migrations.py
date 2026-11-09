@@ -16,10 +16,10 @@ form has one pattern in `EARLIER_FORMS`. These lines changed:
 
 An answer item in an earlier form selects the line in the current form. `current_line`
 applies the patterns in their sequence. Thus an item can change in two or more steps.
-`warnings` gives one warning for each item in an earlier form. An item that is a current
-line gets no warning: the callers give the current lines as `present`.
+`warnings` gives one warning for each item in an earlier form of `EARLIER_FORMS`. An item
+that is a current line gets no warning: the callers give the current lines as `present`.
 
-2.0.0 and 3.0.0 also read the forms of 2.0.0 and of the releases before it: the "jev"
+2.0.0 and 3.0.0 also read these forms of the releases before 2.0.0: the "jev"
 kind names of the `audit` lines, the `entry point` line with a kind identifier such as
 "public_functions", and the `unknown surface` lines with "under Python <version>", "the
 npm tsconfig package", "the TypeScript syntax", a line number in the location, a source
@@ -47,7 +47,10 @@ Two earlier forms need the current lines. `current_lines` reads them:
   with the names, which come from the source. An item without names applies to a current
   line if the module, the file, and the target agree with one and only one current line
   of this form. A line for a declaration file has a different meaning, so an earlier item
-  does not apply to it.
+  does not apply to it. The earlier item has a line number in its location, and this
+  form still reads it.
+
+`warnings` gives no warning for an item in these two forms.
 
 `judgement` gives no line about a test file. `retired` gives the cause for an item of such
 a line. The report gives the item as a stale answer with this cause.

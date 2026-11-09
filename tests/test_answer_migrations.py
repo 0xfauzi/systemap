@@ -7,15 +7,16 @@ Acceptance values:
    current line, and it keeps the current line.
 2. The two forms that need the current lines (a line that moved to a nested map, and a
    re-export target line without names) have one test each, through
-   `answer_migrations.current_lines`.
+   `answer_migrations.current_lines`. These items get no warning.
 3. The behavior for recorded answers does not change: an item in an earlier form answers
    the current line, with the recorded evidence digest, and `warnings` names the item.
    This is also true for the decision lines of `audit`.
 4. `decision_kinds` and `judgement_moves` have no line migration.
 5. An answer for a line about a test file is stale. `retired` gives the cause.
-6. From 3.1.0, the forms of 2.0.0 and of the releases before it in `REMOVED` select no
-   line, and they get no migration warning. The judgement report gives each one as a
-   stale answer with the action. For a previous kind name, the action gives the new name.
+6. From 3.1.0, the forms of the releases before 2.0.0 in `REMOVED` and the previous kind
+   names of 2.0.0 and 3.0.0 in `RENAMED` select no line, and they get no migration
+   warning. The current line is open, and the report gives the item as a stale answer
+   with the action. For a previous kind name, the action gives the current line.
 """
 
 from __future__ import annotations
@@ -52,21 +53,46 @@ TEXT_FORMS: dict[str, tuple[str, str]] = {
 }
 
 
-# The earlier lines that 2.0.0 and 3.0.0 read, and that 3.1.0 does not read.
-REMOVED = (
+# The earlier lines that 2.0.0 and 3.0.0 read, and that 3.1.0 does not read, with the
+# current line of each one.
+REMOVED = {
     "unknown surface: module pkg.a (pkg/a.py): source could not be parsed: "
-    "SyntaxError under Python 3.11.10",
-    "unknown surface: tsconfig.json extends '@x/base': the npm tsconfig package could not be read",
-    "unknown surface: module web.a (src/a.ts): The parser could not parse the TypeScript syntax.",
+    "SyntaxError under Python 3.11.10": "unknown surface: module pkg.a (pkg/a.py): source "
+    "could not be parsed: SyntaxError",
+    "unknown surface: tsconfig.json extends '@x/base': the npm tsconfig package could not "
+    "be read": "unknown surface: tsconfig.json extends '@x/base': the configuration package "
+    "could not be read",
+    "unknown surface: module web.a (src/a.ts): The parser could not parse the TypeScript "
+    "syntax.": "unknown surface: module web.a (src/a.ts): The parser could not parse the "
+    "source syntax.",
     "unknown surface: module web.a (src/a.ts): The parser could not parse the source "
-    "syntax. Source excerpt: 'f(,)' (parser version 0.23.2)",
+    "syntax. Source excerpt: 'f(,)' (parser version 0.23.2)": "unknown surface: module "
+    "web.a (src/a.ts): The parser could not parse the source syntax.",
     "unknown surface: module web.a (src/a.ts): The parser could not parse the source "
-    "syntax. Source excerpt: 'f(,)'",
-    "unknown surface: module web.a (src/a.ts:254): dynamic import",
-    "entry point 7 public_functions into Api have no sequence (component Api)",
-    "jev mis-fold: Parser claims pkg.parser, which reads like Reader",
-    "Core: jev flow: A -> B ('x'): the code where they meet may not carry it",
-)
+    "syntax. Source excerpt: 'f(,)'": "unknown surface: module web.a (src/a.ts): The "
+    "parser could not parse the source syntax.",
+    "unknown surface: module web.a (src/a.ts:254): dynamic import": "unknown surface: "
+    "module web.a (src/a.ts): dynamic import",
+    "entry point 7 public_functions into Api have no sequence (component Api)": "entry "
+    "point 7 public functions into Api have no sequence (component Api)",
+}
+
+# The items with a previous kind name, and the current line that the stale row gives.
+# Releases before 2.0.0 put the pick of the provider at the end of a `jev` line.
+RENAMED = {
+    "jev mis-fold: Parser claims pkg.parser, which reads like Reader": (
+        "decision mis-fold: Parser claims pkg.parser"
+    ),
+    "Core: jev owner: pkg.stray is claimed by no card; closest: Reader": (
+        "Core: decision owner: pkg.stray is claimed by no card"
+    ),
+    "jev owner: pkg.stray is claimed by no card; it reads like none of the cards": (
+        "decision owner: pkg.stray is claimed by no card"
+    ),
+    "Core: jev flow: A -> B ('x'): the code where they meet may not carry it": (
+        "Core: decision flow: A -> B ('x'): the code where they meet may not carry it"
+    ),
+}
 
 
 def test_each_earlier_form_has_one_pattern_and_one_case() -> None:
@@ -106,6 +132,7 @@ def test_a_target_line_without_names_selects_the_one_line_with_names() -> None:
     )
     [moved] = answer_migrations.current_lines([Answer(items=(earlier,), reason="r")], [current])
     assert moved.items == (current,)
+    assert answer_migrations.warnings([Answer(items=(earlier,), reason="r")], {current}) == []
     second = current.replace("Missing.", "Other.")
     [kept] = answer_migrations.current_lines(
         [Answer(items=(earlier,), reason="r")], [current, second]
@@ -149,23 +176,28 @@ def test_an_answer_for_a_test_file_line_is_stale_with_a_cause() -> None:
     assert f"stale answer: '{item}' is no longer a finding: judgement gives no line" in report
 
 
-@pytest.mark.parametrize("item", REMOVED)
+@pytest.mark.parametrize("item", sorted(REMOVED))
 def test_a_removed_form_selects_no_line_and_the_report_gives_the_action(item: str) -> None:
-    """Acceptance 6."""
+    """Acceptance 6: the current line is open, and the item is a stale answer."""
+    current = REMOVED[item]
+    answer = Answer(items=(item,), reason="r", evidence="d")
+    assert answer_migrations.current_line(item) == item
+    assert answer_migrations.warnings([answer]) == []
+    assert answer_migrations.current_lines([answer], [current]) == [answer]
+    result = judgement.apply_answers([current], [answer], {current: "d"})
+    assert (result.open, result.stale) == ([current], [item])
+    report = "\n".join(judgement.report(result))
+    assert f"stale answer: '{item}' is now missing. Remove it from [judgement] answered." in (
+        report
+    )
+
+
+@pytest.mark.parametrize("item", sorted(RENAMED))
+def test_a_previous_kind_name_gives_the_current_line_in_the_stale_row(item: str) -> None:
+    """Acceptance 6, for a previous kind name."""
     assert answer_migrations.current_line(item) == item
     assert answer_migrations.warnings([Answer(items=(item,), reason="r")]) == []
-    result = judgement.apply_answers([], [Answer(items=(item,), reason="r", evidence="d")], {})
-    assert result.stale == [item]
-    report = "\n".join(judgement.report(result))
-    names = decision_kinds.renamed(item)
-    if names:
-        assert (
-            f"stale answer: '{item}' has the previous kind name \"{names[0]}\", which "
-            "systemap does not read. Change it to "
-            f"'{answer_migrations.current_line(item.replace(names[0], names[1], 1))}' "
-            "in [judgement] answered."
-        ) in report
-    else:
-        assert f"stale answer: '{item}' is now missing. Remove it from [judgement] answered." in (
-            report
-        )
+    assert answer_migrations.renamed_items([Answer(items=(item,), reason="r")]) == [item]
+    assert answer_migrations.stale(item).endswith(
+        f"which systemap does not read. Change it to '{RENAMED[item]}' in [judgement] answered."
+    )

@@ -515,10 +515,11 @@ A kind excluded from the report does not make its answer stale.
 <code>judgement</code> ignores all audit answers.</p>
 <p>The <code>decision mis-fold</code> and <code>decision owner</code> lines do not contain the component that the provider selects.
 The detail row gives that component. Thus a new model release that changes only that component
-does not open an answer again. Earlier versions put that component at the end of the line,
-for example <code>decision mis-fold: Writer claims pkg.emit, which reads like Reader</code>.
-An answer with the earlier line text matches the current line, with the same evidence digest.
-Versions before 2.0.0 used the <code>jev</code> names. From 3.1.0, systemap does not read the <code>jev</code> names.</p>
+does not open an answer again. Versions before 2.0.0 put that component at the end of the line,
+for example <code>jev mis-fold: Writer claims pkg.emit, which reads like Reader</code>.
+Those versions also used the <code>jev</code> names. From 3.1.0, systemap does not read the <code>jev</code> names.
+Thus an answer with that earlier line is a stale answer. Its row gives the current line without the component,
+for example <code>decision mis-fold: Writer claims pkg.emit</code>.</p>
 <p><code>systemap triage &quot;&lt;issue&gt;&quot; --provider jev</code> gives the three components likely to change in an
 issue fix. The report includes their modules and adjacent components.
 On 80 closed issues from two repositories, the component of the pull request with the fix was first
@@ -709,7 +710,8 @@ The previous names started with <code>jev</code>. The new names start with <code
 <code>judgement</code> and <code>audit</code> give the item as a stale answer. The row gives the current line, for example
 <code>stale answer: 'jev flow: A -&gt; B ...' has the previous kind name &quot;jev flow&quot;, which systemap does not read. Change it to 'decision flow: A -&gt; B ...' in [judgement] answered.</code>
 A <code>reviewed</code> line with a previous name also gives this row.
-An item with the new name in the same answer stays an <code>audit</code> item.</li>
+An item with the new name in the same <code>items</code> group stays an <code>audit</code> item.
+But the group is a <code>pending answer</code>, and its lines are open until you record a new digest.</li>
 <li>A family answer with a previous name, for example <code>kind = &quot;jev flow&quot;</code>, gives a configuration error.</li>
 <li><code>audit --kind &quot;jev flow&quot;</code> gives a usage error.</li>
 <li><code>systemap explain &quot;jev flow&quot;</code> gives no explanation.</li>
@@ -848,10 +850,10 @@ Remove the item from <code>[judgement] answered</code>.</p>
 For example, <code>delta --decide --provider openai</code> prints <code>OpenAI suggestions</code>. With Jev, it prints <code>Jev suggestions</code>.</p>
 <p>To change a configuration to the new names, do these steps:</p>
 <ol>
+<li>Before you install 3.1.0, replace <code>--jev</code> with <code>--decide</code> and <code>--no-jev</code> with <code>--no-decide</code> in scripts and CI files. 3.0.0 reads the new options.</li>
 <li>In <code>systemap.toml</code>, replace each previous name in <code>[judgement] answered</code> with its new name.</li>
 <li>If you changed an <code>items</code> group, use <code>systemap audit --provider jev</code>.</li>
 <li>Examine the source of each <code>pending answer</code> line again. Then record the digest from that line.</li>
-<li>Replace <code>--jev</code> with <code>--decide</code> and <code>--no-jev</code> with <code>--no-decide</code> in scripts and CI files.</li>
 <li>Use <code>systemap judgement --strict</code>. Make sure that it prints no stale answer and no warning.</li>
 </ol>
 <h2 id="what-do-you-do-above-forty-components">What do you do above forty components?</h2>

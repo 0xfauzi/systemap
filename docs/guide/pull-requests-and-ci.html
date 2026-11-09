@@ -128,7 +128,8 @@ The answers are suggestions under their own heading. They do not change the delt
 <ul>
 <li><code>delta --jev</code>, <code>delta --no-jev</code>, and <code>suggest --jev</code> give a usage error and exit 2. Use <code>--decide</code> and <code>--no-decide</code>.</li>
 <li><code>audit --kind</code> with a previous <code>jev</code> name gives a usage error. A family answer with a previous <code>jev</code> name, for example <code>kind = &quot;jev flow&quot;</code>, gives a configuration error.</li>
-<li>An exact answer with a previous <code>jev</code> name or with a line form from 2.0.0 or before 2.0.0 matches no line. <code>judgement</code> gives it as a stale answer, and the current line is open. For a <code>jev</code> name, the row gives the new name.</li>
+<li>An exact answer with a previous <code>jev</code> name or with a line form from before 2.0.0 matches no line. <code>judgement</code> gives it as a stale answer, and the current line is open. For a <code>jev</code> name, the row gives the new name.</li>
+<li><code>refresh</code> does not do the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. A flow review from 2.0.0 that gives only the claim is stale, and an answer with evidence from 2.0.0 is pending. If the configuration comes from 2.0.0, run <code>systemap refresh</code> on 3.0.0 before you install 3.1.0.</li>
 </ul>
 <h2 id="changes-that-the-upgrade-to-3-0-0-makes-in-ci">Changes that the upgrade to 3.0.0 makes in CI</h2>
 <p>These changes can change the result of a CI job after you install 3.0.0:</p>

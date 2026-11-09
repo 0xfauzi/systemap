@@ -20,9 +20,13 @@ A layer is a filtered view of the map.
   - An exact answer with a previous `jev` name matches no line. `judgement` and `audit` give it as a stale answer, and the row gives the current line, for example
     `stale answer: 'jev sentence: ...' has the previous kind name "jev sentence", which systemap does not read. Change it to 'decision sentence: ...' in [judgement] answered.`
     For a `jev mis-fold` or `jev owner` item that ends with the pick of the provider, the current line does not have the pick.
-    An item in the same answer with a new name stays correct. A `reviewed` line with a previous name also gives this row.
+    A `reviewed` line with a previous name also gives this row.
     The evidence digest of a decision line does not change. Thus an exact answer with one item stays current after you change the item.
-  - An exact answer in a line form from 2.0.0 or before 2.0.0 matches no line. These forms are:
+    An `items` group with an item that has a previous name gets a new evidence digest.
+    Thus `audit` gives the group as a `pending answer`, and the other lines of the group are open again.
+    The digest of a group contains the text of each item. After you change the item, the group stays pending.
+    Record the new digest from the `pending answer` line.
+  - An exact answer in a line form from before 2.0.0 matches no line. These forms are:
     the `unknown surface` line with `under Python <version>`, `the npm tsconfig package`, or `the TypeScript syntax`,
     the `unknown surface` line with a line number in the location, a source excerpt, or a parser version,
     and the `entry point` line with a kind identifier such as `public_functions`.
@@ -33,14 +37,24 @@ A layer is a filtered view of the map.
   These earlier line forms stay:
   - a line with a control character,
   - the `crossing import` line and the `package_export` line with a count,
-  - the `decision mis-fold` and `decision owner` lines with the pick of the provider,
   - an `unknown surface` line that moved to a nested map,
-  - a re-export target line without names.
+  - a re-export target line without names. This form also reads the line number in the location.
 
   The earlier answer items in these forms still select the current line.
+  `judgement` gives no warning for an item that moved to a nested map or for a re-export target line without names.
+  No release gave a `decision mis-fold` or `decision owner` line with the pick of the provider.
+  The stale-answer row of a `jev` item with the pick gives the current line without the pick.
 
-  Step: on 3.0.0, run `systemap judgement --strict`. Replace each item that a warning names. Then install this release.
-  After the upgrade, replace each `--jev` and `--no-jev` in scripts and CI files.
+  Steps:
+  1. On 3.0.0, replace each `--jev` with `--decide` and each `--no-jev` with `--no-decide` in scripts and CI files. 3.0.0 reads the new options.
+  2. On 3.0.0, run `systemap judgement --strict`. Replace each item that a warning names.
+  3. Install this release.
+- From 3.1.0, systemap does not do the one-time upgrade of 2.0.0 flow reviews and 2.0.0 answer evidence. 3.0.0 said that this upgrade runs only in 3.0.
+  - A 2.0.0 flow review that gives only the claim is stale.
+  - An answer with 2.0.0 evidence is pending.
+  - `systemap refresh` does not write the current evidence of a 2.0.0 answer.
+
+  Step: if the configuration comes from systemap 2.0.0, run `systemap refresh` on 3.0.0 and commit the output. Then install this release.
 - `render`, `refresh`, and `live` write the canvas page by default (`[render] canvas = true`, step 5 of `docs/design/nested-canvas.md`).
   The canvas page draws all maps of the map tree on one canvas. The page of each nested map is a redirect page.
   The header has the views, the layers, Find, the theme, Reduce motion, the keyboard keys, and the source of the map. The Details panel gives the selected card. A dotted ring on an actor card shows an open boundary finding.
@@ -74,7 +88,7 @@ A layer is a filtered view of the map.
   The stored values change one time. For the 178 modules of this repository on 3.11, 178 syntax digests, 1,179 of 3,821 fingerprints, 476 of 664 previews and 44 of 1,211 signatures changed. On 3.13 and 3.14, 1,026 fingerprints changed.
   Each syntax digest changes. Thus each recorded source review of a Python component is stale one time. Examine the claims again, then record the reviews with `systemap review`.
   `bench/jev/README.md` gives the measurement and the counts for the standard library.
-  A configuration from systemap 2.0.0: run `systemap refresh` with systemap 3.0.0 first, then upgrade. This release cannot write the current evidence of an answer from 2.0.0 whose module has a signature or a preview that changed, because the 2.0.0 evidence has the earlier text. Such an answer stays pending.
+  A configuration from systemap 2.0.0: run `systemap refresh` with systemap 3.0.0 first, then upgrade. This release does not write the current evidence of an answer from 2.0.0. Such an answer stays pending.
 - A Python syntax node class or field that systemap does not know stops the extraction with exit code 1. The error gives the class and the Python version.
   Before the change, `ast.dump` wrote such a node, and its text could change with the interpreter.
 - `systemap judgement` has two new finding kinds for each nested map: `boundary flow` and `boundary import`.

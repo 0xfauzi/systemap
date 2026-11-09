@@ -57,7 +57,8 @@ These changes can change the result of a CI job after you install 3.1.0:
 
 - `delta --jev`, `delta --no-jev`, and `suggest --jev` give a usage error and exit 2. Use `--decide` and `--no-decide`.
 - `audit --kind` with a previous `jev` name gives a usage error. A family answer with a previous `jev` name, for example `kind = "jev flow"`, gives a configuration error.
-- An exact answer with a previous `jev` name or with a line form from 2.0.0 or before 2.0.0 matches no line. `judgement` gives it as a stale answer, and the current line is open. For a `jev` name, the row gives the new name.
+- An exact answer with a previous `jev` name or with a line form from before 2.0.0 matches no line. `judgement` gives it as a stale answer, and the current line is open. For a `jev` name, the row gives the new name.
+- `refresh` does not do the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. A flow review from 2.0.0 that gives only the claim is stale, and an answer with evidence from 2.0.0 is pending. If the configuration comes from 2.0.0, run `systemap refresh` on 3.0.0 before you install 3.1.0.
 
 ## Changes that the upgrade to 3.0.0 makes in CI
 
