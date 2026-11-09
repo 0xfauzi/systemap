@@ -9,9 +9,10 @@ The toolbar. It is a bar under the header, and it shows only in the Sequences vi
 has the words of the linked page (`page_sequences.toolbar`): the sequence chooser, Whole
 route and Steps, Start at step 1, Previous, Next and End sequence. The chooser opens a
 listbox. The sequences of the current map come first, then the sequences of the other maps
-in tree order, in one group for each map. In the listbox, the arrow keys, Home, End and a
-letter move the keyboard focus, Enter or Space selects, Escape closes the list, and Tab
-closes it and goes on. The arrow keys move between the controls of the toolbar. The keys
+in tree order, in one group for each map. The page makes the listbox with DOM functions
+(`el`), so no text of the canvas data goes to an HTML parser. In the listbox, the arrow
+keys, Home, End and a letter move the keyboard focus, Enter or Space selects, Escape closes
+the list, and Tab closes it and goes on. The arrow keys move between the controls of the toolbar. The keys
 of the toolbar do not move the camera (`ownKeys`). The page gives no new key for the
 steps: the arrow keys move the camera on the canvas. The bar is part of the top band of
 the screen (`band`), so the fit and the path stay below it.
@@ -343,17 +344,16 @@ function seqGroups() {
   return SEQ_MAPS.indexOf(m) < 0 ? SEQ_MAPS : [m].concat(SEQ_MAPS.filter(function (x) { return x !== m; }));
 }
 function seqOpen() {
-  var r = SEQ_PICK.getBoundingClientRect(), s = SEQ_LIST.style, out = [];
-  seqGroups().forEach(function (m) {
-    out.push('<div role="group" aria-label="Map: ' + esc(mapName(m)) + '"><div class="cseq__group" aria-hidden="true">' + esc(mapName(m)) + '<\/div>');
-    m.sq.forEach(function (j, k) {
-      var on = SEQ.m === m && SEQ.k === k, meta = (j.en ? j.en + ' · ' : '') + counted(j.s.length, 'step') + (j.dr ? ' · Agent draft' : '');
-      out.push('<div role="option" class="cseq__opt" tabindex="-1" data-m="' + m.oi + '" data-k="' + k + '" aria-selected="' + on + '">' +
-        '<span class="cseq__opt-name">' + esc(j.n) + '<\/span><span class="cseq__opt-meta">' + esc(meta) + '<\/span><\/div>');
-    });
-    out.push('<\/div>');
-  });
-  SEQ_LIST.innerHTML = out.join('');
+  var r = SEQ_PICK.getBoundingClientRect(), s = SEQ_LIST.style;
+  SEQ_LIST.replaceChildren.apply(SEQ_LIST, seqGroups().map(function (m) {
+    return el('div', {role: 'group', 'aria-label': 'Map: ' + mapName(m)},
+      el('div', {'class': 'cseq__group', 'aria-hidden': 'true'}, mapName(m)),
+      m.sq.map(function (j, k) {
+        var on = SEQ.m === m && SEQ.k === k, meta = (j.en ? j.en + ' · ' : '') + counted(j.s.length, 'step') + (j.dr ? ' · Agent draft' : '');
+        return el('div', {role: 'option', 'class': 'cseq__opt', tabindex: '-1', 'data-m': m.oi, 'data-k': k, 'aria-selected': String(on)},
+          el('span', {'class': 'cseq__opt-name'}, j.n), el('span', {'class': 'cseq__opt-meta'}, meta));
+      }));
+  }));
   s.width = Math.min(Math.max(r.width, 360), window.innerWidth - 16) + 'px';
   s.left = Math.max(8, Math.min(r.left, window.innerWidth - 8 - parseFloat(s.width))) + 'px';
   s.top = r.bottom + 6 + 'px'; s.maxHeight = Math.max(120, window.innerHeight - r.bottom - 22) + 'px';

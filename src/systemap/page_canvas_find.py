@@ -5,10 +5,11 @@ result in a different map moves the camera to that card. The dialog is the dialo
 map page (`page_palette.html` and `page_palette.CSS`). The canvas page adds CSS to it
 (`CSS`): on a touch screen, the Close button and the rows are 44 x 44 px or more. The match
 code and the code of the list and of the dialog are the same text as on the map page
-(`page_palette.MATCH` and `page_palette.LIST`), with one change (`LIST`): the text for no
-result is an option that is not available, because the list has the role listbox. The
-ranking is the ranking of step 8 of docs/design/nested-parts.md (`RANK`): the group "Other
-maps" comes after the groups of the current map, it shows 8 rows or fewer, and its rows
+(`page_palette.MATCH` and `page_palette.LIST`), with two changes (`LIST`). The canvas page
+makes the rows and their glyphs with DOM functions (`el` in `page_canvas_tree`), not with
+HTML text. Thus no text of the canvas data goes to an HTML parser. The text for no result
+is an option that is not available, because the list has the role listbox. The ranking is
+the ranking of step 8 of docs/design/nested-parts.md (`RANK`): the group "Other maps" comes after the groups of the current map, it shows 8 rows or fewer, and its rows
 give the actors and the flows after the internal components. The name of that group does
 not show all its rows.
 
@@ -44,7 +45,6 @@ from __future__ import annotations
 import json
 
 from systemap import page_icons, page_palette
-from systemap.page_icons import icon
 
 # The card text of a result is cut to this number of characters (`PLAIN_CHARACTERS` of
 # step 8).
@@ -121,12 +121,39 @@ var FIND = null;
   var plural = counted;
 """
 
-# The result helpers of the map page (`page_palette.ITEMS`). A result of the canvas page
-# also has `late`: the ranking puts it after the other shown rows of its group (`RANK`).
-_HINT = "hint:o.now ? 'Current' : o.hint || '',"
-ITEMS = page_palette.ITEMS.replace(_HINT, _HINT + " late:!!o.late,")
-if ITEMS == page_palette.ITEMS:  # pragma: no cover - a guard for a change of the helpers
-    raise ValueError("The result helpers of the map page have no hint.")
+# The result helpers. They are the helpers of the map page (`page_palette.ITEMS`) with two
+# changes. A result of the canvas page also has `late`: the ranking puts it after the other
+# shown rows of its group (`RANK`). The glyph of a result is a function that makes its
+# element with DOM functions (`el` in `page_canvas_tree`), not HTML text. The list calls it
+# for each row that it shows.
+ITEMS = r"""  function add(g, t, s, run, o){
+    o = o || {};
+    items.push({g:g, t:t, s:s || '', run:run, keys:o.keys || [], words:o.words || '',
+      more:o.more || [], glyph:o.glyph || function(){ return el('i'); }, quiet:!!o.quiet,
+      hint:o.now ? 'Current' : o.hint || '', late:!!o.late,
+      k:items.length});
+  }
+  function line(colour, dash){
+    return function(){
+      return el('i', {'class':'pal__line' + (dash ? ' dash' : ''), style:colour ? '--c:' + colour : null});
+    };
+  }
+  function badge(n, square){
+    return function(){ return el('b', {'class':'pal__n' + (square ? ' sq' : '')}, n); };
+  }
+  // The icon `name` (`page_icons`): an SVG element with one path.
+  function svgIcon(name){
+    return function(){
+      var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+      var path = document.createElementNS(NS, 'path');
+      [['class', 'icon'], ['viewBox', '0 0 16 16'], ['aria-hidden', 'true'], ['focusable', 'false']]
+        .forEach(function(a){ svg.setAttribute(a[0], a[1]); });
+      path.setAttribute('d', ICONS[name]);
+      svg.append(path);
+      return svg;
+    };
+  }
+"""
 
 _BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top map'); }
   function layerColour(id){ return 'var(--l-' + id + ')'; }
@@ -186,7 +213,7 @@ _BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top m
       ['changes', 'change', 'What did this change touch?']].forEach(function(v){
       if(v[0] !== 'map' && !VIEWS[v[0]]){ return; }
       add('Views', MODE_NAMES[v[0]], v[2], function(){ setView(v[0]); },
-        {glyph:ICONS[v[1]], now:VIEW.mode === v[0]});
+        {glyph:svgIcon(v[1]), now:VIEW.mode === v[0]});
     });
     add('Layers', 'All', layerQuestion('all'), function(){ setView('map', 'all'); },
       {glyph:line(''), now:VIEW.mode === 'map' && VIEW.layer === 'all'});
@@ -201,7 +228,9 @@ _BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top m
     return m.cards.filter(function(c){ return c.k !== 'actor'; })
       .concat(m.cards.filter(function(c){ return c.k === 'actor'; }));
   }
-  function glyphOf(c){ return '<i class="pal__card' + (c.k === 'actor' ? ' actor' : '') + '"></i>'; }
+  function glyphOf(c){
+    return function(){ return el('i', {'class':'pal__card' + (c.k === 'actor' ? ' actor' : '')}); };
+  }
   function here(m){
     var lay = {};
     (m.layers || []).forEach(function(l){ lay[l.id] = l; });
@@ -239,7 +268,7 @@ _BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top m
           if(steps){ seqMode(true, s, true); }
         }
         add('Sequences', j.n, counted(j.s.length, 'step') + (j.en ? ' · ' + j.en : ''),
-          function(){ show(false, 0); }, {glyph:ICONS.route, hint:hint});
+          function(){ show(false, 0); }, {glyph:svgIcon('route'), hint:hint});
         j.s.forEach(function(st, s){
           var f = st.f >= 0 ? m.flows[st.f] : null;
           add('Steps', st.y || 'Step ' + (s + 1), j.n + ' · step ' + (s + 1),
@@ -251,9 +280,9 @@ _BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top m
   }
   function actions(){
     add('Actions', 'Fit the current map', 'The camera shows all of the current map',
-      function(){ fitCurrent(); }, {keys:['F'], glyph:ICONS.fit, words:'camera zoom'});
+      function(){ fitCurrent(); }, {keys:['F'], glyph:svgIcon('fit'), words:'camera zoom'});
     add('Actions', 'Go to the top map', 'The camera shows all of the top map',
-      function(){ setHash(''); flyTo(topFrame(), FIT); }, {glyph:ICONS['zoom-out'], words:'camera'});
+      function(){ setHash(''); flyTo(topFrame(), FIT); }, {glyph:svgIcon('zoom-out'), words:'camera'});
   }
   // The results of the canvas data, with the current map first.
   function build(){
@@ -293,19 +322,51 @@ _TAIL = r"""
 if (window.systemapCanvas) window.systemapCanvas.find = FIND;
 """
 
-# The list of the results has the role listbox. A listbox has only options and groups, thus
-# the text for no result is an option that is not available (the rule aria-required-children
-# of axe-core). The map page keeps its bytes: this change is only in the canvas page.
-_NONE = 'list.innerHTML = h || \'<p class="pal__none">'
-LIST = page_palette.LIST.replace(
-    _NONE, 'list.innerHTML = h || \'<p class="pal__none" role="option" aria-disabled="true">'
-)
-if LIST == page_palette.LIST:  # pragma: no cover - a guard for a change of the list code
-    raise ValueError("The list code of the map page has no text for no result.")
+# The list of the results. It is the list code of the map page (`page_palette.LIST`), with
+# its own rows (`_ROWS`): the rows are made with DOM functions (`el`), not with HTML text.
+# Thus no text of the canvas data goes to an HTML parser. The map page keeps its bytes. The
+# list has the role listbox. A listbox has only options and groups, thus the text for no
+# result is an option that is not available (the rule aria-required-children of axe-core).
+_ROWS = r"""  function name(r){
+    var t = r.it.t, f = r.first;
+    if(!f || !f.name || f.i === undefined){ return t; }
+    var end = f.i + r.q.length;
+    return [t.slice(0, f.i), el('mark', null, t.slice(f.i, end)), t.slice(end)];
+  }
+  function row(r, k){
+    return el('div', {'class':'pal__o', role:'option', id:'pal-o' + k, 'data-k':k, 'aria-selected':'false'},
+      r.it.glyph(), el('span', {'class':'pal__t'}, name(r)),
+      el('span', {'class':'pal__s'}, r.module ? 'Module: ' + r.module : r.it.s),
+      el('span', {'class':'pal__k'}, r.it.hint ? el('span', null, r.it.hint) : null,
+        r.it.keys.map(function(key){ return el('kbd', null, key); })));
+  }
+  function render(){
+    var out = [];
+    shown = [];
+    rank(input.value.trim().toLowerCase()).forEach(function(g, n){
+      out.push(el('div', {role:'group', 'aria-labelledby':'pal-g' + n},
+        el('p', {'class':'pal__g', id:'pal-g' + n}, g.g),
+        g.rows.map(function(r){ var o = row(r, shown.length); shown.push(r.it); return o; })));
+    });
+    if(!out.length){
+      out.push(el('p', {'class':'pal__none', role:'option', 'aria-disabled':'true'},
+        'No result has this text. Type a name, a function, a module or an action.'));
+    }
+    list.replaceChildren.apply(list, out);
+    move(0);
+    if(status){ status.textContent = plural(shown.length, 'result'); }
+  }
+"""
+_START, _END = "  function name(r){", "  function move(k, pointer){"
+_HEAD_LIST, _found, _rest = page_palette.LIST.partition(_START)
+_OLD_ROWS, _found_end, _TAIL_LIST = _rest.partition(_END)
+if not (_found and _found_end and "list.innerHTML" in _OLD_ROWS):  # pragma: no cover
+    raise ValueError("The list code of the map page has no rows to replace.")
+LIST = _HEAD_LIST + _ROWS + _END + _TAIL_LIST
 
 FIND = (
     (_HEAD + ITEMS + _BODY + page_palette.MATCH + RANK + LIST + _TAIL)
-    .replace("ICONS_JSON", json.dumps({name: icon(name) for name in _GLYPHS}))
+    .replace("ICONS_JSON", json.dumps({name: page_icons.PATHS[name] for name in _GLYPHS}))
     .replace("TEXT_CHARACTERS", str(TEXT_CHARACTERS))
 )
 

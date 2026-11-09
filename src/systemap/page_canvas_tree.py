@@ -3,11 +3,13 @@
 The canvas page (`canvas_page`) has an empty `nav` element after the canvas. After the
 first frame is on the screen, this part writes the list of the tree into it from the
 canvas data, in one step (`buildTree`). Thus the page bytes do not grow with the list, and
-the list does not make the time to the first frame longer. The list gives each map, its
-cards and its flows. Each card has its name, its card text, its `does` text and its facts: the
-modules, the count of flows in and out, the assurance level and the freshness. The cards
-of a map are in the reading order of Tab (`page_canvas_keys`): the rows from the top to the
-bottom, and in each row the cards from the left to the right.
+the list does not make the time to the first frame longer. The script makes the list with
+DOM functions (`el`), not with HTML text. Thus no text of the canvas data goes to an HTML
+parser. The list gives each map, its cards and its flows. Each card has its name, its card
+text, its `does` text and its facts: the modules, the count of flows in and out, the
+assurance level and the freshness. The cards of a map are in the reading order of Tab
+(`page_canvas_keys`): the rows from the top to the bottom, and in each row the cards from
+the left to the right.
 A card that opens a map holds the list of that map.
 
 Each item is a link. Its `href` is the URL hash of its card, or of its map for a flow, for
@@ -56,12 +58,32 @@ HTML = (
     '<p id="canvas-said" class="sr-only" aria-live="polite"></p>'
 )
 
-# The list text has "<\\/" in place of "</": the page embeds the script in a script element.
 TREE = r"""
 // ---- the list of the tree and the canvas label -------------------------------------
 var TREE_EL = document.getElementById('canvas-tree'), LABEL = '', SAID_MAP = null, TREE_MS = null;
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, function (ch) { return ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : '&quot;'; });
+// Make the HTML element `tag` with DOM functions, not with HTML text. Thus no text of the
+// canvas data goes to an HTML parser. The tree, the Sequences list, the Details panel and
+// Find can use it. Each key of `attrs` gives an attribute (`setAttribute`). A value of null,
+// undefined or false gives no attribute. The function does not set a name that starts with
+// "on", and it sets `href` only to a URL hash ("#..."). Each argument after `attrs` is an
+// element, a text, a number, or an array of these. The function adds a text or a number as
+// text, and it adds nothing for null, undefined or false.
+function el(tag, attrs) {
+  var e = document.createElement(tag), k, v;
+  for (k in attrs || {}) {
+    v = attrs[k];
+    if (v === null || v === undefined || v === false || /^on/i.test(k)) continue;
+    v = String(v);
+    if (k.toLowerCase() === 'href' && v.charAt(0) !== '#') continue;
+    e.setAttribute(k, v);
+  }
+  for (var i = 2; i < arguments.length; i++) addChild(e, arguments[i]);
+  return e;
+}
+function addChild(e, x) {
+  if (x === null || x === undefined || x === false) return;
+  if (Array.isArray(x)) x.forEach(function (y) { addChild(e, y); });
+  else e.append(typeof x === 'object' ? x : String(x));
 }
 function counted(n, one) { return n + ' ' + one + (n === 1 ? '' : 's'); }
 // The ID that the URL hash gives to a card: the ID of its map, a slash and the card ID.
@@ -86,26 +108,25 @@ function factsText(c) {
   if (more) out.push(more);
   return out.join(' ');
 }
-function link(hash, data, text) { return '<a href="' + esc(hash || '#') + '" ' + data + '>' + esc(text) + '<\/a>'; }
+// A link of the list: `at` gives the data attributes of its map and its card or flow.
+function treeLink(hash, at, text) {
+  return el('a', Object.assign({href: hash || '#'}, at), text);
+}
 // The lists of the cards and of the flows of a map. The cards are in the reading order of
 // Tab (`readingOrder` in `page_canvas_keys`). The item of a card that opens a map holds the
 // lists of that map.
 function mapLists(m) {
-  var name = esc(mapName(m)), at = 'data-m="' + m.oi + '" ', out = ['<ul aria-label="Cards of ' + name + '">'];
-  readingOrder(m).forEach(function (c) {
-    out.push('<li>', link(hashOf(cardId(c)), at + 'data-c="' + c.i + '"', c.id), ' ', esc(factsText(c)));
-    if (c.child) out.push(mapLists(c.child));
-    out.push('<\/li>');
-  });
-  out.push('<\/ul>');
+  var name = mapName(m), out = [];
+  out.push(el('ul', {'aria-label': 'Cards of ' + name}, readingOrder(m).map(function (c) {
+    return el('li', null, treeLink(hashOf(cardId(c)), {'data-m': m.oi, 'data-c': c.i}, c.id), ' ' + factsText(c),
+      c.child ? mapLists(c.child) : null);
+  })));
   if (m.flows.length) {
-    out.push('<ul aria-label="Flows of ' + name + '">');
-    m.flows.forEach(function (f) {
-      out.push('<li>', link(hashOf(m.id), at + 'data-f="' + f.i + '"', 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a), '<\/li>');
-    });
-    out.push('<\/ul>');
+    out.push(el('ul', {'aria-label': 'Flows of ' + name}, m.flows.map(function (f) {
+      return el('li', null, treeLink(hashOf(m.id), {'data-m': m.oi, 'data-f': f.i}, 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a));
+    })));
   }
-  return out.join('');
+  return out;
 }
 // A new list replaces the links. When a link of the list has the keyboard focus, the same
 // link of the new list gets it (`data-m` and `data-c` or `data-f`).
@@ -115,7 +136,8 @@ function buildTree() {
   if (a && a.tagName === 'A' && TREE_EL.contains(a)) {
     keep = ['data-m', 'data-c', 'data-f'].map(function (n) { return a.hasAttribute(n) ? '[' + n + '="' + a.getAttribute(n) + '"]' : ''; }).join('');
   }
-  TREE_EL.innerHTML = '<ul><li>' + link('', 'data-m="0"', 'Map: ' + mapName(TOP)) + ' ' + esc(sizeText(TOP) + '.' + viewSay(TOP)) + mapLists(TOP) + '<\/li><\/ul>';
+  TREE_EL.replaceChildren(el('ul', null, el('li', null, treeLink('', {'data-m': 0}, 'Map: ' + mapName(TOP)),
+    ' ' + sizeText(TOP) + '.' + viewSay(TOP), mapLists(TOP))));
   var back = keep && TREE_EL.querySelector('a' + keep);
   if (back) back.focus({preventScroll: true});
   TREE_MS = performance.now() - t0;

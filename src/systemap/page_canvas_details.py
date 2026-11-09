@@ -29,6 +29,8 @@ map is the same with the panel open or closed. The panel fades in and out in 160
 at one time with reduced motion. Its text changes only at a change of the selection, of
 the flow in the panel, or of the current map without a selection (`detSync`). Thus a
 frame with no such change makes no DOM change, and the panel adds no work to a frame.
+The script makes the text of the panel with DOM functions (`el` in `page_canvas_tree`), not
+with HTML text. Thus no text of the canvas data goes to an HTML parser.
 
 On a narrow screen, the tools of the header go into one Tools menu (`data-menu` in
 `headMeasure`). On a touch screen, each target of the tools, of the menu and of the panel
@@ -224,34 +226,38 @@ DETAILS = r"""
   // ---- the Details panel -----------------------------------------------------------
   var panel = byId('cdetails'), body = byId('cdet-body'), title = byId('cdet-title'), toggle = byId('details-toggle');
   var ON = false, SHOWN = null, FLOW = null, BACK = null, FROM = null, EV = EVIDENCE_JSON, FF = DATA.maps[0].ff || 'the facts file';
-  function list(xs) { return xs.length ? xs.map(function (x) { return '<code>' + esc(x) + '<\/code>'; }).join(', ') : 'none recorded'; }
-  function level(o) { return o.as ? ' <span class="cdet__as">' + esc(o.as[0] + ' · ' + o.as[1]) + '<\/span>' : ''; }
+  // The parts of the panel are elements and text from `el` (`page_canvas_tree`), not
+  // HTML text. Thus no text of the canvas data goes to an HTML parser.
+  function list(xs) { return xs.length ? xs.map(function (x, i) { return [i ? ', ' : null, el('code', null, x)]; }) : 'none recorded'; }
+  function level(o) { return o.as ? [' ', el('span', {'class': 'cdet__as'}, o.as[0] + ' · ' + o.as[1])] : null; }
   // The steps of the sequences of map m that `has` takes, as one line for each sequence.
   function steps(m, has) {
     var out = [];
     (m.sq || []).forEach(function (q) {
       var at = [];
       q.s.forEach(function (s, k) { if (has(s, m.flows[s.f])) at.push(k + 1); });
-      if (at.length) out.push('<li>' + esc(q.n) + ': ' + (at.length === 1 ? 'step ' : 'steps ') + at.join(', ') + '.<\/li>');
+      if (at.length) out.push(el('li', null, q.n + ': ' + (at.length === 1 ? 'step ' : 'steps ') + at.join(', ') + '.'));
     });
-    return '<h4>SEQUENCES<\/h4>' + (out.length ? '<ul>' + out.join('') + '<\/ul>' : '<p>No sequence of this map has this item.<\/p>');
+    return [el('h4', null, 'SEQUENCES'), out.length ? el('ul', null, out) : el('p', null, 'No sequence of this map has this item.')];
   }
   function rules(m, c) {
-    var h = '';
+    var h = [];
     (m.iv || []).forEach(function (r) {
-      if (!c || (r.g || []).indexOf(c.id) >= 0) h += '<li><b>' + r.n + '<\/b> ' + esc(r.t) + level(r) + '<\/li>';
+      if (!c || (r.g || []).indexOf(c.id) >= 0) h.push(el('li', null, el('b', null, r.n), ' ' + r.t, level(r)));
     });
     (m.ir || []).forEach(function (r) {
       var s = r.s || [], t = r.t || [];
-      if (!c || !s.length || s.indexOf(c.id) >= 0 || t.indexOf(c.id) >= 0) h += '<li>Import rule <code>' + esc(r.id) + '<\/code> ' + esc(r.k) + level(r) + '<\/li>';
+      if (!c || !s.length || s.indexOf(c.id) >= 0 || t.indexOf(c.id) >= 0) h.push(el('li', null, 'Import rule ', el('code', null, r.id), ' ' + r.k, level(r)));
     });
-    return '<h4>RULES<\/h4>' + (h ? '<p>Each rule gives its assurance level and its freshness.<\/p><ul>' + h + '<\/ul>' : '<p>The model has no rules for ' + (c ? 'this card' : 'this map') + '.<\/p>');
+    return [el('h4', null, 'RULES'), h.length ? [el('p', null, 'Each rule gives its assurance level and its freshness.'), el('ul', null, h)]
+      : el('p', null, 'The model has no rules for ' + (c ? 'this card' : 'this map') + '.')];
   }
   function flowRow(f, other) {
-    return '<li><button type="button" data-f="' + f.i + '">' + esc(f.a) + ' ' + other + '<\/button> <span class="cdet__as">' + esc(EV[f.ev] || f.ev) + '<\/span><\/li>';
+    return el('li', null, el('button', {type: 'button', 'data-f': f.i}, f.a + ' ' + other), ' ', el('span', {'class': 'cdet__as'}, EV[f.ev] || f.ev));
   }
   function flows(name, fs, word, end) {
-    return '<h4>' + name + ' (' + fs.length + ')<\/h4>' + (fs.length ? '<ul>' + fs.map(function (f) { return flowRow(f, word + ' ' + esc(f[end])); }).join('') + '<\/ul>' : '<p>None.<\/p>');
+    return [el('h4', null, name + ' (' + fs.length + ')'),
+      fs.length ? el('ul', null, fs.map(function (f) { return flowRow(f, word + ' ' + f[end]); })) : el('p', null, 'None.')];
   }
   function fileOf(m, x) { return 'f' in x ? x.f : m.fr ? m.fr[0] + x.i.replace(/\./g, '/') + m.fr[1] : ''; }
   function nameOf(m, x) { return typeof x === 'number' ? m.md[x].i : x; }
@@ -263,48 +269,50 @@ DETAILS = r"""
   }
   function module(m, j) {
     var x = m.md[j], file = fileOf(m, x);
-    return '<details><summary>' + esc(x.i) + '<\/summary><p>' + (file ? '<code>' + esc(file) + '<\/code>' : 'Source path not recorded') + '<\/p>'
-      + '<p>Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n ? x.n[1] : 0) + '.<\/p>'
-      + '<p>Imports: ' + list((x.im || []).map(function (y) { return nameOf(m, y); })) + '.<\/p>'
-      + '<p>Imported by: ' + list(importers(m, j)) + '.<\/p>'
-      + '<p>External imports: ' + list(x.ex || []) + '.<\/p>'
-      + (x.uk || []).map(function (u) { return '<p>Unknown fact: ' + esc(u) + '<\/p>'; }).join('') + '<\/details>';
+    return el('details', null, el('summary', null, x.i), el('p', null, file ? el('code', null, file) : 'Source path not recorded'),
+      el('p', null, 'Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n ? x.n[1] : 0) + '.'),
+      el('p', null, 'Imports: ', list((x.im || []).map(function (y) { return nameOf(m, y); })), '.'),
+      el('p', null, 'Imported by: ', list(importers(m, j)), '.'),
+      el('p', null, 'External imports: ', list(x.ex || []), '.'),
+      (x.uk || []).map(function (u) { return el('p', null, 'Unknown fact: ' + u); }));
   }
+  // Give an element of `make` for each item of `xs`. When `xs` is empty, give the paragraph `none`.
+  function listOr(xs, make, none) { return xs.length ? xs.map(make) : el('p', null, none); }
   function sources(m, c) {
     var r = (m.sr || {})[c.id] || {};
-    return '<h4>SOURCE EVIDENCE<\/h4>'
-      + (c.u || []).map(function (u) { return '<p>The source data has no source for this module claim: <code>' + esc(u) + '<\/code>.<\/p>'; }).join('')
-      + '<details><summary>Source records<\/summary><p>Module claims in the model: ' + list(c.m || []) + '.<\/p>'
-      + (r.sc || []).map(function (s) { return '<p>Public name in the model: <code>' + esc(s) + '<\/code>.<\/p>'; }).join('')
-      + ((r.mo || []).map(function (j) { return module(m, j); }).join('') || '<p>The source data has no modules for this component card.<\/p>')
-      + '<p>The facts file <code>' + esc(FF) + '<\/code> gives the module descriptions, the public names and the tests. References do not prove coverage.<\/p>'
-      + '<p><b>Entry points.<\/b> An entry point is where a program can start.<\/p>'
-      + ((r.pt || []).map(function (p) { return '<p><code>' + esc(p) + '<\/code><\/p>'; }).join('') || '<p>No entry points were extracted for these modules.<\/p>')
-      + '<\/details>';
+    return [el('h4', null, 'SOURCE EVIDENCE'),
+      (c.u || []).map(function (u) { return el('p', null, 'The source data has no source for this module claim: ', el('code', null, u), '.'); }),
+      el('details', null, el('summary', null, 'Source records'), el('p', null, 'Module claims in the model: ', list(c.m || []), '.'),
+        (r.sc || []).map(function (s) { return el('p', null, 'Public name in the model: ', el('code', null, s), '.'); }),
+        listOr(r.mo || [], function (j) { return module(m, j); }, 'The source data has no modules for this component card.'),
+        el('p', null, 'The facts file ', el('code', null, FF), ' gives the module descriptions, the public names and the tests. References do not prove coverage.'),
+        el('p', null, el('b', null, 'Entry points.'), ' An entry point is where a program can start.'),
+        listOr(r.pt || [], function (p) { return el('p', null, el('code', null, p)); }, 'No entry points were extracted for these modules.'))];
   }
-  function cardHtml(c) {
+  function cardNodes(c) {
     var m = c.map;
-    return '<h3 tabindex="-1">' + esc(c.id) + '<\/h3><p>' + (c.k === 'actor' ? 'Actor' : 'Component') + '. Map: ' + esc(mapName(m)) + '.<\/p>'
-      + (c.p ? '<p>' + esc(c.p) + '<\/p>' : '') + (c.d ? '<p>' + esc(c.d) + '<\/p>' : '')
-      + (c.nt ? '<p><b>Note.<\/b> ' + esc(c.nt) + '<\/p>' : '')
-      + (c.as ? '<p>Assurance level: ' + esc(c.as[0]) + '. Freshness: ' + esc(c.as[1]) + '.<\/p>' : '')
-      + (c.child ? '<p><button type="button" data-go>Go into the map: ' + esc(sizeText(c.child)) + '<\/button><\/p>' : '')
-      + flows('FLOWS IN', c.ins, 'from', 's') + flows('FLOWS OUT', c.outs, 'to', 't')
-      + steps(m, function (s, f) { return (f && (f.s === c.id || f.t === c.id)) || (s.a || []).indexOf(c.id) >= 0 || (s.me || []).indexOf(c.id) >= 0; })
-      + rules(m, c) + (c.k === 'actor' ? '' : sources(m, c));
+    return [el('h3', {tabindex: '-1'}, c.id), el('p', null, (c.k === 'actor' ? 'Actor' : 'Component') + '. Map: ' + mapName(m) + '.'),
+      c.p ? el('p', null, c.p) : null, c.d ? el('p', null, c.d) : null,
+      c.nt ? el('p', null, el('b', null, 'Note.'), ' ' + c.nt) : null,
+      c.as ? el('p', null, 'Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.') : null,
+      c.child ? el('p', null, el('button', {type: 'button', 'data-go': ''}, 'Go into the map: ' + sizeText(c.child))) : null,
+      flows('FLOWS IN', c.ins, 'from', 's'), flows('FLOWS OUT', c.outs, 'to', 't'),
+      steps(m, function (s, f) { return (f && (f.s === c.id || f.t === c.id)) || (s.a || []).indexOf(c.id) >= 0 || (s.me || []).indexOf(c.id) >= 0; }),
+      rules(m, c), c.k === 'actor' ? null : sources(m, c)];
   }
-  function flowHtml(f) {
+  function flowNodes(f) {
     var m = f.map;
-    return '<h3 tabindex="-1">Flow: ' + esc(f.a) + '<\/h3><p>From <b>' + esc(f.s) + '<\/b> to <b>' + esc(f.t) + '<\/b>. Kind: ' + esc(f.k)
-      + '. Layer: ' + esc(layerName(f.l)) + '.<\/p><p>Evidence: ' + esc(EV[f.ev] || f.ev) + '.<\/p>'
-      + (f.as ? '<p>Assurance level: ' + esc(f.as[0]) + '. Freshness: ' + esc(f.as[1]) + '.<\/p>' : '')
-      + steps(m, function (s) { return s.f === f.i; })
-      + '<p><button type="button" data-show>Show the flow on the map<\/button><\/p>'
-      + (BACK ? '<p><button type="button" data-back>Back to the card ' + esc(BACK.id) + '<\/button><\/p>' : '');
+    return [el('h3', {tabindex: '-1'}, 'Flow: ' + f.a),
+      el('p', null, 'From ', el('b', null, f.s), ' to ', el('b', null, f.t), '. Kind: ' + f.k + '. Layer: ' + layerName(f.l) + '.'),
+      el('p', null, 'Evidence: ' + (EV[f.ev] || f.ev) + '.'),
+      f.as ? el('p', null, 'Assurance level: ' + f.as[0] + '. Freshness: ' + f.as[1] + '.') : null,
+      steps(m, function (s) { return s.f === f.i; }),
+      el('p', null, el('button', {type: 'button', 'data-show': ''}, 'Show the flow on the map')),
+      BACK ? el('p', null, el('button', {type: 'button', 'data-back': ''}, 'Back to the card ' + BACK.id)) : null];
   }
-  function mapHtml(m) {
-    return '<h3 tabindex="-1">Map: ' + esc(mapName(m)) + '<\/h3><p>' + esc(sizeText(m)) + '.<\/p>'
-      + '<p>Select a card to see its modules, its flows, its sequences and its rules.<\/p>' + rules(m, null);
+  function mapNodes(m) {
+    return [el('h3', {tabindex: '-1'}, 'Map: ' + mapName(m)), el('p', null, sizeText(m) + '.'),
+      el('p', null, 'Select a card to see its modules, its flows, its sequences and its rules.'), rules(m, null)];
   }
   // Write the panel when its subject changes: the flow of the panel, the selected card, or
   // the current map. An open panel with the same subject makes no DOM change.
@@ -316,7 +324,9 @@ DETAILS = r"""
     // When the old text has the keyboard focus, the new heading gets it. Thus the focus
     // does not go to the body of the page.
     focus = focus || body.contains(document.activeElement);
-    body.innerHTML = FLOW ? flowHtml(FLOW) : SEL_C ? cardHtml(SEL_C) : mapHtml(m);
+    var text = document.createDocumentFragment();
+    addChild(text, FLOW ? flowNodes(FLOW) : SEL_C ? cardNodes(SEL_C) : mapNodes(m));
+    body.replaceChildren(text);
     if (focus) { var h = body.querySelector('h3'); if (h) h.focus({preventScroll: true}); }
   }
   function detShow(on, focus) {

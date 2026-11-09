@@ -9,6 +9,11 @@ Acceptance values, written before the first run on 2026-11-07:
    Change on 2026-11-07, after the C4 check U2 in bench/jev/README.md: in the canvas part,
    the text for no result in the list code has the role option and `aria-disabled`. The
    map page does not change.
+   Change on 2026-11-09, after the CodeQL alert js/xss-through-dom: in the canvas part, the
+   functions `name`, `row` and `render` of the list code and the glyph helpers make
+   elements with DOM functions (`el`). The canvas part has no `innerHTML` and no HTML tag.
+   The other list code (from `move`) is the same text as on the map page. The map page
+   does not change.
 2. The canvas data does not change: the data element of the canvas page is the text of
    `canvas_data.text`. The page has the dialog one time. The Find part (script, CSS and
    dialog) adds 32,000 bytes or less to the canvas page.
@@ -71,13 +76,17 @@ def test_the_map_page_does_not_change() -> None:
     for shared in (page_palette.MATCH, page_palette.LIST):
         assert shared in page_palette.SCRIPT
     assert page_palette.MATCH.replace("</", "<\\/") in page_canvas_find.FIND
-    assert page_canvas_find.LIST.replace("</", "<\\/") in page_canvas_find.FIND
-    # The one change of the list code: the text for no result is an option that is not
-    # available, because a listbox has only options and groups.
-    none = '<p class="pal__none"'
-    assert page_canvas_find.LIST == page_palette.LIST.replace(
-        none, none + ' role="option" aria-disabled="true"'
-    )
+    assert page_canvas_find.LIST in page_canvas_find.FIND
+    # The change of the list code: the rows are elements, not HTML text. The text for no
+    # result is an option that is not available, because a listbox has only options and
+    # groups.
+    move = "  function move(k, pointer){"
+    assert page_canvas_find.LIST.split(move)[1] == page_palette.LIST.split(move)[1]
+    assert "innerHTML" in page_palette.LIST
+    assert "innerHTML" not in page_canvas_find.FIND
+    assert re.search(r"<[a-z/]", page_canvas_find.FIND) is None
+    assert "list.replaceChildren" in page_canvas_find.LIST
+    assert "'class':'pal__none', role:'option', 'aria-disabled':'true'" in page_canvas_find.LIST
     assert page_canvas_find.FIND in page_canvas.SCRIPT
 
 
