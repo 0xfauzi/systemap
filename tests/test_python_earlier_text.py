@@ -114,8 +114,10 @@ def test_a_record_without_python_source_stays_the_same(tmp_path: Path) -> None:
         assert python_earlier_text.record(tmp_path, record) == record
 
 
-# A module with too many syntax levels for `ast.parse`.
-DEEP = "X = " + "+".join(["1"] * 3000) + "\n"
+# A module with too many syntax levels for `ast.parse` on each supported Python version.
+# Python 3.13 and later parse 3000 terms, so the text has 200000 terms, as in
+# tests/test_depth_limits.py.
+DEEP = "X = " + "+".join(["1"] * 200000) + "\n"
 
 
 def test_a_module_that_is_too_deep_stays_the_same(tmp_path: Path) -> None:
