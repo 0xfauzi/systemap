@@ -24,7 +24,9 @@ records.
 systemap 2.0.0 recorded the evidence in an earlier form (`earlier=True`): the full module
 record without the syntax fingerprints, and the digest of the source file of each module,
 for each line. A crossing-import line also had the source of the two modules of each
-import. `answer_upgrade` uses this form one time to replace a current 2.0.0 digest.
+import. `answer_upgrade` uses this form one time to replace a current 2.0.0 digest. It
+gives the records with the 2.0.0 text of the Python signatures and previews
+(`python_earlier_text`).
 
 A `boundary flow` or `boundary import` line has the evidence of `nest_join.state`: the
 claims of the opening card and of the component that the actor stands for, the parent

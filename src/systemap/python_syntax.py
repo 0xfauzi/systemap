@@ -117,3 +117,19 @@ def function_line(
     prefix = "async def " if isinstance(node, ast.AsyncFunctionDef) else "def "
     line = f"{prefix}{node.name}({arguments})"
     return line if returns is None else f"{line} -> {returns}"
+
+
+def active_statements(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Select the top-level statements that `extract` reads.
+
+    An `if` with a `bool` constant test gives only the statements of its selected branch.
+    `extract` and `python_earlier_text` must select the same statements.
+    """
+    out: list[ast.stmt] = []
+    for node in body:
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Constant):
+            if isinstance(node.test.value, bool):
+                out.extend(active_statements(node.body if node.test.value else node.orelse))
+                continue
+        out.append(node)
+    return out

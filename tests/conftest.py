@@ -555,6 +555,35 @@ def init_two_cards(root: Path, *argv: str) -> None:
     (root / "map/contract.py").write_text(TWO_CARD_CONTRACT, encoding="utf-8")
 
 
+def set_version(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
+    """Make the package version `version` for one test.
+
+    3.0.0 had a version test in `flow_review`: from 3.1.0, it did not do the one-time
+    upgrade of the 2.0.0 forms (issue 143). A module can keep the version in its own name,
+    for example after `from systemap import __version__`. Thus the function sets each
+    name of a loaded `systemap` module that has the package version, and the version
+    that `importlib.metadata` gives for the package. Then a test of a later version fails
+    if a version test stops the upgrade again."""
+    import importlib.metadata
+    import sys
+
+    import systemap
+
+    current = systemap.__version__
+    for name, module in list(sys.modules.items()):
+        if name != "systemap" and not name.startswith("systemap."):
+            continue
+        for attr, value in list(vars(module).items()):
+            if isinstance(value, str) and value == current:
+                monkeypatch.setattr(module, attr, version)
+    metadata_version = importlib.metadata.version
+
+    def _version(distribution: str) -> str:
+        return version if distribution == "systemap" else metadata_version(distribution)
+
+    monkeypatch.setattr(importlib.metadata, "version", _version)
+
+
 # The setting that keeps the linked pages for one release (`config_render`). A test of a
 # part of the linked page that the canvas page does not have adds it.
 LINKED_PAGES = "\n[render]\ncanvas = false\n"

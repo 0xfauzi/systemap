@@ -548,6 +548,10 @@ class TypeScriptLanguage(TypeScriptRepository):
         root = syntax_tree(raw, str(record.get("file", "")))
         return all(child.type == "comment" for child in root.named_children)
 
+    def earlier_record(self, root: Path, record: dict[str, Any]) -> dict[str, Any]:
+        """Give the record without a change. Facts format 14 changed only Python text."""
+        return record
+
     def entry_label(self, point: Mapping[str, str]) -> str:
         return standard_label(point)
 

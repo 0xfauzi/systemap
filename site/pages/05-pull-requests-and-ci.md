@@ -65,7 +65,7 @@ These changes can change the result of a CI job after you install 3.1.0:
 These changes can change the result of a CI job after you install 3.0.0:
 
 - The facts format is 13. A facts file from 2.0.0 is stale, so `extract --check` and `check` exit 1. Run `systemap refresh` one time, and commit the output.
-- Do that refresh on 3.0. It also does the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. From 3.1.0, a flow review from 2.0.0 that gives only the claim is stale, and an answer with evidence from 2.0.0 is pending.
+- That refresh also does the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. Each later release also does this upgrade.
 - `audit`, `triage`, and `plan "<task>"` send data only with `--provider`. Without it, they print `no data was sent` and exit 1. Add `--provider jev` to each of these commands in a CI job.
 - `delta` sends questions only with `--decide`. With `[jev] enabled = true` and no `--decide`, it prints a warning and sends no question.
 - `journeys` starts the `[agent]` command only if the environment sets `SYSTEMAP_TRUST_AGENT_COMMAND=1`.

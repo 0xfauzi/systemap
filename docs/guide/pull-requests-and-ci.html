@@ -135,7 +135,7 @@ The answers are suggestions under their own heading. They do not change the delt
 <p>These changes can change the result of a CI job after you install 3.0.0:</p>
 <ul>
 <li>The facts format is 13. A facts file from 2.0.0 is stale, so <code>extract --check</code> and <code>check</code> exit 1. Run <code>systemap refresh</code> one time, and commit the output.</li>
-<li>Do that refresh on 3.0. It also does the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. From 3.1.0, a flow review from 2.0.0 that gives only the claim is stale, and an answer with evidence from 2.0.0 is pending.</li>
+<li>That refresh also does the one-time upgrade of the flow reviews and the answer evidence from 2.0.0. Each later release also does this upgrade.</li>
 <li><code>audit</code>, <code>triage</code>, and <code>plan &quot;&lt;task&gt;&quot;</code> send data only with <code>--provider</code>. Without it, they print <code>no data was sent</code> and exit 1. Add <code>--provider jev</code> to each of these commands in a CI job.</li>
 <li><code>delta</code> sends questions only with <code>--decide</code>. With <code>[jev] enabled = true</code> and no <code>--decide</code>, it prints a warning and sends no question.</li>
 <li><code>journeys</code> starts the <code>[agent]</code> command only if the environment sets <code>SYSTEMAP_TRUST_AGENT_COMMAND=1</code>.</li>
