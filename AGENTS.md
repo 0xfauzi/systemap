@@ -69,6 +69,17 @@ Do not invent measurements. When a value is unknown, say that a measurement is n
 If a command cannot do the specified work, show the failure and stop.
 Do not silently substitute a different answer.
 
+## Releases and the facts format
+
+The facts format is the number `FORMAT` in `src/systemap/extraction.py`.
+Each increase makes all stored facts stale for users.
+Thus, increase the facts format one time at most in each release.
+Put all format changes of a release in its release branch, and increase the number there one time.
+Do not increase the number separately in each workstream.
+
+A release is a version tag. The release workflow publishes the tagged commit.
+`scripts/publish.sh` publishes only when HEAD is the commit of the version tag.
+
 ## Required checks
 
 Do these checks before a commit:
