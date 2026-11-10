@@ -26,6 +26,11 @@ if ! git tag --list "v${version}" | grep -q .; then
   echo "publish: No tag v${version} is available. First give the release commit its tag: git tag v${version} && git push origin v${version}" >&2
   exit 1
 fi
+tagged="$(git rev-parse "v${version}^{commit}")"
+if [ "$tagged" != "$(git rev-parse HEAD)" ]; then
+  echo "publish: HEAD is not the commit of tag v${version}. A commit after the tag must not use the version of the tag. Check out v${version}, or increase the version and give the new commit its tag." >&2
+  exit 1
+fi
 
 rm -rf dist
 uv build
