@@ -7068,3 +7068,23 @@ What the values show:
 - The region level needs regions from the map author. A map with one region gets nothing from it. The M11 tree is a generated fixture, so it does not show how real maps use regions. That is not measured: this repository has one real map.
 
 Not measured: a real repository other than this one, the reading time or the comprehension of a person at each level, and the frame time of a renderer with this level.
+
+## R2: a canvas page of the map of this repository at the region level (2026-11-15)
+
+Script: `bench/jev/region_level_page.py`. The acceptance values are in its docstring. They were written before the first run.
+
+- Input: a generated model with one card for each of the 5 regions and the 5 actors of the map of this repository, and one flow for each of the 28 directed lines of the layer All (R1). `systemap place`, `extract` and `render` of the working tree made the page. The label measurement is `canvas_labels.js` at the fit, in the layer All.
+
+| Screen | Zoom | Lines with a label box | Labels with an alpha of 0.99 or more | Smallest size (px) | Plates in a card | Pairs of plates in each other |
+|---|---|---|---|---|---|---|
+| 1440 x 900 | 1.120 | 28 | 28 | 12.0 | 0 | 0 |
+| 1366 x 768 | 0.934 | 28 | 28 | 10.0 | 0 | 0 |
+| 1280 x 720 | 0.864 | 28 | 28 | 9.0 | 0 | 0 |
+
+Result: PASS for acceptance 1 and 2. For comparison, the current page in the layer All has 82 labels at 9 px at 1440 x 900 pixels, and its labels do not show at 1280 x 720 pixels (L1).
+
+An examination of the picture by the author of the script, which is not a measurement:
+
+- 15 of the 28 labels are a count, for example "4 flows". Such a label does not name an artifact, and the picture does not show which line a label is for where lines are near to each other.
+- The lines between the five region cards cross each other many times in a small area. The acceptance values of this script do not count line crossings.
+- Thus the page passes its acceptance values, but they do not show that a person can read it. User comprehension is not measured.
