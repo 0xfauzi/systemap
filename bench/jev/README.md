@@ -7032,3 +7032,39 @@ A first form of the kept rule rounded the font size to the nearest 0.5 px. At 13
 Result: PASS for acceptance 1 and 2. At 1440 x 900 pixels, each label of each layer shows at 9 px with no overlap, also in the layer All. At 1366 x 768 pixels, each label shows at 7.5 px with the alpha 0.98, which is below the 0.99 of acceptance 1. That screen has no acceptance value. At 1280 x 720 pixels, the labels have the alpha 0.11 at the fit, so a reader cannot read them without a zoom.
 
 Not measured: the frame time (C2) after this change, a tree with nested maps (its fit and its label size at a zoom of 0.76 or more do not change, but its labels now also show from the zoom 0.62 to 0.76), a map of 400 cards or more, and user comprehension of the labels at 9 px.
+
+## R1: the cards and lines of a map at the region level (2026-11-15)
+
+Script: `bench/jev/region_level.py`. The acceptance values are in its docstring. They were written before the first run.
+
+The region level is a proposal for the first view of the canvas page: each region shows as one card, and a line connects two cards of that level. The limit of 12 cards and 12 lines is a design target. It is not a measured limit of a reader.
+
+- Input: the canvas data of the map of this repository (21 cards, 82 flows, 5 regions, 5 actors) from the committed facts, and of the M11 tree (50 maps, a generated fixture).
+- A directed line is a different ordered pair of cards. A pair has no order. "In one region" is the count of flows that the region level does not show. "Most" is the largest count of flows that one directed line stands for.
+
+| Layer | Cards now | Flows now | Cards at the region level | Directed lines | Pairs | In one region | Most |
+|---|---|---|---|---|---|---|---|
+| System context | 21 | 17 | 10 | 14 | 11 | 0 | 4 |
+| Data flow | 21 | 56 | 10 | 22 | 16 | 9 | 5 |
+| Control flow | 21 | 17 | 10 | 8 | 8 | 3 | 4 |
+| Map review | 21 | 9 | 10 | 6 | 5 | 1 | 2 |
+| All | 21 | 82 | 10 | 28 | 21 | 13 | 8 |
+
+| Acceptance | Result |
+|---|---|
+| 1: System context has 12 cards or fewer, 12 directed lines or fewer, and directed lines of 60 percent or less of the flows | FAIL. 10 cards, but 14 directed lines, which is 82 percent of the 17 flows. |
+| 2: All has 20 pairs or fewer | FAIL. 21 pairs. |
+| 3: each map of the two trees has two regions or more with a component | FAIL. Each of the 50 maps of the M11 tree has one region. Its top map becomes 1 card with 0 lines, and each nested map becomes 2 cards with 1 line. |
+
+Result: FAIL.
+
+What the values show:
+
+- The region level makes the cards of this map fewer: 21 to 10. It does not make the lines of the first layer much fewer: 17 flows to 14 directed lines. The flows of System context connect actors and components, and most of them go to a different pair of an actor and a region.
+- If the two directions of a pair use one line, System context has 11 lines. That is in the limit of 12, but it is 65 percent of the flows, above the 60 percent of acceptance 1.
+- The layers with many flows get the larger effect: Data flow goes from 56 flows to 22 directed lines, and All from 82 to 28.
+- Board 3 of the design canvas shows 9 lines for System context. That count came from a selection by hand. The measured count is 14.
+- The 21 pairs of All are more than the 16 groups of the 3.0.0 page, because that page made one group for all actors. This script keeps each actor as one card.
+- The region level needs regions from the map author. A map with one region gets nothing from it. The M11 tree is a generated fixture, so it does not show how real maps use regions. That is not measured: this repository has one real map.
+
+Not measured: a real repository other than this one, the reading time or the comprehension of a person at each level, and the frame time of a renderer with this level.
