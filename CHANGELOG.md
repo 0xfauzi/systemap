@@ -103,6 +103,23 @@ A layer is a filtered view of the map.
   Step: run `systemap judgement`. For each new line, add the flow or the actor, or record an answer with `kind = "boundary flow"`, `kind = "boundary import"`, or an exact `item`.
 - The `judgement --json` schema is version 8. Each row of `open` has the new fields `map_id`, `parent_flow`, `nested_flows`, and `import_pairs`. Their values are null for a line that is not a boundary line.
 
+### Changes
+
+- The canvas page shows the flow labels at the fit of a map on more screens.
+  - The fit of a map tree with no nested map is larger. Such a tree has no portal, so the fit does not keep the bands of the portals free.
+    At 1440 x 900 pixels, the zoom of the fit of the map of this repository goes from 0.751 to 0.821.
+  - A flow label starts to show at the zoom 0.62, in place of 0.76. Its font size is 8 percent more than its size at the zoom, to 9 px.
+    A larger label makes the label plates overlap. `bench/jev/README.md` (L1) gives the measurement.
+  - At 1440 x 900 pixels, each label of the map of this repository shows at 9 px. At 1280 x 720 pixels, the labels are not clear at the fit. Zoom in to read them.
+  - A map tree with a nested map keeps the earlier fit.
+- A caption at the right of the path gives the name and the question of the layer, for example "System context" and "Which actors connect to the system?".
+  In the Sequences view, it gives the question of the whole route, or the count and the sentence of the step.
+- In the Sequences view, with no selected card, the Details panel gives the route of the sequence in order: each step with its flow and its sentence.
+  A step is a button that shows that step on the map. Before this change, the panel gave the rules of the map in this view.
+- In the Sequences view, a flow that is not on the route has no label.
+
+  Step: run `systemap refresh` one time and commit the output. If you do not, `check` and `render --check` report the page as stale.
+
 ### Corrections
 
 - CI does the tests and the installation also on Python 3.14. The package classifiers include 3.14.

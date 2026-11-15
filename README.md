@@ -82,6 +82,7 @@ is not on the screen, a portal at the screen edge gives it.
 
 The header has three views. **Map** shows the layers. **Sequences** shows one
 operation as a route on the map, then one step at a time.
+A caption at the right of the path gives the question of the layer, or the sentence of the step.
 **Changes** shows the components and flows that a revision comparison changed.
 Find (Ctrl+K, Cmd+K, or /) opens one search field for views, layers,
 components, flows, sequences, and actions in all maps.
@@ -99,7 +100,8 @@ The source button gives the commit of the map and the facts file.
 
 A click or a tap selects a card. The Details panel (the D key) gives the selected
 card: its flows with their evidence, its sequences, its rules with their assurance,
-and the counts of its source records. A dotted ring on an actor card shows an open
+and the counts of its source records. In the Sequences view, with no selection, the panel
+gives the steps of the sequence in order. A dotted ring on an actor card shows an open
 boundary finding of the judgement, with a short text.
 
 Only the flow kinds, the selection, and the change have colors.

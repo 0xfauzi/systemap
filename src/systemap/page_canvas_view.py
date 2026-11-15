@@ -11,7 +11,8 @@ never shows an image of a different view.
 
 The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f)`,
 `over(m, a, ox, oy, alpha)`, `enter(from)`, `leave(to)`, `frame()`, `band(fresh)`,
-`box()`, `facts(c)`, `say(m)`, `words()` and `here(m)`. All of them are optional.
+`box()`, `facts(c)`, `say(m)`, `words()`, `here(m)`, `caption()` and `panel()`. All of them
+are optional.
 
 - `card(c)` gives null for the usual card, or `{a, ring, tag, back, note}`: the alpha of
   the card (0 to 1), and four marks, each null or an object. `ring` is
@@ -37,6 +38,9 @@ The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f
   in place of the name and the `say` of the current map. Empty words keep those.
 - `here(m)` occurs when the label of the canvas gives the current map m (`relabel`): when
   the camera stops, and at a change of the view.
+- `caption()` gives the words of the caption at the right of the path, `{k, s}`: a short
+  name and a sentence (`page_canvas_caption`). `panel()` gives the text of the Details
+  panel when no card is selected, `{key, nodes}` (`viewPanel`).
 - `band(fresh)` gives the height of a bar of the view under the header, for example the
   toolbar of the Sequences view. With `fresh`, the part measures the bar again. The top
   band of the screen (`HEAD_H`) is the header and the bar of each view, multiplied by the
@@ -190,6 +194,9 @@ function viewFlow(f) {
 }
 // The alpha of flow f in this frame, after `viewFlow` (the labels use it).
 function flowShown(f) { return VIEW_AIM ? flowAim(f).a : f._vAt === drawn ? f._v.a : 1; }
+// The alpha of the label of flow f. A flow with the alpha 0.16 or less (a flow that is not
+// on the route of a sequence) has no label, and the label has the alpha of the flow from 0.4.
+function labelShown(f) { var s = flowShown(f); return s * smooth(0.16, 0.4, s); }
 // The color of a flow, for a color of the view or for the layer color.
 function flowColor(f, color) { return color ? C[color] || color : C['--l-' + f.l] || C['--flow']; }
 // Draw the parts of the views after the cards of map m. A view that fades out still draws.
@@ -376,6 +383,10 @@ function viewWords(modeChanged) {
 // live region (`facts` and `say` of the view part).
 function viewFacts(c) { var v = VIEWS[VIEW.mode]; return v && v.facts ? v.facts(c) : ''; }
 function viewSay(m) { var v = VIEWS[VIEW.mode]; return v && v.say ? v.say(m) : ''; }
+// The text of the current view for the Details panel when no card is selected (`panel` of
+// the view part): `{key, nodes}`, or null for the rules of the current map. `key` changes
+// when the text changes, and `nodes()` gives the elements.
+function viewPanel() { var v = VIEWS[VIEW.mode]; return v && v.panel ? v.panel() : null; }
 // The current map is m (`relabel`): each view part with `here` gets it.
 var HERE_HOOKS = [];
 function viewHere(m) {

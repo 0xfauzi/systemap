@@ -91,14 +91,18 @@ function arrowHead(g, x2, y2, x1, y1, size) {
 var BACK = new Batch(true), BACK_LINE = new Batch(false), FILL = new Batch(true), LINE = new Batch(false);
 function flushCards(g) { BACK.flush(g); BACK_LINE.flush(g); FILL.flush(g); LINE.flush(g); }
 function q(size) { return Math.round(size * 2) / 2; }
-// The font size of the box names and the flow labels, and if the labels show.
-function labelSize(a) { return q(clamp(10.5 * a, 0, 13)); }
-function hasLabels(fs, alpha) { return fs >= 8 && alpha > 0.05; }
+// The font size of the box names and of the flow labels, and if the labels show. A label
+// is LABEL_GROW times its size at the zoom or less, to LABEL_MIN px: the label seats of the
+// router keep the plates apart to that factor (L1 in bench/jev/README.md).
+var LABEL_MIN = 9, LABEL_GROW = 1.08, LABEL_FROM = 6.5;
+function nameSize(a) { return q(clamp(10.5 * a, 0, 13)); }
+function labelSize(a) { var raw = 10.5 * a; return clamp(Math.max(q(raw), Math.floor(Math.min(LABEL_MIN, raw * LABEL_GROW) * 2) / 2), 0, 13); }
+function hasLabels(fs, alpha) { return fs >= MIN_TEXT && alpha > 0.05; }
 // A text fades in from the size `from` at which the page starts to draw it, for the size
 // `raw` before the rounding to half pixels. Thus a text does not appear at one time in a
-// zoom. The flow labels start at 8 px, and the box names at MIN_TEXT.
+// zoom. The box names start at MIN_TEXT. The flow labels fade in from LABEL_FROM, in 0.75 px.
 function sizeFade(raw, from) { return smooth(from - 0.25, from + 1.5, raw); }
-function labelAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, 8); }
+function labelAlpha(a, alpha) { return alpha * smooth(LABEL_FROM, LABEL_FROM + 0.75, 10.5 * a); }
 function nameAlpha(a, alpha) { return alpha * sizeFade(10.5 * a, MIN_TEXT); }
 // If a card of screen height h shows its text.
 function hasText(h) { return h >= NAME_H; }
@@ -151,7 +155,7 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
     lines.rect(C['--region'], alpha * 0.8, ox + a * b.b[0], oy + a * b.b[1], a * b.b[2], a * b.b[3], r, 1, 'r');
   });
   fills.flush(g); lines.flush(g);
-  var fs = labelSize(a);
+  var fs = nameSize(a);
   if (!labels || fs < MIN_TEXT) return;
   var na = nameAlpha(a, alpha);
   NOTE = g === ctx;
@@ -165,7 +169,7 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
 // camera stops.
 var STICK = 14;
 function boxNames(m, a, ox, oy, each) {
-  var leaf = isLeaf(m), fs = labelSize(a);
+  var leaf = isLeaf(m), fs = nameSize(a);
   function at(s, b) {
     var x = ox + a * (b[0] + 13);
     return leaf || x >= STICK ? x : Math.max(x, Math.min(STICK, ox + a * (b[0] + b[2] - 13) - unitWidth(s, 600) * fs));
@@ -221,7 +225,7 @@ function drawLabels(list, a, ox, oy, alpha) {
   // grow past the text and cover the routes.
   var bg = new Batch(true);
   plates(list, a, ox, oy, fs, function (px, py, pw, ph, f) {
-    var fa = alpha * flowShown(f);
+    var fa = alpha * labelShown(f);
     if (fa <= 0.02) return;
     bg.rect(C['--map'], fa * 0.9, px, py, pw, ph, 3);
     obstacle(px, py, pw, ph, 1, fa);
@@ -229,7 +233,7 @@ function drawLabels(list, a, ox, oy, alpha) {
   bg.flush(ctx);
   list.forEach(function (f) {
     if (!f.lb) return;
-    text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], alpha * flowShown(f), 500, false, 'center');
+    text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], alpha * labelShown(f), 500, false, 'center');
   });
 }
 
@@ -468,8 +472,11 @@ function portalWidest() {
 // (the path and the portals) and at the bottom (the portals and the help line). The side
 // bands are there only when the widest portal fits in 12 % of the screen width. On a narrow
 // screen, each portal is in the top or the bottom row. Then the side bands are 0, and the
-// open map can use all the width (`fitBox` keeps a small margin).
+// open map can use all the width (`fitBox` keeps a small margin). A tree with no port has no
+// portal: its bands are only the path and the help line, so its fit is larger.
+var NO_PORTS = ORDER.every(function (m) { return !(m.ports || []).length; });
 function gutters() {
+  if (NO_PORTS) return {x: 0, top: HEAD_H + PATH_H + 18, bottom: 34};
   var side = P_EDGE + portalWidest() + P_GAP;
   return {x: side <= 0.12 * W ? side : 0, top: P_TOP + P_H / 2 + P_GAP, bottom: P_BOTTOM + P_H / 2 + P_GAP + P_LOW};
 }
@@ -719,7 +726,7 @@ function drawPortals(list, path) {
   });
 }
 
-// ---- the path, the help line and the frame readout ---------------------------
+// ---- the path and the help line (the frame readout is in page_canvas) -----------
 // The parts of the path and the width of its plate. The text of a part is 220 px wide or
 // less. When the path is wider than the screen, the widest texts become narrower (`cap`).
 function pathParts(chain) {
@@ -781,15 +788,5 @@ function drawHelp() {
   var b = helpPlate();
   plate(b, 0.9);
   text(helpLine(), b[0] + 10, b[1] + 15, HELP_FS, C['--ink-3'], 1);
-}
-var FRAMES = [];
-function drawHud(began, half) {
-  var now = performance.now();
-  FRAMES.push(now);
-  while (FRAMES.length && now - FRAMES[0] > 1000) FRAMES.shift();
-  var s = FRAMES.length + ' fps · draw ' + (now - began).toFixed(1) + ' ms · ' + (half ? 'half' : 'full') +
-    ' · ' + STATS.cards + ' cards · ' + STATS.image + ' images';
-  ctx.globalAlpha = 0.95; ctx.fillStyle = C['--raised']; ctx.fillRect(W - 330, HEAD_H + 10, 320, 26);
-  text(s, W - 320, HEAD_H + 27, 12, C['--ink'], 1, 400, true);
 }
 """

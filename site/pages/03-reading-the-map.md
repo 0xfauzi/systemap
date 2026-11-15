@@ -54,6 +54,8 @@ It opens the canvas page at that map. Thus earlier links stay correct.
 
 Select a layer in the header. [Concepts](concepts.html#layer) tells which flows each layer shows.
 A layer shows only its flows. A card that no flow of the layer touches becomes quiet.
+A caption at the right of the path gives the name and the question of the layer.
+Each flow line has a label with its artifact. If the labels do not show, zoom in.
 When the layer buttons do not fit, a list shows in their place.
 
 ## The Details panel
@@ -62,6 +64,7 @@ Select a card, then select Details or push D. The panel gives the kind and the t
 The panel gives the counts of the public names and the tests of each module. The facts file has the full source records.
 Select a flow in the panel to see its details. "Show the flow on the map" moves the camera to the flow.
 With no selection, the panel gives the rules of the current map. Esc closes the panel.
+In the Sequences view, with no selection, the panel gives the route of the sequence in order.
 
 ## Open boundary findings
 
@@ -81,6 +84,8 @@ A live region gives the new map, view, and layer.
 - The Sequences view has a toolbar under the header. The chooser opens the list of sequences.
 - **Whole route** shows all the steps, with a number on each line. The START tag marks the component where the sequence starts.
 - **Steps** shows one step at a time. Use Previous and Next.
+- The caption at the right of the path gives the sentence of the step.
+- The Details panel gives all steps in order. Select a step in the panel to show it on the map.
 - The acting component has an ACTS tag. A measurement component has a MEASURES tag.
 
 ## Changes

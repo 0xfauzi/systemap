@@ -1,0 +1,210 @@
+"""The parts of the canvas page that help a person read the map, in a browser: the flow
+labels at the fit (`labelSize` in `page_canvas_draw`), the caption (`page_canvas_caption`)
+and the route in the Details panel (`seqRoute` in `page_canvas_sequences`).
+
+The test drives real canvas pages in the Chromium of Playwright (tests/canvas_reading.js):
+the self-map of this repository, which has no nested map, and the fixture of
+tests/test_canvas_page.py, which has the nested map Gateway. The test skips when Node or
+the Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is "required" (the
+CI job canvas-browser). Then it fails.
+
+Acceptance values, written before the first run on 2026-11-15:
+
+1. At 1440 x 900 pixels, at the fit of the self-map, in each layer that has flows: the
+   drawn labels are exactly the artifacts of the flows of the layer that have a label box.
+   Each label has an alpha of 0.99 or more and a font size of 9 px or more (L1 in
+   bench/jev/README.md).
+2. The page opens with the caption "All layers" and "Which flows connect the components?".
+   After a click on each layer button, the caption gives the name and the question of that
+   layer, with the alpha 1, and the live region gives the question. The plate of the caption
+   is in the row of the path: it has the top and the height of the plate of the path, it
+   starts 8 px after that plate, and it ends 12 px or more before the right screen edge.
+3. Without reduced motion, after a change of the layer, the alpha of the caption changes
+   by 0.25 or less between two frames. The sentence changes only in a frame in which the
+   alpha is 0.25 or less. The alpha is 1 at the end. With reduced motion, the first frame
+   after the change has the new sentence with the alpha 1.
+4. At 390 x 844 pixels on a touch screen, the caption is in the screen or it does not show
+   (a box of null), and the scroll width is 390 px.
+5. In the Sequences view of the self-map, with the whole route of the first sequence: the
+   caption gives the name of the sequence and "Which parts does this operation use?". The
+   drawn labels are artifacts of the flows of the steps, and their count is the count of
+   the different flows of the steps that have a label box.
+6. The D key opens the Details panel. Its heading is the name of the sequence. Its ordered
+   list has one button for each step, in order, and the text of button k starts with "k. ".
+   Each sentence of a step is in the list. No button is the current step.
+7. A click on the button of step 3: the view is in the Steps mode at step 3, the button of
+   step 3 is the only button with `aria-current="step"`, and it has the keyboard focus. The
+   caption gives "Step 3 of n" and the sentence of the step, and the toolbar gives "Step 3
+   of n". After Next in the toolbar, the button of step 4 is the current step.
+8. A click on a card: the heading of the panel is the name of that card. A click on empty
+   space: the heading is the name of the sequence again.
+9. axe-core 4.14.0 finds no serious or critical violation with the route in the panel, in
+   the whole route and at a step, in the light and the dark scheme. The page has no script
+   error in each run.
+10. The bands of the fit. The self-map has no port: the left and right bands are 0, the top
+    band is the bottom of the plate of the path, and the bottom band is 34 px. The frame of
+    the map at the fit is below the plate of the path and above the plate of the help line.
+    The fixture with the nested map has ports: its top band is 155 px and its bottom band is
+    75 px, the values before this change.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+from typing import Any
+
+import pytest
+from test_canvas_access import AXE_VERSION, no_axe
+from test_canvas_browser import browser
+from test_canvas_page import _made
+
+from systemap import canvas_data, canvas_page, config, facts_file, nest
+
+ROOT = Path(__file__).resolve().parent
+DRIVER = ROOT / "canvas_reading.js"
+REPO = ROOT.parent
+ROUTE_QUESTION = "Which parts does this operation use?"
+
+
+def _drive(mode: str, page: Path) -> dict[str, Any]:
+    proc = subprocess.run(
+        [browser(), str(DRIVER), mode, str(page)], capture_output=True, text=True, timeout=600
+    )
+    assert proc.returncode == 0, proc.stderr
+    return dict(json.loads(proc.stdout))
+
+
+@pytest.fixture(scope="module")
+def self_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    cfg = config.load(REPO)
+    tree = nest.load(cfg)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
+    out = tmp_path_factory.mktemp("reading") / "index.html"
+    data = canvas_data.build(cfg, tree, facts)
+    out.write_text(canvas_page.build(canvas_page.tree_theme(cfg, tree), data), encoding="utf-8")
+    return out
+
+
+def test_each_flow_of_a_layer_has_a_label_at_the_fit(self_page: Path) -> None:
+    """Acceptance 1."""
+    out = _drive("--labels", self_page)
+    assert out["errors"] == []
+    assert len(out["layers"]) >= 4
+    for layer in out["layers"]:
+        got = layer["got"]
+        assert sorted(t["s"] for t in got) == layer["want"], layer["id"]
+        assert min(t["alpha"] for t in got) >= 0.99, layer["id"]
+        assert min(t["size"] for t in got) >= 9, layer["id"]
+
+
+def _in_path_row(at: dict[str, Any]) -> None:
+    box, path = at["caption"]["box"], at["path"]
+    assert box is not None
+    assert box[1] == path[1] and box[3] == path[3]
+    assert abs(box[0] - (path[0] + path[2] + 8)) < 0.01
+    assert box[0] + box[2] <= at["width"] - 12
+
+
+def test_the_caption_gives_the_question_of_each_layer(self_page: Path) -> None:
+    """Acceptance 2, 3 and 4."""
+    out = _drive("--caption", self_page)
+    assert out["errors"] == []
+    start = out["start"]["caption"]
+    assert (start["k"], start["s"], start["a"]) == (
+        "All layers",
+        "Which flows connect the components?",
+        1,
+    )
+    _in_path_row(out["start"])
+    assert len(out["layers"]) >= 5
+    for layer in out["layers"]:
+        cap = layer["at"]["caption"]
+        assert (cap["k"], cap["s"], cap["a"]) == (layer["n"], layer["q"], 1), layer["id"]
+        assert layer["q"] in layer["said"], layer["id"]
+        _in_path_row(layer["at"])
+    # Acceptance 3.
+    frames = out["fade"]
+    question = out["layers"][0]["q"]
+    for before, after in zip(frames, frames[1:], strict=False):
+        assert abs(after[1] - before[1]) <= 0.25, (before, after)
+        if after[2] != before[2]:
+            assert after[1] <= 0.25, (before, after)
+    assert frames[-1][1] == 1 and frames[-1][2] == question
+    assert any(0 < f[1] < 1 for f in frames)
+    assert out["reduced"][1][1:] == [1, question], out["reduced"][:3]
+    # Acceptance 4.
+    phone = out["phone"]
+    assert phone["scroll"] == 390
+    box = phone["caption"]["box"]
+    assert box is None or (box[0] >= 0 and box[0] + box[2] <= 390)
+
+
+def _route_run(one: dict[str, Any]) -> None:
+    seq, flows = one["seq"], one["flows"]
+    steps = seq["s"]
+    n = len(steps)
+    assert n >= 4
+    # Acceptance 5.
+    whole = one["whole"]
+    assert (whole["caption"]["k"], whole["caption"]["s"]) == (seq["n"], ROUTE_QUESTION)
+    on_route = {s["f"] for s in steps if s["f"] >= 0}
+    drawn = [t["s"] for t in one["wholeLabels"]]
+    assert set(drawn) <= {flows[i] for i in on_route}
+    assert 0 < len(drawn) <= len(on_route)
+    # Acceptance 6.
+    panel = one["panel"]
+    assert panel["title"] == seq["n"]
+    assert len(panel["steps"]) == n
+    for k, text in enumerate(panel["steps"]):
+        assert text.startswith(f"{k + 1}. "), text
+    assert panel["sentences"] == [s["y"] for s in steps if s.get("y")]
+    assert panel["current"] == []
+    # Acceptance 7.
+    third = one["third"]
+    assert third["state"]["seq"]["steps"] is True and third["state"]["seq"]["s"] == 2
+    assert third["panel"]["current"] == ["2"] and third["panel"]["focus"] == "2"
+    assert third["state"]["caption"]["k"] == f"Step 3 of {n}"
+    assert third["state"]["caption"]["s"] == steps[2]["y"]
+    assert third["state"]["count"] == f"Step 3 of {n}"
+    fourth = one["fourth"]
+    assert fourth["state"]["seq"]["s"] == 3 and fourth["panel"]["current"] == ["3"]
+    # Acceptance 8.
+    assert one["card"]["panel"]["title"] == one["card"]["id"]
+    assert one["back"]["title"] == seq["n"]
+    assert one["errors"] == []
+
+
+def test_the_details_panel_gives_the_route_in_order(self_page: Path) -> None:
+    """Acceptance 5 to 8, and the script errors of acceptance 9."""
+    out = _drive("--route", self_page)
+    for scheme in ("light", "dark"):
+        _route_run(out[scheme])
+
+
+def test_axe_core_finds_no_issue_with_the_route_in_the_panel(self_page: Path) -> None:
+    """Acceptance 9."""
+    out = _drive("--route", self_page)
+    for scheme in ("light", "dark"):
+        for key in ("axeWhole", "axeStep"):
+            found = out[scheme][key]
+            if found is None:
+                no_axe("axe-core is not in NODE_PATH")
+            assert found["version"] == AXE_VERSION
+            assert found["violations"] == [], (scheme, key)
+
+
+def test_a_tree_with_no_port_has_no_portal_bands(self_page: Path, tmp_path: Path) -> None:
+    """Acceptance 10."""
+    own = _drive("--bands", self_page)
+    assert own["errors"] == [] and own["ports"] is False
+    path, help_plate, frame, bands = own["path"], own["help"], own["frame"], own["gutters"]
+    assert bands == {"x": 0, "top": path[1] + path[3], "bottom": 34}
+    assert frame[1] >= path[1] + path[3]
+    assert frame[1] + frame[3] <= help_plate[1]
+    assert frame[0] >= 0 and frame[0] + frame[2] <= own["width"]
+    nested = _made(tmp_path, "") / "docs" / "map" / "index.html"
+    other = _drive("--bands", nested)
+    assert other["errors"] == [] and other["ports"] is True
+    assert other["gutters"]["top"] == 155 and other["gutters"]["bottom"] == 75

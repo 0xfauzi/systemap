@@ -20,7 +20,8 @@ lose information when it becomes the default page:
   selected card: its kind and text, its note, the map that it opens, the flows in and out with their
   evidence state and assurance, the sequences, the invariants and the import rules with
   their assurance, and the source records (`canvas_details`). A flow of the lists gives
-  the flow. Without a selection, the panel gives the rules of the current map. When the
+  the flow. Without a selection, the panel gives the rules of the current map, or the
+  text of the current view (`viewPanel`): in the Sequences view, the route in order. When the
   panel closes, the focus goes back to the element that had it before the panel opened.
   A letter in the list of the sequences stays in that list.
 
@@ -318,16 +319,19 @@ DETAILS = r"""
   // the current map. An open panel with the same subject makes no DOM change.
   function detSync(focus) {
     if (!ON) return;
-    var m = currentMap(), key = FLOW ? 'f' + FLOW.map.oi + ':' + FLOW.i : SEL_C ? 'c' + SEL_C.map.oi + ':' + SEL_C.i : 'm' + m.oi;
+    var m = currentMap(), own = FLOW || SEL_C ? null : viewPanel(), held = document.activeElement;
+    var key = FLOW ? 'f' + FLOW.map.oi + ':' + FLOW.i : SEL_C ? 'c' + SEL_C.map.oi + ':' + SEL_C.i : own ? 'v' + own.key : 'm' + m.oi;
     if (key === SHOWN) return;
     SHOWN = key;
+    // After a button with `data-keep`, the current button of the new text gets the focus.
+    var keep = own && body.contains(held) && held.hasAttribute('data-keep');
     // When the old text has the keyboard focus, the new heading gets it. Thus the focus
     // does not go to the body of the page.
     focus = focus || body.contains(document.activeElement);
     var text = document.createDocumentFragment();
-    addChild(text, FLOW ? flowNodes(FLOW) : SEL_C ? cardNodes(SEL_C) : mapNodes(m));
+    addChild(text, FLOW ? flowNodes(FLOW) : SEL_C ? cardNodes(SEL_C) : own ? own.nodes() : mapNodes(m));
     body.replaceChildren(text);
-    if (focus) { var h = body.querySelector('h3'); if (h) h.focus({preventScroll: true}); }
+    if (focus) { var h = (keep && body.querySelector('[data-keep][aria-current]')) || body.querySelector('h3'); if (h) h.focus({preventScroll: true}); }
   }
   function detShow(on, focus) {
     if (!panel || on === ON) return;

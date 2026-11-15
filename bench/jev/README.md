@@ -6945,3 +6945,90 @@ Second run, after a change of the design: the module is now `python_earlier_text
 | (c) median time, tree of the branch (213 module records) | 0.528 s |
 
 Result: PASS for (a).
+
+## L1: the flow labels of the canvas page at the fit (2026-11-15)
+
+Script: `bench/jev/canvas_labels.py` with `bench/jev/canvas_labels.js`. The acceptance values are in the docstring of the script. They were written before the first run.
+
+- Input: the canvas page of the self-map of this repository (21 cards, 82 flows, no nested map), from the committed facts. Playwright Chromium, headless, reduced motion, 1 device pixel for each pixel.
+- A label is a text with the font weight 500 from `systemapCanvas.texts()`. Its plate is the width of the text and 6 px, and 1.5 times the font size. A plate goes into a box when the two overlap by more than 2 px in width and in height.
+- The rows for the zoom 1 are given only for 1440 x 900 pixels. At each screen size, each layer has 0 plates in a card and 0 pairs at the zoom 1.
+
+### L1a: before the change (commit c9cfa44)
+
+A label has 10.5 px multiplied by the zoom, and it does not show below 8 px. Result: FAIL. No label shows at the fit at each of the three screen sizes.
+
+| Screen | Layer | Camera | Zoom | Flows with a label box | Labels with an alpha of 0.99 or more | Smallest size of these labels (px) | Plates in a card | Pairs of plates in each other |
+|---|---|---|---|---|---|---|---|---|
+| 1440 x 900 | system | fit | 0.751 | 17 | 0 | 0.0 | 0 | 0 |
+| 1440 x 900 | system | zoom 1 | 1.000 | 17 | 17 | 10.5 | 0 | 0 |
+| 1440 x 900 | data | fit | 0.751 | 56 | 0 | 0.0 | 0 | 0 |
+| 1440 x 900 | data | zoom 1 | 1.000 | 56 | 56 | 10.5 | 0 | 0 |
+| 1440 x 900 | control | fit | 0.751 | 17 | 0 | 0.0 | 0 | 0 |
+| 1440 x 900 | control | zoom 1 | 1.000 | 17 | 17 | 10.5 | 0 | 0 |
+| 1440 x 900 | judge | fit | 0.751 | 9 | 0 | 0.0 | 0 | 0 |
+| 1440 x 900 | judge | zoom 1 | 1.000 | 9 | 9 | 10.5 | 0 | 0 |
+| 1440 x 900 | all | fit | 0.751 | 82 | 0 | 0.0 | 0 | 0 |
+| 1440 x 900 | all | zoom 1 | 1.000 | 82 | 82 | 10.5 | 0 | 0 |
+| 1366 x 768 | system | fit | 0.603 | 17 | 0 | 0.0 | 0 | 0 |
+| 1366 x 768 | data | fit | 0.603 | 56 | 0 | 0.0 | 0 | 0 |
+| 1366 x 768 | control | fit | 0.603 | 17 | 0 | 0.0 | 0 | 0 |
+| 1366 x 768 | judge | fit | 0.603 | 9 | 0 | 0.0 | 0 | 0 |
+| 1366 x 768 | all | fit | 0.603 | 82 | 0 | 0.0 | 0 | 0 |
+| 1280 x 720 | system | fit | 0.549 | 17 | 0 | 0.0 | 0 | 0 |
+| 1280 x 720 | data | fit | 0.549 | 56 | 0 | 0.0 | 0 | 0 |
+| 1280 x 720 | control | fit | 0.549 | 17 | 0 | 0.0 | 0 | 0 |
+| 1280 x 720 | judge | fit | 0.549 | 9 | 0 | 0.0 | 0 | 0 |
+| 1280 x 720 | all | fit | 0.549 | 82 | 0 | 0.0 | 0 | 0 |
+
+### L1b: a smallest font size alone (not kept)
+
+Three trials, each with the fit of L1a and with a label that shows from 4.25 px of the size at the zoom. They changed only the smallest font size. The counts are for the fit.
+
+| Smallest font size | Screen | Zoom | System context: plates in a card, pairs | Data flow | Control flow | Map review | All |
+|---|---|---|---|---|---|---|---|
+| 9 px | 1440 x 900 | 0.751 | 0, 2 | 0, 2 | 0, 0 | 0, 0 | 0, 3 |
+| 9 px | 1366 x 768 | 0.603 | 2, 7 | 1, 26 | 0, 1 | 2, 3 | 3, 44 |
+| 9 px | 1280 x 720 | 0.549 | 2, 9 | 4, 31 | 0, 1 | 2, 3 | 6, 55 |
+| 8.5 px | 1440 x 900 | 0.751 | 0, 0 | 0, 0 | 0, 0 | 0, 0 | 0, 0 |
+| 8.5 px | 1366 x 768 | 0.603 | 1, 6 | 0, 20 | 0, 1 | 1, 2 | 1, 33 |
+| 8.5 px | 1280 x 720 | 0.549 | 2, 7 | 2, 28 | 0, 1 | 2, 3 | 4, 48 |
+| 8 px | 1440 x 900 | 0.751 | 0, 0 | 0, 0 | 0, 0 | 0, 0 | 0, 0 |
+| 8 px | 1366 x 768 | 0.603 | 1, 3 | 0, 10 | 0, 0 | 1, 1 | 1, 16 |
+| 8 px | 1280 x 720 | 0.549 | 1, 7 | 1, 22 | 0, 1 | 1, 2 | 2, 36 |
+
+Result: FAIL for 9 px at 1440 x 900 (acceptance 2: 2 pairs in System context and in Data flow). A label of 8.5 px at the zoom 0.751 is 8 percent larger than its size at the zoom, and it makes no overlap. A label of 9 px is 14 percent larger, and it makes overlaps. Thus the label seats of the router permit a growth of 8 percent on this map, and not 14 percent. The growth that makes the first overlap was not measured more exactly.
+
+A first form of the kept rule rounded the font size to the nearest 0.5 px. At 1366 x 768 pixels it gave 8 px at the zoom 0.685 (11 percent more) and 1 pair of plates in System context. The kept rule rounds down.
+
+### L1c: the kept change
+
+- The fit of a tree with no port keeps no band for the portals. The zoom of the fit goes from 0.751 to 0.821 at 1440 x 900, from 0.603 to 0.685 at 1366 x 768, and from 0.549 to 0.634 at 1280 x 720 pixels.
+- The font size of a label is its size at the zoom and 8 percent, to 9 px, in steps of 0.5 px down. A label fades in from 6.5 px to 7.25 px of its size at the zoom.
+
+| Screen | Layer | Camera | Zoom | Flows with a label box | Labels with an alpha of 0.99 or more | Smallest size of these labels (px) | Plates in a card | Pairs of plates in each other | Drawn labels | Smallest alpha | Smallest size of all drawn labels (px) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1440 x 900 | system | fit | 0.821 | 17 | 17 | 9.0 | 0 | 0 | 17 | 1.00 | 9.0 |
+| 1440 x 900 | system | zoom 1 | 1.000 | 17 | 17 | 10.5 | 0 | 0 | 17 | 1.00 | 10.5 |
+| 1440 x 900 | data | fit | 0.821 | 56 | 56 | 9.0 | 0 | 0 | 56 | 1.00 | 9.0 |
+| 1440 x 900 | data | zoom 1 | 1.000 | 56 | 56 | 10.5 | 0 | 0 | 56 | 1.00 | 10.5 |
+| 1440 x 900 | control | fit | 0.821 | 17 | 17 | 9.0 | 0 | 0 | 17 | 1.00 | 9.0 |
+| 1440 x 900 | control | zoom 1 | 1.000 | 17 | 17 | 10.5 | 0 | 0 | 17 | 1.00 | 10.5 |
+| 1440 x 900 | judge | fit | 0.821 | 9 | 9 | 9.0 | 0 | 0 | 9 | 1.00 | 9.0 |
+| 1440 x 900 | judge | zoom 1 | 1.000 | 9 | 9 | 10.5 | 0 | 0 | 9 | 1.00 | 10.5 |
+| 1440 x 900 | all | fit | 0.821 | 82 | 82 | 9.0 | 0 | 0 | 82 | 1.00 | 9.0 |
+| 1440 x 900 | all | zoom 1 | 1.000 | 82 | 82 | 10.5 | 0 | 0 | 82 | 1.00 | 10.5 |
+| 1366 x 768 | system | fit | 0.685 | 17 | 0 | 0.0 | 0 | 0 | 17 | 0.98 | 7.5 |
+| 1366 x 768 | data | fit | 0.685 | 56 | 0 | 0.0 | 0 | 0 | 56 | 0.98 | 7.5 |
+| 1366 x 768 | control | fit | 0.685 | 17 | 0 | 0.0 | 0 | 0 | 17 | 0.98 | 7.5 |
+| 1366 x 768 | judge | fit | 0.685 | 9 | 0 | 0.0 | 0 | 0 | 9 | 0.98 | 7.5 |
+| 1366 x 768 | all | fit | 0.685 | 82 | 0 | 0.0 | 0 | 0 | 82 | 0.98 | 7.5 |
+| 1280 x 720 | system | fit | 0.634 | 17 | 0 | 0.0 | 0 | 0 | 17 | 0.11 | 7.0 |
+| 1280 x 720 | data | fit | 0.634 | 56 | 0 | 0.0 | 0 | 0 | 56 | 0.11 | 7.0 |
+| 1280 x 720 | control | fit | 0.634 | 17 | 0 | 0.0 | 0 | 0 | 17 | 0.11 | 7.0 |
+| 1280 x 720 | judge | fit | 0.634 | 9 | 0 | 0.0 | 0 | 0 | 9 | 0.11 | 7.0 |
+| 1280 x 720 | all | fit | 0.634 | 82 | 0 | 0.0 | 0 | 0 | 82 | 0.11 | 7.0 |
+
+Result: PASS for acceptance 1 and 2. At 1440 x 900 pixels, each label of each layer shows at 9 px with no overlap, also in the layer All. At 1366 x 768 pixels, each label shows at 7.5 px with the alpha 0.98, which is below the 0.99 of acceptance 1. That screen has no acceptance value. At 1280 x 720 pixels, the labels have the alpha 0.11 at the fit, so a reader cannot read them without a zoom.
+
+Not measured: the frame time (C2) after this change, a tree with nested maps (its fit and its label size at a zoom of 0.76 or more do not change, but its labels now also show from the zoom 0.62 to 0.76), a map of 400 cards or more, and user comprehension of the labels at 9 px.

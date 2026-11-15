@@ -5,7 +5,8 @@ scene part (`page_canvas_scene`), the view part (`page_canvas_view`), the drawin
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
 (`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
 (`page_canvas_keys`), the part of the tree list (`page_canvas_tree`), the Sequences view
-(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the reader tools and
+(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the caption
+(`page_canvas_caption`), the reader tools and
 the Details panel (`page_canvas_details`), the marks of the open ports
 (`page_canvas_ports`), the part in this module and the Find dialog (`page_canvas_find`).
 The page CSP (`page_csp`) gets the digest
@@ -46,6 +47,7 @@ state to the tests and the measurement scripts. It changes nothing on the page.
 
 from __future__ import annotations
 
+from systemap.page_canvas_caption import CAPTION
 from systemap.page_canvas_changes import PART as CHANGES_PART
 from systemap.page_canvas_details import DETAILS
 from systemap.page_canvas_draw import DRAW
@@ -171,9 +173,11 @@ function draw() {
   // The portals keep off the boxes that the maps put in OBST (`dodge`).
   NMAP = NOBST;
   var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
+  captionLay(path);
   drawPortals(portals, path);
   drawPlates(path);
   drawPath(path);
+  drawCaption();
   drawHelp();
   drawFocus();
   if (!sharp) makeImages(began);
@@ -195,6 +199,17 @@ function fadeLater() {
   clearTimeout(fadeTimer);
   if (performance.now() - MOVED_AT >= FADE_WAIT) request();
   else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
+}
+// The frame readout of `?hud`.
+var FRAMES = [];
+function drawHud(began, half) {
+  var now = performance.now();
+  FRAMES.push(now);
+  while (FRAMES.length && now - FRAMES[0] > 1000) FRAMES.shift();
+  var s = FRAMES.length + ' fps · draw ' + (now - began).toFixed(1) + ' ms · ' + (half ? 'half' : 'full') +
+    ' · ' + STATS.cards + ' cards · ' + STATS.image + ' images';
+  ctx.globalAlpha = 0.95; ctx.fillStyle = C['--raised']; ctx.fillRect(W - 330, HEAD_H + 10, 320, 26);
+  text(s, W - 320, HEAD_H + 27, 12, C['--ink'], 1, 400, true);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
 function currentMap() { return CHAIN.length ? CHAIN[CHAIN.length - 1].child : TOP; }
@@ -471,6 +486,8 @@ window.systemapCanvas = {
   // `viewLog` starts a record of the fade of each mode and the values of the cards and the
   // flows in each frame, and `viewLogged` gives it and stops it.
   viewState: viewState,
+  // The caption (`page_canvas_caption`): the words, the alpha and the screen box of the plate.
+  caption: captionState,
   setView: setView,
   viewLog: function () { VIEW_LOG = {frames: []}; },
   viewLogged: function () { var l = VIEW_LOG ? VIEW_LOG.frames : []; VIEW_LOG = null; return l; },
@@ -503,6 +520,7 @@ SCRIPT = (
     + TREE
     + SEQ_PART
     + CHANGES_PART
+    + CAPTION
     + DETAILS
     + PORTS
     + _INPUT
