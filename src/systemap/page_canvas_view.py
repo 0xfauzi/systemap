@@ -75,7 +75,8 @@ is quiet: it has the alpha QUIET. These are the rules of `paint` in
 `schematic_relations.py`. A map that does not have the layer shows no flow, and its cards
 that are not subjects are quiet. The flags of each map are calculated one time for each
 layer (`layerFlags`), when the map is first drawn with that layer. The layer applies only
-in the Map view, as on the linked page. A layer button in a different view goes to the
+in the Map view, as on the linked page. The page opens with the layer System context
+when the top map has flows in it, and with All in the other cases. A layer button in a different view goes to the
 Map view with that layer.
 
 The header (`canvas_header`). The view buttons and the layer buttons set the view. The
@@ -99,6 +100,9 @@ var HEAD_EL = document.getElementById('canvas-head'), HEAD_H = 0, HEAD_BASE = 0;
 // The layers of all maps: the name and the question of each layer ID.
 var LAYER_OF = Object.create(null);
 ORDER.forEach(function (m) { (m.layers || []).forEach(function (l) { if (!LAYER_OF[l.id]) LAYER_OF[l.id] = l; }); });
+// The page opens with System context when that layer is the first layer of the top map: it
+// then has flows (`page.tab_layers`, `canvas_header.first_layer`). Else it opens with All.
+if (TOP.layers && TOP.layers[0] && TOP.layers[0].id === 'system') VIEW.layer = 'system';
 // The flags of a layer in a map: the flows that it shows, and the quiet cards.
 function layerFlags(m, id) {
   var memo = m._lf || (m._lf = Object.create(null));
@@ -197,6 +201,12 @@ function flowShown(f) { return VIEW_AIM ? flowAim(f).a : f._vAt === drawn ? f._v
 // The alpha of the label of flow f. A flow with the alpha 0.16 or less (a flow that is not
 // on the route of a sequence) has no label, and the label has the alpha of the flow from 0.4.
 function labelShown(f) { var s = flowShown(f); return s * smooth(0.16, 0.4, s); }
+// Make the Map view show flow f before the camera goes to it: when the layer does not show
+// the flow, the layer of the flow, or All.
+function viewFlowOn(f) {
+  if (VIEW.mode !== 'map' || VIEW.layer === 'all' || layerFlags(f.map, VIEW.layer).flow[f.i]) return;
+  setView('map', layerFlags(f.map, f.l).flow[f.i] ? f.l : 'all');
+}
 // The color of a flow, for a color of the view or for the layer color.
 function flowColor(f, color) { return color ? C[color] || color : C['--l-' + f.l] || C['--flow']; }
 // Draw the parts of the views after the cards of map m. A view that fades out still draws.

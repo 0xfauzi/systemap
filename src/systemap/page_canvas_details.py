@@ -364,7 +364,7 @@ DETAILS = r"""
       if (!b) return;
       if (b.hasAttribute('data-f') && c) { BACK = c; FLOW = c.map.flows[+b.getAttribute('data-f')]; detSync(true); }
       else if (b.hasAttribute('data-back')) { FLOW = null; detSync(true); }
-      else if (b.hasAttribute('data-show') && FLOW) flyGoal(goalOf(FLOW.map, null, FLOW));
+      else if (b.hasAttribute('data-show') && FLOW) { viewFlowOn(FLOW); flyGoal(goalOf(FLOW.map, null, FLOW)); }
       else if (b.hasAttribute('data-go') && c && c.child) flyGoal(goalOf(c.map, c, null));
     });
   }

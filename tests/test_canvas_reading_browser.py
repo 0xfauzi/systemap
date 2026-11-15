@@ -14,8 +14,8 @@ Acceptance values, written before the first run on 2026-11-15:
    drawn labels are exactly the artifacts of the flows of the layer that have a label box.
    Each label has an alpha of 0.99 or more and a font size of 9 px or more (L1 in
    bench/jev/README.md).
-2. The page opens with the caption "All layers" and "Which flows connect the components?".
-   After a click on each layer button, the caption gives the name and the question of that
+2. The page opens with a caption (changed on 2026-11-15, before the run, with acceptance
+   11: the caption of the first layer, not of All). After a click on each layer button, the caption gives the name and the question of that
    layer, with the alpha 1, and the live region gives the question. The plate of the caption
    is in the row of the path: it has the top and the height of the plate of the path, it
    starts 8 px after that plate, and it ends 12 px or more before the right screen edge.
@@ -46,6 +46,13 @@ Acceptance values, written before the first run on 2026-11-15:
     the map at the fit is below the plate of the path and above the plate of the help line.
     The fixture with the nested map has ports: its top band is 155 px and its bottom band is
     75 px, the values before this change.
+11. Added on 2026-11-15, before the first run with the change of the first layer. The page
+    opens with the layer System context when that layer is the first layer of the top map,
+    and with All in the other cases: the view state, the one pressed layer button, the one
+    layer button in the Tab order, the select and the caption give that layer. The self-map
+    opens with System context. With that layer, "Show the flow on the map" in the Details
+    panel for a flow that the layer does not show changes the layer to the layer of the
+    flow, in the Map view.
 """
 
 from __future__ import annotations
@@ -111,12 +118,7 @@ def test_the_caption_gives_the_question_of_each_layer(self_page: Path) -> None:
     """Acceptance 2, 3 and 4."""
     out = _drive("--caption", self_page)
     assert out["errors"] == []
-    start = out["start"]["caption"]
-    assert (start["k"], start["s"], start["a"]) == (
-        "All layers",
-        "Which flows connect the components?",
-        1,
-    )
+    assert out["start"]["caption"]["a"] == 1
     _in_path_row(out["start"])
     assert len(out["layers"]) >= 5
     for layer in out["layers"]:
@@ -126,7 +128,7 @@ def test_the_caption_gives_the_question_of_each_layer(self_page: Path) -> None:
         _in_path_row(layer["at"])
     # Acceptance 3.
     frames = out["fade"]
-    question = out["layers"][0]["q"]
+    question = "Which flows connect the components?"
     for before, after in zip(frames, frames[1:], strict=False):
         assert abs(after[1] - before[1]) <= 0.25, (before, after)
         if after[2] != before[2]:
@@ -208,3 +210,28 @@ def test_a_tree_with_no_port_has_no_portal_bands(self_page: Path, tmp_path: Path
     other = _drive("--bands", nested)
     assert other["errors"] == [] and other["ports"] is True
     assert other["gutters"]["top"] == 155 and other["gutters"]["bottom"] == 75
+
+
+def _opens_with(out: dict[str, Any]) -> str:
+    layers = out["layers"]
+    want = "system" if layers and layers[0]["id"] == "system" else "all"
+    start = out["start"]
+    assert out["errors"] == []
+    assert (start["layer"], start["mode"], start["select"]) == (want, "map", want)
+    assert start["pressed"] == [want] and start["tab"] == [want]
+    name = {lay["id"]: lay["n"] for lay in layers} | {"all": "All layers"}
+    assert start["caption"]["k"] == name[want]
+    return want
+
+
+def test_the_page_opens_with_system_context(self_page: Path, tmp_path: Path) -> None:
+    """Acceptance 11."""
+    own = _drive("--first", self_page)
+    assert _opens_with(own) == "system"
+    assert own["layers"][0]["e"] > 0
+    flow = own["flow"]
+    assert flow["layer"] != "system"
+    assert (flow["after"]["layer"], flow["after"]["mode"]) == (flow["layer"], "map")
+    assert flow["after"]["pressed"] == [flow["layer"]]
+    nested = _made(tmp_path, "") / "docs" / "map" / "index.html"
+    _opens_with(_drive("--first", nested))

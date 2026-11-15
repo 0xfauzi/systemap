@@ -63,20 +63,40 @@ def _views() -> str:
     )
 
 
-def _layers(found: list[dict[str, str]]) -> str:
+def first_layer(data: Mapping[str, Any]) -> str:
+    """Give the layer with which the page opens: "system" when System context is the first
+    layer of the top map, and "all" in the other cases.
+
+    System context is the first layer only when it has flows (`page.tab_layers`). The
+    script uses the same rule (`VIEW.layer` in `page_canvas_view`)."""
+    top = (data.get("maps") or [{}])[0].get("layers") or []
+    return "system" if top and top[0]["id"] == "system" else "all"
+
+
+def _layers(found: list[dict[str, str]], first: str = "all") -> str:
+    def state(layer: str) -> str:
+        on = layer == first
+        return f'aria-pressed="{"true" if on else "false"}" tabindex="{0 if on else -1}"'
+
+    def pick(layer: str) -> str:
+        return " selected" if layer == first else ""
+
     buttons = "".join(
-        f'<button type="button" data-layer="{esc(lay["id"])}" aria-pressed="false" '
-        f'tabindex="-1" title="{esc(lay["q"])}">{esc(lay["n"])}</button>'
+        f'<button type="button" data-layer="{esc(lay["id"])}" {state(lay["id"])} '
+        f'title="{esc(lay["q"])}">{esc(lay["n"])}</button>'
         for lay in found
     )
-    options = "".join(f'<option value="{esc(lay["id"])}">{esc(lay["n"])}</option>' for lay in found)
+    options = "".join(
+        f'<option value="{esc(lay["id"])}"{pick(lay["id"])}>{esc(lay["n"])}</option>'
+        for lay in found
+    )
     return (
         '<div class="cbar__layers" role="toolbar" aria-label="Layer">'
         f"{buttons}"
-        '<button type="button" data-layer="all" aria-pressed="true" tabindex="0" '
+        f'<button type="button" data-layer="all" {state("all")} '
         f'title="{ALL_TITLE}">All</button></div>'
         '<div class="cbar__pick"><label for="canvas-layer">Layer</label>'
-        f'<select id="canvas-layer">{options}<option value="all" selected>All</option>'
+        f'<select id="canvas-layer">{options}<option value="all"{pick("all")}>All</option>'
         "</select></div>"
     )
 
@@ -143,7 +163,7 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
         '<header class="cbar" id="canvas-head">'
         f'<h1 class="cbar__name">{name}</h1>'
         + _views()
-        + _layers(layers(data))
+        + _layers(layers(data), first_layer(data))
         + tools
         + '<span class="cbar__space"></span>'
         + _find()

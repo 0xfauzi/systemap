@@ -112,6 +112,9 @@ A layer is a filtered view of the map.
     A larger label makes the label plates overlap. `bench/jev/README.md` (L1) gives the measurement.
   - At 1440 x 900 pixels, each label of the map of this repository shows at 9 px. At 1280 x 720 pixels, the labels are not clear at the fit. Zoom in to read them.
   - A map tree with a nested map keeps the earlier fit.
+- The canvas page opens with the layer System context when the top map has flows in that layer. Before this change, it opened with All.
+  A map with no such flows opens with All. A script that reads the first view of the page must select All first.
+  When Find or "Show the flow on the map" goes to a flow that the layer does not show, the page changes to the layer of that flow.
 - A caption at the right of the path gives the name and the question of the layer, for example "System context" and "Which actors connect to the system?".
   In the Sequences view, it gives the question of the whole route, or the count and the sentence of the step.
 - In the Sequences view, with no selected card, the Details panel gives the route of the sequence in order: each step with its flow and its sentence.

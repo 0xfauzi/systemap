@@ -7,12 +7,15 @@
 //     node tests/canvas_reading.js --caption PAGE.html
 //     node tests/canvas_reading.js --route PAGE.html
 //     node tests/canvas_reading.js --bands PAGE.html
+//     node tests/canvas_reading.js --first PAGE.html
 //
 // --labels: the labels at the fit of the top map, for each layer with flows, at 1440 x 900.
 // --caption: the words and the box of the caption after each layer, the fade of a change
 // with and without reduced motion, and the box on a phone. --route: the caption, the labels
 // and the Details panel in the Sequences view, and axe-core (from NODE_PATH; null when it
-// is not there). --bands: the bands of the fit and the frame of the top map.
+// is not there). --bands: the bands of the fit and the frame of the top map. --first: the
+// layer with which the page opens, and the layer after "Show the flow on the map" for a flow
+// that the layer does not show.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -66,22 +69,25 @@ async function runLabels(browser, file) {
 async function runCaption(browser, file) {
   const { page, errors } = await open(browser, file, Object.assign({ reducedMotion: 'reduce' }, DESK));
   const map = await top(page), out = { start: await layout(page), layers: [], errors };
+  // The page can open with the first layer. A click on the layer that shows changes nothing.
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await page.waitForTimeout(250);
   for (const lay of map.layers) {
     await page.getByRole('button', { name: lay.n, exact: true }).click();
     await page.waitForTimeout(250);
     out.layers.push({ id: lay.id, n: lay.n, q: lay.q, at: await layout(page), said: await page.evaluate(() => document.getElementById('canvas-said').textContent) });
   }
   await page.context().close();
-  // The fade, without reduced motion: to a layer, and back to All.
+  // The fade, without reduced motion: from the first layer to All.
   const moving = await open(browser, file, DESK);
   await moving.page.waitForTimeout(500);
-  out.fade = await fade(moving.page, map.layers[0].id, 900);
+  out.fade = await fade(moving.page, 'all', 900);
   out.reduced = await page.context().browser().newContext(Object.assign({ reducedMotion: 'reduce' }, DESK)).then(async (context) => {
     const p = await context.newPage();
     await p.goto('file://' + path.resolve(file));
     await p.waitForFunction(() => window.systemapCanvas);
     await p.waitForTimeout(400);
-    return fade(p, map.layers[0].id, 300);
+    return fade(p, 'all', 300);
   });
   const phone = await open(browser, file, Object.assign({ reducedMotion: 'reduce' }, PHONE));
   out.phone = await layout(phone.page);
@@ -151,10 +157,34 @@ async function runBands(browser, file) {
   return Object.assign({ ports, errors }, await layout(page));
 }
 
+async function runFirst(browser, file) {
+  const { page, errors } = await open(browser, file, Object.assign({ reducedMotion: 'reduce' }, DESK));
+  const map = await top(page);
+  const read = () => page.evaluate(() => ({ layer: window.systemapCanvas.viewState().layer, mode: window.systemapCanvas.viewState().mode,
+    pressed: Array.from(document.querySelectorAll('[data-layer][aria-pressed="true"]')).map((b) => b.getAttribute('data-layer')),
+    tab: Array.from(document.querySelectorAll('[data-layer][tabindex="0"]')).map((b) => b.getAttribute('data-layer')),
+    select: document.getElementById('canvas-layer').value, caption: window.systemapCanvas.caption() }));
+  const out = { layers: map.layers.map((l) => ({ id: l.id, n: l.n, q: l.q, e: l.e.length })), start: await read(), errors };
+  // A flow that the first layer does not show, from a card that is not an actor.
+  const shown = new Set((map.layers.find((l) => l.id === out.start.layer) || { e: [] }).e);
+  const i = map.flows.findIndex((f, k) => !shown.has(k) && map.cards.find((c) => c.id === f.s).k !== 'actor');
+  if (out.start.layer !== 'all' && i >= 0) {
+    const f = map.flows[i], b = await page.evaluate((id) => window.systemapCanvas.box('', id), f.s);
+    await page.mouse.click(b[0] + b[2] / 2, b[1] + b[3] / 2);
+    await page.keyboard.press('d');
+    await page.waitForTimeout(300);
+    await page.locator('#cdet-body [data-f="' + i + '"]').click();
+    await page.locator('#cdet-body [data-show]').click();
+    await page.waitForTimeout(300);
+    out.flow = { layer: f.l, after: await read() };
+  }
+  return out;
+}
+
 (async () => {
   const [mode, file] = process.argv.slice(2);
-  const runs = { '--labels': runLabels, '--caption': runCaption, '--route': runRoute, '--bands': runBands };
-  if (!runs[mode] || !file) { console.error('usage: canvas_reading.js --labels|--caption|--route|--bands PAGE.html'); process.exit(2); }
+  const runs = { '--labels': runLabels, '--caption': runCaption, '--route': runRoute, '--bands': runBands, '--first': runFirst };
+  if (!runs[mode] || !file) { console.error('usage: canvas_reading.js --labels|--caption|--route|--bands|--first PAGE.html'); process.exit(2); }
   const browser = await chromium.launch();
   try { console.log(JSON.stringify(await runs[mode](browser, file))); } finally { await browser.close(); }
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -52,6 +52,7 @@ It opens the canvas page at that map. Thus earlier links stay correct.
 
 ## Layers
 
+The page opens with the layer System context when the top map has flows in that layer. Else it opens with All.
 Select a layer in the header. [Concepts](concepts.html#layer) tells which flows each layer shows.
 A layer shows only its flows. A card that no flow of the layer touches becomes quiet.
 A caption at the right of the path gives the name and the question of the layer.
