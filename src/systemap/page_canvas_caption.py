@@ -55,7 +55,7 @@ function captionFrame() {
 function captionParts(path) {
   var p = pathPlate(path), x = p[0] + p[2] + 8, room = W - x - 12 - 24;
   if (!CAP.key || room + 24 < CAP_ROOM) return null;
-  var kw = unitWidth(CAP.k.toUpperCase(), 600, true) * CAP_KS + 14, sw = unitWidth(CAP.s, 600) * CAP_FS, k = kw + sw <= room ? CAP.k : '';
+  var kw = unitWidth(CAP.k.toUpperCase(), 600, true) * CAP_KS + CAP.k.length * CAP_KS * 0.07 + 14, sw = unitWidth(CAP.s, 600) * CAP_FS, k = kw + sw <= room ? CAP.k : '';
   var s = fit(CAP.s, CAP_FS, k ? room - kw : room, 600), w = (k ? kw : 0) + Math.min(sw, unitWidth(s, 600) * CAP_FS) + 24;
   return {box: [x, p[1], w, p[3]], k: k, kw: kw, s: s};
 }
@@ -72,7 +72,7 @@ function drawCaption() {
   if (!c) return;
   var b = c.box, base = b[1] + b[3] / 2 + 4.5, x = b[0] + 12;
   plate(b, 0.96 * CAP.a);
-  if (c.k) { text(c.k.toUpperCase(), x, base, CAP_KS, C['--ink-3'], CAP.a, 600, true); x += c.kw; }
+  if (c.k) { spaced(ctx, CAP_KS * 0.07); text(c.k.toUpperCase(), x, base, CAP_KS, C['--ink-3'], CAP.a, 600, true); spaced(ctx, 0); x += c.kw; }
   text(c.s, x, base + 1, CAP_FS, C['--ink'], CAP.a, 600);
 }
 // The caption for the tests: the words, the alpha and the screen box of the last frame.

@@ -1,6 +1,10 @@
 """The finish of the canvas page: the dot grid, the legend, and the dot of a step.
 
 These parts come from DESIGN.md. The linked page had them, and the canvas page did not.
+The part also has the round corners of the flow lines (`cutLine`), the halo of a flow label
+(`labelHalo`), the letter spacing of the uppercase names (`spaced`), the stronger border of
+the card under the pointer (`hoverAt`), and the low contrast of the other flows after a
+selection.
 
 - The dot grid. The ground of the map has one dot at each 24 units of the top map, in the
   color `--grid`. The dots follow the camera, so a reader sees a move of the map also in an
@@ -101,6 +105,41 @@ function drawLegend() {
   });
   text(counted(LEGEND.n, 'flow'), x, y, LEG_FS, C['--ink-2'], 1, 600, true);
 }
+
+// ---- lines, labels and the pointer -------------------------------------------------------
+// A line of segments with right angles, cut to the target. A point cut to the target keeps
+// each segment on its line. Each corner is round: its radius is 5 units of the map, 8 px or
+// less, and half of the shorter of its two segments or less.
+function cutLine(g, p, ox, oy, a) {
+  var b = bounds(g), bx = b[0] + CUT, by = b[1] + CUT, n = p.length, most = clamp(5 * a, 0, 8);
+  function X(i) { return clamp(ox + a * p[i][0], -CUT, bx); }
+  function Y(i) { return clamp(oy + a * p[i][1], -CUT, by); }
+  function len(i) { return Math.abs(X(i) - X(i - 1)) + Math.abs(Y(i) - Y(i - 1)); }
+  g.moveTo(X(0), Y(0));
+  for (var i = 1; i < n - 1; i++) g.arcTo(X(i), Y(i), X(i + 1), Y(i + 1), Math.min(most, len(i) / 2, len(i + 1) / 2));
+  g.lineTo(X(n - 1), Y(n - 1));
+}
+// The halo of a flow label: the text in the color of the map, with a wide line, under the
+// text. It removes the lines behind the letters and no more.
+function labelHalo(s, x, y, size, alpha) {
+  if (size < MIN_TEXT || alpha <= 0.02 || !s) return;
+  ctx.globalAlpha = alpha; ctx.font = font(500, size); ctx.textAlign = 'center';
+  ctx.strokeStyle = C['--map']; ctx.lineWidth = Math.max(3.5, size * 0.6); ctx.lineJoin = 'round'; ctx.setLineDash([]);
+  ctx.strokeText(s, x, y);
+}
+// The letter spacing of the uppercase names, where the browser has it.
+function spaced(g, px) { if ('letterSpacing' in g) g.letterSpacing = px ? px.toFixed(2) + 'px' : '0px'; }
+// The card under the pointer of a mouse has a stronger border.
+var HOVER_C = null;
+function hoverAt(px, py) {
+  var c = TOUCH || px === null || boardOn() ? null : pickClosed(px, py);
+  if (c === HOVER_C) return;
+  HOVER_C = c; request();
+}
+cv.addEventListener('pointerleave', function () { hoverAt(null, null); });
+// A new selection: the flows of the selected card stay, and the other flows and cards of its
+// map go to low contrast (`VIEWS.map`). The images of a large map are made again.
+SEL_HOOKS.push(function () { VIEW.epoch++; viewTouch(); });
 
 // The dot of a step: one move along the route of the flow of the new step.
 var DOT = {f: null, t0: 0, key: ''}, DOT_IN = 120, DOT_MOVE = 600, DOT_WAIT = 350;

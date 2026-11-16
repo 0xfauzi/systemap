@@ -99,3 +99,20 @@ with the fonts, the colors and the plates of the map.
   `tests/test_canvas_frames.py`, not the A/B measurement with the quiet gate.
 - The legend, the grid and the dot of a step have no test of their own. They were examined
   in pictures at two times the resolution, in the two themes.
+
+## The map canvas, pass 1 (2026-11-16)
+
+An examination of close pictures at two times the resolution found five defects. Each has a
+change in `page_canvas_finish.py`, `page_canvas_view.py` or `page_canvas_draw.py`.
+
+| Defect | Change |
+|---|---|
+| A selected card had a ring, and all flows of the map kept full contrast. | The flows of the selected card stay. The other flows of its map have the alpha 0.16 and no label, and the cards that no such flow connects to it are quiet (`VIEWS.map`, `selNear`). DESIGN.md gives this rule. |
+| A flow label was on a plate that cut the lines under it. | The label has a halo: the text in the color of the map with a wide line, under the text (`labelHalo`). The box of the plate still keeps portals and boundary flows off the label. |
+| A label grew to 13 px in a zoom. | The font size stops at 12 px. |
+| The corners of a flow line were sharp. | Each corner is round: 5 units of the map, 8 px or less (`cutLine`). |
+| The uppercase names had no letter spacing, and a card did not answer the pointer. | The names of regions and containers and the name in the caption have a letter spacing of 0.07 em, where the browser has `letterSpacing`. The card under the pointer of a mouse has a border in `--ink-2` of 1.5 px (`hoverAt`). |
+
+Not done in this pass: the lines of a layer do not draw from source to target at a layer
+change, a flow line does not answer the pointer, and a click on a flow line selects nothing.
+The frame time after this pass has only the runs of `tests/test_canvas_frames.py`.

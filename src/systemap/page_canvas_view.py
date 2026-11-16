@@ -120,9 +120,27 @@ function layerFlags(m, id) {
 // A quiet card of a layer, and a flow that a view does not show (`FLOW_OFF`, also for the
 // other views).
 var MAP_QUIET = {a: QUIET, ring: null, tag: null, back: null, note: null}, FLOW_OFF = {a: 0, color: null};
+// The cards that a flow of the layer connects to the selected card s, and s (`selNear`).
+function selNear(s) {
+  if (s._nk === VIEW.layer) return s._near;
+  var near = Object.create(null), fl = VIEW.layer === 'all' ? null : layerFlags(s.map, VIEW.layer).flow;
+  near[s.id] = true;
+  s.ins.concat(s.outs).forEach(function (f) { if (!fl || fl[f.i]) { near[f.s] = true; near[f.t] = true; } });
+  s._nk = VIEW.layer; s._near = near;
+  return near;
+}
+// With a selected card, the flows of that card stay, and the other flows and cards of its
+// map go to low contrast. A flow with the alpha SEL_DIM has no label (`labelShown`).
+var SEL_DIM = {a: 0.16, color: null};
 VIEWS.map = {
-  card: function (c) { return VIEW.layer !== 'all' && layerFlags(c.map, VIEW.layer).quiet[c.i] ? MAP_QUIET : null; },
-  flow: function (f) { return VIEW.layer !== 'all' && !layerFlags(f.map, VIEW.layer).flow[f.i] ? FLOW_OFF : null; }
+  card: function (c) {
+    if (VIEW.layer !== 'all' && layerFlags(c.map, VIEW.layer).quiet[c.i]) return MAP_QUIET;
+    return SEL_C && SEL_C.map === c.map && !selNear(SEL_C)[c.id] ? MAP_QUIET : null;
+  },
+  flow: function (f) {
+    if (VIEW.layer !== 'all' && !layerFlags(f.map, VIEW.layer).flow[f.i]) return FLOW_OFF;
+    return SEL_C && SEL_C.map === f.map && f.s !== SEL_C.id && f.t !== SEL_C.id ? SEL_DIM : null;
+  }
 };
 
 // ---- the seam --------------------------------------------------------------------
@@ -222,7 +240,7 @@ function viewOver(m, a, ox, oy, alpha) {
 function viewFrame() {
   var now = performance.now(), dt = VIEW_LAST ? now - Math.max(VIEW_LAST, VIEW_AT) : Infinity;
   VIEW_LAST = now; VIEW_FADING = false; STATS.hooks = 0; STATS.flows = 0;
-  VIEW_IDLE = VIEW.mode === 'map' && VIEW.layer === 'all';
+  VIEW_IDLE = VIEW.mode === 'map' && VIEW.layer === 'all' && !SEL_C;
   VIEW_STEP = reduced() ? 1 : Math.min(VIEW_MAX, dt / VIEW_MS);
   MODES.forEach(function (mode) {
     var to = mode === VIEW.mode ? 1 : 0;

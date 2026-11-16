@@ -74,13 +74,7 @@ function rr(g, x, y, w, h, r) {
   if (r > 0.5 && g.roundRect) g.roundRect(x0, y0, x1 - x0, y1 - y0, Math.min(r, (x1 - x0) / 2, (y1 - y0) / 2));
   else g.rect(x0, y0, x1 - x0, y1 - y0);
 }
-// A line of segments with right angles, cut to the target. A point cut to the target
-// keeps each segment on its line.
-function cutLine(g, p, ox, oy, a) {
-  var b = bounds(g), bx = b[0] + CUT, by = b[1] + CUT;
-  g.moveTo(clamp(ox + a * p[0][0], -CUT, bx), clamp(oy + a * p[0][1], -CUT, by));
-  for (var i = 1; i < p.length; i++) g.lineTo(clamp(ox + a * p[i][0], -CUT, bx), clamp(oy + a * p[i][1], -CUT, by));
-}
+// `cutLine` (page_canvas_finish) draws a line of segments with right angles and round corners.
 // The arrowhead at (x2, y2) of a segment from (x1, y1).
 function arrowHead(g, x2, y2, x1, y1, size) {
   var an = Math.atan2(y2 - y1, x2 - x1);
@@ -96,7 +90,7 @@ function q(size) { return Math.round(size * 2) / 2; }
 // router keep the plates apart to that factor (L1 in bench/jev/README.md).
 var LABEL_MIN = 9, LABEL_GROW = 1.08, LABEL_FROM = 6.5;
 function nameSize(a) { return q(clamp(10.5 * a, 0, 13)); }
-function labelSize(a) { var raw = 10.5 * a; return clamp(Math.max(q(raw), Math.floor(Math.min(LABEL_MIN, raw * LABEL_GROW) * 2) / 2), 0, 13); }
+function labelSize(a) { var raw = 10.5 * a; return clamp(Math.max(q(raw), Math.floor(Math.min(LABEL_MIN, raw * LABEL_GROW) * 2) / 2), 0, 12); }
 function hasLabels(fs, alpha) { return fs >= MIN_TEXT && alpha > 0.05; }
 // A text fades in from the size `from` at which the page starts to draw it, for the size
 // `raw` before the rounding to half pixels. Thus a text does not appear at one time in a
@@ -160,7 +154,7 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
   var na = nameAlpha(a, alpha);
   NOTE = g === ctx;
   boxNames(m, a, ox, oy, function (s, x, y, color) {
-    text(s, x, y, fs, color, na, 600, true);
+    spaced(g, fs * 0.07); text(s, x, y, fs, color, na, 600, true); spaced(g, 0);
     // The number of a region is in a ring.
     if (/^\d/.test(s)) { g.globalAlpha = na; g.strokeStyle = color; g.lineWidth = 1; g.setLineDash([]); g.beginPath(); g.arc(x + fs * 0.3 * s.indexOf(' '), y - fs * 0.35, fs * 0.82, 0, 2 * Math.PI); g.stroke(); }
   });
@@ -225,18 +219,12 @@ function drawLabels(list, a, ox, oy, alpha) {
   var fs = labelSize(a);
   alpha = labelAlpha(a, alpha);
   if (!hasLabels(fs, alpha)) return;
-  // The plate fits the text. The text stops at 13 px, so a plate of the label box would
-  // grow past the text and cover the routes.
-  var bg = new Batch(true);
-  plates(list, a, ox, oy, fs, function (px, py, pw, ph, f) {
-    var fa = alpha * labelShown(f);
-    if (fa <= 0.02) return;
-    bg.rect(C['--map'], fa * 0.9, px, py, pw, ph, 3);
-    obstacle(px, py, pw, ph, 1, fa);
-  });
-  bg.flush(ctx);
+  // A label has a halo in the color of the map (`labelHalo`), not a plate: a plate cuts the
+  // lines under it. The box of the plate still keeps the portals and the boundary flows off.
+  plates(list, a, ox, oy, fs, function (px, py, pw, ph, f) { var fa = alpha * labelShown(f); if (fa > 0.02) obstacle(px, py, pw, ph, 1, fa); });
   list.forEach(function (f) {
     if (!f.lb) return;
+    labelHalo(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, alpha * labelShown(f));
     text(f.a, ox + a * (f.lb[0] + f.lb[2] / 2), oy + a * (f.lb[1] + f.lb[3] / 2) + fs * 0.36, fs, C['--ink-2'], alpha * labelShown(f), 500, false, 'center');
   });
 }
@@ -266,6 +254,7 @@ function cardBox(c, x, y, w, h, alpha) {
   if (c.child) { BACK.rect(C['--line-2'], alpha * t, x + 4, y + 4, w, h, r); BACK_LINE.rect(C['--card-line'], alpha * t, x + 4, y + 4, w, h, r, 1); viewBack(v, x, y, w, h, r, alpha * t); }
   FILL.rect(k.fill, alpha * t, x, y, w, h, r);
   LINE.rect(k.line, alpha * t, x, y, w, h, r, 1, c.k === 'actor' ? 'a' : '');
+  if (c === HOVER_C) LINE.rect(C['--ink-2'], alpha * t, x, y, w, h, r, 1.5, c.k === 'actor' ? 'a' : '');
 }
 // ---- a card that opens a map -----------------------------------------------------
 function drawOpening(c, a, ox, oy, alpha) {

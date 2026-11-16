@@ -287,7 +287,12 @@ cv.addEventListener('pointerdown', function (e) {
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
 });
 cv.addEventListener('pointermove', function (e) {
-  if (!pts.has(e.pointerId)) { var over = hitAt(local(e)[0], local(e)[1]); cv.style.cursor = over && over.kind !== 'board' ? 'pointer' : boardOn() ? 'default' : ''; return; }
+  if (!pts.has(e.pointerId)) {
+    var at = local(e), over = hitAt(at[0], at[1]);
+    hoverAt(over ? null : at[0], at[1]);
+    cv.style.cursor = (over && over.kind !== 'board') || HOVER_C ? 'pointer' : boardOn() ? 'default' : '';
+    return;
+  }
   var prev = pts.get(e.pointerId), p = local(e);
   pts.set(e.pointerId, p);
   if (pts.size === 2) {

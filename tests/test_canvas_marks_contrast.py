@@ -94,6 +94,7 @@ CANVAS_MARKS: tuple[tuple[str, str, str, float, str, str], ...] = (
     ("tag of an open port", "ink_2", "raised", TEXT, "ports", "c: '--raised', t: '--ink-2'"),
     # Lines.
     ("card border", "card_line", "map", LINE, "draw", "LINE.rect(k.line"),
+    ("card border under the pointer", "ink_2", "map", LINE, "draw", "LINE.rect(C['--ink-2']"),
     (
         "outline of the back card",
         "card_line",
