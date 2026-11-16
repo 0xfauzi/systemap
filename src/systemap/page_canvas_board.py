@@ -39,7 +39,9 @@ CSS = """
 display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 16px;
 border-bottom:1px solid var(--line);background:var(--surface)}
 .cbar .cst[hidden]{display:none}
-.cst label{color:var(--ink-3)}
+.cst label{font:600 11px/16px var(--fm);letter-spacing:.08em;text-transform:uppercase;
+color:var(--ink-3)}
+.cbar .cst select{height:30px}
 .cbar .cst select{max-width:min(360px,100%);padding:0 8px;border-color:var(--line-2);
 background:var(--map);color:var(--ink)}
 .cst__count{font:12px var(--fm);color:var(--ink-2)}

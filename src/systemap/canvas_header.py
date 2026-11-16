@@ -19,6 +19,9 @@ The header holds these controls, from left to right:
   buttons are a toolbar: Tab goes to the pressed button, and the arrow keys move between
   the buttons. When the buttons do not fit in the header, the script shows a select in
   their place, as the linked page does on a phone.
+  With a mouse, the views are one segmented control, and the layers are tabs with a line
+  under the pressed tab. Thus the two groups do not look the same. On a touch screen, each
+  control keeps its box of 44 px.
 - The Find button (`find-open`). It is hidden until the search part of the renderer wires
   its dialog and removes the `hidden` attribute.
 - The tools (`_tools`), as on the linked page (`page._tools`): the source of the map (the
@@ -237,6 +240,24 @@ overflow:hidden;clip-path:inset(50%)}
 .cview.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
 @media (prefers-reduced-motion:reduce){.cview,.cview.on{transition:none}}
 :root[data-reduce-motion="true"] .cview{transition:none}
+@media (pointer:fine){
+.cbar button{transition:background .16s ease-out,color .16s ease-out,box-shadow .16s ease-out}
+.cbar__views{gap:0;padding:2px;border:1px solid var(--line-2);border-radius:8px;
+background:var(--map)}
+.cbar .cbar__views button{height:26px;padding:0 12px;border-radius:6px}
+.cbar .cbar__views button[aria-pressed="true"]{background:var(--surface);
+box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 12%,transparent)}
+.cbar__layers{align-self:stretch;align-items:stretch;gap:0;padding-left:14px}
+.cbar .cbar__layers button{height:auto;padding:0 10px;border:0;border-radius:0;
+background:none;box-shadow:inset 0 -2px 0 transparent}
+.cbar .cbar__layers button:hover{background:none;box-shadow:inset 0 -2px 0 var(--line-2)}
+.cbar .cbar__layers button[aria-pressed="true"]{background:none;
+box-shadow:inset 0 -2px 0 var(--ink);color:var(--ink)}
+.cbar .cbar__layers button:focus-visible{outline-offset:-3px}
+.cbar[data-fit="2"] .cbar__views{padding:1px}
+}
+@media (prefers-reduced-motion:reduce){.cbar button{transition:none}}
+:root[data-reduce-motion="true"] .cbar button{transition:none}
 .tree a:focus{top:104px;z-index:5}
 @media (pointer:coarse){.tree a:focus{top:120px}}
 """

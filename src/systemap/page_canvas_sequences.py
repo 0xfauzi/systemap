@@ -124,6 +124,18 @@ color:var(--ink)}
 .cseq__opt[aria-selected="true"] .cseq__opt-name{font-weight:600}
 .cseq__opt-meta{font:12px/16px var(--fm);color:var(--ink-2)}
 .cseq__opt-name,.cseq__opt-meta{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cseq__label{font:600 11px/16px var(--fm);letter-spacing:.08em;text-transform:uppercase}
+@media (pointer:fine){
+.cseq__seg,.cbar .cseq__form{gap:0;padding:2px;border:1px solid var(--line-2);border-radius:8px;
+background:var(--map)}
+.cbar .cseq__seg button,.cbar .cseq__form button{height:26px;padding:0 10px;border-radius:6px}
+.cbar .cseq__seg button[aria-pressed="true"],.cbar .cseq__form button[aria-pressed="true"]{
+background:var(--surface);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 12%,transparent)}
+.cbar:not([data-fit]) .cseq__tb{margin-left:4px;padding-left:12px;
+border-left:1px solid var(--line)}
+.cbar .cseq__btn{height:30px}
+.cbar .cseq__pick{height:30px}
+}
 @media (pointer:coarse){.cbar .cseq{top:56px;padding:6px 8px}}
 @media (max-width:820px){.cseq__label{display:none}.cseq__choose{flex:1 1 180px}}
 """

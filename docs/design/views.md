@@ -139,3 +139,23 @@ The frame time after this pass has only the runs of `tests/test_canvas_frames.py
 
 Not done: the list of rules, the source records, the panel of a flow and the panel of a map
 have the new type and spacing, but their structure did not change.
+
+## The header and the toolbars, pass 1 (2026-11-16)
+
+These changes are CSS only, and they apply with a mouse (`pointer:fine`). On a touch screen,
+each control keeps its box of 44 px.
+
+- The views are one segmented control: one frame, and the pressed view is a raised button.
+- The layers are tabs: no frame, and a line of 2 px under the pressed tab, on the bottom
+  line of the header. Before this change, the views and the layers had the same look.
+- In the Sequences toolbar, "Whole route / Steps" and "On the map / As a diagram" are two
+  segmented controls. A line divides them from the step buttons. This line shows only when
+  the header has its full width, because the step buttons go to a second row on a narrow
+  screen.
+- The labels "Sequence" and "State machine" are small labels in the mono font, as the name
+  of the layer in the caption is.
+- A change of the pointer state of a button takes 160 ms. With reduced motion, it takes no
+  time.
+
+Not done: the icon buttons at the right did not change. The select controls have the look
+that the browser gives them.
