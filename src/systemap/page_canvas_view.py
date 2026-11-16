@@ -271,7 +271,7 @@ function drawTag(v, x, y, w, h, alpha, c) {
     if (!e[0]) return;
     var pw = unitWidth(e[0].s, 600) * fs + 10, room = smooth(pw, pw + 2 * fs, w), top = e[1];
     if (!i && c) {
-      var need = 2 * inset(h) + unitWidth(c.id, 600) * titleSize(h) + pw + 8;
+      var need = 2 * inset(h) + unitWidth(c.id, 600, true) * titleSize(h) + pw + 8;
       top -= (1 - smooth(need, need + 2 * fs, w)) * th / 2;
     }
     if (room > 0.02) markPlate(e[0], x + w - pw - 4, top, pw, th, fs, al * room);

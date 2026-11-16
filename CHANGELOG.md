@@ -109,6 +109,9 @@ A layer is a filtered view of the map.
   - A model can have state machines (`Meaning.machines`, with `StateMachine`, `State` and `Transition`). `systemap check` gives an error if the source symbol of a state is not a constant in the facts.
   - The canvas page has a States view, when a map has a state machine. It shows the states and the transitions, and the cause of each transition.
   - In the Sequences view, "As a diagram" shows the steps as a sequence diagram. "On the map" shows them on the map, as before.
+  - With a mouse or the keyboard, a selected card opens the Details panel. On a screen wider than 900 px, the open panel takes its width from the canvas, so it covers no part of the map. On a touch screen, a tap shows the plate of facts as before.
+  - The canvas page has parts of DESIGN.md that the linked page had: the mark in the header, a dot grid, card names and region names in the mono font, the number of a region in a ring, and a legend with the count of the flows. In the Steps mode, a dot goes one time along the flow of the new step.
+  - A long description of a card shows its first two sentences in the Details panel, with the full text below "Full description".
 - The canvas page shows the flow labels at the fit of a map on more screens.
   - The fit of a map tree with no nested map is larger. Such a tree has no portal, so the fit does not keep the bands of the portals free.
     At 1440 x 900 pixels, the zoom of the fit of the map of this repository goes from 0.751 to 0.821.

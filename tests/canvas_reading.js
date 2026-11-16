@@ -170,8 +170,8 @@ async function runFirst(browser, file) {
   const i = map.flows.findIndex((f, k) => !shown.has(k) && map.cards.find((c) => c.id === f.s).k !== 'actor');
   if (out.start.layer !== 'all' && i >= 0) {
     const f = map.flows[i], b = await page.evaluate((id) => window.systemapCanvas.box('', id), f.s);
+    // A click on a card opens the Details panel.
     await page.mouse.click(b[0] + b[2] / 2, b[1] + b[3] / 2);
-    await page.keyboard.press('d');
     await page.waitForTimeout(300);
     await page.locator('#cdet-body [data-f="' + i + '"]').click();
     await page.locator('#cdet-body [data-show]').click();

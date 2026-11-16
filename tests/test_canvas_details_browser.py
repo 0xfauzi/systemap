@@ -70,6 +70,8 @@ tests/test_canvas_details.py.
     reading order.
 14. With the Details panel open at 1440 x 900, Tab through the cards of the top map: no
     focused card is under the panel. At the fit, 1 card or more is under the panel.
+    Changed on 2026-11-16: at the fit, no card is under the panel. On a wide screen the open
+    panel takes its width from the canvas, and a camera at the fit fits the map again.
 15. A right click and a middle click on a card do not select it. A left click selects it.
 16. The Tools menu is open at a width of 380 px. At a width of 1600 px the header has no
     menu, and the menu is closed (no `data-open`, `aria-expanded` is "false"). At 380 px
@@ -294,7 +296,7 @@ def test_the_d_key_two_times_keeps_the_place_on_the_canvas(focused: dict[str, An
 def test_the_panel_does_not_cover_the_focused_card(focused: dict[str, Any]) -> None:
     """Acceptance 14."""
     cover = focused["cover"]
-    assert cover["before"] and cover["tabbed"] >= len(cover["before"])
+    assert cover["before"] == [] and cover["tabbed"] >= 1
     assert cover["hidden"] == [], cover
 
 

@@ -77,3 +77,25 @@ with the fonts, the colors and the plates of the map.
 - The skill for coding agents and the schema reference do not give state machines. Thus an
   agent does not write them yet.
 - No experiment shows that a coding agent writes correct state machines from source.
+
+## The panel and the finish (2026-11-16)
+
+- With a mouse or the keyboard, a selected card opens the Details panel. Before, only the D
+  key and the Details button opened it. On a screen wider than 900 px, the open panel takes
+  396 px from the canvas (`dock` in `page_canvas_details.py`). A camera at the fit fits the
+  map again in the smaller canvas. An overlay was measured first: it covered the portals
+  and the cards at the right, and 5 browser tests failed for that cause.
+- On a touch screen, a tap still shows the plate of facts and does not open the panel. A
+  second tap must go into the card, and a panel over half of a phone screen prevents that.
+- `page_canvas_finish.py` adds parts of DESIGN.md: the dot grid, the legend and the dot of
+  a step. The header has the mark. Card names and the names of regions and containers use
+  the mono font, and the number of a region is in a ring.
+- The first form of the dot grid made a pattern as large as one cell at the current zoom.
+  In a deep zoom that cell is very large, and the M11 dive had a p95 frame interval of
+  2,483 ms. The cell now stays from 16 px to 32 px on the screen. With two pattern fills in
+  each moving frame, the dive of the map of 400 cards failed its limit of 35 ms in 2 of 4
+  runs (p95 50 ms), and it passed in 4 of 4 runs at the commit before. With one fill while
+  the camera moves, it passed in 4 of 4 runs. These are runs of
+  `tests/test_canvas_frames.py`, not the A/B measurement with the quiet gate.
+- The legend, the grid and the dot of a step have no test of their own. They were examined
+  in pictures at two times the resolution, in the two themes.

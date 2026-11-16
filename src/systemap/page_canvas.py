@@ -6,7 +6,7 @@ scene part (`page_canvas_scene`), the view part (`page_canvas_view`), the drawin
 (`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
 (`page_canvas_keys`), the part of the tree list (`page_canvas_tree`), the Sequences view
 (`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the boards
-(`page_canvas_board`), the caption
+(`page_canvas_board`), the finish (`page_canvas_finish`), the caption
 (`page_canvas_caption`), the reader tools and
 the Details panel (`page_canvas_details`), the marks of the open ports
 (`page_canvas_ports`), the part in this module and the Find dialog (`page_canvas_find`).
@@ -55,6 +55,7 @@ from systemap.page_canvas_details import DETAILS
 from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
 from systemap.page_canvas_find import FIND
+from systemap.page_canvas_finish import FINISH
 from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_keys import KEYS
 from systemap.page_canvas_ports import PORTS
@@ -71,11 +72,11 @@ from systemap.page_canvas_view import VIEW_PART
 CSS = (
     """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
-#canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
+#canvas{position:fixed;inset:0;width:calc(100% - var(--cdock,0px));height:100%;display:block;touch-action:none;
 outline:none;cursor:grab}
 #canvas.drag{cursor:grabbing}
 #canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
-#still{position:fixed;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+#still{position:fixed;inset:0;width:calc(100% - var(--cdock,0px));height:100%;display:block;pointer-events:none}
 #still[hidden]{display:none}
 #canvas:focus-visible+#still{box-shadow:inset 0 0 0 2px var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
@@ -165,6 +166,7 @@ function draw() {
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
   if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
+  drawGrid();
   STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
@@ -172,16 +174,20 @@ function draw() {
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
   drawSelected();
+  drawDot();
   // The portals keep off the boxes that the maps put in OBST (`dodge`).
   NMAP = NOBST;
   var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
   captionLay(path);
+  legendLay();
   drawPortals(portals, path);
   drawBoard();
-  if (!boardOn()) drawPlates(path);
+  // The plate of facts is for a touch screen. With a mouse, the Details panel gives the facts.
+  if (!boardOn() && (TOUCH || !panelOn())) drawPlates(path);
   drawPath(path);
   drawCaption();
   drawHelp();
+  drawLegend();
   drawFocus();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
@@ -384,7 +390,7 @@ function warmList() {
   }
   ORDER.forEach(function (m) {
     m.cards.forEach(function (c) {
-      list.push([c.id, 600]);
+      list.push([c.id, 600, true]);
       (String(c.p || '') + ' ' + String(c.d || '')).split(/\s+/).forEach(function (w) { if (w) words.add(w); });
     });
   });
@@ -395,7 +401,7 @@ function warm(list, at) {
   var t0 = performance.now();
   while (at < list.length && performance.now() - t0 < WARM_MS) {
     var x = list[at++];
-    if (typeof x === 'string') { ctx.font = x; ctx.measureText('Ag'); } else unitWidth(x[0], x[1]);
+    if (typeof x === 'string') { ctx.font = x; ctx.measureText('Ag'); } else unitWidth(x[0], x[1], x[2]);
   }
   if (at < list.length) idle(function () { warm(list, at); });
 }
@@ -494,6 +500,8 @@ window.systemapCanvas = {
   caption: captionState,
   // The boards (`page_canvas_board`): the sequence diagram and the state machine.
   board: boardState,
+  // The finish (`page_canvas_finish`): the dot grid, the legend and the dot of a step.
+  finish: finishState,
   setView: setView,
   viewLog: function () { VIEW_LOG = {frames: []}; },
   viewLogged: function () { var l = VIEW_LOG ? VIEW_LOG.frames : []; VIEW_LOG = null; return l; },
@@ -528,6 +536,7 @@ SCRIPT = (
     + CHANGES_PART
     + BOARD
     + CAPTION
+    + FINISH
     + DETAILS
     + PORTS
     + _INPUT

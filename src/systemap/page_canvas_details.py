@@ -16,7 +16,9 @@ lose information when it becomes the default page:
 - Source of this map. The button gives the commit of the facts (7 characters), or "commit
   not recorded". It opens the source records of the page: the unknown source information,
   the commit, the facts file and the model file (`canvas_header`).
-- Details. The D key and the button open and close the Details panel. The panel gives the
+- Details. With a mouse or the keyboard, a selected card opens the Details panel. On a
+  touch screen, a tap shows the plate of facts, and the Details button opens the panel. The D key
+  and the button also open and close the panel. The panel gives the
   selected card: its kind and text, its note, the map that it opens, the flows in and out with their
   evidence state and assurance, the sequences, the invariants and the import rules with
   their assurance, and the source records (`canvas_details`). A flow of the lists gives
@@ -25,8 +27,9 @@ lose information when it becomes the default page:
   panel closes, the focus goes back to the element that had it before the panel opened.
   A letter in the list of the sequences stays in that list.
 
-The panel is over the canvas. It does not change the bands of the fit. Thus the fit of a
-map is the same with the panel open or closed. The panel fades in and out in 160 ms, and
+On a wide screen (more than 900 px), the open panel takes its width from the canvas (`dock`):
+the canvas becomes narrower, and a camera at the fit fits the map again. Thus the panel
+covers no card and no portal. On a narrow screen, the panel is over the canvas. The panel fades in and out in 160 ms, and
 at one time with reduced motion. Its text changes only at a change of the selection, of
 the flow in the panel, or of the current map without a selection (`detSync`). Thus a
 frame with no such change makes no DOM change, and the panel adds no work to a frame.
@@ -290,10 +293,15 @@ DETAILS = r"""
         el('p', null, el('b', null, 'Entry points.'), ' An entry point is where a program can start.'),
         listOr(r.pt || [], function (p) { return el('p', null, el('code', null, p)); }, 'No entry points were extracted for these modules.'))];
   }
+  // A long description shows its first two sentences. The full text is one step away.
+  function about(d) {
+    var cut = d.split('. ').slice(0, 2).join('. ') + '.';
+    return d.length < 300 ? el('p', null, d) : [el('p', null, cut), el('details', null, el('summary', null, 'Full description'), el('p', null, d))];
+  }
   function cardNodes(c) {
     var m = c.map;
     return [el('h3', {tabindex: '-1'}, c.id), el('p', null, (c.k === 'actor' ? 'Actor' : 'Component') + '. Map: ' + mapName(m) + '.'),
-      c.p ? el('p', null, c.p) : null, c.d ? el('p', null, c.d) : null,
+      c.p ? el('p', null, el('b', null, c.p + '.')) : null, c.d ? about(c.d) : null,
       c.nt ? el('p', null, el('b', null, 'Note.'), ' ' + c.nt) : null,
       c.as ? el('p', null, 'Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.') : null,
       c.child ? el('p', null, el('button', {type: 'button', 'data-go': ''}, 'Go into the map: ' + sizeText(c.child))) : null,
@@ -335,7 +343,7 @@ DETAILS = r"""
   }
   function detShow(on, focus) {
     if (!panel || on === ON) return;
-    ON = on; SHOWN = null;
+    ON = on; SHOWN = null; AUTO = false; dock();
     if (toggle) toggle.setAttribute('aria-pressed', String(on));
     clearTimeout(panel._dt);
     if (on) {
@@ -354,6 +362,15 @@ DETAILS = r"""
     if (back && back.focus && back.isConnected && !panel.contains(back) && back.getClientRects().length) back.focus({preventScroll: true});
     else if (toggle) (toggle.offsetParent ? toggle : more && more.offsetParent ? more : cv).focus();
   }
+  // On a wide screen, the open panel takes its width from the canvas: the canvas becomes
+  // narrower, and the fit, the portals and the legend use the area at the left of the panel.
+  // Thus the panel covers no part of the map. On a narrow screen, the panel is over the map.
+  function dock() {
+    var w = ON && window.innerWidth > 900 ? '396px' : '0px';
+    if (root.style.getPropertyValue('--cdock') === w) return;
+    root.style.setProperty('--cdock', w); window.dispatchEvent(new Event('resize'));
+  }
+  window.addEventListener('resize', dock);
   function detToggle() { menuShow(false); detShow(!ON, true); say('Details: ' + (ON ? 'open' : 'closed') + '.'); }
   if (toggle) toggle.addEventListener('click', detToggle);
   if (panel) {
@@ -369,7 +386,16 @@ DETAILS = r"""
     });
   }
   // A new selection shows its card, and a different current map shows that map.
-  SEL_HOOKS.push(function () { FLOW = null; BACK = null; detSync(); });
+  // With a mouse or the keyboard, a selected card opens the panel. When the selection goes,
+  // a panel that a selection opened closes. On a touch screen, a tap shows the plate of
+  // facts, and the Details button opens the panel: a second tap must still go into the card.
+  var AUTO = false;
+  SEL_HOOKS.push(function () {
+    FLOW = null; BACK = null;
+    if (SEL_C && !ON && !TOUCH) { detShow(true, false); AUTO = true; }
+    else if (!SEL_C && AUTO && ON) detShow(false, false);
+    detSync();
+  });
   HERE_HOOKS.push(function () { if (!SEL_C && !FLOW) detSync(); });
 })();
 """

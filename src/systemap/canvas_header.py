@@ -162,7 +162,7 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
     name = esc(data.get("name", "") or "map")
     return (
         '<header class="cbar" id="canvas-head">'
-        f'<h1 class="cbar__name">{name}</h1>'
+        f'{page.MARK}<h1 class="cbar__name">{name}</h1>'
         + _views()
         + _layers(layers(data), first_layer(data))
         + tools
@@ -196,6 +196,11 @@ font:inherit;cursor:pointer}
 color:var(--ink);font-weight:500}
 .cbar button:focus-visible,.cbar select:focus-visible{outline:2px solid var(--ink);
 outline-offset:1px}
+.cbar .mark{flex:none;width:20px;height:20px;margin-right:-4px}
+.cbar .mark__path{fill:none;stroke:var(--ink);stroke-width:44;stroke-linecap:round;
+stroke-linejoin:round}
+.cbar .mark__dot{fill:var(--brand)}
+.cbar[data-fit="2"] .mark{display:none}
 .cbar__name{flex:none;max-width:240px;margin:0;overflow:hidden;font:600 15px/1 var(--fs);
 letter-spacing:-.02em;white-space:nowrap;text-overflow:ellipsis}
 .cbar__views,.cbar__layers{display:flex;flex:none;gap:2px}

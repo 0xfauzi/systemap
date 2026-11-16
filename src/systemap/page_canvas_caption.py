@@ -29,7 +29,7 @@ from __future__ import annotations
 
 CAPTION = r"""
 // ---- the caption: the question of the layer, or the words of a view ------------------
-var CAP = {key: '', k: '', s: '', a: 0, at: -1, box: null, parts: null}, CAP_ROOM = 120, CAP_FS = 12.5, CAP_KS = 11.5;
+var CAP = {key: '', k: '', s: '', a: 0, at: -1, box: null, parts: null}, CAP_ROOM = 120, CAP_FS = 15, CAP_KS = 10.5;
 // The words that the current view wants: `{k, s}`, or null.
 function captionWant() {
   if (VIEW.mode !== 'map') { var v = VIEWS[VIEW.mode]; return v && v.caption ? v.caption() : null; }
@@ -55,7 +55,7 @@ function captionFrame() {
 function captionParts(path) {
   var p = pathPlate(path), x = p[0] + p[2] + 8, room = W - x - 12 - 24;
   if (!CAP.key || room + 24 < CAP_ROOM) return null;
-  var kw = unitWidth(CAP.k, 400) * CAP_KS + 12, sw = unitWidth(CAP.s, 600) * CAP_FS, k = kw + sw <= room ? CAP.k : '';
+  var kw = unitWidth(CAP.k.toUpperCase(), 600, true) * CAP_KS + 14, sw = unitWidth(CAP.s, 600) * CAP_FS, k = kw + sw <= room ? CAP.k : '';
   var s = fit(CAP.s, CAP_FS, k ? room - kw : room, 600), w = (k ? kw : 0) + Math.min(sw, unitWidth(s, 600) * CAP_FS) + 24;
   return {box: [x, p[1], w, p[3]], k: k, kw: kw, s: s};
 }
@@ -72,8 +72,8 @@ function drawCaption() {
   if (!c) return;
   var b = c.box, base = b[1] + b[3] / 2 + 4.5, x = b[0] + 12;
   plate(b, 0.96 * CAP.a);
-  if (c.k) { text(c.k, x, base, CAP_KS, C['--ink-3'], CAP.a); x += c.kw; }
-  text(c.s, x, base, CAP_FS, C['--ink'], CAP.a, 600);
+  if (c.k) { text(c.k.toUpperCase(), x, base, CAP_KS, C['--ink-3'], CAP.a, 600, true); x += c.kw; }
+  text(c.s, x, base + 1, CAP_FS, C['--ink'], CAP.a, 600);
 }
 // The caption for the tests: the words, the alpha and the screen box of the last frame.
 function captionState() { return {k: CAP.k, s: CAP.s, a: CAP.a, box: CAP.box}; }

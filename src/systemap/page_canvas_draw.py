@@ -159,7 +159,11 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels) {
   if (!labels || fs < MIN_TEXT) return;
   var na = nameAlpha(a, alpha);
   NOTE = g === ctx;
-  boxNames(m, a, ox, oy, function (s, x, y, color) { text(s, x, y, fs, color, na, 600); });
+  boxNames(m, a, ox, oy, function (s, x, y, color) {
+    text(s, x, y, fs, color, na, 600, true);
+    // The number of a region is in a ring.
+    if (/^\d/.test(s)) { g.globalAlpha = na; g.strokeStyle = color; g.lineWidth = 1; g.setLineDash([]); g.beginPath(); g.arc(x + fs * 0.3 * s.indexOf(' '), y - fs * 0.35, fs * 0.82, 0, 2 * Math.PI); g.stroke(); }
+  });
   NOTE = false;
 }
 // The name of each container and region, at its screen point. In a map that has a nested
@@ -172,7 +176,7 @@ function boxNames(m, a, ox, oy, each) {
   var leaf = isLeaf(m), fs = nameSize(a);
   function at(s, b) {
     var x = ox + a * (b[0] + 13);
-    return leaf || x >= STICK ? x : Math.max(x, Math.min(STICK, ox + a * (b[0] + b[2] - 13) - unitWidth(s, 600) * fs));
+    return leaf || x >= STICK ? x : Math.max(x, Math.min(STICK, ox + a * (b[0] + b[2] - 13) - unitWidth(s, 600, true) * fs));
   }
   m.boxes.forEach(function (b) { each(b.n, at(b.n, b.b), oy + a * (b.b[1] + 19), C['--ink-3']); });
   m.regions.forEach(function (b, i) { var s = (i + 1) + '  ' + b.n; each(s, at(s, b.b), oy + a * (b.b[1] + 20), C['--ink-2']); });

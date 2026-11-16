@@ -25,10 +25,10 @@ TEXT = r"""
 // ---- the name and the text of a card -------------------------------------------------
 function title(c, x, y, w, size, alpha, extra) {
   if (size < MIN_TEXT || alpha <= 0.02) return;
-  var name = fit(c.id, size, w, 600);
-  text(name, x, y + size, size, C['--ink'], alpha, 600);
+  var name = fit(c.id, size, w, 600, true);
+  text(name, x, y + size, size, C['--ink'], alpha, 600, true);
   if (extra && extra.alpha > 0.02) {
-    var at = unitWidth(name, 600) * size + size * 0.6, small = q(size * 0.82);
+    var at = unitWidth(name, 600, true) * size + size * 0.6, small = q(size * 0.82);
     text(fit(extra.s, small, w - at, 400), x + at, y + size, small, C['--ink-3'], alpha * extra.alpha);
   }
 }
