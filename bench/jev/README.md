@@ -7134,3 +7134,29 @@ Result: acceptance 1 FAIL for the two trials. L1 stays PASS for the two trials. 
 In the System context layer, the 17 flow paths have 34 vertical parts. 15 of them have an x position from 161 to 238.3 map units: a strip of 77 units at the right of the actor cards. 7 of the 15 have the same x position, 197. At the fit of 1440 x 900 (zoom 0.821), the strip is 63 px wide.
 
 Conclusion: a different position for a label cannot remove the fault, because the strip has no free position for 17 labels. The cause is the count of lines in the strip. The next work must decrease that count or make the strip wider.
+
+## A1: the lines of the System context layer with the actors at more than one side (2026-11-16)
+
+Script: `bench/jev/actor_sides.py`. The acceptance values are in the docstring of the script. They were written before the first run. The variant `hand` was added after the first run and has no acceptance value.
+
+- Input: the model of the map of this repository (21 cards, 5 actors, 82 flows, 17 flows in the System context layer). It is one map.
+- The script moves the actor cards in a copy of the model. It uses `route_all`, `place_labels` and `place.score` of the product. It changes no product code.
+- `strip` is the largest count of parallel line parts in a window of 80 map units. `crossed` is the count of label boxes with the path of a different flow through them. The box here is the box of the label placement. L2 uses the text box of the page, so its count for `base` is 12 and not 13.
+
+| Variant | Actors | strip (System context) | crossed (System context) | strip (all) | crossed (all) | collisions | bends | length | Canvas | zoom |
+|---|---|---|---|---|---|---|---|---|---|---|
+| base | 5 at the left | 15 | 13 | 27 | 72 | 0 | 198 | 39734 | 1094 x 892 | 0.886 |
+| wide | 5 at the left, strip 80 units wider | 12 | 7 | 28 | 74 | 0 | 209 | 40414 | 1174 x 892 | 0.886 |
+| two | nearest of 2 sides: 5 at the left | 13 | 10 | 27 | 72 | 1 | 186 | 36919 | 1094 x 892 | 0.886 |
+| four | nearest of 4 sides: 3 at the left, 2 at the bottom | 12 | 11 | 28 | 75 | 1 | 191 | 36237 | 1094 x 992 | 0.796 |
+| hand | Agent left, Maintainer right, CI top, TypeSafe and OpenAI bottom | 8 | 9 | 29 | 71 | 0 | 177 | 37731 | 1288 x 1092 | 0.723 |
+
+`refused` is 0 in each row.
+
+Result: FAIL.
+
+- `two`: acceptance 1 FAIL (13 against 5), 2 FAIL (10 against 3), 3 FAIL (1 collision against 0), 4 PASS. The rule puts each of the 5 actors at the left, because the mean center of the cards of each actor is nearer to the left side. The variant is different from `base` only in the order and the positions in the column.
+- `four`: acceptance 1 FAIL (12), 2 FAIL (11), 3 FAIL (75 against 72, 1 collision), 4 FAIL (0.796 is 89.8 percent of 0.886).
+- `hand`, with the actors at four different sides: `strip` is 8 and `crossed` is 9. The map is 1288 x 1092, and `zoom` is 0.723, which is 81.6 percent of `base`. Thus the text at the fit is smaller.
+
+Conclusion: actors at more than one side do not remove the fault in this map. Three actors (Agent, CI, Maintainer) have flows with cards in many regions, so their lines stay long at each side. The variant `wide` decreases `crossed` in the layer from 13 to 7 with a canvas that is 80 units wider and with the same `zoom`, but 7 is more than the acceptance value of 3. The count of the lines is the cause, not the position of the actors.
