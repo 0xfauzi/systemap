@@ -7088,3 +7088,49 @@ An examination of the picture by the author of the script, which is not a measur
 - 15 of the 28 labels are a count, for example "4 flows". Such a label does not name an artifact, and the picture does not show which line a label is for where lines are near to each other.
 - The lines between the five region cards cross each other many times in a small area. The acceptance values of this script do not count line crossings.
 - Thus the page passes its acceptance values, but they do not show that a person can read it. User comprehension is not measured.
+
+## L2: the flow labels and the lines of other flows at the fit (2026-11-16)
+
+Script: `bench/jev/canvas_label_lines.py` with `bench/jev/canvas_label_lines.js`. The acceptance values are in the docstring of the script. They were written before the first run.
+
+- Input: the canvas page of the self-map of this repository (21 cards, 82 flows), from the committed facts. Playwright Chromium, headless, reduced motion, 1 device pixel for each pixel.
+- The first run was not valid. The script read a field that the page does not give, so no label had a flow. Acceptance 3 found this error: `shift` was 999 in each row. The rows below are from the corrected script. Their `shift` is 1.8 px or less.
+- `far` has an error in its method. The text box is smaller than the label box. Thus a label in the position adjacent to its line (4 units from the line) has more than 4 px to the line, and the script counts it. A limit of approximately 8 px is necessary. The `far` values below are with the limit of 4 px.
+
+### L2a: the page before a change (commit 178cef2)
+
+| Screen | Layer | Labels | crossed | lines | far | near |
+|---|---|---|---|---|---|---|
+| 1440 x 900 | System context | 17 | 12 | 25 | 5 | 2 |
+| 1600 x 900 | System context | 17 | 12 | 25 | 5 | 2 |
+| 1440 x 900 | Data flow | 56 | 43 | 125 | 19 | 3 |
+| 1440 x 900 | Control flow | 17 | 8 | 16 | 6 | 0 |
+| 1440 x 900 | Map review | 9 | 4 | 6 | 5 | 0 |
+| 1440 x 900 | All | 82 | 69 | 255 | 30 | 5 |
+| 1366 x 768 | System context | 17 | 12 | 25 | 2 | 4 |
+
+Result: acceptance 1 FAIL, acceptance 2 FAIL, acceptance 3 PASS. In the System context layer, 12 of 17 labels have a line of a different flow through their text. L1 gives 0 pairs of plates that go into each other in the same layer. Thus the labels do not cover each other. The lines of other flows go through them.
+
+### L2b: a trial of the label placement (not kept)
+
+The label placement (`Seating.seat` in `seat_grid.py`) gives a cost to a card and to a different label. It gives no cost to the line of a different flow. Two trials added the count of such lines to the order of the candidate positions. They changed no other code.
+
+- Trial 1: a position without a collision first, then fewer lines through the box, then the longest segment.
+- Trial 2: as trial 1, but a position on the line or adjacent to it comes before fewer lines through the box.
+
+| Trial | Layer (1440 x 900) | crossed | lines | far | near |
+|---|---|---|---|---|---|
+| 1 | System context | 4 | 8 | 12 | 0 |
+| 1 | Data flow | 24 | 52 | 32 | 2 |
+| 1 | All | 41 | 98 | 51 | 2 |
+| 2 | System context | 6 | 12 | 9 | 0 |
+| 2 | Data flow | 28 | 58 | 28 | 2 |
+| 2 | All | 44 | 114 | 45 | 2 |
+
+Result: acceptance 1 FAIL for the two trials. L1 stays PASS for the two trials. In the picture of trial 2, five labels are adjacent to a group of parallel lines, and the picture does not show which line a label is for. The picture is not better than the picture of L2a. The trials are not in the code.
+
+### L2c: the lines in the gap at the right of the actors
+
+In the System context layer, the 17 flow paths have 34 vertical parts. 15 of them have an x position from 161 to 238.3 map units: a strip of 77 units at the right of the actor cards. 7 of the 15 have the same x position, 197. At the fit of 1440 x 900 (zoom 0.821), the strip is 63 px wide.
+
+Conclusion: a different position for a label cannot remove the fault, because the strip has no free position for 17 labels. The cause is the count of lines in the strip. The next work must decrease that count or make the strip wider.
