@@ -58,6 +58,7 @@ def _views() -> str:
         '<nav class="cbar__views" aria-label="Views">'
         '<button type="button" data-view="map" aria-pressed="true">Map</button>'
         '<button type="button" data-view="sequences" aria-pressed="false">Sequences</button>'
+        '<button type="button" data-view="states" aria-pressed="false">States</button>'
         '<button type="button" data-view="changes" aria-pressed="false">Changes</button>'
         "</nav>"
     )

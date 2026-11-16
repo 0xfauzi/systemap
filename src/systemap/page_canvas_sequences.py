@@ -67,6 +67,9 @@ HTML = (
     '<div class="cseq__seg" role="group" aria-label="Show">'
     '<button type="button" id="cseq-whole" aria-pressed="true">Whole route</button>'
     '<button type="button" id="cseq-steps" aria-pressed="false">Steps</button></div>'
+    '<div class="cseq__form" role="group" aria-label="Form">'
+    '<button type="button" id="cseq-onmap" aria-pressed="true">On the map</button>'
+    '<button type="button" id="cseq-diagram" aria-pressed="false">As a diagram</button></div>'
     '<span class="cseq__tb" id="cseq-wholebar">'
     '<button type="button" class="cseq__btn cseq__btn--primary" id="cseq-start">'
     "Start at step 1</button></span>"

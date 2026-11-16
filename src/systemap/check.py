@@ -31,6 +31,7 @@ from systemap import (
     reexports,
     render_pages,
     source_facts,
+    states,
     unknown_causes,
 )
 from systemap import language as languages
@@ -732,6 +733,7 @@ def run(
         problems += route_problems
         problems += check_labels(meta)
         problems += check_type_size(svg)
+    problems += states.symbol_problems(meaning.machines, facts)
     counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
     unknown = source_facts.unknown_fact_causes(facts) if coverage else []
     unread = source_facts.inventory_issue_causes(facts) if coverage else []

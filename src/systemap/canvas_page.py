@@ -34,6 +34,7 @@ from systemap import (
     judgement_json,
     nest,
     page,
+    page_canvas_board,
     page_canvas_changes,
     page_canvas_details,
     page_canvas_find,
@@ -81,10 +82,11 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "css": (
         page_canvas_changes.CSS,
         page_canvas_sequences.CSS,
+        page_canvas_board.CSS,
         page_canvas_find.CSS,
         page_canvas_details.CSS,
     ),
-    "head": (page_canvas_sequences.HTML, page_canvas_changes.HTML),
+    "head": (page_canvas_sequences.HTML, page_canvas_board.HTML, page_canvas_changes.HTML),
     "after": (page_canvas_find.HTML, page_canvas_details.HTML),
 }
 

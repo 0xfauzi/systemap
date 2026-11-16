@@ -91,10 +91,10 @@ from __future__ import annotations
 
 VIEW_PART = r"""
 // ---- the views and the layers ------------------------------------------------------
-var VIEW = {mode: 'map', layer: 'all', epoch: 0}, VIEWS = Object.create(null), MODES = ['map', 'sequences', 'changes'];
-var MODE_NAMES = {map: 'Map', sequences: 'Sequences', changes: 'Changes'};
+var VIEW = {mode: 'map', layer: 'all', epoch: 0}, VIEWS = Object.create(null), MODES = ['map', 'sequences', 'states', 'changes'];
+var MODE_NAMES = {map: 'Map', sequences: 'Sequences', states: 'States', changes: 'Changes'};
 var VIEW_MS = 160, VIEW_MAX = 0.2, VIEW_STEP = 1, VIEW_LAST = 0, VIEW_AT = 0, VIEW_FADING = false, VIEW_AIM = 0, VIEW_LOG = null;
-var VIEW_SHOW = {map: 1, sequences: 0, changes: 0}, QUIET = 0.32, VIEW_IDLE = true;
+var VIEW_SHOW = {map: 1, sequences: 0, states: 0, changes: 0}, QUIET = 0.32, VIEW_IDLE = true;
 var PLAIN = {a: 1, ring: null, tag: null, back: null, note: null}, PLAIN_FLOW = {a: 1, color: null};
 var HEAD_EL = document.getElementById('canvas-head'), HEAD_H = 0, HEAD_BASE = 0;
 // The layers of all maps: the name and the question of each layer ID.

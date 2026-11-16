@@ -29,6 +29,8 @@ from systemap.model import (
 
 __version__ = "3.0.0"
 
+from systemap.states import State, StateMachine, Transition
+
 __all__ = [
     "AGENT_KINDS",
     "KINDS",
@@ -44,7 +46,10 @@ __all__ = [
     "Meaning",
     "Model",
     "Region",
+    "State",
+    "StateMachine",
     "Step",
+    "Transition",
     "__version__",
     "all_layers",
     "build_state",

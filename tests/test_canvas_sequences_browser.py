@@ -28,6 +28,7 @@ Acceptance values, written before the first run:
    system and of the page, each value is a value of the end of a change (no value between),
    and the camera after one frame is the camera at the end of each move.
 5. Each control of the toolbar that is not disabled is reachable by Tab from the view
+   (changed on 2026-11-16: the toolbar also has On the map and As a diagram, after Steps)
    button, has a name and a visible focus outline of 2 px or more. In the listbox, the
    arrow keys, Home, End, +, - and F move the keyboard focus between the options and do not
    move the camera. Escape closes the list, gives the focus to the chooser, and does not go
@@ -273,8 +274,11 @@ def test_the_keys_of_the_toolbar_and_the_listbox(fixture_page: Path) -> None:
     """Acceptance 5."""
     found = _drive("--keys", str(fixture_page), "Gateway")
     assert found["errors"] == []
-    _check_tabs(found["whole"], ["cseq-pick", "cseq-whole", "cseq-steps", "cseq-start"])
-    _check_tabs(found["steps"], ["cseq-pick", "cseq-whole", "cseq-steps", "cseq-next", "cseq-end"])
+    form = ["cseq-onmap", "cseq-diagram"]
+    _check_tabs(found["whole"], ["cseq-pick", "cseq-whole", "cseq-steps", *form, "cseq-start"])
+    _check_tabs(
+        found["steps"], ["cseq-pick", "cseq-whole", "cseq-steps", *form, "cseq-next", "cseq-end"]
+    )
     keys = found["list"]
     before = keys["before"]["cam"]
     assert keys["opened"]["list"] and keys["opened"]["at"] == "option"

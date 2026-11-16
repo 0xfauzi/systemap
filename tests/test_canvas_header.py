@@ -81,6 +81,7 @@ def test_the_header_has_the_views_the_layers_and_find(canvas_root: Path) -> None
     assert views == [
         ("map", "true", "Map"),
         ("sequences", "false", "Sequences"),
+        ("states", "false", "States"),
         ("changes", "false", "Changes"),
     ]
     assert '<nav class="cbar__views" aria-label="Views">' in text

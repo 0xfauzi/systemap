@@ -105,6 +105,10 @@ A layer is a filtered view of the map.
 
 ### Changes
 
+- Prototype on the branch `views-prototype`, not for a release (`docs/design/views.md`).
+  - A model can have state machines (`Meaning.machines`, with `StateMachine`, `State` and `Transition`). `systemap check` gives an error if the source symbol of a state is not a constant in the facts.
+  - The canvas page has a States view, when a map has a state machine. It shows the states and the transitions, and the cause of each transition.
+  - In the Sequences view, "As a diagram" shows the steps as a sequence diagram. "On the map" shows them on the map, as before.
 - The canvas page shows the flow labels at the fit of a map on more screens.
   - The fit of a map tree with no nested map is larger. Such a tree has no portal, so the fit does not keep the bands of the portals free.
     At 1440 x 900 pixels, the zoom of the fit of the map of this repository goes from 0.751 to 0.821.

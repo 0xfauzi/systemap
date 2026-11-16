@@ -5,7 +5,8 @@ scene part (`page_canvas_scene`), the view part (`page_canvas_view`), the drawin
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
 (`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
 (`page_canvas_keys`), the part of the tree list (`page_canvas_tree`), the Sequences view
-(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the caption
+(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the boards
+(`page_canvas_board`), the caption
 (`page_canvas_caption`), the reader tools and
 the Details panel (`page_canvas_details`), the marks of the open ports
 (`page_canvas_ports`), the part in this module and the Find dialog (`page_canvas_find`).
@@ -47,6 +48,7 @@ state to the tests and the measurement scripts. It changes nothing on the page.
 
 from __future__ import annotations
 
+from systemap.page_canvas_board import BOARD
 from systemap.page_canvas_caption import CAPTION
 from systemap.page_canvas_changes import PART as CHANGES_PART
 from systemap.page_canvas_details import DETAILS
@@ -175,7 +177,8 @@ function draw() {
   var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
   captionLay(path);
   drawPortals(portals, path);
-  drawPlates(path);
+  drawBoard();
+  if (!boardOn()) drawPlates(path);
   drawPath(path);
   drawCaption();
   drawHelp();
@@ -266,6 +269,7 @@ function hitAt(px, py) {
 var pts = new Map(), drag = null, didMove = false, multi = false, kind = 'mouse';
 cv.addEventListener('wheel', function (e) {
   e.preventDefault(); stopFlight();
+  if (boardOn()) return;
   var p = local(e), dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1);
   zoomAt(p[0], p[1], Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)));
 }, {passive: false});
@@ -273,11 +277,11 @@ cv.addEventListener('pointerdown', function (e) {
   stopFlight(); cv.focus({preventScroll: true});
   var p = local(e);
   pts.set(e.pointerId, p); didMove = false; multi = multi || pts.size > 1; kind = e.pointerType;
-  drag = {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
+  drag = boardOn() ? null : {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
 });
 cv.addEventListener('pointermove', function (e) {
-  if (!pts.has(e.pointerId)) { cv.style.cursor = hitAt(local(e)[0], local(e)[1]) ? 'pointer' : ''; return; }
+  if (!pts.has(e.pointerId)) { var over = hitAt(local(e)[0], local(e)[1]); cv.style.cursor = over && over.kind !== 'board' ? 'pointer' : boardOn() ? 'default' : ''; return; }
   var prev = pts.get(e.pointerId), p = local(e);
   pts.set(e.pointerId, p);
   if (pts.size === 2) {
@@ -488,6 +492,8 @@ window.systemapCanvas = {
   viewState: viewState,
   // The caption (`page_canvas_caption`): the words, the alpha and the screen box of the plate.
   caption: captionState,
+  // The boards (`page_canvas_board`): the sequence diagram and the state machine.
+  board: boardState,
   setView: setView,
   viewLog: function () { VIEW_LOG = {frames: []}; },
   viewLogged: function () { var l = VIEW_LOG ? VIEW_LOG.frames : []; VIEW_LOG = null; return l; },
@@ -520,6 +526,7 @@ SCRIPT = (
     + TREE
     + SEQ_PART
     + CHANGES_PART
+    + BOARD
     + CAPTION
     + DETAILS
     + PORTS

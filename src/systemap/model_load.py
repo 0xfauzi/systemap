@@ -32,7 +32,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import model as schema
-from systemap import repo_files
+from systemap import repo_files, states
 from systemap.contract import Contract
 
 TRUST = "SYSTEMAP_TRUST_MODEL_CODE"
@@ -66,6 +66,9 @@ MODEL_CLASSES: dict[str, type] = {
         schema.Model,
         schema.Region,
         schema.Step,
+        states.State,
+        states.StateMachine,
+        states.Transition,
     )
 }
 MODEL_CONSTANTS: dict[str, tuple[str, ...]] = {
