@@ -343,6 +343,10 @@ var LAYER_SELECT = document.getElementById('canvas-layer');
 // The height of the header. It is constant for a screen (`measure` reads it). When the
 // header goes into the Tools menu or out of it, the menu closes (`MENU_SHUT`).
 var MENU_SHUT = null;
+// The Details part sets PANEL_DROP: it stops a panel that a selection is about to open,
+// and closes a panel that a selection opened.
+var PANEL_DROP = null;
+function panelDrop() { if (PANEL_DROP) PANEL_DROP(); }
 function headMeasure() {
   HEAD_BASE = HEAD_EL ? HEAD_EL.getBoundingClientRect().height : 0;
   if (HEAD_EL) {

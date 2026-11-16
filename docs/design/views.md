@@ -116,3 +116,26 @@ change in `page_canvas_finish.py`, `page_canvas_view.py` or `page_canvas_draw.py
 Not done in this pass: the lines of a layer do not draw from source to target at a layer
 change, a flow line does not answer the pointer, and a click on a flow line selects nothing.
 The frame time after this pass has only the runs of `tests/test_canvas_frames.py`.
+
+## The Details panel, pass 1 (2026-11-16)
+
+- The heading "Details" is a small label in the mono font. The name of the card is the title
+  of the panel, in the mono font, as on the card.
+- The kind of the card (Component, Actor, Flow) is a tag. The assurance level and the
+  freshness are two tags. A screen reader gets the full sentence: the words between the tags
+  are in the page for it only.
+- A row of facts gives the count of module claims and of flows in and out.
+- A flow is one row: a line in the color of its kind, the artifact in bold, the other
+  component, and the evidence state below. The color is set through the style object, because
+  the page policy permits no style attribute.
+- A sequence in the panel is a button that opens that sequence in the Sequences view. The
+  step numbers are at the right of the row.
+- The sticky head of the panel has a line below it.
+- The panel opens 240 ms after the selection, after the fade of the selection and after the second click of a usual double-click. A double-click or Enter that goes into a card opens no panel, and it closes a panel that the first click opened (`panelDrop`). With the
+  panel in the frame of the click, that frame was long, and the fade of the selection changed
+  by more than 0.25 between two recorded frames in 2 of 3 runs of
+  `tests/test_canvas_details_browser.py`. With the delay, it passed in 4 of 4 runs.
+- The limit of the size test of the panel is 44,000 bytes (before: 41,000).
+
+Not done: the list of rules, the source records, the panel of a flow and the panel of a map
+have the new type and spacing, but their structure did not change.

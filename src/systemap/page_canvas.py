@@ -255,6 +255,9 @@ function pick(px, py) {
 function pickClosed(px, py) { var c = pick(px, py); return c && !(c.child && openness(c) >= 0.5) ? c : null; }
 function enter(px, py) {
   var c = pickClosed(px, py);
+  // A move into a map is not a request for details: the panel that the first click of the
+  // double-click opened, or would open, goes before the camera target is calculated.
+  if (c && c.child) panelDrop();
   if (c) flyGoal(goalOf(c.map, c, null));
 }
 function goOut() {

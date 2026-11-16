@@ -113,6 +113,7 @@ A layer is a filtered view of the map.
   - The canvas page has parts of DESIGN.md that the linked page had: the mark in the header, a dot grid, card names and region names in the mono font, the number of a region in a ring, and a legend with the count of the flows. In the Steps mode, a dot goes one time along the flow of the new step.
   - In the Map view, a selected card keeps its flows at full contrast. The other flows and cards of its map go to low contrast, and those flows show no label.
   - Flow lines have round corners. A flow label has a halo in the color of the map in place of a plate, and its font size stops at 12 px. The uppercase names have letter spacing. The card under the pointer of a mouse has a stronger border.
+  - The Details panel has a new hierarchy: the name of the card in the mono font, its kind as a tag, a row of facts, and the assurance level and the freshness as tags. A flow is one row with a line in the color of its kind, the artifact, the other component, and its evidence. A sequence in the panel is a button that opens that sequence.
   - A long description of a card shows its first two sentences in the Details panel, with the full text below "Full description".
 - The canvas page shows the flow labels at the fit of a map on more screens.
   - The fit of a map tree with no nested map is larger. Such a tree has no portal, so the fit does not keep the bands of the portals free.

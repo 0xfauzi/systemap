@@ -120,7 +120,7 @@ function enterKey() {
   var c = liveFocus();
   if (!c) return;
   if (c.child) {
-    FOCUS = null; FOCUS_MAP = c.child; request(); flyGoal(goalOf(c.map, c, null));
+    panelDrop(); FOCUS = null; FOCUS_MAP = c.child; request(); flyGoal(goalOf(c.map, c, null));
     if (flight) flight.into = c.child;
     return;
   }

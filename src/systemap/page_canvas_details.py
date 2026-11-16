@@ -67,7 +67,7 @@ KEYS_HTML = page_motion.keys_sheet(KEYS)
 PANEL_HTML = (
     '<aside class="cdet cpop cview" id="cdetails" aria-labelledby="cdet-title" data-own-keys hidden>'
     '<div class="cdet__head"><h2 id="cdet-title" tabindex="-1">Details</h2>'
-    '<button type="button" id="cdet-close">Close</button></div>'
+    '<button type="button" class="cdet__close" id="cdet-close">Close</button></div>'
     '<div id="cdet-body"></div></aside>'
 )
 
@@ -104,29 +104,47 @@ padding:0 12px}
 overflow:auto;padding:12px 16px}
 .csnap__pop[hidden]{display:none}
 .cpop code{font:12px/18px var(--fm);color:var(--ink);overflow-wrap:anywhere}
-.csnap__k,.cdet h4{margin:14px 0 4px;font:600 11px/16px var(--fs);letter-spacing:.06em;
+.csnap__k,.cdet h4{margin:14px 0 4px;font:600 11px/16px var(--fm);letter-spacing:.08em;
 color:var(--ink-3)}
 .csnap__k{margin-top:0}
-.cdet{z-index:3;bottom:8px;width:min(380px,calc(100% - 16px));overflow:auto;padding:0 16px 16px}
-.cdet__head{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;
-margin:0 -16px;padding:8px 16px;background:var(--surface)}
-.cdet h2,.cdet h3{margin:0;font:600 15px/20px var(--fs);color:var(--ink);outline:none}
-.cdet h3{margin-top:4px;overflow-wrap:anywhere}
-.cdet p{margin:4px 0}
-.cdet ul{margin:0;padding:0;list-style:none}
+.cdet{z-index:3;bottom:8px;width:min(380px,calc(100% - 16px));overflow:auto;padding:0 20px 20px;
+scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+.cdet__head{position:sticky;top:0;z-index:1;display:flex;align-items:center;
+justify-content:space-between;margin:0 -20px 10px;padding:8px 12px 8px 20px;background:var(--surface);
+border-bottom:1px solid var(--line)}
+.cdet h2{margin:0;font:600 11px/16px var(--fm);letter-spacing:.08em;text-transform:uppercase;
+color:var(--ink-3);outline:none}
+.cdet h3{margin:2px 0 6px;font:600 19px/24px var(--fm);letter-spacing:-.01em;color:var(--ink);
+outline:none;overflow-wrap:anywhere}
+.cdet h4{margin:20px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+.cdet p{margin:6px 0}
+.cdet ul,.cdet ol{margin:0;padding:0;list-style:none}
+.cdet li{margin:0 0 4px}
 .cdet b{color:var(--ink);font-weight:600}
-.cdet button{box-sizing:border-box;min-height:28px;margin:2px 0;padding:2px 8px;
-border:1px solid var(--line-2);border-radius:6px;background:none;color:var(--ink);font:inherit;
-text-align:left;cursor:pointer}
-.cdet li button{display:block;width:100%}
-.cdet button:hover{background:var(--raised)}
+.cdet__tag{display:inline-block;padding:0 6px;border:1px solid var(--line-2);border-radius:3px;
+font:600 10px/16px var(--fm);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
+vertical-align:1px}
+.cdet__facts{font:12px/18px var(--fm);color:var(--ink-2)}
+.cdet button{box-sizing:border-box;min-height:32px;margin:0;padding:5px 10px;
+border:1px solid var(--line);border-radius:8px;background:none;color:var(--ink-2);font:inherit;
+text-align:left;cursor:pointer;transition:background .16s ease-out,border-color .16s ease-out}
+.cdet li button{display:flex;align-items:baseline;gap:8px;width:100%}
+.cdet button:hover{background:var(--raised);border-color:var(--line-2);color:var(--ink)}
+.cdet .cdet__close{min-height:28px;padding:2px 8px;border-color:transparent;color:var(--ink-2)}
+.cdet__kind{flex:none;align-self:flex-start;width:14px;height:2px;margin-top:9px;border-radius:1px;
+background:var(--flow)}
+.cdet__ev{display:block;font:11px/15px var(--fs);color:var(--ink-3)}
+.cdet__step{flex:none;margin-left:auto;font:11px/16px var(--fm);color:var(--ink-3);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.cdet button{transition:none}}
 .cpop :focus-visible{outline:2px solid var(--ink);outline-offset:1px}
-.cpop summary{min-height:28px;padding:4px 0;color:var(--ink);cursor:pointer}
+.cpop summary{min-height:28px;padding:4px 0;color:var(--ink-2);cursor:pointer}
+.cpop summary:hover{color:var(--ink)}
 .cdet details details{margin-left:12px}
 .cdet__as{color:var(--ink-3)}
 @media (max-width:600px){.cdet{top:auto;left:8px;width:auto;max-height:55%}}
 @media (pointer:coarse){.cpop,.cbar[data-menu] .cbar__tools[data-open]{top:64px}
-.cdet button,.cpop summary,.keys .keys__close{min-width:44px;min-height:44px;height:auto}}
+.cdet button,.cdet .cdet__close,.cpop summary,.keys .keys__close{min-width:44px;min-height:44px;
+height:auto}}
 @media (pointer:coarse) and (max-width:600px){.cdet{top:auto}}
 """
 )
@@ -237,10 +255,10 @@ DETAILS = r"""
   // The steps of the sequences of map m that `has` takes, as one line for each sequence.
   function steps(m, has) {
     var out = [];
-    (m.sq || []).forEach(function (q) {
+    (m.sq || []).forEach(function (q, i) {
       var at = [];
       q.s.forEach(function (s, k) { if (has(s, m.flows[s.f])) at.push(k + 1); });
-      if (at.length) out.push(el('li', null, q.n + ': ' + (at.length === 1 ? 'step ' : 'steps ') + at.join(', ') + '.'));
+      if (at.length) out.push(el('li', null, el('button', {type: 'button', 'data-q': i, 'data-m': m.oi}, el('span', null, q.n), quiet(': '), el('span', {'class': 'cdet__step'}, (at.length === 1 ? 'step ' : 'steps ') + at.join(', ')), quiet('.'))));
     });
     return [el('h4', null, 'SEQUENCES'), out.length ? el('ul', null, out) : el('p', null, 'No sequence of this map has this item.')];
   }
@@ -256,8 +274,15 @@ DETAILS = r"""
     return [el('h4', null, 'RULES'), h.length ? [el('p', null, 'Each rule gives its assurance level and its freshness.'), el('ul', null, h)]
       : el('p', null, 'The model has no rules for ' + (c ? 'this card' : 'this map') + '.')];
   }
+  // A tag, and the line in the color of the kind of a flow. The color is set with the
+  // style object: the page policy permits no style attribute.
+  function tag(s) { return el('span', {'class': 'cdet__tag'}, s); }
+  // Words for a screen reader only: the tags give the same facts to the eye.
+  function quiet(s) { return el('span', {'class': 'sr-only'}, s); }
+  function kind(f) { var i = el('i', {'class': 'cdet__kind'}); i.style.background = 'var(--l-' + f.l + ',var(--flow))'; return i; }
+  // One row for a flow: the line of its kind, the artifact, the other component, and its evidence.
   function flowRow(f, other) {
-    return el('li', null, el('button', {type: 'button', 'data-f': f.i}, f.a + ' ' + other), ' ', el('span', {'class': 'cdet__as'}, EV[f.ev] || f.ev));
+    return el('li', null, el('button', {type: 'button', 'data-f': f.i}, kind(f), el('span', null, el('b', null, f.a), ' ' + other + ' ', el('span', {'class': 'cdet__ev'}, EV[f.ev] || f.ev))));
   }
   function flows(name, fs, word, end) {
     return [el('h4', null, name + ' (' + fs.length + ')'),
@@ -300,10 +325,11 @@ DETAILS = r"""
   }
   function cardNodes(c) {
     var m = c.map;
-    return [el('h3', {tabindex: '-1'}, c.id), el('p', null, (c.k === 'actor' ? 'Actor' : 'Component') + '. Map: ' + mapName(m) + '.'),
+    return [el('h3', {tabindex: '-1'}, c.id), el('p', null, tag(c.k === 'actor' ? 'Actor' : 'Component'), ' in the map ' + mapName(m) + '.'),
       c.p ? el('p', null, el('b', null, c.p + '.')) : null, c.d ? about(c.d) : null,
       c.nt ? el('p', null, el('b', null, 'Note.'), ' ' + c.nt) : null,
-      c.as ? el('p', null, 'Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.') : null,
+      el('p', {'class': 'cdet__facts'}, (c.k === 'actor' ? '' : counted((c.m || []).length, 'module claim') + ' · ') + c.ins.length + ' in · ' + c.outs.length + ' out'),
+      c.as ? el('p', null, quiet('Assurance level: '), tag(c.as[0]), quiet('. Freshness:'), ' ', tag(c.as[1]), quiet('.')) : null,
       c.child ? el('p', null, el('button', {type: 'button', 'data-go': ''}, 'Go into the map: ' + sizeText(c.child))) : null,
       flows('FLOWS IN', c.ins, 'from', 's'), flows('FLOWS OUT', c.outs, 'to', 't'),
       steps(m, function (s, f) { return (f && (f.s === c.id || f.t === c.id)) || (s.a || []).indexOf(c.id) >= 0 || (s.me || []).indexOf(c.id) >= 0; }),
@@ -312,7 +338,7 @@ DETAILS = r"""
   function flowNodes(f) {
     var m = f.map;
     return [el('h3', {tabindex: '-1'}, 'Flow: ' + f.a),
-      el('p', null, 'From ', el('b', null, f.s), ' to ', el('b', null, f.t), '. Kind: ' + f.k + '. Layer: ' + layerName(f.l) + '.'),
+      el('p', null, tag('Flow'), ' From ', el('b', null, f.s), ' to ', el('b', null, f.t), '. Kind: ' + f.k + '. Layer: ' + layerName(f.l) + '.'),
       el('p', null, 'Evidence: ' + (EV[f.ev] || f.ev) + '.'),
       f.as ? el('p', null, 'Assurance level: ' + f.as[0] + '. Freshness: ' + f.as[1] + '.') : null,
       steps(m, function (s) { return s.f === f.i; }),
@@ -381,6 +407,7 @@ DETAILS = r"""
       if (!b) return;
       if (b.hasAttribute('data-f') && c) { BACK = c; FLOW = c.map.flows[+b.getAttribute('data-f')]; detSync(true); }
       else if (b.hasAttribute('data-back')) { FLOW = null; detSync(true); }
+      else if (b.hasAttribute('data-q') && VIEWS.sequences) { seqChoose(ORDER[+b.getAttribute('data-m')], +b.getAttribute('data-q'), true); setView('sequences'); }
       else if (b.hasAttribute('data-show') && FLOW) { viewFlowOn(FLOW); flyGoal(goalOf(FLOW.map, null, FLOW)); }
       else if (b.hasAttribute('data-go') && c && c.child) flyGoal(goalOf(c.map, c, null));
     });
@@ -389,10 +416,15 @@ DETAILS = r"""
   // With a mouse or the keyboard, a selected card opens the panel. When the selection goes,
   // a panel that a selection opened closes. On a touch screen, a tap shows the plate of
   // facts, and the Details button opens the panel: a second tap must still go into the card.
-  var AUTO = false;
+  var AUTO = false, WAIT = 0;
+  PANEL_DROP = function () { clearTimeout(WAIT); if (AUTO && ON) detShow(false, false); };
   SEL_HOOKS.push(function () {
     FLOW = null; BACK = null;
-    if (SEL_C && !ON && !TOUCH) { detShow(true, false); AUTO = true; }
+    clearTimeout(WAIT);
+    // The panel opens 240 ms after the selection: after the fade of the selection, so that
+    // the frame of the click stays short, and after the second click of a usual double-click,
+    // which goes into a card and opens no panel. With reduced motion, it opens at once.
+    if (SEL_C && !ON && !TOUCH) WAIT = setTimeout(function () { if (SEL_C && !ON) { detShow(true, false); AUTO = true; } }, reduced() ? 0 : 240);
     else if (!SEL_C && AUTO && ON) detShow(false, false);
     detSync();
   });
