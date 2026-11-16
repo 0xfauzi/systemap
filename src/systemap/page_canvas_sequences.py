@@ -125,7 +125,7 @@ color:var(--ink)}
 .cseq__opt-meta{font:12px/16px var(--fm);color:var(--ink-2)}
 .cseq__opt-name,.cseq__opt-meta{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .cseq__label{font:600 11px/16px var(--fm);letter-spacing:.08em;text-transform:uppercase}
-@media (pointer:fine){
+@media not (pointer:coarse){
 .cseq__seg,.cbar .cseq__form{gap:0;padding:2px;border:1px solid var(--line-2);border-radius:8px;
 background:var(--map)}
 .cbar .cseq__seg button,.cbar .cseq__form button{height:26px;padding:0 10px;border-radius:6px}

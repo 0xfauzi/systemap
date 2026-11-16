@@ -5,7 +5,7 @@ It writes one page per scheme and serves the pages through HTTP.
 Headless Chrome makes scheme screenshots at 1600 by 900 pixels.
 It makes 12 tour frames at 1600 by 900 pixels.
 It makes one phone image at 390 by 844 pixels.
-It makes the WebP images of the three views on the landing page (site/index.html),
+It makes the WebP images of the four views on the landing page (site/index.html),
 at 1600 by 900 pixels and for a phone at 390 by 760 pixels with 2 device pixels.
 The Changes view compares the commit CHANGE_HEAD with its parent CHANGE_BASE.
 Each frame shows a view, a layer, a card, or a sequence step.
@@ -73,8 +73,9 @@ TOUR: list[tuple[str, str]] = [
 
 # The views on the landing page, with the script for each view.
 VIEWS: list[tuple[str, str]] = [
-    ("map", "layer('data'); card('FactsExtractor');"),
-    ("sequence", "journey(0); start(); next();"),
+    ("map", "layer('system');"),
+    ("sequence", "journey(0); q('#cseq-diagram').click();"),
+    ("states", "view('states');"),
     ("changes", "view('changes');"),
 ]
 CHANGE_BASE = "d8ac070"
@@ -187,7 +188,7 @@ def webp(ffmpeg: str, png: Path, out: Path) -> None:
 
 
 def landing(args: argparse.Namespace, root: Path, site: Path, base: str, out: Path) -> None:
-    """Make the WebP images of the three views of the landing page."""
+    """Make the WebP images of the four views of the landing page."""
     pages = {"plain": render(root), "compare": render(root, compare=True)}
     shots = site.parent / "landing"
     shots.mkdir()

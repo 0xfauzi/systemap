@@ -24,6 +24,9 @@ hides its button. The board fades in and out with the step of the view. The Deta
 is the form of a board for a keyboard and for a screen reader: the canvas drawing has no
 elements. When the panel is open at the right of a wide screen, a board uses the space at
 the left of the panel.
+
+On a narrow screen, the sequence diagram does not become small. Its columns come nearer,
+its text keeps its size, and each second name box is one row lower (SQ_SMALL).
 """
 
 from __future__ import annotations
@@ -65,9 +68,13 @@ function boardOn() { return BOARD.a > 0.5; }
 // The free box of a board, and the scale and the origin that fit a drawing of bw x bh.
 // When the Details panel is open at the right of a wide screen, the box ends before the panel.
 var BOARD_PANEL = document.getElementById('cdetails');
-function boardFit(bw, bh) {
-  var x0 = 24, y0 = HEAD_H + PATH_H + 34, x1 = W - 24, y1 = H - 48;
+function boardRight() {
+  var x1 = W - 24;
   if (BOARD_PANEL && !BOARD_PANEL.hidden && BOARD_PANEL.classList.contains('on') && W > 900) x1 = Math.min(x1, BOARD_PANEL.getBoundingClientRect().left - 16);
+  return x1;
+}
+function boardFit(bw, bh) {
+  var x0 = 24, y0 = HEAD_H + PATH_H + 34, x1 = boardRight(), y1 = H - 48;
   var k = clamp(Math.min((x1 - x0) / bw, (y1 - y0) / bh), 0.3, 1.3);
   return {k: k, x: (x0 + x1) / 2 - bw * k / 2, y: Math.max(y0, (y0 + y1) / 2 - bh * k / 2)};
 }
@@ -104,21 +111,25 @@ function seqParts(m, j) {
   });
   return out;
 }
-var SQ_COL = 176, SQ_CARD = 148, SQ_ROW = 56, SQ_TOP = 78;
+var SQ_COL = 176, SQ_CARD = 148, SQ_ROW = 56, SQ_TOP = 78, SQ_SMALL = 0.75;
 function seqBoard(alpha) {
   var m = SEQ.m, j = SEQ.j, parts = seqParts(m, j), n = j.s.length;
-  var bw = Math.max(1, parts.length - 1) * SQ_COL + SQ_CARD, bh = SQ_TOP + n * SQ_ROW + 10, v = boardFit(bw, bh), k = v.k;
-  function X(id) { return v.x + (SQ_CARD / 2 + Math.max(0, parts.indexOf(id)) * SQ_COL) * k; }
-  parts.forEach(function (id) {
-    var c = m.byId[id], x = X(id), w = SQ_CARD * k, h = 40 * k, actor = c.k === 'actor';
+  // On a narrow screen, the full diagram has a scale that makes its text too small. Then the
+  // columns come nearer, the text keeps its size, and each second name box is one row lower.
+  var gaps = Math.max(1, parts.length - 1), col = SQ_COL, card = SQ_CARD, room = boardRight() - 24, low = 0;
+  if (room < (gaps * SQ_COL + SQ_CARD) * SQ_SMALL) { card = Math.min(SQ_CARD, room * 2 / (gaps + 2) - 6); col = (room - card) / gaps; low = card > col - 6 ? 46 : 0; }
+  var top = SQ_TOP + low, bw = gaps * col + card, bh = top + n * SQ_ROW + 10, v = boardFit(bw, bh), k = v.k;
+  function X(id) { return v.x + (card / 2 + Math.max(0, parts.indexOf(id)) * col) * k; }
+  parts.forEach(function (id, at) {
+    var c = m.byId[id], x = X(id), w = card * k, h = 40 * k, y = v.y + (at % 2 ? low : 0) * k, actor = c.k === 'actor';
     ctx.globalAlpha = alpha * 0.9; ctx.strokeStyle = C['--line-2']; ctx.lineWidth = 1; ctx.setLineDash([3, 4]);
-    ctx.beginPath(); ctx.moveTo(x, v.y + h); ctx.lineTo(x, v.y + bh * k); ctx.stroke(); ctx.setLineDash([]);
-    boardBox(x - w / 2, v.y, w, h, 8 * k, actor ? C['--actor'] : C['--card'], C['--card-line'], 1.1, actor ? [4, 3] : null, alpha);
-    text(fit(id, 12.5 * k, w - 12, 600), x, v.y + h / 2 + 4.5 * k, 12.5 * k, C['--ink'], alpha, 600, false, 'center');
-    if (boardOn()) boardHit(x - w / 2, v.y, w, h, function () { select(c); });
+    ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, v.y + bh * k); ctx.stroke(); ctx.setLineDash([]);
+    boardBox(x - w / 2, y, w, h, 8 * k, actor ? C['--actor'] : C['--card'], C['--card-line'], 1.1, actor ? [4, 3] : null, alpha);
+    text(fit(id, 12.5 * k, w - 12, 600), x, y + h / 2 + 4.5 * k, 12.5 * k, C['--ink'], alpha, 600, false, 'center');
+    if (boardOn()) boardHit(x - w / 2, y, w, h, function () { select(c); });
   });
   j.s.forEach(function (st, i) {
-    var f = st.f >= 0 ? m.flows[st.f] : null, y = v.y + (SQ_TOP + i * SQ_ROW + 22) * k, kind = seqKind(i), now = kind === 'now';
+    var f = st.f >= 0 ? m.flows[st.f] : null, y = v.y + (top + i * SQ_ROW + 22) * k, kind = seqKind(i), now = kind === 'now';
     var al = alpha * (kind === 'later' ? 0.42 : kind === 'was' ? 0.7 : 1), r = 9 * k;
     if (f) {
       var x1 = X(f.s), x2 = X(f.t), dir = x2 >= x1 ? 1 : -1, color = now ? C['--accent'] : flowColor(f, null), w = (now ? 3 : 1.7) * Math.max(0.8, k);

@@ -240,7 +240,7 @@ overflow:hidden;clip-path:inset(50%)}
 .cview.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
 @media (prefers-reduced-motion:reduce){.cview,.cview.on{transition:none}}
 :root[data-reduce-motion="true"] .cview{transition:none}
-@media (pointer:fine){
+@media not (pointer:coarse){
 .cbar button{transition:background .16s ease-out,color .16s ease-out,box-shadow .16s ease-out}
 .cbar__views{gap:0;padding:2px;border:1px solid var(--line-2);border-radius:8px;
 background:var(--map)}
@@ -255,6 +255,7 @@ background:none;box-shadow:inset 0 -2px 0 transparent}
 box-shadow:inset 0 -2px 0 var(--ink);color:var(--ink)}
 .cbar .cbar__layers button:focus-visible{outline-offset:-3px}
 .cbar[data-fit="2"] .cbar__views{padding:1px}
+.cbar[data-fit="2"] .cbar__views button{padding:0 7px}
 }
 @media (prefers-reduced-motion:reduce){.cbar button{transition:none}}
 :root[data-reduce-motion="true"] .cbar button{transition:none}

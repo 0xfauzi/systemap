@@ -159,3 +159,28 @@ each control keeps its box of 44 px.
 
 Not done: the icon buttons at the right did not change. The select controls have the look
 that the browser gives them.
+
+## The website, pass 1 (2026-11-16)
+
+The pages of the website did not get a new design. The examination found three faults, and
+this pass corrects them.
+
+- The pictures of the canvas page were from before the changes on this branch.
+  `scripts/screenshots.py` made them again. The Map picture is the System context layer. The
+  Sequences picture is the sequence diagram. A States picture is new, and the landing page
+  has a States tab for it.
+- At a width of 320 px, the landing page and the guide pages were 341 px wide, because the
+  links in the header did not fit. After the change, they are 320 px wide (measured with
+  Playwright). With four tabs, the tab row of the tour fits at 390 px and at 360 px. At
+  320 px, the row scrolls.
+- On a screen of 390 px, the sequence diagram had a scale of 0.4, and it showed no names and
+  no labels. Now the columns come nearer, the text keeps its size, and each second name box
+  is one row lower. A long name can end with "...".
+- The refined header applies when the pointer is not coarse (`not (pointer:coarse)`), not
+  only when it is fine. Headless Chrome reports no fine pointer, so the pictures did not
+  show the refined header.
+
+Not done: the guide page "Read the map" names three views, because the States view is a
+prototype. On a phone, the state machine has a scale of approximately 0.6, and it does not
+show the source symbol of a state. The layer list in the narrow header shows only a part of
+its text. No test examines the narrow sequence diagram.
