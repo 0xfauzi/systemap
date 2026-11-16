@@ -7160,3 +7160,36 @@ Result: FAIL.
 - `hand`, with the actors at four different sides: `strip` is 8 and `crossed` is 9. The map is 1288 x 1092, and `zoom` is 0.723, which is 81.6 percent of `base`. Thus the text at the fit is smaller.
 
 Conclusion: actors at more than one side do not remove the fault in this map. Three actors (Agent, CI, Maintainer) have flows with cards in many regions, so their lines stay long at each side. The variant `wide` decreases `crossed` in the layer from 13 to 7 with a canvas that is 80 units wider and with the same `zoom`, but 7 is more than the acceptance value of 3. The count of the lines is the cause, not the position of the actors.
+
+## A2: fewer lines and fewer labels at rest (2026-11-16)
+
+Script: `bench/jev/label_rest.py`. The acceptance values are in the docstring of the script. They were written before the first run.
+
+- Input: the model of the map of this repository (82 flows, 17 flows in the System context layer). It is one map.
+- The script uses `route_all` and `place_labels` of the product. The order `near` is in a subclass of `Seating` in the script. It changes no product code.
+- `shown` is the count of labels that show at rest: the position has no collision, and the path of no different line of the same set goes through the box of the label.
+
+| Variant | Lines (System context) | shown | Share | strip | Lines (all) | shown (all) | Share (all) | collisions | Longest label |
+|---|---|---|---|---|---|---|---|---|---|
+| product | 17 | 4 | 24 % | 15 | 82 | 10 | 12 % | 0 | 20 characters |
+| near | 17 | 11 | 65 % | 15 | 82 | 37 | 45 % | 0 | 20 |
+| pairs | 15 | 3 | 20 % | 14 | 79 | 9 | 11 % | 0 | 24 |
+| pairs + near | 15 | 8 | 53 % | 14 | 79 | 34 | 43 % | 0 | 24 |
+| wide | 17 | 10 | 59 % | 12 | 82 | 8 | 10 % | 0 | 20 |
+| wide + near | 17 | 12 | 71 % | 12 | 82 | 39 | 48 % | 0 | 20 |
+| wide + pairs | 15 | 5 | 33 % | 11 | 79 | 7 | 9 % | 0 | 24 |
+| wide + pairs + near | 15 | 10 | 67 % | 11 | 79 | 38 | 48 % | 0 | 24 |
+
+Result: PASS. One variant is a candidate: `wide + near`, with 12 of 17 labels (71 percent) against the limit of 70 percent.
+
+- `pairs` does not help in this map. It removes 2 of 17 lines in the layer and 3 of 82 lines in all. Its labels are longer, and fewer of them show. The earlier text of this work gave "17 flows to 11 pairs" from R1. That value is for the region level, where a region is one card. It does not apply to pairs of component cards.
+- `near` is the largest change: from 4 to 11 labels in the layer, and from 10 to 37 labels of 82 in all.
+- `wide` alone gives 10 labels in the layer, and 8 in all against 10 for the product.
+
+Limits of this result:
+
+- The candidate is 1 label above the limit, in one map. A different map can give a different result.
+- The count does not show if a reader can tell which line a label is for. In the picture of trial 2 of L2, which has the order `near`, five labels are adjacent to a group of parallel lines. With the rule of `rest`, the labels with a path through them do not show, but a label adjacent to a group of lines can still show.
+- With all flows, 39 of 82 labels show at rest. The other 43 labels show only when the reader points at a line or selects it.
+
+Conclusion: a trial in the page is necessary before a decision. The trial must have the order `near`, the rule of `rest` and the wider strip, and a person must examine the picture.
