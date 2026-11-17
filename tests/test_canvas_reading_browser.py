@@ -94,16 +94,28 @@ def self_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return out
 
 
-def test_each_flow_of_a_layer_has_a_label_at_the_fit(self_page: Path) -> None:
-    """Acceptance 1."""
+def test_the_labels_of_a_layer_at_the_fit(self_page: Path) -> None:
+    """Acceptance 1, with the labels at rest (A3 of bench/jev/README.md).
+
+    At rest, a label shows only when no path of a different flow of the layer goes
+    through it. Thus the labels at rest are a part of the labels of the layer. With the
+    pointer on a card, each label of a flow of that card shows.
+    """
     out = _drive("--labels", self_page)
     assert out["errors"] == []
     assert len(out["layers"]) >= 4
     for layer in out["layers"]:
-        got = layer["got"]
-        assert sorted(t["s"] for t in got) == layer["want"], layer["id"]
+        got, want = layer["got"], list(layer["want"])
+        assert got, layer["id"]
+        for t in got:
+            assert t["s"] in want, layer["id"]
+            want.remove(t["s"])
         assert min(t["alpha"] for t in got) >= 0.99, layer["id"]
         assert min(t["size"] for t in got) >= 9, layer["id"]
+        near = [t["s"] for t in layer["near"] if t["alpha"] >= 0.99]
+        for name in layer["of_card"]:
+            assert name in near, (layer["id"], layer["card"])
+            near.remove(name)
 
 
 def _in_path_row(at: dict[str, Any]) -> None:

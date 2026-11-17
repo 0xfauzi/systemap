@@ -18,6 +18,9 @@ Box = tuple[float, float, float, float]
 # 40 to 200 units wide.
 CELL = 64.0
 
+# A label box with more than this distance to its flow path is apart from the path.
+APART = 6.0
+
 # A box that covers more cells than this limit goes in one wide set, and each
 # query gives the keys in that set. A box with a coordinate that is not finite
 # also goes in the wide set. Thus a large obstacle does not use one entry for
@@ -157,6 +160,47 @@ class Seating:
         for i, (_name, ob) in enumerate(obstacles):
             self.walls.put(i, ob)
         self.fixed_cost: dict[tuple[int, int], float] = {}
+        self.wires = SeatGrid()
+        self.wire_of: list[tuple[int, Box]] = []
+        self.crossed_by: dict[tuple[int, int], int] = {}
+        self.own: dict[int, list[Box]] = {}
+
+    def lines(self, paths: dict[int, list[tuple[float, float]]]) -> None:
+        """This method records the segments of the flow paths, by the key of their label."""
+        for k, points in paths.items():
+            for (x0, y0), (x1, y1) in zip(points, points[1:], strict=False):
+                box = (min(x0, x1), min(y0, y1), abs(x1 - x0), abs(y1 - y0))
+                self.wires.put(len(self.wire_of), box)
+                self.wire_of.append((k, box))
+                self.own.setdefault(k, []).append(box)
+
+    def apart(self, k: int, n: int) -> bool:
+        """This method tells if a candidate box is not on its flow path or adjacent to it."""
+        x, y, w, h = self.cands[k][n][2]
+        for sx, sy, sw, sh in self.own.get(k, []):
+            dx = max(0.0, x - (sx + sw), sx - (x + w))
+            dy = max(0.0, y - (sy + sh), sy - (y + h))
+            if dx + dy <= APART:
+                return False
+        return True
+
+    def crossed(self, k: int, n: int) -> int:
+        """This method counts the other flow paths that go through a candidate box.
+
+        The box is 1 unit smaller on each side. Thus a path along the edge of the box
+        does not count.
+        """
+        key = (k, n)
+        if key not in self.crossed_by:
+            x, y, w, h = self.cands[k][n][2]
+            x0, y0, x1, y1 = x + 1, y + 1, x + w - 1, y + h - 1
+            owners = set()
+            for i in self.wires.near((x0, y0, x1 - x0, y1 - y0)):
+                j, (sx, sy, sw, sh) = self.wire_of[i]
+                if j != k and sx <= x1 and sx + sw >= x0 and sy <= y1 and sy + sh >= y0:
+                    owners.add(j)
+            self.crossed_by[key] = len(owners)
+        return self.crossed_by[key]
 
     def pad(self, b: Box) -> Box:
         gap = self.gap
@@ -189,16 +233,21 @@ class Seating:
     def seat(self, k: int) -> Placed | None:
         """This method selects a label position from the occupancy state.
 
-        A collision-free position on the longest segment has priority. A collision-free
-        position elsewhere has priority over a collision on the longest segment.
+        A collision-free position has priority over a collision. Then a position with
+        fewer other flow paths through it has priority. Then a position on the longest
+        segment has priority.
         """
         best: Placed | None = None
+        best_rank: tuple[bool, bool, int, bool, float] | None = None
         for n, (seg, on_longest, box) in enumerate(self.cands[k]):
             cost = self.fixed(k, n) + self.soft(box, k)
-            rank = (cost > 0, not on_longest, cost)
-            if best is None or rank < (best.cost > 0, not best.on_longest, best.cost):
+            through = self.crossed(k, n) if self.wire_of else 0
+            apart = self.apart(k, n) if self.wire_of else False
+            rank = (cost > 0, apart, through, not on_longest, cost)
+            if best_rank is None or rank < best_rank:
                 best = Placed(box=box, segment=seg, on_longest=on_longest, cost=cost)
-            if cost == 0 and on_longest:
+                best_rank = rank
+            if cost == 0 and on_longest and through == 0:
                 break
         return best
 

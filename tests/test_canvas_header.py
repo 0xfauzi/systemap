@@ -38,8 +38,11 @@ from systemap import canvas_data, canvas_header, canvas_page, page, page_canvas
 from systemap.model import all_layers
 
 # The pages that d8ac070 writes for the fixture without `[render] canvas`.
+# 2026-11-17: the digest of index.html is different from d8ac070 (d9bee9a1...). The label
+# placement prefers a position that no path of a different flow goes through (A3 of
+# bench/jev/README.md). This rule is for all pages, so the labels of this page moved.
 MAIN_PAGES = {
-    "index.html": "d9bee9a146cc26b71d152d1094495ae1c71c9942197e19936c14b8474cf96b58",
+    "index.html": "b6357b83ae08f4fe5e862839ae974401ed395e26c5fbf81e1e52a63eb8c6e4d6",
     "Gateway/index.html": "5e9140682ede81da4bfef80e99c42d5bc53a550fff41e2cfa13f1180eaa565e0",
 }
 

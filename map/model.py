@@ -32,17 +32,17 @@ CONTAINERS = (
         id="systemap",
         label="SYSTEMAP",
         sub="One CLI process",
-        box=(230, 16, 848, 860),
+        box=(310, 16, 848, 860),
         tone="server",
     ),
 )
 
 REGIONS = (
-    Region("operate", "OPERATE", (250, 80, 380, 204), container="systemap"),
-    Region("gather", "SOURCE DATA", (678, 80, 190, 204), container="systemap"),
-    Region("mean", "MODEL", (250, 320, 190, 204), container="systemap"),
-    Region("draw", "DIAGRAM", (678, 320, 380, 204), container="systemap"),
-    Region("keep", "MAP CHECKS", (250, 560, 380, 296), container="systemap"),
+    Region("operate", "OPERATE", (330, 80, 380, 204), container="systemap"),
+    Region("gather", "SOURCE DATA", (758, 80, 190, 204), container="systemap"),
+    Region("mean", "MODEL", (330, 320, 190, 204), container="systemap"),
+    Region("draw", "DIAGRAM", (758, 320, 380, 204), container="systemap"),
+    Region("keep", "MAP CHECKS", (330, 560, 380, 296), container="systemap"),
 )
 
 COMPONENTS = (
@@ -107,7 +107,7 @@ COMPONENTS = (
         ),
         entry="main",
         region="operate",
-        x=460,
+        x=540,
         y=120,
     ),
     Component(
@@ -119,7 +119,7 @@ COMPONENTS = (
         entry="write",
         note="Does not replace files. To change the pinned workflow, write its version in the workflow file.",
         region="operate",
-        x=270,
+        x=350,
         y=212,
     ),
     Component(
@@ -164,7 +164,7 @@ COMPONENTS = (
         entry="load",
         kind="store",
         region="operate",
-        x=460,
+        x=540,
         y=212,
     ),
     # ---- gather: the mechanical truth ----
@@ -220,7 +220,7 @@ COMPONENTS = (
         ),
         entry="build",
         region="gather",
-        x=698,
+        x=778,
         y=120,
     ),
     Component(
@@ -245,18 +245,18 @@ COMPONENTS = (
         ),
         entry="compute",
         region="gather",
-        x=698,
+        x=778,
         y=212,
     ),
     Component(
         id="Placer",
-        source_review="bf048d0bc5663ce76ec641229a5929acc4e17c7e99d3ea2c40bf3a78664a096f",
+        source_review="b84b3766198ba497a2dbe17049c33f5923a95f2cc5bc2a8635d140d9c27d4162",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. Holds the lock of the model file from the read to the end of the write. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, label, placement, expected, load)",
         implemented_by=("systemap.place", "systemap.place_source"),
         entry="compute",
         region="operate",
-        x=270,
+        x=350,
         y=120,
     ),
     # ---- mean: the judgement ----
@@ -268,7 +268,7 @@ COMPONENTS = (
         implemented_by=("systemap.skill",),
         entry="write",
         region="mean",
-        x=270,
+        x=350,
         y=360,
     ),
     Component(
@@ -298,14 +298,14 @@ COMPONENTS = (
         entry="Model",
         kind="store",
         region="mean",
-        x=270,
+        x=350,
         y=452,
     ),
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="a977f2c7f8879313f53eff97c8589f2559b1790dc17957a7595072f1430736a1",
-        does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions.",
+        source_review="aa86532b8cfe9acc373debd30e953d17965dbaeae382e3334d30812d48b6e2c4",
+        does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions. A label position with fewer paths of other flows through it has priority.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=(
             "systemap.route",
@@ -315,12 +315,12 @@ COMPONENTS = (
         ),
         entry="route_all",
         region="draw",
-        x=698,
+        x=778,
         y=452,
     ),
     Component(
         id="Schematic",
-        source_review="0e3ed0e60a467ee76962b5ab9e2a420d4a8add6db6d273b8d0ebeeb7326ae749",
+        source_review="687faec85ef2f8d51b32ced83c9bc908234dad52d01961205e6864426609456d",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -335,12 +335,12 @@ COMPONENTS = (
         ),
         entry="render",
         region="draw",
-        x=888,
+        x=968,
         y=452,
     ),
     Component(
         id="Page",
-        source_review="0ac9f61f0be1c5d493042def695cfb400d8d234d618ebc8039e3300b8b3fdce5",
+        source_review="49416c9608bee1610a559e3dd7351796db78c02b9a787c7c914de703ab18829e",
         does='Makes the map page. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. By default, makes the canvas page: one canvas element for all maps of the tree, with the data object one time. The page of each nested map is a redirect page that goes to the canvas page with the map ID and the hash of the link in the URL hash. The URL hash #changes opens the Changes view. With [render] canvas = false, makes one linked page for each map in place of the canvas page. The linked page shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Its rules list gives the assurance level and the freshness of each invariant and import rule. On a phone, it shows the regions of the top map as a grid. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves. While the camera moves, it can draw a large map from images of the full map, which it makes in slices in the free time of the frames. Each boundary flow fades in and out with the camera, and the text of each card fades in and out with the zoom. A hidden list after the canvas gives the maps, the cards and the flows for a screen reader. Each link in the list moves the camera to its item. On the canvas page, Tab moves the keyboard focus through the cards of the current map in reading order, and Enter goes into the focused card or selects it. On a touch screen, a tap selects a card, and a second tap on a card that opens a map goes into it. A header over the canvas has the views Map, Sequences and Changes and the layers. In the Map view, a layer shows only its flows, and the cards that no flow of the layer touches become quiet. The page opens with the layer System context when the top map has flows in that layer. Each change of the view fades. In the Sequences view, a toolbar under the header selects a sequence of a map of the tree. The camera goes to that map, the route shows with a number at each step, and the other cards and flows of the map become quiet. In the Steps mode, Previous and Next move the camera to the cards of each step. In the Changes view of the canvas page, each card shows its change mark, only the flows of changed source with structural or declared evidence show, and a card that opens a map with map changes in it or below it shows "changed inside". A bar under the header gives the changes of the current map in words. When the map changes are not known, the bar gives the reason. The layer and the view also control which boundary flows show. On the canvas page, Ctrl K opens the Find dialog for the cards and the flows of all maps. A result in a different map moves the camera to that card and selects it. A click with a mouse also selects a card and opens the Details panel. On a wide screen, the open panel makes the canvas narrower, so it covers no card. The canvas has a dot grid and a legend with the count of the flows of the layer. In the Map view, a selected card keeps its flows at full contrast, and the other flows and cards of its map go to low contrast. The header of the canvas page has the theme, Reduce motion, the Keyboard keys and the source of the map. The Details panel gives the selected card: its flows with their evidence, its sequences, its rules with their assurance, and its source records. In the Sequences view, with no selected card, the panel gives the steps of the sequence in order. The Sequences toolbar can show the steps as a sequence diagram in place of the route on the map. When a map has a state machine, the header has a States view. It draws the states and the transitions of one machine, and for a transition, the panel gives the flow and the sequence that show the same change. A caption at the right of the path gives the question of the layer, or the sentence of the step. The canvas data has only the open boundary findings of the judgement. In the Map view, the actor card of each open boundary finding has a dotted ring and a short text, and the list of the tree and the live region give the open findings.',
         interface="build(cfg, model, meaning, theme, facts, change) -> html",
         implemented_by=(
@@ -396,7 +396,7 @@ COMPONENTS = (
         ),
         entry="build",
         region="draw",
-        x=888,
+        x=968,
         y=360,
     ),
     Component(
@@ -407,7 +407,7 @@ COMPONENTS = (
         implemented_by=("systemap.figure",),
         entry="make",
         region="draw",
-        x=698,
+        x=778,
         y=360,
     ),
     # ---- keep true: what refuses, and what asks a person ----
@@ -425,7 +425,7 @@ COMPONENTS = (
         ),
         entry="run",
         region="keep",
-        x=270,
+        x=350,
         y=692,
     ),
     Component(
@@ -455,7 +455,7 @@ COMPONENTS = (
         ),
         entry="run",
         region="keep",
-        x=270,
+        x=350,
         y=600,
     ),
     Component(
@@ -480,18 +480,18 @@ COMPONENTS = (
         ),
         entry="run",
         region="keep",
-        x=460,
+        x=540,
         y=600,
     ),
     Component(
         id="Describe",
-        source_review="0c6e954fe89a7dd6e3f5c40d0bf7c9349847a0f6a51bfda1b4aa97a350c93792",
+        source_review="3badd37acbe54a754663556303eda2a1b1de158ebbeeebccdd251fcaed95700d",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),
         entry="run",
         region="keep",
-        x=270,
+        x=350,
         y=784,
     ),
 )
@@ -502,7 +502,7 @@ FLOWS = flows.FLOWS
 FLOW_KINDS = ("judge",)
 
 MODEL = Model(
-    canvas=(1094, 892),
+    canvas=(1174, 892),
     containers=CONTAINERS,
     regions=REGIONS,
     components=COMPONENTS,

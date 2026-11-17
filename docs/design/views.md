@@ -184,3 +184,23 @@ Not done: the guide page "Read the map" names three views, because the States vi
 prototype. On a phone, the state machine has a scale of approximately 0.6, and it does not
 show the source symbol of a state. The layer list in the narrow header shows only a part of
 its text. No test examines the narrow sequence diagram.
+
+## The flow labels at rest (2026-11-17)
+
+L2, A1, A2 and A3 of `bench/jev/README.md` have the measured values.
+
+- The fault: in the System context layer, 12 of 17 labels had the path of a different flow
+  through their text.
+- Three changes did not correct it: a different label position only (L2b), the actors at
+  more than one side (A1), and one line for each pair of cards (A2).
+- The kept change has three parts. A label goes to a position on its path that no other
+  path goes through, when there is one. A label with a path through it does not show at
+  rest. In the map of this repository, the strip at the right of the actors is 80 units
+  wider.
+- The legend tells the reader how to show the other labels, for example "point at a card
+  for 5 more labels". On a touch screen it says "select a card".
+
+Not done: the placer has no rule for the wider strip, so a different map does not get it.
+A flow line has no pointer state, so a reader cannot point at one line to show its label.
+The maintainer said that a map with many flows has lines that cross in each case, and that
+other views and nested maps are the answer to that.

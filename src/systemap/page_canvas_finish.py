@@ -22,6 +22,11 @@ selection.
   ms to move, 120 ms to go. It starts 350 ms after the step, when the camera has moved. A
   motion shows a direction or an order, and it occurs one time. With reduced motion, the
   dot does not show.
+- The labels at rest. In the Map view, a flow label shows at rest only when the path of no
+  other flow of the layer goes through its box (`restClear`). The other labels show when
+  their map has a selected card, or when the pointer is on a card at one end of their flow
+  (`restShown`). The legend gives the count of these labels and the action that shows
+  them (`restWords`). A2 and A3 of `bench/jev/README.md` give the measured values.
 """
 
 from __future__ import annotations
@@ -65,7 +70,7 @@ function drawGrid() {
 }
 
 // The legend: the kinds of the flows that the Map view shows in the current map, and their count.
-var LEGEND = {key: '', kinds: [], n: 0, box: null, full: false}, LEG_FS = 11.5;
+var LEGEND = {key: '', kinds: [], n: 0, box: null, full: false, count: ''}, LEG_FS = 11.5;
 function legendRead(m) {
   var key = m.oi + '|' + VIEW.layer;
   if (LEGEND.key === key) return;
@@ -84,7 +89,7 @@ function legendLay() {
   LEGEND.box = null;
   if (VIEW.mode !== 'map' || boardOn()) return;
   legendRead(currentMap());
-  var count = counted(LEGEND.n, 'flow'), cw = unitWidth(count, 600, true) * LEG_FS, help = helpPlate(), right = panelLeft(), room = right - 36 - help[0] - help[2];
+  var more = restWords(currentMap()), count = LEGEND.count = counted(LEGEND.n, 'flow') + (more ? ' \u00b7 ' + more : ''), cw = unitWidth(count, 600, true) * LEG_FS, help = helpPlate(), right = panelLeft(), room = right - 36 - help[0] - help[2];
   var kw = LEGEND.kinds.reduce(function (w, id) { return w + 22 + unitWidth(layerName(id), 400) * LEG_FS + 14; }, 0);
   LEGEND.full = LEGEND.kinds.length > 0 && kw + cw + 24 <= room;
   var w = (LEGEND.full ? kw : 0) + cw + 24;
@@ -103,7 +108,7 @@ function drawLegend() {
     text(layerName(id), x + 22, y, LEG_FS, C['--ink-2'], 1);
     x += 22 + unitWidth(layerName(id), 400) * LEG_FS + 14;
   });
-  text(counted(LEGEND.n, 'flow'), x, y, LEG_FS, C['--ink-2'], 1, 600, true);
+  text(LEGEND.count, x, y, LEG_FS, C['--ink-2'], 1, 600, true);
 }
 
 // ---- lines, labels and the pointer -------------------------------------------------------
@@ -134,9 +139,54 @@ var HOVER_C = null;
 function hoverAt(px, py) {
   var c = TOUCH || px === null || boardOn() ? null : pickClosed(px, py);
   if (c === HOVER_C) return;
-  HOVER_C = c; request();
+  var was = HOVER_C;
+  HOVER_C = c;
+  // A stored image of a map has its labels. A hidden label of a flow of the card must show.
+  if (VIEW.mode === 'map' && ((was && restHidden(was.map)) || (c && restHidden(c.map)))) { VIEW.epoch++; viewTouch(); }
+  else request();
 }
 cv.addEventListener('pointerleave', function () { hoverAt(null, null); });
+// The labels at rest (A2 and A3 of bench/jev/README.md). In the Map view, a label shows at
+// rest only when the path of no other flow of the layer goes through its box. The other
+// labels show when their map has a selected card, or when the pointer is on a card at one
+// of their ends. `restClear` gives the flows of map m with such a free box, for the layer.
+function restClear(m) {
+  if (m._rk === VIEW.layer) return m._rc;
+  var fl = VIEW.layer === 'all' ? null : layerFlags(m, VIEW.layer).flow, clear = [];
+  var lines = m.flows.filter(function (f) { return f.p.length && (!fl || fl[f.i]); });
+  lines.forEach(function (f) {
+    if (!f.lb) return;
+    var x0 = f.lb[0], y0 = f.lb[1], x1 = x0 + f.lb[2], y1 = y0 + f.lb[3];
+    clear[f.i] = !lines.some(function (o) {
+      if (o === f) return false;
+      for (var k = 1; k < o.p.length; k++) {
+        var a = o.p[k - 1], c = o.p[k];
+        if (Math.min(a[0], c[0]) <= x1 && Math.max(a[0], c[0]) >= x0 && Math.min(a[1], c[1]) <= y1 && Math.max(a[1], c[1]) >= y0) return true;
+      }
+      return false;
+    });
+  });
+  m._rk = VIEW.layer; m._rc = clear;
+  m._rh = lines.filter(function (f) { return f.lb && !clear[f.i]; }).length;
+  return clear;
+}
+// The count of the labels of map m that do not show at rest. With a selected card in the
+// map, each label of a shown flow shows, so the count is 0.
+function restHidden(m) { if (VIEW.mode !== 'map' || (SEL_C && SEL_C.map === m)) return 0; restClear(m); return m._rh; }
+// The words of the legend for these labels.
+function restWords(m) { var n = restHidden(m); return n ? (TOUCH ? 'select' : 'point at') + ' a card for ' + n + ' more ' + (n === 1 ? 'label' : 'labels') : ''; }
+function restShown(f) {
+  if (VIEW.mode !== 'map') return 1;
+  var m = f.map, near = HOVER_C && HOVER_C.map === m && (f.s === HOVER_C.id || f.t === HOVER_C.id);
+  var to = (SEL_C && SEL_C.map === m) || near || restClear(m)[f.i] ? 1 : 0;
+  if (VIEW_AIM) return to;
+  if (f._rAt !== drawn) {
+    f._ra = f._rAt === drawn - 1 ? approach(f._ra, to, VIEW_STEP) : to;
+    f._rAt = drawn;
+    if (f._ra !== to) VIEW_FADING = true;
+  }
+  return f._ra;
+}
 // A new selection: the flows of the selected card stay, and the other flows and cards of its
 // map go to low contrast (`VIEWS.map`). The images of a large map are made again.
 SEL_HOOKS.push(function () { VIEW.epoch++; viewTouch(); });

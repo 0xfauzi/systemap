@@ -9,7 +9,8 @@
 //     node tests/canvas_reading.js --bands PAGE.html
 //     node tests/canvas_reading.js --first PAGE.html
 //
-// --labels: the labels at the fit of the top map, for each layer with flows, at 1440 x 900.
+// --labels: the labels at the fit of the top map, for each layer with flows, at 1440 x 900,
+// at rest and with the pointer on the card that has the most flows of the layer.
 // --caption: the words and the box of the caption after each layer, the fade of a change
 // with and without reduced motion, and the box on a phone. --route: the caption, the labels
 // and the Details panel in the Sequences view, and axe-core (from NODE_PATH; null when it
@@ -61,7 +62,18 @@ async function runLabels(browser, file) {
   for (const lay of map.layers.filter((l) => l.e.length)) {
     await page.evaluate((id) => { const S = window.systemapCanvas; S.setView('map', id); S.view(S.fit('')); }, lay.id);
     await page.waitForTimeout(300);
-    out.layers.push({ id: lay.id, want: lay.e.filter((i) => map.flows[i].lb).map((i) => map.flows[i].a).sort(), got: await labels(page) });
+    const got = await labels(page);
+    // The card with the most flows of the layer, and the labels with the pointer on it.
+    const ends = {};
+    lay.e.forEach((i) => { const f = map.flows[i]; if (f.lb) [f.s, f.t].forEach((id) => { (ends[id] = ends[id] || []).push(f.a); }); });
+    const card = Object.keys(ends).sort((a, b) => ends[b].length - ends[a].length)[0];
+    const box = await page.evaluate((id) => window.systemapCanvas.box('', id), card);
+    await page.mouse.move(box[0] + box[2] / 2, box[1] + box[3] / 2);
+    await page.waitForTimeout(300);
+    const near = await labels(page);
+    await page.mouse.move(2, 500);
+    await page.waitForTimeout(200);
+    out.layers.push({ id: lay.id, want: lay.e.filter((i) => map.flows[i].lb).map((i) => map.flows[i].a).sort(), got, card, of_card: ends[card].sort(), near });
   }
   return out;
 }

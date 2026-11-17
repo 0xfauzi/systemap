@@ -7193,3 +7193,33 @@ Limits of this result:
 - With all flows, 39 of 82 labels show at rest. The other 43 labels show only when the reader points at a line or selects it.
 
 Conclusion: a trial in the page is necessary before a decision. The trial must have the order `near`, the rule of `rest` and the wider strip, and a person must examine the picture.
+
+## A3: the trial of A2 in the page (2026-11-17, kept)
+
+The maintainer examined the pictures and the trial page and kept the change.
+
+The change has three parts:
+
+- The order `near` of A2 is in `Seating.seat` (`seat_grid.py`): a position without a collision first, then a position on its path or adjacent to it, then fewer paths of other flows through the box, then the longest segment. `place_labels` has the argument `cross` for the order before this rule.
+- In the Map view of the canvas page, a label shows at rest only when the path of no other flow of the layer goes through its label box (`restClear` in `page_canvas_finish.py`). The box is not smaller here. A2 made it 1 unit smaller on each side.
+- In `map/model.py` of this repository, the system and its cards are 80 map units more to the right. This is a change of the positions of this map. The placer has no rule for it.
+
+Measured with `bench/jev/canvas_label_lines.py` (L2) on the page with the change, at the fit, 1440 x 900 pixels, zoom 0.821. The values at 1600 x 900 are the same.
+
+| Layer | Labels of the layer | Labels at rest | crossed | near | far |
+|---|---|---|---|---|---|
+| System context | 17 | 12 | 0 | 0 | 5 |
+| Data flow | 56 | 25 | 0 | 0 | 9 |
+| Control flow | 17 | 13 | 0 | 0 | 5 |
+| Map review | 9 | 6 | 0 | 0 | 5 |
+| All | 82 | 33 | 0 | 0 | 11 |
+
+Before the change (L2a): `crossed` was 12, 43, 8, 4 and 69 for these layers.
+
+- Acceptance 1 of L2 (`crossed` is 0 in System context): PASS.
+- Acceptance 2 of L2: `near` is 0, PASS. `far` is 5, FAIL. `far` has the method error that L2 gives: it counts a label in the position adjacent to its path.
+- A2 gave 39 labels at rest for all flows. The page gives 33, because its box is not smaller.
+- The zoom at the fit is 0.821 before and after the change. The height of the map sets it.
+- With the pointer on the card Agent in System context, 14 labels show.
+
+Not measured: a map with nested maps, a map of a different repository, and the time of a frame when the pointer goes on a card of a large map. `tests/test_canvas_frames.py` passes with the change.

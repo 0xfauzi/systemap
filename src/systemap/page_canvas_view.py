@@ -218,7 +218,7 @@ function viewFlow(f) {
 function flowShown(f) { return VIEW_AIM ? flowAim(f).a : f._vAt === drawn ? f._v.a : 1; }
 // The alpha of the label of flow f. A flow with the alpha 0.16 or less (a flow that is not
 // on the route of a sequence) has no label, and the label has the alpha of the flow from 0.4.
-function labelShown(f) { var s = flowShown(f); return s * smooth(0.16, 0.4, s); }
+function labelShown(f) { var s = flowShown(f); return s * smooth(0.16, 0.4, s) * restShown(f); }
 // Make the Map view show flow f before the camera goes to it: when the layer does not show
 // the flow, the layer of the flow, or All.
 function viewFlowOn(f) {
