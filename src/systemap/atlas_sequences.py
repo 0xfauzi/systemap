@@ -421,11 +421,13 @@ function setForm(form) {
 
 // ---- the views -----------------------------------------------------------------------------
 var VIEW_BTNS = Array.prototype.slice.call(document.querySelectorAll('#atlas-head [data-mode]'));
-// Show the view `mode`: 'map' or 'seq'. The selection, the pin and the pointed item go.
+// Show the view `mode`: 'map', 'seq' or 'states' (`atlas_states`). The selection, the pin
+// and the pointed item go.
 function setMode(mode) {
-  if (mode === VIEW.mode || (mode === 'seq' && !SEQ_MAPS.length)) return false;
+  if (mode === VIEW.mode || (mode === 'seq' && !SEQ_MAPS.length) || (mode === 'states' && !SM_MAPS.length)) return false;
   var from = viewNow();
   select(null, {keep: true});
+  if (VIEW.mode === 'states') smHide();
   HOT = {c: null, f: null, from: ''}; PIN = null; FOCUS = null;
   VIEW.mode = mode; document.body.setAttribute('data-mode', mode);
   VIEW_BTNS.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === mode)); });
@@ -435,12 +437,16 @@ function setMode(mode) {
     else { railSync(); barWrite(); say(seqWords()); }
     cv.tabIndex = SEQ.form === 'diagram' ? -1 : 0;
     if (SEQ.form === 'diagram') boardDraw(); else fitSeq();
+  } else if (mode === 'states') {
+    cv.tabIndex = -1;
+    smShow();
   } else {
     cv.tabIndex = 0;
     fitCurrent();
     say('Map view. ' + layerWords(currentMap()));
   }
-  speak(); lightMoved(); seqChanged(from);
+  if (mode !== 'states') speak();
+  lightMoved(); seqChanged(from);
   return true;
 }
 VIEW_BTNS.forEach(function (b) { b.addEventListener('click', function () { setMode(b.getAttribute('data-mode')); }); });

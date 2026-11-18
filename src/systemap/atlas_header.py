@@ -7,8 +7,9 @@ has the empty elements and the fixed words only. It has no style attribute and n
 event handler (docs/design/atlas.md, "Requirements of the product page").
 
 - The header: the name of the project, the views, the tabs of the layers and the Reduce
-  motion button (`atlas_details`). The views are Map and Sequences in this stage. A view
-  shows only when the map has data for it: Sequences needs a sequence in a map of the tree.
+  motion button (`atlas_details`). The views are Map, Sequences and States in this stage. A
+  view shows only when the map has data for it: Sequences needs a sequence in a map of the
+  tree, and States needs a state machine in a map of the tree.
 - The headline (`atlas-ask`): type on the ground, beside the map or above it.
 - The zoom control: zoom out, the readout of the scale, zoom in, and Fit.
 - The key of the kinds of lines, and a note with the inputs of the map.
@@ -38,12 +39,16 @@ NOTE = (
 )
 
 
-def header(name: str, sequences: bool = False) -> str:
+def header(name: str, sequences: bool = False, machines: bool = False) -> str:
     """Give the header of the page for the project `name`. `sequences` adds the view
-    Sequences."""
+    Sequences, and `machines` adds the view States."""
     more = (
         '<button type="button" data-mode="seq" aria-pressed="false">Sequences</button>'
         if sequences
+        else ""
+    ) + (
+        '<button type="button" data-mode="states" aria-pressed="false">States</button>'
+        if machines
         else ""
     )
     return (

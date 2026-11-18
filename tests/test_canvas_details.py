@@ -28,6 +28,10 @@ docs/design/nested-canvas.md). The values 6, 7, 8 and 9 are measurements of
     change: 18,974 bytes.
     Changed on 2026-11-16: 44,000 bytes. A design pass of the panel added style rules and
     the parts of a flow row, a tag and a sequence button: the total is 42,9xx bytes.
+    Changed on 2026-11-18: 45,000 bytes. The module record of the new module atlas_states
+    (stage 4 of docs/design/atlas.md) made the module records (`md`) 48 bytes larger
+    (14,268 to 14,316), and the source records (`sr`) 4 bytes larger. The total is 44,030.
+    The script part, the CSS and the panel of this step did not change.
 """
 
 from __future__ import annotations
@@ -214,7 +218,7 @@ def test_the_source_button_gives_the_commit_and_the_records() -> None:
     assert ">commit not recorded</button>" in none and "Unknown source information" not in none
 
 
-def test_the_page_grows_by_at_most_44000_bytes() -> None:
+def test_the_page_grows_by_at_most_45000_bytes() -> None:
     """Acceptance 10: the bytes of the parts of this step on the self-map page."""
     cfg, tree, _facts, data = _self()
     added = sum(
@@ -230,6 +234,6 @@ def test_the_page_grows_by_at_most_44000_bytes() -> None:
         canvas_header._tools(data),
     )
     added += sum(len(p.encode()) for p in parts)
-    assert added <= 44_000, added
+    assert added <= 45_000, added
     built = canvas_page.build(canvas_page.tree_theme(cfg, tree), data)
     assert page_canvas_details.HTML in built and canvas_header._tools(data) in built

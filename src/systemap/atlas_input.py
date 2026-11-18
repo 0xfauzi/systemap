@@ -23,6 +23,8 @@
   under it (`point` in `atlas_lit`). A card comes before a line.
 - The Sequences view. The fit keeps the list of the sequences and the step bar free
   (`seqRoom`). While the diagram form shows, the canvas draws only the ground.
+- The States view (`atlas_states`). The canvas draws only the ground, the arrow keys, Home,
+  End and Esc are the keys of the view (`smKey`), and the map keys do not operate.
 - Frames. As on the canvas page: an input event asks for one frame. While the camera
   moves, the canvas has half of the device resolution. STILL_MS after the last move, the
   script draws one frame at full resolution (`atlas_image`). A change of the light draws one
@@ -159,8 +161,9 @@ function draw() {
   CHAIN = focusChain();
   if (SEL && SEL.map !== currentMap()) select(null, {keep: true});
   litFrame();
-  // The diagram form of a sequence (`atlas_sequences`) covers the map: only the ground draws.
-  if (!boardOn()) { drawMap(TOP, 1, 1); drawFocus(); }
+  // The diagram form of a sequence (`atlas_sequences`) and the board of the States view
+  // (`atlas_states`) cover the map: only the ground draws.
+  if (!boardOn() && VIEW.mode !== 'states') { drawMap(TOP, 1, 1); drawFocus(); }
   speakLater();
   if (!sharp && !LIGHT_MOVE) makeImages(began);
   if (HUD) drawHud(began, !sharp);
@@ -299,9 +302,14 @@ var PAGE_KEYS = {Escape: true, f: true, F: true, '+': true, '=': true, '-': true
 window.addEventListener('keydown', function (e) {
   // In the Sequences view the left and right arrow keys change the step (`seqKey`), also
   // while a button has the keyboard focus.
+  // In the States view the arrow keys, Home and End move the keyboard focus through the
+  // states and the transitions, and Esc removes the light (`smKey`). The map keys do not
+  // operate.
   var stepKey = VIEW.mode === 'seq' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight');
-  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e, !!PAGE_KEYS[e.key] || stepKey)) return;
+  var smK = VIEW.mode === 'states' && e.key in SM_KEYS;
+  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e, !!PAGE_KEYS[e.key] || stepKey || smK)) return;
   if (stepKey) { e.preventDefault(); seqKey(e); return; }
+  if (VIEW.mode === 'states') { if (smK && smKey(e)) e.preventDefault(); return; }
   var step = 80 / cam.k, keys = {
     Escape: escapeKey, f: function () { fitCurrent(); }, F: function () { fitCurrent(); },
     '+': function () { fly(zoomed(1.6), 260); },
@@ -346,6 +354,7 @@ window.addEventListener('resize', function () {
   }
   barHeight();
   if (boardOn()) boardDraw();
+  if (smOn()) smDraw();
   request();
 });
 new MutationObserver(function () { readColors(); request(); })
@@ -440,6 +449,9 @@ window.systemapCanvas = {
   choose: function (mapId, k) { var m = MAPS[mapId]; if (m && m.sq && m.sq[k]) seqChoose(m, k, true); return !!(m && m.sq && m.sq[k]); },
   step: stepTo,
   form: setForm,
+  // The States view (`atlas_states`).
+  states: smState2,
+  machine: function (mapId, k) { var m = MAPS[mapId]; if (m && m.sm && m.sm[k]) smChoose(m, k); return !!(m && m.sm && m.sm[k]); },
   setLayer: setLayer,
   // The lines of a map in the layer of the frame: the count, the busy layer values, the
   // labels at rest (screen points) and the laned points of each line (`atlas_lines`).

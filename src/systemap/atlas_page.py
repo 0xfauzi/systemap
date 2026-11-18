@@ -19,8 +19,9 @@ writes the list from the data after the first frame. The details of a selected c
 the reading line come after the canvas (`atlas_details`), so that Tab goes from the last
 item of the canvas to the details. The canvas, its help text, the details, the reading
 line, the list, the live region and the headline are in one `main` element. The list of the
-sequences, the step bar and the sequence diagram (`atlas_sequences`) come
-after the help text of the canvas.
+sequences, the step bar and the sequence diagram (`atlas_sequences`), and the list of the
+state machines and the board of the States view (`atlas_states`), come after the help text
+of the canvas.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ from systemap import (
     atlas_details,
     atlas_header,
     atlas_sequences,
+    atlas_states,
     atlas_tree,
     canvas_data,
     canvas_page,
@@ -62,7 +64,9 @@ HELP = (
     "The arrow keys move the map. The keys + and - zoom. F fits the current map. "
     "The list after the canvas gives the maps, the cards and the flows. "
     "Each link in the list moves the camera to its item. "
-    "In the Sequences view, the left and right arrow keys go to the previous step and to the next step."
+    "In the Sequences view, the left and right arrow keys go to the previous step and to the next step. "
+    "In the States view, Tab and the arrow keys move the keyboard focus through the states and the transitions. "
+    "Enter keeps the reading line of the focused item, and Esc removes it."
 )
 
 _SCRIPT = page.compact(SCRIPT)
@@ -97,14 +101,20 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + atlas_tree.CSS
         + atlas_sequences.CSS
         + atlas_sequences.BOARD_CSS
+        + atlas_states.CSS
         + "</style></head><body>"
-        + atlas_header.header(name, any(m.get("sq") for m in data.get("maps", [])))
+        + atlas_header.header(
+            name,
+            any(m.get("sq") for m in data.get("maps", [])),
+            any(m.get("sm") for m in data.get("maps", [])),
+        )
         + "<main>"
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + f'<p id="canvas-help" class="sr-only">{HELP}</p>'
         + atlas_sequences.BOARD_HTML
         + atlas_sequences.HTML
+        + atlas_states.HTML
         + atlas_details.HTML
         + atlas_header.overlay()
         + atlas_tree.HTML
