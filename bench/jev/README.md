@@ -7337,3 +7337,35 @@ Run 2 (after the changes, with no other browser on the host):
 | M11 tree | 448 / 371 (pass) | 16.8 / 33.3 (pass) | 33.4 / 33.4 (pass) | 1,236,352 / 1,099,792 = 0.89 (pass) | not measured |
 
 Result: PASS for each measured value. The time from a pointer move onto a card to the lit paths is not measured: stage 1 has no lit paths. Stage 2 adds them, and a measurement is necessary then. The pan of the M11 tree has a p95 of 33.3 ms on the atlas page and 16.8 ms on the canvas page. That is 1.98 times, but it is in the absolute limit of 35 ms, so it passes. The size of the self-map pages changed between the runs because the map of this repository changed (the text of the component Page).
+
+## B2: the performance budget of the atlas page after the repair of stage 1 (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py`, with no change to the script or to its acceptance values. The atlas page is the stage 1 page after the repair of an independent review: no selection of a card, the uppercase names and the kind tags of an open map from 2.5 px, and the cards of an open map with their shape and their name from a screen height of 3 px (`OPEN` in `atlas_draw`). The small picture of a nested map and a large map keep the marks. Each value is the median of 3 runs at 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU.
+
+Run 1. Other commands of the agent (`systemap refresh`, `check` and `judgement`) ran on the host at the same time as a part of this run.
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths |
+|---|---|---|---|---|---|
+| self | 374 / 277 (pass) | 33.4 / 33.3 (pass) | 33.4 / 49.9 (fail) | 314,718 / 186,914 = 0.59 (pass) | not measured |
+| workspace | 392 / 282 (pass) | 33.4 / 33.3 (pass) | 50.0 / 49.9 (pass) | 268,900 / 134,849 = 0.50 (pass) | not measured |
+| M11 tree | 638 / 574 (pass) | 16.8 / 33.4 (pass) | 50.0 / 33.4 (pass) | 1,236,352 / 1,098,992 = 0.89 (pass) | not measured |
+
+Result: FAIL for the dive of the self-map. The run was not alone on the host. Runs 2 and 3 had no other command on the host, and no change of the page came between the runs.
+
+Run 2:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths |
+|---|---|---|---|---|---|
+| self | 530 / 269 (pass) | 33.4 / 33.4 (pass) | 50.0 / 50.0 (pass) | 314,868 / 187,064 = 0.59 (pass) | not measured |
+| workspace | 397 / 314 (pass) | 33.4 / 33.3 (pass) | 50.0 / 33.4 (pass) | 268,900 / 134,849 = 0.50 (pass) | not measured |
+| M11 tree | 520 / 480 (pass) | 33.3 / 33.4 (pass) | 50.0 / 33.4 (pass) | 1,236,352 / 1,098,992 = 0.89 (pass) | not measured |
+
+Run 3:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths |
+|---|---|---|---|---|---|
+| self | 354 / 312 (pass) | 33.4 / 33.3 (pass) | 50.0 / 33.4 (pass) | 314,868 / 187,064 = 0.59 (pass) | not measured |
+| workspace | 314 / 278 (pass) | 33.4 / 33.3 (pass) | 50.0 / 33.4 (pass) | 268,900 / 134,849 = 0.50 (pass) | not measured |
+| M11 tree | 496 / 492 (pass) | 33.3 / 33.3 (pass) | 33.4 / 33.4 (pass) | 1,236,352 / 1,098,992 = 0.89 (pass) | not measured |
+
+Result: PASS for each measured value in runs 2 and 3. The frame intervals on this host are steps of about 16.7 ms, and the p95 of the dive of the canvas page also changed between 33.4 ms and 50.0 ms from run to run. Thus one run is not sufficient to find a small change of speed. The time from a pointer move onto a card to the lit paths is not measured, because stage 1 has no lit paths.

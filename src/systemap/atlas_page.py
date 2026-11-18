@@ -45,10 +45,9 @@ NAME = "atlas page"
 
 HELP = (
     "The wheel and a pinch zoom the camera. A drag moves the map. "
-    "A double-click on a card with a small map goes into that map. "
+    "A double-click or a tap on a card with a small map goes into that map. "
     "Tab and Shift+Tab move the keyboard focus through the cards of the current map. "
-    "Enter on a card that opens a map goes into that map. "
-    "Enter on a different card selects it. Esc goes out one level. "
+    "Enter on a card that opens a map goes into that map. Esc goes out one level. "
     "The arrow keys move the map. The keys + and - zoom. F fits the current map. "
     "The list after the canvas gives the maps, the cards and the flows. "
     "Each link in the list moves the camera to its item."

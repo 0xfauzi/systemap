@@ -37,6 +37,39 @@ Acceptance values, written before the first run on 2026-11-18:
     first part of the path goes to the top map.
 11. axe-core finds no serious or critical violation in the light and the dark scheme, at
     1440 x 900 and at 390 x 844.
+
+Acceptance values 12 to 20, written on 2026-11-18 for the repair of stage 1, before the
+first run of these tests:
+
+12. After the double-click of acceptance 10, the live region gives the open map and not a
+    selection, and the canvas is the same picture as after a load with #Gateway: 1 % of its
+    blocks of 4 x 4 pixels or less differ.
+13. Each line of each layer has its wire, a casing that is wider than the wire, a dot at its
+    first point and an arrowhead at its last point. The canvas at each arrowhead does not
+    have the color of the ground.
+14. A card that is not a component and not an actor has the tag of its kind inside its box.
+    An actor has round ends: its corner radius is half of its height. A container that holds
+    only actors is a label with no surface. The tints of two regions do not touch.
+15. No other line goes through a label at rest, and a label at rest is on no name of a
+    region or a container. The labels at rest have the same size at three zooms.
+16. The dot grid as the canvas draws it, at the zooms 0.45, 1, 1.6 and 3.3: each dot has a
+    size of 1.5 px to 3.5 px, the sizes at all zooms differ by 1 px or less, and the
+    distance between two adjacent dots is from 17 px to 34 px.
+17. The wheel zooms at the pointer: the world point under the pointer stays in 0.5 units,
+    and the zoom increases. A drag moves the camera by the drag divided by the zoom. A pinch
+    that doubles the distance of two fingers doubles the zoom, and the world point between
+    the fingers stays.
+18. With reduced motion, the camera is at the nested map 60 ms after the double-click, and
+    no line fades after a change of the layer. Without it, the camera is not yet there
+    after 60 ms, and the lines fade.
+19. The position of the headline gives the larger fit: the scale of the fit is the larger of
+    the two fits. The self-map is beside the headline, and the wide workspace map is below
+    it.
+20. A card that opens a map has a second edge and the small picture of its map in its box.
+    While the camera goes into the nested map, the alpha of the map above goes down, and it
+    is 0 when the nested map has the screen. On a phone, at the open and after Fit, each
+    card of the top map has its shape and its name. At the open, the names of the regions
+    and the containers and the kind tags show.
 """
 
 from __future__ import annotations
@@ -249,9 +282,9 @@ def test_the_workspace_has_no_error_at_rest(workspace_page: Path) -> None:
     assert out["first"]["question"] == "Which actors connect to the system?"
 
 
-def test_a_nested_map_opens_and_closes(nested_page: Path) -> None:
+def test_a_nested_map_opens_and_closes(nested_run: dict[str, Any]) -> None:
     """Acceptance 10."""
-    out = _drive("--nested", nested_page, "Gateway")
+    out = nested_run
     assert out["errors"] == []
     assert out["inside"]["chain"] == ["Gateway"]
     assert out["inside"]["path"] == ["join"]
@@ -273,3 +306,218 @@ def test_axe_finds_no_serious_violation(
         for r in runs:
             assert r["errors"] == [], r
             assert r["axe"]["violations"] == [], r
+
+
+@pytest.fixture(scope="module")
+def nested_run(nested_page: Path) -> dict[str, Any]:
+    return _drive("--nested", nested_page, "Gateway")
+
+
+def test_a_dive_leaves_no_selection(nested_run: dict[str, Any]) -> None:
+    """Acceptance 12."""
+    assert nested_run["inside"]["said"].startswith("Open map: join / Gateway.")
+    assert "Selected" not in nested_run["inside"]["said"]
+    assert nested_run["hashed"]["camera"] == pytest.approx(nested_run["inside"]["camera"])
+    assert nested_run["hashed"]["differ"] <= 0.01
+
+
+@pytest.fixture(scope="module", params=["self", "workspace"])
+def marks_run(
+    request: pytest.FixtureRequest,
+    self_page: tuple[Path, dict[str, Any]],
+    workspace_page: Path,
+) -> dict[str, Any]:
+    out = _drive("--marks", self_page[0] if request.param == "self" else workspace_page)
+    assert out["errors"] == []
+    return out
+
+
+def _kind(one: dict[str, Any], t: str) -> list[dict[str, Any]]:
+    return [m for m in one["drawn"]["marks"] if m["t"] == t]
+
+
+def _box(b: list[float]) -> list[float]:
+    return [b[0], b[1], b[0] + b[2], b[1] + b[3]]
+
+
+def test_each_line_has_a_dot_an_arrowhead_and_a_casing(marks_run: dict[str, Any]) -> None:
+    """Acceptance 13."""
+    for one in marks_run["layers"]:
+        lanes = sorted(e["f"] for e in one["lines"]["lanes"])
+        lines, ends = _kind(one, "line"), _kind(one, "ends")
+        assert sorted(e["f"] for e in lines) == lanes == sorted(e["f"] for e in ends)
+        assert all(e["casing"] > e["wire"] > 0 for e in lines)
+        first = {e["f"]: e["p"][0] for e in lines}
+        for e in ends:
+            assert e["dot"][2] > 0 and e["s"] > 0 and e["w"] > 0
+            assert e["dot"][:2] == pytest.approx(first[e["f"]])
+        ground = one["ground"]
+        for color in one["heads"]:
+            assert sum(abs(a - b) for a, b in zip(color, ground, strict=True)) > 20
+
+
+def test_cards_containers_and_regions_have_the_rules(marks_run: dict[str, Any]) -> None:
+    """Acceptance 14."""
+    for one in marks_run["layers"]:
+        texts = one["drawn"]["texts"]
+        for c in _kind(one, "card"):
+            b = _box(c["b"])
+            if c["k"] == "actor":
+                assert c["r"] == pytest.approx(c["b"][3] / 2)
+            elif c["k"] != "component":
+                tags = [t for t in texts if t["s"] == c["k"].upper()]
+                assert any(
+                    b[0] <= t["box"][0] and t["box"][2] <= b[2] and _over(t["box"], b) for t in tags
+                ), c
+        actors = {m["n"] for m in _kind(one, "actors")}
+        assert actors and not actors & {m["n"] for m in _kind(one, "box")}
+        assert all(any(t["s"] == n.upper() for t in texts) for n in actors)
+        regions = [_box(m["b"]) for m in _kind(one, "region")]
+        for i, a in enumerate(regions):
+            for b in regions[i + 1 :]:
+                assert not _over([a[0] - 0.5, a[1] - 0.5, a[2] + 0.5, a[3] + 0.5], b), (a, b)
+
+
+def _crosses(p: list[float], q: list[float], box: list[float]) -> bool:
+    steps = 40
+    for i in range(steps + 1):
+        x, y = p[0] + (q[0] - p[0]) * i / steps, p[1] + (q[1] - p[1]) * i / steps
+        if box[0] < x < box[2] and box[1] < y < box[3]:
+            return True
+    return False
+
+
+def _label_box(texts: list[dict[str, Any]], label: dict[str, Any]) -> list[float]:
+    def far(t: dict[str, Any]) -> float:
+        b = t["box"]
+        return float(abs((b[0] + b[2]) / 2 - label["x"]) + abs((b[1] + b[3]) / 2 - label["y"]))
+
+    mine = [t for t in texts if t["s"] == label["s"] and t["weight"] == 500]
+    return list(min(mine, key=far)["box"])
+
+
+def test_a_label_at_rest_has_its_line_alone(marks_run: dict[str, Any]) -> None:
+    """Acceptance 15."""
+    shown = 0
+    for one in marks_run["layers"]:
+        texts, lines = one["drawn"]["texts"], _kind(one, "line")
+        names = {
+            m["n"].upper() for m in one["drawn"]["marks"] if m["t"] in ("region", "box", "actors")
+        }
+        titles = [t["box"] for t in texts if t["s"] in names]
+        for label in one["lines"]["labels"]:
+            box = _label_box(texts, label)
+            for e in lines:
+                if e["f"] != label["f"]:
+                    assert not any(
+                        _crosses(p, q, box) for p, q in zip(e["p"], e["p"][1:], strict=False)
+                    ), (label, e["f"])
+            assert not any(_over(box, t) for t in titles), label
+            shown += 1
+    assert shown > 0
+    sizes = set()
+    for z in marks_run["zooms"]:
+        names = {x["s"] for x in z["labels"]}
+        sizes |= {t["size"] for t in z["texts"] if t["s"] in names and t["weight"] == 500}
+    assert len(sizes) == 1 and min(sizes) >= 9, sizes
+    assert marks_run["zooms"][-1]["k"] > 1.6 * marks_run["zooms"][0]["k"] * 0.99
+
+
+def test_the_dot_grid_has_a_constant_size_on_the_screen(marks_run: dict[str, Any]) -> None:
+    """Acceptance 16."""
+    sizes = []
+    for g in marks_run["grid"]:
+        dots = g["dots"]
+        assert len(dots) > 20, g["k"]
+        sizes += [max(d["w"], d["h"]) for d in dots]
+        rows: dict[int, list[float]] = {}
+        for d in dots:
+            rows.setdefault(round(d["y"]), []).append(d["x"])
+        gaps = sorted(
+            b - a for xs in rows.values() for a, b in zip(sorted(xs), sorted(xs)[1:], strict=False)
+        )
+        assert gaps and 17 <= gaps[len(gaps) // 2] <= 34, (g["k"], gaps)
+    assert 1.5 <= min(sizes) and max(sizes) <= 3.5 and max(sizes) - min(sizes) <= 1
+
+
+def test_the_wheel_the_drag_and_the_pinch_move_the_camera(
+    self_page: tuple[Path, dict[str, Any]],
+) -> None:
+    """Acceptance 17."""
+    out = _drive("--input", self_page[0])
+    assert out["errors"] == []
+    wheel, drag, pinch = out["wheel"], out["drag"], out["pinch"]
+    assert wheel["k1"] > wheel["k0"] * 1.2
+    assert wheel["after"] == pytest.approx(wheel["before"], abs=0.5)
+    k = drag["from"]["k"]
+    assert drag["to"]["k"] == k
+    assert drag["from"]["x"] - drag["to"]["x"] == pytest.approx(drag["move"][0] / k, abs=0.5)
+    assert drag["from"]["y"] - drag["to"]["y"] == pytest.approx(drag["move"][1] / k, abs=0.5)
+    assert pinch["k1"] / pinch["k0"] == pytest.approx(pinch["ratio"], rel=0.02)
+    assert pinch["after"] == pytest.approx(pinch["before"], abs=0.5)
+
+
+def test_reduced_motion_moves_and_fades_nothing(nested_page: Path) -> None:
+    """Acceptance 18."""
+    out = _drive("--motion", nested_page, "Gateway")
+    calm, moving = out["reduce"], out["no-preference"]
+    assert calm["errors"] == [] and moving["errors"] == []
+    assert calm["soon"] == pytest.approx(calm["late"])
+    assert calm["swap"] == 1
+    assert moving["soon"]["k"] < moving["late"]["k"] * 0.9
+    assert moving["swap"] < 0.5
+
+
+def test_the_headline_takes_the_position_of_the_larger_map(
+    self_rest: dict[str, Any], workspace_page: Path
+) -> None:
+    """Acceptance 19."""
+    wide = _drive("--rest", workspace_page)
+    for run, beside in ((self_rest, True), (wide, False)):
+        fit = run["fit"]
+        assert fit["beside"] is beside
+        assert run["first"]["beside"] is beside
+        assert (fit["kBeside"] >= fit["kAbove"]) is beside
+        assert fit["k"] == pytest.approx(min(max(fit["kBeside"], fit["kAbove"]), fit["k"]))
+    for one in wide["layers"]:
+        f, h = one["frame"], one["head"]
+        assert f[1] >= h["qBottom"], (f, h)
+
+
+def test_a_nested_map_has_its_picture_and_fades_the_map_above(nested_run: dict[str, Any]) -> None:
+    """Acceptance 20, the nested map."""
+    marks = nested_run["top"]["marks"]
+    card = next(m for m in marks if m["t"] == "card" and m["id"] == "Gateway")
+    picture = next(m for m in marks if m["t"] == "map" and m["id"] == "Gateway")
+    assert card["under"] is True
+    b, p = _box(card["b"]), _box(picture["b"])
+    # The small picture is in the right half of the card.
+    assert (b[0] + b[2]) / 2 <= p[0] and p[2] <= b[2] and b[1] <= p[1] and p[3] <= b[3]
+    tops = [f["top"] for f in nested_run["fade"]]
+    assert tops[0] == 1 and tops[-1] == 0
+    assert all(a >= b for a, b in zip(tops, tops[1:], strict=False))
+    assert any(0 < t < 1 for t in tops)
+
+
+@pytest.mark.parametrize("which", ["self", "workspace"])
+def test_a_phone_shows_the_cards_and_their_names(
+    which: str, self_page: tuple[Path, dict[str, Any]], workspace_page: Path
+) -> None:
+    """Acceptance 20, the phone."""
+    out = _drive("--phone", self_page[0] if which == "self" else workspace_page)
+    for state in ("atDrawn", "fitDrawn"):
+        texts = {t["s"] for t in out[state]["texts"]}
+        cards = [m for m in out[state]["marks"] if m["t"] == "card" and m["map"] == ""]
+        assert cards and all(c["shape"] == 1 for c in cards), state
+        assert all(c["r"] == pytest.approx(c["b"][3] / 2) for c in cards if c["k"] == "actor")
+        assert all(any(t.startswith(c["id"][:5]) for t in texts) for c in cards), state
+    opened = out["atDrawn"]
+    texts = {t["s"] for t in opened["texts"]}
+    names = {m["n"].upper() for m in opened["marks"] if m["t"] in ("region", "box", "actors")}
+    kinds = {
+        m["k"].upper()
+        for m in opened["marks"]
+        if m["t"] == "card" and m["k"] not in ("actor", "component")
+    }
+    assert names and names <= texts
+    assert kinds and kinds <= texts

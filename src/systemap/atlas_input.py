@@ -10,7 +10,8 @@
 - Phone. On a screen of 720 px or less, the map opens at a scale of 0.5 or more, at its
   top left part. The Fit control still shows the whole map.
 - Pan, zoom and pinch. The wheel and a pinch zoom at the pointer, and a drag moves the
-  map. A double-click with a mouse on a card that opens a map goes into that map. Esc goes
+  map. A double-click with a mouse or a tap on a card that opens a map goes into that map.
+  A click on a card does not select it: stage 1 has no selection. Esc goes
   out one level, F fits the current map, + and - zoom, and the arrow keys move the map.
   The zoom control at the bottom left has the same functions and the readout of the scale.
 - Frames. As on the canvas page: an input event asks for one frame. While the camera
@@ -32,14 +33,17 @@ var FIT = 0.04, WIDE = 720, ASK_EL = document.getElementById('atlas-ask');
 function mapFit(b, whole) {
   var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24, bottom = 30;
   function fitK(left, top) { return Math.min((W - left - right) / b[2], (Hs - top - bottom) / b[3], 1.6 / m.T.s); }
-  var beside = W - right > 1180 && fitK(330, 26) >= fitK(20, 112), top = beside ? 26 : wide ? 112 : 96, left = beside ? 330 : 20;
+  // `kBeside` and `kAbove` are the two fits for the tests: beside the headline (0 when the
+  // screen is too narrow) and below it.
+  var kBeside = W - right > 1180 ? fitK(330, 26) : 0, kAbove = fitK(20, wide ? 112 : 96);
+  var beside = kBeside > 0 && kBeside >= fitK(20, 112), top = beside ? 26 : wide ? 112 : 96, left = beside ? 330 : 20;
   var k = clamp(fitK(left, top), KMIN, KMAX);
   if (!wide && k * m.T.s < 0.5 && !whole) {
     k = 0.5 / m.T.s;
-    return {x: b[0] - 14 / k, y: b[1] - (HEAD_H + top) / k, k: k, beside: beside};
+    return {x: b[0] - 14 / k, y: b[1] - (HEAD_H + top) / k, k: k, beside: beside, kBeside: kBeside, kAbove: kAbove};
   }
   var free = Hs - top - bottom - b[3] * k, lift = beside ? free / 2 : Math.min(free / 2, 10);
-  return {x: b[0] + b[2] / 2 - (left + (W - left - right) / 2) / k, y: b[1] - (HEAD_H + top + lift) / k, k: k, beside: beside};
+  return {x: b[0] + b[2] / 2 - (left + (W - left - right) / 2) / k, y: b[1] - (HEAD_H + top + lift) / k, k: k, beside: beside, kBeside: kBeside, kAbove: kAbove};
 }
 function fitBox(b, pad, whole) {
   if (b.m) return mapFit(b, whole);
@@ -115,9 +119,7 @@ function draw() {
   STATS.cards = 0; STATS.image = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
-  selFrame();
   drawMap(TOP, 1, 1);
-  drawSelected();
   drawFocus();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
@@ -127,7 +129,7 @@ function draw() {
   if (m !== SHOWN_MAP) { SHOWN_MAP = m; headSync(true); }
   zoomShown();
   if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, hide: HIDE, images: LAYERS});
-  if (SPEED_FADING || SEL_FADING || VIEW_FADING) fadeLater();
+  if (SPEED_FADING || VIEW_FADING) fadeLater();
 }
 var fadeTimer = 0, FADE_WAIT = 50;
 function fadeLater() {
@@ -240,7 +242,7 @@ function up(e) {
   if (!pts.size) { drag = null; multi = false; cv.classList.remove('drag'); }
   else if (pts.size === 1 && !drag) pts.forEach(function (v) { drag = {x: v[0], y: v[1], cx: cam.x, cy: cam.y}; });
   if (!was || didMove || e.type === 'pointercancel') return;
-  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]); else if (e.button === 0) select(pickClosed(p[0], p[1]));
+  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]);
 }
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
@@ -325,7 +327,7 @@ window.systemapCanvas = {
   get treeMs() { return TREE_MS; },
   camera: camCopy,
   view: function (c) { stopFlight(); cam = {x: c.x, y: c.y, k: c.k}; moved(true); },
-  fit: function (id, whole) { var f = fitBox(frameOf(id ? MAPS[id] : TOP), FIT, whole); return {x: f.x, y: f.y, k: f.k, beside: !!f.beside}; },
+  fit: function (id, whole) { var f = fitBox(frameOf(id ? MAPS[id] : TOP), FIT, whole); return {x: f.x, y: f.y, k: f.k, beside: !!f.beside, kBeside: f.kBeside, kAbove: f.kAbove}; },
   frame: function (id) { var b = frameOf(id ? MAPS[id] : TOP); return [(b[0] - cam.x) * cam.k, (b[1] - cam.y) * cam.k, b[2] * cam.k, b[3] * cam.k]; },
   box: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; return c ? screenBox(c) : null; },
   boxes: function (mapId) { return MAPS[mapId].cards.map(function (c) { return {id: c.id, b: screenBox(c), k: c.k}; }); },
@@ -333,7 +335,6 @@ window.systemapCanvas = {
   // How far the nested map of each card of the chain takes the screen (`deepOf`).
   deep: function () { return CHAIN.map(deepOf); },
   current: function () { return currentMap().id; },
-  selected: function () { return {id: SEL_C ? SEL_C.id : null, map: SEL_C ? SEL_C.map.id : null}; },
   maps: function () { return ORDER.map(function (m) { return {id: m.id, depth: m.depth, cards: m.cards.length, opens: m.cards.filter(function (c) { return c.child; }).map(function (c) { return c.child.id; })}; }); },
   openBox: function () {
     var b = null;
@@ -354,9 +355,11 @@ window.systemapCanvas = {
   record: function () { LOG = []; },
   recorded: function () { var l = LOG || []; LOG = null; return l; },
   texts: function () { TLOG = []; draw(); var l = TLOG; TLOG = null; return l; },
+  // The texts and the geometry of one frame (`DLOG` in `atlas_draw`).
+  drawn: function () { TLOG = []; DLOG = []; draw(); var o = {texts: TLOG, marks: DLOG}; TLOG = null; DLOG = null; return o; },
   keys: keyState,
   order: function (id) { return readingOrder(MAPS[id]).map(function (c) { return c.id; }); },
-  stats: function () { return {cards: STATS.cards, image: STATS.image, flows: STATS.flows, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp}; },
+  stats: function () { return {cards: STATS.cards, image: STATS.image, flows: STATS.flows, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp, fading: SPEED_FADING || VIEW_FADING, swap: SWAP_A}; },
   viewState: viewState,
   setLayer: setLayer,
   // The lines of a map in the layer of the frame: the count, the busy layer values, the

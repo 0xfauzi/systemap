@@ -105,7 +105,7 @@ A layer is a filtered view of the map.
 
 ### Changes
 
-- `[render] page = "atlas"` writes the atlas page (`docs/design/atlas.md`) in place of the canvas page. The atlas page is a prototype. It has the Map view only: the layers as tabs, a headline with the question of the layer, calm lines with lanes, and labels at rest. The default stays `page = "canvas"`. `page = "linked"` is the same as `canvas = false`.
+- `[render] page = "atlas"` writes the atlas page (`docs/design/atlas.md`) in place of the canvas page. The atlas page is a prototype. It has the Map view only: the layers as tabs, a headline with the question of the layer, calm lines with lanes, and labels at rest. A click does not select a card yet. A double-click or a tap on a card that opens a map goes into that map. The default stays `page = "canvas"`. `page = "linked"` is the same as `canvas = false`.
 
 - Prototype on the branch `views-prototype`, not for a release (`docs/design/views.md`).
   - A model can have state machines (`Meaning.machines`, with `StateMachine`, `State` and `Transition`). `systemap check` gives an error if the source symbol of a state is not a constant in the facts.

@@ -306,7 +306,7 @@ function stillStart() {
   HIDE = 0; LOG = null;
   draw();
   LOG = log; clearTimeout(fadeTimer);
-  STILL.want = SEL_FADING || VIEW_FADING;
+  STILL.want = VIEW_FADING;
   stillFrame(STILL);
 }
 // The layers of the moving frame, with the part `keep` of the result.

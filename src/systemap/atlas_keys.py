@@ -1,71 +1,27 @@
-"""The keyboard and selection part of the atlas renderer: the selected card, the taps and
-the keyboard focus.
+"""The keyboard and touch part of the atlas renderer: the taps and the keyboard focus.
 
 `atlas_script` joins this part after the tree part (`atlas_tree`). It is a fork of the
 touch part and the keyboard part of the canvas page (`page_canvas_touch`,
-`page_canvas_keys`). A click with a mouse or a tap selects a card, and the selected card
-has a halo. A second tap on a card that opens a map goes into that map. Tab and Shift+Tab
-move the keyboard focus through the cards of the current map in reading order, and Enter
-goes into the focused card or selects it. Esc goes out one level, and the keyboard focus
-goes to the card that opens the map that the camera leaves.
+`page_canvas_keys`). A tap on a card that opens a map goes into that map. Tab and
+Shift+Tab move the keyboard focus through the cards of the current map in reading order,
+and Enter goes into the focused card when it opens a map. Esc goes out one level, and the
+keyboard focus goes to the card that opens the map that the camera leaves.
 
-The plate of facts of the canvas page is not in this fork. The details of a selected card
-come in stage 2 of docs/design/atlas.md.
+The selection, the plate of facts and the details of the canvas page are not in this fork.
+Stage 2 of docs/design/atlas.md adds the selection and the details. Then a move into a
+nested map must remove the selection of the card that opens it.
 """
 
 from __future__ import annotations
 
 KEYS = r"""
-// ---- the selected card ----------------------------------------------------------------
-// SEL_C is the selected card, or null. SELS has the cards that the frame draws as selected,
-// each with its alpha `a`: the selected card, and the cards that fade out.
-// `SEL_FADING` is true when an alpha did not get to its target in the frame.
-// SEL_HOOKS has the functions that a change of SEL_C calls (`page_canvas_details`).
-var SEL_C = null, SELS = [], SEL_MS = 160, SEL_LAST = 0, SEL_FADING = false, SEL_HOOKS = [];
-function selTold() { SEL_HOOKS.forEach(function (f) { f(); }); }
-function select(c) {
-  var was = SEL_C;
-  SEL_C = c || null;
-  if (was !== SEL_C) selTold();
-  if (SEL_C) say('Selected: card ' + SEL_C.id + '.');
-  if (SEL_C && !SELS.some(function (e) { return e.c === SEL_C; })) SELS.push({c: SEL_C, a: 0});
-  request();
-}
-// Tell if the map of card c is on the screen as an open map: the top map or a map of the chain.
-function mapOpen(c) {
-  if (c.map === TOP) return true;
-  for (var i = 0; i < CHAIN.length; i++) if (CHAIN[i].child === c.map) return true;
-  return false;
-}
-function selFrame() {
-  var now = performance.now(), dt = SEL_LAST ? now - SEL_LAST : Infinity, step = reduced() ? 1 : Math.min(0.2, dt / SEL_MS);
-  SEL_LAST = now; SEL_FADING = false;
-  if (SEL_C && !mapOpen(SEL_C)) { SEL_C = null; selTold(); }
-  SELS = SELS.filter(function (e) {
-    var to = e.c === SEL_C ? 1 : 0;
-    e.a = approach(e.a, to, step);
-    if (e.a !== to) SEL_FADING = true;
-    return e.a > 0 || to > 0;
-  });
-}
-// The halo around each selected card, and its stronger border.
-function drawSelected() {
-  ctx.setLineDash([]);
-  SELS.forEach(function (e) {
-    var b = screenBox(e.c), r = cardCorner(e.c, b[2], b[3]);
-    if (e.a <= 0.01 || !boxOnScreen(b)) return;
-    ctx.globalAlpha = e.a; ctx.strokeStyle = C['--halo']; ctx.lineWidth = 5;
-    ctx.beginPath(); rr(ctx, b[0] - 3, b[1] - 3, b[2] + 6, b[3] + 6, r + 3); ctx.stroke();
-    ctx.strokeStyle = C['--ink']; ctx.lineWidth = 1.5; ctx.beginPath(); rr(ctx, b[0], b[1], b[2], b[3], r); ctx.stroke();
-  });
-}
-// A tap on card c, or on empty space when c is null.
-function tapCard(c) {
-  if (c && c === SEL_C && c.child && deepOf(c) < 0.5) { select(null); flyGoal(goalOf(c.map, c, null)); return; }
-  select(c);
-}
-// A tap at a screen point. An open card is empty space (`pickClosed`).
-function tapAt(px, py) { tapCard(pickClosed(px, py)); }
+// ---- the taps -----------------------------------------------------------------------
+// Stage 1 of docs/design/atlas.md has no selection: the details of a card come in stage 2.
+// Thus a click or a tap on a card does not change how it shows. A tap on a card that opens a map goes
+// into that map, as a double-click with a mouse does (`enter` in `atlas_input`). A tap on
+// a different card or on empty space does nothing. An open card is empty space
+// (`pickClosed`).
+function tapAt(px, py) { enter(px, py); }
 
 // ---- the keyboard focus -------------------------------------------------------------
 // FOCUS is the focused card, and FOCUS_MAP is the map in which Tab moves.
@@ -138,13 +94,10 @@ function tabStep(back) {
 }
 function enterKey() {
   var c = liveFocus();
-  if (!c) return;
-  if (c.child) {
+  if (c && c.child) {
     FOCUS = null; FOCUS_MAP = c.child; request(); flyGoal(goalOf(c.map, c, null));
     if (flight) flight.into = c.child;
-    return;
   }
-  select(c);
 }
 // Esc on the canvas: the keyboard focus goes to the card that opens the map that the camera
 // leaves. The live region gives that card with the new map, when the camera stops.

@@ -5,7 +5,8 @@ drawing part of the canvas page (`page_canvas_draw`), with the look of docs/desi
 It keeps the rules of the canvas engine for speed: it paints with the 2D API of a
 `<canvas>` element, it draws only the cards and the lines that the box index of a map gives
 for the screen, it puts the boxes of one style in one path (`Batch`), it draws no text
-below MIN_TEXT, and it draws a large map from stored images (`atlas_image`).
+below MIN_TEXT (OPEN_TEXT in an open map), and it draws a large map from stored images
+(`atlas_image`).
 
 The look at rest:
 
@@ -59,17 +60,27 @@ function rr(g, x, y, w, h, r) {
 var UNDER = new Batch(true), UNDER_LINE = new Batch(false), FILL = new Batch(true), LINE = new Batch(false), MARK = new Batch(true);
 function flushCards(g) { UNDER.flush(g); UNDER_LINE.flush(g); MARK.flush(g); FILL.flush(g); LINE.flush(g); }
 function q(size) { return Math.round(size * 2) / 2; }
-// From NAME_H to NAME_H + 4 of screen height, a card changes from a mark into a card.
-function cardShow(h) { return smooth(NAME_H, NAME_H + 4, h); }
-function hasText(h) { return h >= NAME_H; }
+// From NAME_H to NAME_H + 4 of screen height, a card changes from a mark into a card. In an
+// open map (OPEN: the top map, or a nested map that has the screen) the card keeps its
+// shape from OPEN_H, and its text draws from OPEN_TEXT, as in the design study. Thus the
+// opening view and the Fit view of a phone show the cards, their names and the names of
+// the regions. The marks stay for the small picture of a nested map and for a large map
+// (`marksImage`), because they keep the frame time low.
+var OPEN = false, OPEN_H = 3, OPEN_TEXT = 2.5;
+function cardShow(h) { return OPEN ? smooth(OPEN_H, OPEN_H + 3, h) : smooth(NAME_H, NAME_H + 4, h); }
+function hasText(h) { return h >= (OPEN ? OPEN_H : NAME_H); }
+function textMin() { return OPEN ? OPEN_TEXT : MIN_TEXT; }
 function text(s, x, y, size, color, alpha, weight, mono, align) {
-  if (size < MIN_TEXT || alpha <= 0.02 || !s) return;
+  if (size < textMin() || alpha <= 0.02 || !s) return;
   ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.font = font(weight || 400, size, mono);
   ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
   if (TLOG && (ctx === PAGE_CTX || ctx === STILL_CTX)) TLOG.push(drawnText(s, x, y, size, alpha, weight, color));
 }
 // While TLOG is a list, each text adds its size, its alpha, its color and its screen box.
-var TLOG = null;
+// While DLOG is a list, each map, container, region, line and card of the page frame adds
+// its screen geometry (`systemapCanvas.drawn`). The tests read them.
+var TLOG = null, DLOG = null;
+function logged(o) { if (DLOG && (ctx === PAGE_CTX || ctx === STILL_CTX)) DLOG.push(o); }
 function drawnText(s, x, y, size, alpha, weight, color) {
   var m = ctx.measureText(s);
   return {s: s, size: size, alpha: alpha, weight: weight || 400, color: color,
@@ -78,16 +89,14 @@ function drawnText(s, x, y, size, alpha, weight, color) {
 // The letter spacing of the uppercase names, where the browser has it.
 function spaced(g, px) { if ('letterSpacing' in g) g.letterSpacing = px ? px.toFixed(2) + 'px' : '0px'; }
 // An uppercase name in the mono font: the names of the containers and the regions, and the
-// tag of a kind. It draws from CAPS_MIN, as in the design study.
+// tag of a kind. It has the smallest size of a different text (`textMin`).
 // The size is in half pixels, CAPS_MAX or less. A new font size in each frame of a zoom
 // costs time.
-var CAPS_MIN = 6, CAPS_MAX = 13;
+var CAPS_MAX = 13;
 function caps(s, x, y, size, color, alpha, track, align) {
   size = q(Math.min(size, CAPS_MAX));
-  if (size < CAPS_MIN || alpha <= 0.02) return;
-  var keep = MIN_TEXT;
-  MIN_TEXT = CAPS_MIN;
-  try { spaced(ctx, size * track); text(s.toUpperCase(), x, y, size, color, alpha, 500, true, align); } finally { spaced(ctx, 0); MIN_TEXT = keep; }
+  if (size < textMin() || alpha <= 0.02) return;
+  try { spaced(ctx, size * track); text(s.toUpperCase(), x, y, size, color, alpha, 500, true, align); } finally { spaced(ctx, 0); }
 }
 
 // ---- the dot grid ----------------------------------------------------------------
@@ -146,18 +155,20 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels, open) {
       g.save(); g.globalAlpha = alpha; g.shadowColor = C['--shade']; g.shadowBlur = 18; g.shadowOffsetY = 10;
       g.fillStyle = C['--surface']; g.beginPath(); rr(g, x, y, w, h, 16 * a); g.fill(); g.restore();
     }
+    logged({t: 'box', n: b.n, b: [x, y, w, h]});
     fills.rect(C['--surface'], alpha, x, y, w, h, 16 * a);
     lines.rect(C['--line'], alpha, x, y, w, h, 16 * a, 1);
   });
   var ra = alpha * smooth(0.1, 0.25, open);
   m.regions.forEach(function (r) {
+    logged({t: 'region', n: r.n, a: ra, b: [ox + a * (r.b[0] + 3), oy + a * (r.b[1] + 3), a * (r.b[2] - 6), a * (r.b[3] - 6)]});
     tint.rect(C['--tint'], ra, ox + a * (r.b[0] + 3), oy + a * (r.b[1] + 3), a * (r.b[2] - 6), a * (r.b[3] - 6), 12 * a);
   });
   fills.flush(g); lines.flush(g); tint.flush(g);
-  if (!labels || 9 * a < CAPS_MIN) return;
+  if (!labels) return;
   m.boxes.forEach(function (b) {
     var kind = boxKind(m, b), x = ox + a * b.b[0], y = oy + a * b.b[1];
-    if (kind === 'actors') { if (m === TOP) caps(b.n, ox + a * b._at[0], oy + a * b._at[1], 9.5 * a, C['--ink-3'], alpha, 0.11); return; }
+    if (kind === 'actors') { logged({t: 'actors', n: b.n}); if (m === TOP) caps(b.n, ox + a * b._at[0], oy + a * b._at[1], 9.5 * a, C['--ink-3'], alpha, 0.11); return; }
     if (kind !== 'box') return;
     var fs = 9.5 * a, nw = (unitWidth(b.n.toUpperCase(), 500, true) + 0.11 * b.n.length) * q(Math.min(fs, CAPS_MAX));
     caps(b.n, x + 20 * a, y + 30 * a, fs, C['--ink-3'], alpha, 0.11);
@@ -207,12 +218,14 @@ function drawLines(g, m, list, L, a, ox, oy, alpha) {
     g.globalAlpha = rest; g.strokeStyle = C['--map']; g.lineWidth = cw; g.stroke();
     g.strokeStyle = C['--wire']; g.lineWidth = ww; g.stroke();
     if (!VIEW_AIM) STATS.flows++;
+    if (DLOG) logged({t: 'line', f: e.f.i, casing: cw, wire: ww, p: e.d.map(function (v) { return [ox + a * v[0], oy + a * v[1]]; })});
   });
   var s = clamp(7.5 * a, 2.5, 9), w = s * 0.48, r = clamp(2 * a, 0.8, 2.6);
   g.globalAlpha = alpha * L.ends; g.fillStyle = C['--ink-3']; g.beginPath();
   list.forEach(function (e) {
     var p = e.q, n = p.length, z = [ox + a * p[n - 1][0], oy + a * p[n - 1][1]], y = [ox + a * p[n - 2][0], oy + a * p[n - 2][1]];
     arrowHead(g, z, y, s, w);
+    if (DLOG) logged({t: 'ends', f: e.f.i, dot: [ox + a * p[0][0], oy + a * p[0][1], r], tip: z, from: y, s: s, w: w});
     g.moveTo(ox + a * p[0][0] + r, oy + a * p[0][1]); g.arc(ox + a * p[0][0], oy + a * p[0][1], r, 0, 2 * Math.PI);
   });
   g.fill();
@@ -221,7 +234,7 @@ function drawLines(g, m, list, L, a, ox, oy, alpha) {
 // in the color of the ground.
 function drawLabels(m, id, a, ox, oy, alpha) {
   var fs = q(labelPx(a));
-  if (fs < MIN_TEXT || alpha <= 0.02) return;
+  if (fs < textMin() || alpha <= 0.02) return;
   var seats = seatsOf(m, id, a);
   if (!seats) return;
   ctx.font = font(500, fs); ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.setLineDash([]);
@@ -240,6 +253,7 @@ function cardCorner(c, w, h) { return c.k === 'actor' ? h / 2 : w > 30 ? Math.mi
 function cardBox(c, x, y, w, h, alpha, qv) {
   STATS.cards++;
   var t = cardShow(h), actor = c.k === 'actor', r = cardCorner(c, w, h), live = 1 - qv;
+  if (DLOG) logged({t: 'card', id: c.id, k: c.k, b: [x, y, w, h], r: r, shape: t, under: !!c.child && t > 0, map: c.map.id});
   if (t < 1) MARK.rect(C['--line-2'], alpha * (1 - t) * (0.6 - 0.3 * qv), x, y, w, h, 0);
   if (t <= 0) return;
   if (c.child) {
@@ -293,6 +307,7 @@ function drawMap(m, alpha, open) {
   var cards = m.cardIndex.query(x0, y0, x1, y1, []), hosts = [], deep = 0;
   cards.forEach(function (c) { if (c.child) { var d = deepOf(c); c._deep = d; hosts.push(c); deep = Math.max(deep, d); } });
   var own = alpha * (1 - deep), id = shownLayer(m), L = linesOf(m, id);
+  logged({t: 'map', id: m.id, own: own, a: a, b: [ox, oy, mw, mh]});
   var big = m.cards.length >= BIG, marks = big && m.maxH * a < NAME_H && m.maxW * a < PREVIEW0;
   var near = !marks || (zoomingIn() && m.maxH * a >= NAME_H * Math.pow(2, -MARKS_OVER * MAP_STEP));
   var whole = big ? imageLayer(m, a, !sharp && open >= 1, near) : null, full = whole && layerFull(whole);
@@ -308,6 +323,7 @@ function drawMap(m, alpha, open) {
     }
   }
   if (full) { drawLayer(whole, ox, oy, mw, mh, own); STATS.cards += cards.length; return; }
+  OPEN = open >= 0.5;
   if (own > 0.01) {
     var flowA = own * SWAP_A * smooth(0.1, 0.25, open);
     drawBoxes(ctx, m, a, ox, oy, own, true, open);
@@ -328,6 +344,7 @@ function drawMap(m, alpha, open) {
     texts.forEach(function (e) { cardText(e[0], e[1], e[2], e[3], e[4], own, e[5]); });
     if (whole) drawLayer(whole, ox, oy, mw, mh, own);
   }
+  OPEN = false;
   hosts.forEach(function (c) { if (c.child.size[0] * c.child.T.s * cam.k >= 8) drawMap(c.child, alpha, c._deep); });
 }
 // The chain: the cards whose nested map has the screen, from the top map down.

@@ -172,11 +172,10 @@ if (TREE_EL) {
     flyGoal(goalOf(m, c, f));
   });
 }
-// The words for the focused card and the selected card, after the words of a new map.
+// The words for the focused card, after the words of a new map.
 function heldWords() {
-  var f = FOCUS && document.activeElement === cv && focusHeld(FOCUS) ? FOCUS : null, out = f ? ' ' + cardWords(f) : '';
-  if (SEL_C) out += SEL_C === f ? ' Selected.' : ' Selected: card ' + SEL_C.id + '.';
-  return out;
+  var f = FOCUS && document.activeElement === cv && focusHeld(FOCUS) ? FOCUS : null;
+  return f ? ' ' + cardWords(f) : '';
 }
 // When the camera stops: the label of the canvas gives the current path. When the open map
 // changes, the live region tells the new map. Each element changes only when its text changes.
