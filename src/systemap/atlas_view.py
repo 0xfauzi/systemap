@@ -29,21 +29,42 @@ var HEAD_EL = document.getElementById('atlas-head'), HEAD_H = 0;
 var LAYER_OF = Object.create(null);
 ORDER.forEach(function (m) { (m.layers || []).forEach(function (l) { if (!LAYER_OF[l.id]) LAYER_OF[l.id] = l; }); });
 if (TOP.layers && TOP.layers[0] && TOP.layers[0].id === 'system') VIEW.layer = 'system';
-function hasLayer(m, id) { return id === 'all' || (m.layers || []).some(function (l) { return l.id === id; }); }
-function layerOf(m, id) { id = id || VIEW.layer; return hasLayer(m, id) ? id : 'all'; }
+// A sequence of a map is a layer of that map with the ID "q:" and its index
+// (`atlas_sequences`).
+function isSeqLayer(id) { return id.slice(0, 2) === 'q:'; }
+function hasLayer(m, id) {
+  if (isSeqLayer(id)) return !!(m.sq && m.sq[+id.slice(2)]);
+  return id === 'all' || (m.layers || []).some(function (l) { return l.id === id; });
+}
+// The layer of map m: the layer `id`, or the layer of the view. In the Sequences view the
+// map of the sequence shows the sequence, and the other maps keep the layer of the Map view.
+function layerOf(m, id) {
+  if (!id) { if (VIEW.mode === 'seq' && SEQ.m === m) return 'q:' + SEQ.k; id = VIEW.layer; }
+  return hasLayer(m, id) ? id : 'all';
+}
+// The layer of map m in the state `st` of the view (`viewNow` in `atlas_sequences`).
+function layerAt(m, st) { return st.mode === 'seq' && st.q === m ? 'q:' + st.k : layerOf(m, st.layer); }
 // The flags of a layer in a map: the flows that it shows, and the quiet cards. A layer
 // with no flow in the map has no quiet card.
 function layerFlags(m, id) {
   var memo = m._lf || (m._lf = Object.create(null));
   if (memo[id]) return memo[id];
-  var lay = null, flow = new Uint8Array(m.flows.length), quiet = new Uint8Array(m.cards.length), touched = Object.create(null), n = 0;
+  var lay = null, flow = new Uint8Array(m.flows.length), quiet = new Uint8Array(m.cards.length), touched = Object.create(null), n = 0, also = 0;
   (m.layers || []).forEach(function (l) { if (l.id === id) lay = l; });
   var list = id === 'all' ? m.flows.map(function (f, i) { return i; }) : lay ? lay.e : [];
+  // A sequence: the flows of its steps, and the acting and measurement cards of its steps.
+  if (isSeqLayer(id)) {
+    list = [];
+    m.sq[+id.slice(2)].s.forEach(function (st) {
+      if (st.f >= 0 && list.indexOf(st.f) < 0) list.push(st.f);
+      (st.a || []).concat(st.me || []).forEach(function (c) { if (m.byId[c]) { touched[c] = true; also++; } });
+    });
+  }
   list.forEach(function (i) {
     var f = m.flows[i];
-    if (f) { flow[i] = 1; n++; touched[f.s] = true; touched[f.t] = true; }
+    if (f && !flow[i]) { flow[i] = 1; n++; touched[f.s] = true; touched[f.t] = true; }
   });
-  if (n) m.cards.forEach(function (c, i) { if (!touched[c.id]) quiet[i] = 1; });
+  if (n || also) m.cards.forEach(function (c, i) { if (!touched[c.id]) quiet[i] = 1; });
   memo[id] = {flow: flow, quiet: quiet, n: n, used: touched};
   return memo[id];
 }
@@ -51,7 +72,7 @@ function layerFlags(m, id) {
 // the old layer.
 function shownLayer(m) {
   var s = VIEW.swap;
-  return layerOf(m, s && performance.now() - s.t0 < SWAP_MS / 2 ? s.from : VIEW.layer);
+  return s && performance.now() - s.t0 < SWAP_MS / 2 ? layerAt(m, s.from) : layerOf(m);
 }
 // The alpha of the lines in this frame: it goes to 0 and back to 1 during a change.
 function swapAlpha() {
@@ -87,7 +108,7 @@ function viewTouch() { request(); }
 // Set the layer. An unknown layer keeps the current one. Give true for a change.
 function setLayer(id) {
   if (!(id === 'all' || LAYER_OF[id]) || id === VIEW.layer) return false;
-  VIEW.swap = reduced() ? null : {from: VIEW.layer, t0: performance.now()};
+  VIEW.swap = reduced() ? null : {from: viewNow(), t0: performance.now()};
   VIEW.layer = id; VIEW.epoch++;
   headSync(true);
   say(layerWords(currentMap()));
@@ -97,6 +118,7 @@ function setLayer(id) {
 }
 function layerName(m, id) {
   if (id === 'all') return 'All';
+  if (isSeqLayer(id)) return 'Sequence ' + m.sq[+id.slice(2)].n;
   if (id === 'system' && m.owner) return 'Neighbours';
   return LAYER_OF[id] ? LAYER_OF[id].n : id;
 }
@@ -109,9 +131,13 @@ function layerQuestion(m, id) {
 }
 function layerWords(m) {
   var id = layerOf(m);
+  if (isSeqLayer(id)) return seqWords();
   return 'Layer: ' + layerName(m, id) + '. ' + layerQuestion(m, id) + ' ' + countWords(m, id) + '.';
 }
-function viewLabel() { return VIEW.layer === 'all' ? '' : ' Layer: ' + layerName(currentMap(), layerOf(currentMap())) + '.'; }
+function viewLabel() {
+  if (seqShown()) return ' Sequence: ' + seqJ().n + '.';
+  return VIEW.layer === 'all' ? '' : ' Layer: ' + layerName(currentMap(), layerOf(currentMap())) + '.';
+}
 
 // ---- the headline, the tabs, the key and the zoom readout -------------------------------
 var ASK = document.getElementById('atlas-ask'), ASK_K = document.getElementById('atlas-ask-k');
@@ -183,15 +209,16 @@ function writeKey(m, id) {
 // Write the headline, the tabs and the key of the current map when they change. `soft`
 // fades the headline out and in (a change of the layer or of the map).
 function headSync(soft) {
-  var m = currentMap(), id = layerOf(m), key = m.oi + '|' + id;
+  var seq = seqShown(), m = seq ? SEQ.m : currentMap(), id = layerOf(m), key = m.oi + '|' + id + '|' + VIEW.mode;
   if (key === SYNCED) return;
   var first = !SYNCED;
   SYNCED = key;
   writeTabs(m, id); writeKey(m, id);
   function words() {
-    ASK_K.replaceChildren.apply(ASK_K, (m.owner ? pathButtons(m).concat([el('span', {'aria-hidden': 'true'}, '·')]) : []).concat([el('span', null, layerName(m, id))]));
-    ASK_Q.textContent = layerQuestion(m, id);
-    ASK_N.textContent = countWords(m, id);
+    var h = seq ? seqHead() : {k: layerName(m, id), q: layerQuestion(m, id), n: countWords(m, id)};
+    ASK_K.replaceChildren.apply(ASK_K, (m.owner ? pathButtons(m).concat([el('span', {'aria-hidden': 'true'}, '·')]) : []).concat([el('span', null, h.k)]));
+    ASK_Q.textContent = h.q;
+    ASK_N.textContent = h.n;
     ASK.classList.remove('swap');
   }
   clearTimeout(ASK_TIMER);

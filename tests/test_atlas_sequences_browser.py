@@ -1,0 +1,395 @@
+"""The Sequences view of the atlas page, in a browser (docs/design/atlas.md, stage 3).
+
+The test drives real atlas pages in the Chromium of Playwright (tests/atlas_seq.js): the
+map of this repository, and the fixture of tests/canvas_sequenced.py (a top map and the
+nested map Gateway, each with sequences) with a second step in `serve` that names no flow
+and an entry point list with no sequence (`_fixture`). A model check refuses a step that
+names no flow, so the step goes into the page data. The test skips when Node or the
+Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is "required". Then it
+fails. The test of axe-core skips when axe-core is not on NODE_PATH, with the same exception.
+
+Acceptance values, written before the first run on 2026-11-18:
+
+1. The header has the button Sequences only when a map of the tree has a sequence. A click
+   on it presses it, and the Map button is not pressed. The list at the left has one
+   button for each sequence of the top map, with its count of steps, and the first is
+   current. The headline gives "Sequence", the name of the sequence, its count of steps,
+   and "starts at" and the entry point when the sequence has one. The layer tabs, the key
+   and the note do not show. The bar gives "Whole route" and the button Start.
+2. On the map, the drawn lines of the top map are the flows of the steps of the sequence,
+   and no other flow. Each such line has a label that starts with the numbers of its
+   steps. The other cards are quiet, and the cards of the steps are not.
+3. The fit keeps the list and the bar free: on a screen of 1440 x 900 the frame of the map
+   is at the right of the list and above the bar.
+4. The step state. At step 2: the light is the flow of step 2 with the color of its kind,
+   and its cards are lit. A line of an earlier step has the color --ink-2 and the alpha of
+   a line at rest. A line of a later step has 0.4 times that alpha or less, and its label
+   too. A card that is not lit keeps its alpha at rest: no card goes back. The bar gives
+   "Step 2 of N" and the sentence of the step. The live region gives the step.
+5. The arrow keys. With the keyboard focus on the Next button, the right arrow key goes to
+   the next step and the left arrow key goes back, and the camera does not move. After the
+   last step the step stays the last step. Done goes back to the whole route.
+6. The diagram form: one column for each card of the steps, and one row for each step. At
+   step 2, the row of step 2 is lit with the color of its kind, the earlier rows are done,
+   and the later rows have an opacity of less than 0.5. The canvas does not show. A click
+   on the row of step 3 goes to step 3. Enter on the focused row of step 1 goes to step 1.
+   The map form shows the canvas again.
+7. A click on Map shows the Map view again: the tabs show, the list does not show, and the
+   lines of the layer of the Map view draw.
+8. A nested map. The list has one group for each map with sequences, with the path of the
+   map. A click on a sequence of Gateway moves the camera into Gateway. A step with no flow
+   gives "This step has no flow" and its acting card in the bar, lights that card and no
+   flow, and has the row "No flow" in the diagram.
+9. The entry points with no sequence. The list gives the heading, the count, the short
+   names, and "and N more". The page data of this repository gives the count of its entry
+   points and the count with a sequence.
+10. On a phone of 390 x 844 px, in the light and the dark scheme: the list is a row under
+    the headline, the frame of the map starts under the row, the bar is fully on the
+    screen, and the page has no horizontal scroll. At step 2, the cards of the step are
+    fully in the free part of the screen.
+11. With reduced motion, the line of the first step is fully drawn 50 ms after Start, and
+    DIM is 1. Without it, the line is not fully drawn after 50 ms.
+12. The page has no script error in each run. axe-core finds no serious or critical
+    violation at step 2 on the map and in the diagram, in the light and the dark scheme, at
+    1440 x 900 and at 390 x 844.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+from typing import Any
+
+import canvas_sequenced
+import pytest
+from conftest import write_tree
+from test_canvas_access import no_axe
+from test_canvas_browser import browser
+
+from systemap import atlas_data, atlas_page, canvas_page, config, facts_file, nest
+from systemap.cli import main
+
+ROOT = Path(__file__).resolve().parent
+DRIVER = ROOT / "atlas_seq.js"
+REPO = ROOT.parent
+MISSING = ["tool one", "tool two", "tool three"]
+
+
+def _drive(mode: str, page: Path) -> dict[str, Any]:
+    proc = subprocess.run(
+        [browser(), str(DRIVER), mode, str(page)], capture_output=True, text=True, timeout=600
+    )
+    assert proc.returncode == 0, proc.stderr
+    out = dict(json.loads(proc.stdout))
+    assert out.get("errors", []) == [], out.get("errors")
+    return out
+
+
+def _write(out: Path, cfg: config.Config, tree: nest.Tree, data: dict[str, Any]) -> Path:
+    out.write_text(atlas_page.build(canvas_page.tree_theme(cfg, tree), data), encoding="utf-8")
+    return out
+
+
+@pytest.fixture(scope="module")
+def self_page(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, Any]]:
+    cfg = config.load(REPO)
+    tree = nest.load(cfg)
+    data = atlas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    return _write(tmp_path_factory.mktemp("seq") / "index.html", cfg, tree, data), data
+
+
+@pytest.fixture(scope="module")
+def nested_page(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, Any]]:
+    root = tmp_path_factory.mktemp("nseq")
+    write_tree(root, canvas_sequenced.files())
+    for command in ("place", "extract", "render"):
+        assert main(["--root", str(root), command]) == 0
+    cfg = config.load(root)
+    tree = nest.load(cfg)
+    data = atlas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    data["maps"][1]["sq"][0]["s"].insert(
+        1, {"f": -1, "a": ["Views"], "y": "The views make the page."}
+    )
+    data["maps"][0]["ne"] = {"t": 9, "c": 4, "x": MISSING, "mo": 2}
+    return _write(root / "atlas.html", cfg, tree, data), data
+
+
+@pytest.fixture(scope="module")
+def wide(self_page: tuple[Path, dict[str, Any]]) -> dict[str, Any]:
+    return _drive("--wide", self_page[0])
+
+
+def _top_sq(data: dict[str, Any]) -> list[dict[str, Any]]:
+    return list(data["maps"][0]["sq"])
+
+
+def _drawn(run: dict[str, Any], kind: str, map_id: str = "") -> list[dict[str, Any]]:
+    """The marks of `kind` of map `map_id` in the frame of a state."""
+    out, current = [], None
+    for m in run["drawn"]["marks"]:
+        if m["t"] == "map":
+            current = m["id"]
+        elif m["t"] == kind and current == map_id:
+            out.append(m)
+    return out
+
+
+def test_the_view_shows_only_with_a_sequence(tmp_path: Path) -> None:
+    """Acceptance 1: the button."""
+    cfg = config.load(REPO)
+    tree = nest.load(cfg)
+    data = atlas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    t = canvas_page.tree_theme(cfg, tree)
+    assert '<button type="button" data-mode="seq"' in atlas_page.build(t, data)
+    for m in data["maps"]:
+        m.pop("sq", None)
+    assert '<button type="button" data-mode="seq"' not in atlas_page.build(t, data)
+
+
+def test_the_list_the_headline_and_the_bar(
+    self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]
+) -> None:
+    """Acceptance 1."""
+    sq = _top_sq(self_page[1])
+    whole = wide["whole"]
+    assert whole["pressed"] == [["Map", "false"], ["Sequences", "true"]]
+    rail = whole["seq"]["view"]["rail"]
+    assert len(rail) == len(sq)
+    for item, q in zip(rail, sq, strict=True):
+        assert item["text"].startswith(q["n"] + str(len(q["s"])))
+    assert [r["on"] for r in rail] == [True] + [False] * (len(sq) - 1)
+    view = whole["view"]
+    assert view["kicker"] == "Sequence" and view["question"] == sq[0]["n"]
+    want = f"{len(sq[0]['s'])} steps"
+    assert view["counts"].startswith(want)
+    if sq[0].get("en"):
+        assert f"starts at {sq[0]['en']}" in view["counts"]
+    assert whole["tabs"] == whole["key"] == whole["note"] == "none"
+    bar = whole["seq"]["view"]["bar"]
+    assert bar["n"] == "Whole route" and bar["next"].startswith("Start") and bar["prev"] is False
+
+
+def test_the_map_shows_only_the_flows_of_the_sequence(
+    self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]
+) -> None:
+    """Acceptance 2."""
+    top = self_page[1]["maps"][0]
+    q = _top_sq(self_page[1])[0]
+    flows = {s["f"] for s in q["s"] if s["f"] >= 0}
+    lines = _drawn(wide["whole"], "line")
+    assert {m["f"] for m in lines} == flows
+    labels = {m["f"]: m["s"] for m in _drawn(wide["whole"], "label")}
+    assert set(labels) == flows
+    for f, text in labels.items():
+        nums = [str(k + 1) for k, s in enumerate(q["s"]) if s["f"] == f]
+        assert text.startswith(", ".join(nums) + " "), (f, text)
+    used = {top["flows"][f][e] for f in flows for e in ("s", "t")}
+    used |= {c for s in q["s"] for c in s.get("a", []) + s.get("me", [])}
+    quiet = {c["id"] for c in wide["whole"]["quiet"] if c["q"]}
+    assert quiet == {c["id"] for c in top["cards"]} - used
+
+
+def test_the_fit_keeps_the_list_and_the_bar_free(wide: dict[str, Any]) -> None:
+    """Acceptance 3."""
+    whole = wide["whole"]
+    frame, rail, bar = whole["frame"], whole["seq"]["view"]["railBox"], whole["seq"]["view"]["bar"]
+    assert frame[0] >= rail["right"]
+    assert frame[1] + frame[3] <= bar["box"]["top"]
+
+
+def _tok(run: dict[str, Any], name: str) -> str:
+    return str(run["tokens"][name]).lower()
+
+
+KIND = {"data": "--data", "control": "--control", "judge": "--judge", "context": "--context"}
+
+
+def test_the_step_state(self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]) -> None:
+    """Acceptance 4."""
+    top = self_page[1]["maps"][0]
+    q = _top_sq(self_page[1])[0]
+    second = wide["second"]
+    st = q["s"][1]
+    assert second["seq"]["view"]["step"] == 1
+    assert second["lit"]["flows"] == ([st["f"]] if st["f"] >= 0 else [])
+    lit = _drawn(second, "lit")
+    if st["f"] >= 0:
+        f = top["flows"][st["f"]]
+        assert [m["f"] for m in lit] == [st["f"]]
+        assert lit[0]["color"].lower() == _tok(second, KIND.get(f["k"], "--ink-2"))
+        assert {f["s"], f["t"]} <= set(second["lit"]["cards"])
+    first = {}
+    for k, s in enumerate(q["s"]):
+        if s["f"] >= 0:
+            first.setdefault(s["f"], k)
+    rest = {m["f"]: m["alpha"] for m in _drawn(wide["whole"], "line")}
+    for m in _drawn(second, "line"):
+        f = m["f"]
+        if f == st["f"]:
+            continue
+        if first[f] < 1:
+            assert m["step"] == "was" and m["color"].lower() == _tok(second, "--ink-2")
+            assert abs(m["alpha"] - rest[f]) < 1e-6
+        else:
+            assert m["step"] == "later" and m["alpha"] <= 0.4 * rest[f] + 1e-6
+    for m in _drawn(second, "label"):
+        if m["f"] != st["f"] and first[m["f"]] > 1:
+            assert m["alpha"] <= 0.4 + 1e-6
+    before = {m["id"]: m["alpha"] for m in _drawn(wide["whole"], "card")}
+    for m in _drawn(second, "card"):
+        assert abs(m["alpha"] - before[m["id"]]) < 1e-6, m
+    bar = second["seq"]["view"]["bar"]
+    assert bar["n"] == f"Step 2 of {len(q['s'])}"
+    assert bar["p"].startswith(st.get("y", "This step has no sentence."))
+    assert second["said"].startswith(f"Step 2 of {len(q['s'])}: ")
+
+
+def test_the_arrow_keys_change_the_step(wide: dict[str, Any]) -> None:
+    """Acceptance 5."""
+    n = wide["whole"]["seq"]["view"]["n"]
+    assert wide["right"]["active"] == "atlas-step-next"
+    assert wide["right"]["seq"]["view"]["step"] == 2
+    assert wide["left"]["seq"]["view"]["step"] == 1
+    assert wide["right"]["camera"] == wide["second"]["camera"] == wide["left"]["camera"]
+    assert wide["last"]["seq"]["view"]["step"] == n - 1
+    assert wide["last"]["seq"]["view"]["bar"]["next"] == "Done"
+    assert wide["done"]["seq"]["view"]["step"] == -1
+    assert wide["done"]["seq"]["view"]["bar"]["n"] == "Whole route"
+
+
+def test_the_diagram_form(self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]) -> None:
+    """Acceptance 6."""
+    top = self_page[1]["maps"][0]
+    q = _top_sq(self_page[1])[0]
+    diagram = wide["diagram"]
+    assert diagram["seq"]["view"]["form"] == "diagram" and diagram["seq"]["view"]["step"] == 1
+    board = diagram["seq"]["board"]
+    assert board["on"] is True and diagram["canvas"] == "hidden"
+    cards: list[str] = []
+    for s in q["s"]:
+        f = top["flows"][s["f"]] if s["f"] >= 0 else None
+        for c in [f["s"], f["t"]] if f else s.get("a", []) + s.get("me", []):
+            if c not in cards:
+                cards.append(c)
+    assert len(board["nodes"]) == len(cards)
+    rows = board["rows"]
+    assert len(rows) == len(q["s"])
+    assert rows[1]["current"] == "step" and "lit" in rows[1]["cls"]
+    if q["s"][1]["f"] >= 0:
+        assert rows[1]["k"] == f"var({KIND.get(top['flows'][q['s'][1]['f']]['k'], '--ink-2')})"
+    assert "done" in rows[0]["cls"]
+    for r in rows[2:]:
+        assert float(r["opacity"]) < 0.5, r
+    assert wide["rowClick"]["seq"]["view"]["step"] == 2
+    assert wide["rowKey"]["seq"]["view"]["step"] == 0
+    assert wide["onMap"]["canvas"] == "visible" and wide["onMap"]["seq"]["view"]["form"] == "map"
+
+
+def test_the_map_view_comes_back(
+    self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]
+) -> None:
+    """Acceptance 7."""
+    back = wide["map"]
+    assert back["pressed"] == [["Map", "true"], ["Sequences", "false"]]
+    assert back["view"]["mode"] == "map" and back["tabs"] != "none"
+    assert back["seq"]["view"]["railBox"]["width"] == 0
+    assert {m["f"] for m in _drawn(back, "line")} == {
+        m["f"] for m in _drawn(wide["before"], "line")
+    }
+
+
+@pytest.fixture(scope="module")
+def nested(nested_page: tuple[Path, dict[str, Any]]) -> dict[str, Any]:
+    return _drive("--nested", nested_page[0])
+
+
+def test_a_sequence_of_a_nested_map_and_a_step_with_no_flow(nested: dict[str, Any]) -> None:
+    """Acceptance 8."""
+    assert nested["groups"] == ["join", "join / Gateway"]
+    assert nested["top"]["current"] == ""
+    assert nested["chosen"]["current"] == "Gateway"
+    assert nested["chosen"]["seq"]["view"]["id"] == "serve"
+    noflow = nested["noflow"]
+    assert noflow["seq"]["view"]["step"] == 1
+    assert "This step has no flow. Its cards: Views." in noflow["seq"]["view"]["bar"]["p"]
+    assert noflow["lit"]["flows"] == [] and noflow["lit"]["cards"] == ["Views"]
+    assert _drawn(noflow, "lit", "Gateway") == []
+    texts = [r["text"] for r in nested["diagram"]["seq"]["board"]["rows"]]
+    assert texts[1].startswith("No flow")
+
+
+def test_the_entry_points_with_no_sequence(nested: dict[str, Any]) -> None:
+    """Acceptance 9: the list."""
+    ne = nested["top"]["seq"]["view"]["ne"]
+    assert ne.startswith("Entry points with no sequence5 of 9")
+    for name in MISSING:
+        assert name in ne
+    assert ne.endswith("and 2 more")
+
+
+def test_the_page_data_counts_the_entry_points(self_page: tuple[Path, dict[str, Any]]) -> None:
+    """Acceptance 9: the data."""
+    cfg = config.load(REPO)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
+    ne = self_page[1]["maps"][0]["ne"]
+    assert (
+        0 < ne["t"] <= len(facts["entry_points"]) and ne["c"] == ne["t"] - len(ne["x"]) - ne["mo"]
+    )
+    tree = nest.load(cfg)
+    extra = {
+        "kind": "subcommand",
+        "name": "zzz-none",
+        "module": "systemap.cli",
+        "target": "systemap",
+        "function": "main",
+    }
+    more = dict(facts, entry_points=[*facts["entry_points"], extra])
+    data = atlas_data.build(cfg, tree, more)
+    assert "systemap zzz-none" in data["maps"][0]["ne"]["x"]
+
+
+def _inside(b: list[float], free: dict[str, float]) -> bool:
+    return (
+        b[0] >= free["x0"] - 1
+        and b[1] >= free["y0"] - 1
+        and b[0] + b[2] <= free["x1"] + 1
+        and b[1] + b[3] <= free["y1"] + 1
+    )
+
+
+def test_the_phone(self_page: tuple[Path, dict[str, Any]]) -> None:
+    """Acceptance 10."""
+    run = _drive("--phone", self_page[0])
+    for scheme in ("light", "dark"):
+        r = run[scheme]
+        assert r["errors"] == []
+        whole = r["whole"]
+        rail, ask = whole["seq"]["view"]["railBox"], whole["ask"]
+        assert rail["top"] >= ask["bottom"] and rail["height"] < 70 and rail["width"] > 300
+        assert whole["frame"][1] >= rail["bottom"]
+        bar = whole["seq"]["view"]["bar"]["box"]
+        assert bar["top"] >= 0 and bar["bottom"] <= 844 and bar["left"] >= 0 and bar["right"] <= 390
+        assert whole["scroll"] <= 390
+        step = r["step"]
+        assert step["seq"]["view"]["step"] == 1
+        for b in step["cards"]:
+            assert _inside(b, step["seq"]["view"]["free"]), (b, step["seq"]["view"]["free"])
+
+
+def test_reduced_motion(self_page: tuple[Path, dict[str, Any]]) -> None:
+    """Acceptance 11."""
+    run = _drive("--motion", self_page[0])
+    assert run["reduce"]["dim"] == 1 and run["reduce"]["parts"] == [1]
+    assert run["no-preference"]["parts"] and run["no-preference"]["parts"][0] < 1
+
+
+def test_axe_finds_no_violation(self_page: tuple[Path, dict[str, Any]]) -> None:
+    """Acceptance 12."""
+    runs = _drive("--axe", self_page[0])["runs"]
+    if any(r["axe"] is None for r in runs):
+        no_axe("the test needs axe-core on NODE_PATH")
+    assert len(runs) == 8
+    for r in runs:
+        assert r["errors"] == [], r
+        assert r["axe"]["violations"] == [], r

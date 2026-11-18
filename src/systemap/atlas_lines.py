@@ -18,6 +18,9 @@ section "Map view: the rules" of docs/design/atlas.md:
   through it. A horizontal part of the line comes first, then the longest part. The label
   has a constant size on the screen (`labelPx`). The short lines get their places first.
   A line with no such place has no label at rest (`seatsOf`).
+- Sequences. In the layer of a sequence (`atlas_sequences`), the label of each line has the
+  numbers of its steps before the artifact, each line has a label, and the busy layer rule
+  does not apply.
 
 The script calculates the lanes one time for each map and layer, and the places of the
 labels one time for each map, layer and quarter step of zoom, in the full drawing at rest.
@@ -43,10 +46,10 @@ function linesOf(m, id) {
     if (fl[i] && f.p.length > 1) list.push({f: f, q: f.p.map(function (p) { return [p[0], p[1]]; })});
   });
   lanesOf(list);
-  var out = {list: list, n: list.length, dense: list.length > DENSE, seats: null};
+  var seq = isSeqLayer(id), out = {list: list, n: list.length, dense: !seq && list.length > DENSE, seq: seq, seats: null};
   out.rest = clamp(1.25 - list.length / 56, 0.3, 1);
   out.ends = clamp(1.25 - list.length / 160, 0.75, 1);
-  list.forEach(function (e) { laned(e); });
+  list.forEach(function (e) { laned(e); seqLabel(m, id, e); });
   memo[id] = out;
   return out;
 }
@@ -143,7 +146,9 @@ function seatsOf(m, id, a) {
   if (L.seats && (L.seats.key === key || !sharp)) return L.seats;
   var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = [], wall = walls(m), out = [];
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
-    var at = seat(e, fs, wall, taken, L.list);
+    // Each line of a sequence has a label with its step numbers: with no free place, the
+    // label goes near its line, as a lit label does (`stacked` in `atlas_lit`).
+    var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seat(e, fs, wall, taken, []) || stacked(e, fs, taken, wall) : null);
     if (!at) return;
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
   });

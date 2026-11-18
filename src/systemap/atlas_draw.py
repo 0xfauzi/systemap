@@ -212,15 +212,18 @@ var CASE_W = 5, WIRE_W = 1.15;
 function drawLines(g, m, list, L, a, ox, oy, alpha) {
   if (alpha <= 0.02 || !list.length) return;
   var rest = alpha * L.rest, cw = Math.min(CASE_W, CASE_W * a * 1.5), ww = clamp(WIRE_W * a * 1.5, 0.5, WIRE_W), lit = g === ctx ? litOf(m) : null;
+  var steps = stepping(m), dw = clamp(DONE_W * a * 1.5, 0.6, DONE_W);
   g.lineJoin = 'round'; g.setLineDash([]);
   list.forEach(function (e) {
+    var st = steps ? stepState(m, e.f.i) : '';
     g.beginPath(); cutLine(g, e.d, ox, oy, a);
-    g.globalAlpha = rest * backLine(lit, e.f.i); g.strokeStyle = C['--map']; g.lineWidth = cw; g.stroke();
-    g.strokeStyle = C['--wire']; g.lineWidth = ww; g.stroke();
+    g.globalAlpha = rest * backLine(lit, e.f.i) * (st === 'later' ? LATER_A : 1); g.strokeStyle = C['--map']; g.lineWidth = cw; g.stroke();
+    g.strokeStyle = st === 'was' ? C['--ink-2'] : C['--wire']; g.lineWidth = st === 'was' ? dw : ww; g.stroke();
     if (!VIEW_AIM) STATS.flows++;
-    if (DLOG) logged({t: 'line', f: e.f.i, casing: cw, wire: ww, alpha: g.globalAlpha, p: e.d.map(function (v) { return [ox + a * v[0], oy + a * v[1]]; })});
+    if (DLOG) logged({t: 'line', f: e.f.i, casing: cw, wire: g.lineWidth, alpha: g.globalAlpha, color: g.strokeStyle, step: st, p: e.d.map(function (v) { return [ox + a * v[0], oy + a * v[1]]; })});
   });
   var s = clamp(7.5 * a, 2.5, 9), w = s * 0.48, r = clamp(2 * a, 0.8, 2.6);
+  if (steps) { stepEnds(g, m, list, L, alpha, a, ox, oy, s, w, r); return; }
   g.fillStyle = C['--ink-3'];
   // The dots and the arrowheads in two paths: of the lines that the light makes go back, and
   // of the other lines.
@@ -238,6 +241,18 @@ function drawLines(g, m, list, L, a, ox, oy, alpha) {
     if (n0) g.fill();
   });
 }
+// The dots and the arrowheads of the lines of a sequence with a current step: dark for an
+// earlier step, faint for a later step (`stepState` in `atlas_sequences`).
+var DONE_W = 1.6;
+function stepEnds(g, m, list, L, alpha, a, ox, oy, s, w, r) {
+  list.forEach(function (e) {
+    var st = stepState(m, e.f.i), p = e.q, n = p.length, z = [ox + a * p[n - 1][0], oy + a * p[n - 1][1]], y = [ox + a * p[n - 2][0], oy + a * p[n - 2][1]];
+    g.beginPath(); arrowHead(g, z, y, s, w);
+    g.moveTo(ox + a * p[0][0] + r, oy + a * p[0][1]); g.arc(ox + a * p[0][0], oy + a * p[0][1], r, 0, 2 * Math.PI);
+    g.fillStyle = st === 'was' ? C['--ink-2'] : C['--ink-3']; g.globalAlpha = alpha * L.ends * (st === 'later' ? LATER_A : 1); g.fill();
+    if (DLOG) logged({t: 'ends', f: e.f.i, dot: [ox + a * p[0][0], oy + a * p[0][1], r], tip: z, from: y, s: s, w: w, step: st, color: g.fillStyle, alpha: g.globalAlpha});
+  });
+}
 // The labels at rest (`seatsOf`), with a constant size on the screen. A label has a halo
 // in the color of the ground.
 // While a light is on the map, the labels of the lines that go back fade out, and the
@@ -248,10 +263,13 @@ function drawLabels(m, id, a, ox, oy, alpha) {
   var seats = seatsOf(m, id, a);
   if (!seats) return;
   ctx.font = font(500, fs); ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.setLineDash([]);
+  var steps = stepping(m);
   seats.list.forEach(function (s) {
-    var x = ox + a * s.x, y = oy + a * s.y + fs * 0.34, la = alpha * (lit && lit.focus ? 1 - DIM : 1);
+    var st = steps ? stepState(m, s.e.f.i) : '', x = ox + a * s.x, y = oy + a * s.y + fs * 0.34;
+    var la = alpha * (lit && lit.focus && !lit.step ? 1 - DIM : 1) * (st === 'later' ? LATER_A : 1);
     if (x < -200 || x > W + 200 || y < -20 || y > H + 20 || la <= 0.02) return;
     ctx.globalAlpha = la; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
+    if (DLOG) logged({t: 'label', f: s.e.f.i, s: s.e.s, x: x, y: y, alpha: la, step: st});
     text(s.e.s, x, y, fs, C['--ink-2'], la, 500, false, 'center');
   });
 }

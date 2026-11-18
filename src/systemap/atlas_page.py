@@ -18,7 +18,9 @@ The page also has an empty list of the tree and a live region (`atlas_tree`). Th
 writes the list from the data after the first frame. The details of a selected card and
 the reading line come after the canvas (`atlas_details`), so that Tab goes from the last
 item of the canvas to the details. The canvas, its help text, the details, the reading
-line, the list, the live region and the headline are in one `main` element.
+line, the list, the live region and the headline are in one `main` element. The list of the
+sequences, the step bar and the sequence diagram (`atlas_sequences`) come
+after the help text of the canvas.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from systemap import (
     atlas_data,
     atlas_details,
     atlas_header,
+    atlas_sequences,
     atlas_tree,
     canvas_data,
     canvas_page,
@@ -58,7 +61,8 @@ HELP = (
     "Esc closes the details, or goes out one level. "
     "The arrow keys move the map. The keys + and - zoom. F fits the current map. "
     "The list after the canvas gives the maps, the cards and the flows. "
-    "Each link in the list moves the camera to its item."
+    "Each link in the list moves the camera to its item. "
+    "In the Sequences view, the left and right arrow keys go to the previous step and to the next step."
 )
 
 _SCRIPT = page.compact(SCRIPT)
@@ -91,12 +95,16 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + page_icons.CSS
         + atlas_details.CSS
         + atlas_tree.CSS
+        + atlas_sequences.CSS
+        + atlas_sequences.BOARD_CSS
         + "</style></head><body>"
-        + atlas_header.header(name)
+        + atlas_header.header(name, any(m.get("sq") for m in data.get("maps", [])))
         + "<main>"
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + f'<p id="canvas-help" class="sr-only">{HELP}</p>'
+        + atlas_sequences.BOARD_HTML
+        + atlas_sequences.HTML
         + atlas_details.HTML
         + atlas_header.overlay()
         + atlas_tree.HTML

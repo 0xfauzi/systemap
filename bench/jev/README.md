@@ -7424,3 +7424,15 @@ The atlas page is the self-map page of `atlas_budget.write_pages("self", ...)` a
 Result at pixel ratio 1: the median of the largest times is 72.7 ms. PASS for the budget. One run of 3 had a largest time above 100 ms (the first move, 110.2 ms). The independent review of this stage also reported runs at pixel ratio 1 with largest times of 78.4, 114.8 and 77.8 ms. Thus the value is near the limit, and one run is not sufficient to show it.
 
 Result at pixel ratio 2: the limit of 100 ms does not hold for the first pointer move after the load. The first move was the slowest move in each run, at 103.3 to 119.5 ms. The other moves were 100 ms or less in each run (57.9 to 96.8 ms). The independent review reported 154.5 and 155.6 ms for the largest times at pixel ratio 2. The cause of the slow first move is not measured. A measurement is necessary before a change.
+
+## B6: the performance budget of the atlas page, stage 3 (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 3 page of `docs/design/atlas.md`: the stage 2 page with the Sequences view (`atlas_sequences`). The budget measures the Map view, which is the view at the open of the page. The changes of stage 3 that can affect it: the page has more script and the page data has the entry points with no sequence (`ne`), and each line of a map asks if the map shows the step state of a sequence (`stepping`). At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 324 / 324 (pass) | 33.3 / 16.8 (pass) | 33.4 / 33.4 (pass) | 315,855 / 249,404 = 0.79 (pass) | 67 (pass) |
+| workspace | 307 / 253 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,900 / 196,200 = 0.73 (pass) | 68 (pass) |
+| M11 tree | 417 / 482 (pass) | 16.8 / 33.3 (pass) | 49.9 / 33.3 (pass) | 1,236,352 / 1,160,233 = 0.94 (pass) | 66 (pass) |
+
+Result: PASS for each value. The page sizes of the atlas pages grew by about 26,000 bytes (the Sequences part and the diagram part of the script, and their styles). The first frame of the M11 tree is 1.16 times the canvas value, against a limit of 1.5 times. In B4 it was 0.90 times. One run is not sufficient to show if the first frame became slower. The budget does not measure the Sequences view. The canvas page has no equal measure for it.

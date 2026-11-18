@@ -11,6 +11,9 @@ section "Map view: the rules" of docs/design/atlas.md:
   make the map go back.
 - Pointing at a line. That flow is lit, and the reading line gives the source, the
   target, the artifact and the relation sentence of the model.
+- The step of a sequence. With no pointed item, no pin and no selected card, the current
+  step of the Sequences view is the light of its map (`stepSource` in `atlas_sequences`).
+  It does not make the other cards and lines go back.
 - The reading line is one line of text at the bottom of the map for the thing under the
   pointer, or for the item that has the keyboard focus. It is a polite live region.
 
@@ -40,31 +43,38 @@ function lightSource() {
   if (HOT.f && HOT.f.map === m) return {m: m, c: null, f: HOT.f};
   if (PIN && PIN.map === m) return {m: m, c: null, f: PIN};
   if (SEL && SEL.map === m) return {m: m, c: SEL, f: null};
-  return {m: m, c: null, f: null};
+  return stepSource(m) || {m: m, c: null, f: null};
 }
 // Calculate the light of this frame. A new light keeps the start time of each flow that was
 // lit before, so that a flow draws one time.
 function litFrame() {
   var s = lightSource(), id = shownLayer(s.m), now = performance.now(), dt = DIM_LAST ? now - DIM_LAST : Infinity;
-  var key = s.c ? 'c' + s.m.oi + ':' + s.c.i : s.f ? 'f' + s.m.oi + ':' + s.f.i : '';
+  var key = s.step ? s.step : s.c ? 'c' + s.m.oi + ':' + s.c.i : s.f ? 'f' + s.m.oi + ':' + s.f.i : '';
   DIM_LAST = now;
   if (key) key += '|' + id;
-  if (key !== LIGHT.key && key) {
-    var fl = layerFlags(s.m, id).flow, flows = new Uint8Array(s.m.flows.length), cards = Object.create(null), n = 0, t0 = Object.create(null);
-    s.m.flows.forEach(function (f, i) {
-      if (!fl[i] || !(s.f ? f === s.f : f.s === s.c.id || f.t === s.c.id)) return;
-      flows[i] = 1; n++; cards[f.s] = true; cards[f.t] = true;
-      t0[i] = LIGHT.m === s.m && LIGHT.focus && LIGHT.flows[i] ? LIGHT.t0[i] : reduced() ? -Infinity : now;
-    });
-    if (s.c) cards[s.c.id] = true;
-    LIGHT = {key: key, m: s.m, c: s.c, f: s.f, flows: flows, cards: cards, n: n, focus: n > 0, t0: t0, seats: null};
-  } else if (key !== LIGHT.key) {
+  if (key !== LIGHT.key && key) LIGHT = newLight(s, id, key, now);
+  else if (key !== LIGHT.key) {
     LIGHT.key = ''; LIGHT.focus = false; LIGHT.c = null; LIGHT.f = null;
   }
   var to = LIGHT.focus ? 1 : 0;
   DIM = reduced() ? to : approach(DIM, to, Math.min(0.25, dt / DIM_MS));
   if (DIM !== to) VIEW_FADING = true;
   if (!DIM && !LIGHT.key) LIGHT.m = null;
+}
+// A new light from the source s in the layer `id`. The light of a step of a sequence
+// (`stepSource` in `atlas_sequences`) has `step`: it also lights the cards of the step, and
+// the other cards and lines do not go back.
+function newLight(s, id, key, now) {
+  var fl = layerFlags(s.m, id).flow, flows = new Uint8Array(s.m.flows.length), cards = Object.create(null), n = 0, t0 = Object.create(null);
+  s.m.flows.forEach(function (f, i) {
+    if (!fl[i] || !(s.f ? f === s.f : !!s.c && (f.s === s.c.id || f.t === s.c.id))) return;
+    flows[i] = 1; n++; cards[f.s] = true; cards[f.t] = true;
+    t0[i] = LIGHT.m === s.m && LIGHT.focus && LIGHT.flows[i] ? LIGHT.t0[i] : reduced() ? -Infinity : now;
+  });
+  if (s.c) cards[s.c.id] = true;
+  (s.cards || []).forEach(function (id) { if (s.m.byId[id]) cards[id] = true; });
+  var many = Object.keys(cards).length;
+  return {key: key, m: s.m, c: s.c, f: s.f, flows: flows, cards: cards, n: n, focus: n > 0 || (!!s.step && many > 0), step: !!s.step, t0: t0, seats: null};
 }
 // The light of map m in this frame, or null.
 function litOf(m) { return LIGHT.m === m && (DIM > 0 || LIGHT.key) && (ctx === PAGE_CTX || ctx === STILL_CTX) && !VIEW_AIM ? LIGHT : null; }
@@ -75,8 +85,8 @@ function drawnPart(i) {
   return 1 - Math.pow(1 - t, 3);
 }
 // The factor of the alpha of a line or a card that the light makes go back.
-function backLine(lit, i) { return lit && !lit.flows[i] ? 1 - 0.78 * DIM : 1; }
-function backCard(lit, c) { return lit && !lit.cards[c.id] ? 1 - 0.66 * DIM : 1; }
+function backLine(lit, i) { return lit && !lit.step && !lit.flows[i] ? 1 - 0.78 * DIM : 1; }
+function backCard(lit, c) { return lit && !lit.step && !lit.cards[c.id] ? 1 - 0.66 * DIM : 1; }
 // True when the card has the outline of the ink: it is pointed, selected, or at an end of
 // a lit flow.
 function inkCard(c) {

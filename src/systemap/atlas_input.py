@@ -16,10 +16,13 @@
   map. A double-click with a mouse goes into the map that a card opens. A click or a tap
   selects a card or pins a line (`clickAt` and `tapAt` in `atlas_keys`). Esc closes the
   details or goes out one level, F fits the current map, + and - zoom, and the arrow keys
-  move the map. Esc, F, + and - also operate while a button has the keyboard focus. The zoom control at the bottom left has the same functions and the
+  move the map. In the Sequences view, the left and right arrow keys change the step
+  (`seqKey` in `atlas_sequences`). Esc, F, + and - also operate while a button has the keyboard focus. The zoom control at the bottom left has the same functions and the
   readout of the scale.
 - Pointing. A move of a mouse or a pen over the canvas points at the card or the line
   under it (`point` in `atlas_lit`). A card comes before a line.
+- The Sequences view. The fit keeps the list of the sequences and the step bar free
+  (`seqRoom`). While the diagram form shows, the canvas draws only the ground.
 - Frames. As on the canvas page: an input event asks for one frame. While the camera
   moves, the canvas has half of the device resolution. STILL_MS after the last move, the
   script draws one frame at full resolution (`atlas_image`). A change of the light draws one
@@ -38,12 +41,12 @@ var FIT = 0.04, WIDE = 720, ASK_EL = document.getElementById('atlas-ask');
 // The fit of a box. The frame of a map (`frameOf`) has the rule of the headline. `whole`
 // shows the whole map also on a phone.
 function mapFit(b, whole) {
-  var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24 + sideRight(m), bottom = 30;
+  var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24 + sideRight(m), g = seqRoom(), bottom = g.bottom, lo = g.left;
   function fitK(left, top) { return Math.min((W - left - right) / b[2], (Hs - top - bottom) / b[3], 1.6 / m.T.s); }
   // `kBeside` and `kAbove` are the two fits for the tests: beside the headline (0 when the
   // screen is too narrow) and below it.
-  var kBeside = W - right > 1180 ? fitK(330, 26) : 0, kAbove = fitK(20, wide ? 112 : 96);
-  var beside = kBeside > 0 && kBeside >= fitK(20, 112), top = beside ? 26 : wide ? 112 : 96, left = beside ? 330 : 20;
+  var kBeside = W - right > 1180 ? fitK(330, 26) : 0, kAbove = fitK(lo, wide ? 112 : g.top);
+  var beside = kBeside > 0 && kBeside >= fitK(lo, 112), top = beside ? 26 : wide ? 112 : g.top, left = beside ? 330 : lo;
   var k = clamp(fitK(left, top), KMIN, KMAX);
   if (!wide && k * m.T.s < 0.5 && !whole) {
     k = 0.5 / m.T.s;
@@ -51,6 +54,14 @@ function mapFit(b, whole) {
   }
   var free = Hs - top - bottom - b[3] * k, lift = beside ? free / 2 : Math.min(free / 2, 10);
   return {x: b[0] + b[2] / 2 - (left + (W - left - right) / 2) / k, y: b[1] - (HEAD_H + top + lift) / k, k: k, beside: beside, kBeside: kBeside, kAbove: kAbove};
+}
+// The room of the fit in the Sequences view (`atlas_sequences`): the list at the left of a
+// wide screen or under the headline of a phone, and the bar at the bottom.
+function seqRoom() {
+  if (VIEW.mode !== 'seq') return {left: 20, top: 96, bottom: 30};
+  var bar = BAR ? BAR.offsetHeight + 34 : 30, rail = shownEl(RAIL) ? RAIL.getBoundingClientRect() : null;
+  if (W > WIDE) return {left: rail ? rail.right + 14 : 20, top: 96, bottom: bar};
+  return {left: 20, top: rail ? rail.bottom - HEAD_H + 10 : 96, bottom: bar};
 }
 function fitBox(b, pad, whole) {
   if (b.m) return mapFit(b, whole);
@@ -147,8 +158,8 @@ function draw() {
   CHAIN = focusChain();
   if (SEL && SEL.map !== currentMap()) select(null, {keep: true});
   litFrame();
-  drawMap(TOP, 1, 1);
-  drawFocus();
+  // The diagram form of a sequence (`atlas_sequences`) covers the map: only the ground draws.
+  if (!boardOn()) { drawMap(TOP, 1, 1); drawFocus(); }
   speakLater();
   if (!sharp && !LIGHT_MOVE) makeImages(began);
   if (HUD) drawHud(began, !sharp);
@@ -285,7 +296,11 @@ cv.addEventListener('dblclick', function (e) { var p = local(e); if (kind === 'm
 // design study. The arrow keys of a button stay with the button (`ownKeys`).
 var PAGE_KEYS = {Escape: true, f: true, F: true, '+': true, '=': true, '-': true};
 window.addEventListener('keydown', function (e) {
-  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e, !!PAGE_KEYS[e.key])) return;
+  // In the Sequences view the left and right arrow keys change the step (`seqKey`), also
+  // while a button has the keyboard focus.
+  var stepKey = VIEW.mode === 'seq' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight');
+  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e, !!PAGE_KEYS[e.key] || stepKey)) return;
+  if (stepKey) { e.preventDefault(); seqKey(e); return; }
   var step = 80 / cam.k, keys = {
     Escape: escapeKey, f: function () { fitCurrent(); }, F: function () { fitCurrent(); },
     '+': function () { fly(zoomed(1.6), 260); },
@@ -328,6 +343,8 @@ window.addEventListener('resize', function () {
     var k = clamp(cam.k * Math.min(W / w, H / h), KMIN, KMAX);
     cam = {x: cx - W / 2 / k, y: cy - H / 2 / k, k: k};
   }
+  barHeight();
+  if (boardOn()) boardDraw();
   request();
 });
 new MutationObserver(function () { readColors(); request(); })
@@ -416,6 +433,12 @@ window.systemapCanvas = {
   order: function (id) { return readingOrder(MAPS[id]).map(function (c) { return c.id; }); },
   stats: function () { return {cards: STATS.cards, image: STATS.image, flows: STATS.flows, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp, fading: SPEED_FADING || VIEW_FADING, swap: SWAP_A}; },
   viewState: viewState,
+  // The Sequences view (`atlas_sequences`).
+  seq: function () { return {view: seqState(), board: boardState()}; },
+  mode: setMode,
+  choose: function (mapId, k) { var m = MAPS[mapId]; if (m && m.sq && m.sq[k]) seqChoose(m, k, true); return !!(m && m.sq && m.sq[k]); },
+  step: stepTo,
+  form: setForm,
   setLayer: setLayer,
   // The lines of a map in the layer of the frame: the count, the busy layer values, the
   // labels at rest (screen points) and the laned points of each line (`atlas_lines`).
