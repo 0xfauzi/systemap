@@ -21,6 +21,13 @@
 // - --open W H: W x H. A click on a card at step 2 opens the details: the boxes of the bar,
 //   of the button Next, of the details, of the list and of the entry points with no
 //   sequence, and the frame of the map at the whole route.
+// - --wide also: a pointer on a card of a later step and then on the ground at step 2, and
+//   the diagram after a change of the screen size to 1000 x 800.
+// - --phone also: the background of the current name, and the diagram at step 5.
+// - --motion also: the Reduce motion control of the header.
+// - --labels also: the labels that show only at their step (`hide`), the frame of the map
+//   and the box of the bar.
+// - --open also: the boxes with the details open, at step 3 and at the last step.
 // - --axe: axe-core in the Sequences view at step 2 on the map and in the diagram, in the
 //   light and the dark scheme, at 1440 x 900 and at 390 x 844 (null when axe-core is not on
 //   NODE_PATH).
@@ -71,6 +78,7 @@ async function wide(browser, file) {
   await page.click('#atlas-step-next');
   await page.waitForTimeout(1200);
   out.second = await state(page, true);
+  out.pointed = await pointAt(page, out.whole.seq.view);
   await page.focus('#atlas-step-next');
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(100);
@@ -105,6 +113,11 @@ async function wide(browser, file) {
     await page.waitForTimeout(300);
     out.rowClick = await state(page, false);
   }
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.waitForTimeout(500);
+  out.resized = await state(page, false);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(500);
   await page.focus('#atlas-bworld [data-step="0"]');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(300);
@@ -117,6 +130,24 @@ async function wide(browser, file) {
   out.map = await state(page, true);
   await page.close();
   return out;
+}
+
+// A pointer on a card of a later step, and then on the ground: the light of each, from the
+// frame of the map at the right of the map.
+async function pointAt(page, view) {
+  const card = await page.evaluate((v) => {
+    const d = JSON.parse(document.getElementById('atlas-data').textContent), m = d.maps.find((x) => x.id === v.map), st = m.sq[v.k].s;
+    const later = st.slice(2).find((x) => x.f >= 0);
+    return later ? m.flows[later.f].t : null;
+  }, view);
+  if (!card) return null;
+  const b = await page.evaluate((id) => window.systemapCanvas.box('', id), card);
+  await page.mouse.move(b[0] + b[2] / 2, b[1] + b[3] / 2);
+  await page.waitForTimeout(300);
+  const on = await state(page, false);
+  await page.mouse.move(1430, 700);
+  await page.waitForTimeout(300);
+  return { card, on: on.lit, off: (await state(page, false)).lit };
 }
 
 async function nested(browser, file) {
@@ -165,7 +196,12 @@ async function phone(browser, file) {
       const m = d.maps.find((x) => x.id === v.map), st = m.sq[v.k].s[v.step], f = st.f >= 0 ? m.flows[st.f] : null;
       return (f ? [f.s, f.t] : (st.a || [])).map((id) => s.box(v.map, id));
     });
-    out[scheme] = { errors, whole, step };
+    step.railBg = await page.evaluate(() => getComputedStyle(document.querySelector('#atlas-rail-list button[aria-current="true"]')).backgroundColor);
+    await page.tap('[data-form="diagram"]');
+    await page.waitForTimeout(400);
+    for (let i = 0; i < 3; i++) { await page.tap('#atlas-step-next'); await page.waitForTimeout(250); }
+    const diagram = await state(page, false);
+    out[scheme] = { errors, whole, step, diagram };
     await page.close();
   }
   return out;
@@ -183,6 +219,17 @@ async function motion(browser, file) {
     out[reduce] = { errors, dim: s.lit.dim, parts: s.drawn.marks.filter((m) => m.t === 'lit').map((m) => m.part) };
     await page.close();
   }
+  // The Reduce motion control of the header, with no reduced motion of the device.
+  const { page, errors } = await open(browser, file, { ...WIDE, reducedMotion: 'no-preference' });
+  await page.click('#atlas-head [data-mode="seq"]');
+  await page.waitForTimeout(1200);
+  await page.click('#atlas-motion');
+  await page.waitForTimeout(100);
+  await page.click('#atlas-step-next');
+  await page.waitForTimeout(50);
+  const s = await state(page, true);
+  out.button = { errors, pressed: await page.getAttribute('#atlas-motion', 'aria-pressed'), dim: s.lit.dim, parts: s.drawn.marks.filter((m) => m.t === 'lit').map((m) => m.part) };
+  await page.close();
   return out;
 }
 
@@ -229,7 +276,10 @@ function measure(marks, W, H) {
     if (!lines[l.f] || b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H) return;
     let other = Infinity;
     for (const f in lines) if (+f !== l.f) other = Math.min(other, lineDist(b, lines[f]));
-    out.labels.push({f: l.f, s: l.s, t: l.t, own: lineDist(b, lines[l.f]), other: other, h: b[3] - b[1]});
+    const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, p = lines[l.f];
+    let flat = false;
+    for (let i = 0; i + 1 < p.length; i++) if (Math.abs(p[i][1] - p[i + 1][1]) < 0.5 && Math.abs(cy - p[i][1]) <= 2 && cx >= Math.min(p[i][0], p[i + 1][0]) && cx <= Math.max(p[i][0], p[i + 1][0])) flat = true;
+    out.labels.push({f: l.f, s: l.s, t: l.t, own: lineDist(b, lines[l.f]), other: other, h: b[3] - b[1], step: l.step || '', flat: flat});
   });
   marks.filter((m) => m.t === 'lit').forEach((m) => {
     const [all, free] = freeLength(m.p, labels.map((l) => l.box));
@@ -249,7 +299,8 @@ async function labels(browser, file, W, H) {
       for (let n = -1; n < counts[k]; n++) {
         await page.evaluate((n) => window.systemapCanvas.step(n), n);
         await page.waitForTimeout(n < 0 ? 400 : 260);
-        runs.push({map: id, k: k, step: n, ...measure(await marksOf(page, id), W, H)});
+        const extra = await page.evaluate((id) => { const s = window.systemapCanvas, v = s.seq().view; return { hidden: s.lines(id).labels.filter((x) => x.hide).map((x) => x.f), frame: s.frame(id), barTop: v.bar.box.top, bar: v.bar.box, name: s.seq().view.id }; }, id);
+        runs.push({map: id, k: k, step: n, ...extra, ...measure(await marksOf(page, id), W, H)});
       }
     }
   }
@@ -273,9 +324,15 @@ async function opened(browser, file, W, H) {
   await page.waitForTimeout(1200);
   const out = { errors, whole, list, ne, side: await rect('#atlas-side'), bar: await rect('#atlas-step'), next: await rect('#atlas-step-next'),
     nextHit: await page.evaluate(() => { const r = document.getElementById('atlas-step-next').getBoundingClientRect(), e = document.elementFromPoint(r.right - 4, r.top + r.height / 2); return !!e && !!e.closest('#atlas-step-next'); }) };
+  out.openNe = ne && await rect('#atlas-rail-ne'); out.openList = await rect('#atlas-rail-list'); out.zoom = await rect('.zoom');
   await page.click('#atlas-step-next');
   await page.waitForTimeout(200);
   out.after = (await state(page, false)).seq.view.step;
+  // The last step: the longest sentence of the bar in the sequence of this repository.
+  const n = out.whole.seq.view.n;
+  for (let i = 3; i < n; i++) { await page.click('#atlas-step-next'); await page.waitForTimeout(150); }
+  await page.waitForTimeout(600);
+  out.late = { step: (await state(page, false)).seq.view.step, bar: await rect('#atlas-step'), ne: await rect('#atlas-rail-ne'), list: await rect('#atlas-rail-list'), zoom: await rect('.zoom'), side: await rect('#atlas-side') };
   await page.close();
   return out;
 }

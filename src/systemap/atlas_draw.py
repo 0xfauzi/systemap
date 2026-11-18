@@ -256,7 +256,8 @@ function stepEnds(g, m, list, L, alpha, a, ox, oy, s, w, r) {
 // The labels at rest (`seatsOf`), with a constant size on the screen. A label has a halo
 // in the color of the ground.
 // While a light is on the map, the labels of the lines that go back fade out, and the
-// labels of the lit lines draw with the lit lines (`drawLitLabels`).
+// labels of the lit lines draw with the lit lines (`drawLitLabels`). A label of a sequence
+// with `hide` shows only at its step and after it (`seatsOf` in `atlas_lines`).
 function drawLabels(m, id, a, ox, oy, alpha) {
   var fs = q(labelPx(a)), lit = litOf(m);
   if (fs < textMin() || alpha <= 0.02) return;
@@ -266,6 +267,7 @@ function drawLabels(m, id, a, ox, oy, alpha) {
   var steps = stepping(m);
   seats.list.forEach(function (s) {
     var st = steps ? stepState(m, s.e.f.i) : '', x = ox + a * s.x, y = oy + a * s.y + fs * 0.34;
+    if (s.hide && st !== 'now' && st !== 'was') return;
     var la = alpha * (lit && lit.focus && !lit.step ? 1 - DIM : 1) * (st === 'later' ? LATER_A : 1);
     if (x < -200 || x > W + 200 || y < -20 || y > H + 20 || la <= 0.02) return;
     ctx.globalAlpha = la; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
@@ -294,8 +296,8 @@ function cardBox(c, x, y, w, h, alpha, qv) {
   FILL.rect(actor ? C['--map'] : C['--card'], alpha * t * (actor ? 1 : live), x, y, w, h, r);
   LINE.rect(ink ? C['--ink'] : actor && !qv ? C['--ink-3'] : C['--line-2'], alpha * t * (1 - 0.3 * qv), x, y, w, h, r, 1);
 }
-// The text of a card: the name, the short name below it at a scale of 0.95 or more, and
-// the tag of the kind. The sizes follow the scale `a` of the map, to a limit.
+// The text of a card: the name, the short name below it at a scale of 0.95 or more, the
+// tag of the kind, and in the Sequences view the tag of its part in the step (`seqTag`). The sizes follow the scale `a` of the map, to a limit.
 function cardText(c, x, y, w, h, alpha, qv) {
   var lit = litOf(c.map);
   if (lit || c === SEL || HOT.c === c) { alpha *= backCard(lit, c); if (inkCard(c)) qv = 0; }
@@ -308,6 +310,12 @@ function cardText(c, x, y, w, h, alpha, qv) {
   if (c.k !== 'actor' && c.k !== 'component') {
     var ks = q(8.5 * u), kw = (unitWidth(c.k.toUpperCase(), 500, true) + 0.09 * c.k.length) * ks;
     caps(c.k, x + w - 9 * u - thumb - kw, y + 14 * u, ks, C['--ink-3'], t * (1 - 0.5 * qv), 0.09);
+  }
+  var tag = seqTag(c);
+  if (tag) {
+    var gs = q(8.5 * u), gw = (unitWidth(tag.toUpperCase(), 500, true) + 0.09 * tag.length) * gs;
+    caps(tag, x + w - 9 * u - thumb - gw, y + h - 9 * u, gs, tag === 'acts' ? C['--ink'] : C['--ink-2'], t, 0.09);
+    if (DLOG) logged({t: 'tag', id: c.id, s: tag});
   }
   var mid = y + h / 2, base = mid - 1.5 * u + (1 - far * (1 - qv)) * 6 * u;
   text(fit(c.id, ns, right, 600), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600);

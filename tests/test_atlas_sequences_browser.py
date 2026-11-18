@@ -79,6 +79,37 @@ Acceptance values of the repair after the review, written before the first run o
     button of the list. The list of the map of this repository gives "All N entry points of
     this map have a sequence." when each entry point has a sequence. On a phone the
     headline gives the count of steps and "starts at" and the entry point.
+
+Acceptance values of the second repair after the review, written before the first run on
+2026-11-18. Acceptance 13 changes: a label beside its line touches it, so 64 px becomes
+6 px.
+
+13. (changed) Each label on the screen whose line draws is 6 px or less from its own line,
+    and a label more than 4 px from its line has no other line nearer than half the height
+    of its box less 1 px. The same on the nested fixture at 1440 x 900.
+19. The bar with the details open (1440 x 900 and 1000 x 800, at step 3 and at the last
+    step): the bar does not cover the list, the entry points with no sequence or the zoom
+    control. The same at the whole route with no details.
+20. At 1440 x 900 the bar of the whole route is 808 px wide outside.
+21. At 1440 x 900, in each sequence of the map of this repository, at the whole route and
+    at each step: the frame of the map is fully above the bar.
+22. In the sequence "Make the initial map", at 1440 x 900 at the whole route, the label of
+    step 1 is on a horizontal part of its line.
+23. A label that shows only at its step (`hide`) does not show at the whole route, and at a
+    step it shows only when its step is the current step or an earlier step.
+24. On a phone in the diagram form, each card name and each flow label is 9 px high or
+    more, and the row of the current step is fully in the part of the screen of the
+    diagram. The current name of the list has an opaque background.
+25. A pointer on a card of a later step at step 2 gives the usual light of that card (not
+    the light of the step), and the light of step 2 comes back when the pointer goes.
+26. The Reduce motion control of the header: the line of the first step is fully drawn
+    50 ms after Start. The diagram draws again at a change of the screen size, in the new
+    width. A sequence with `dr` gives "agent draft, source review necessary" in the
+    headline.
+27. The tags of the cards at step 2 of the first sequence: "acts" on each acting card of
+    the step, "measures" on each measurement card that does not act, and "start" on the
+    first card of the sequence when it has no other tag. The first card is the recorded
+    start when it is a card, else the first acting card or the source of the first flow.
 """
 
 from __future__ import annotations
@@ -139,6 +170,7 @@ def nested_page(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[st
         1, {"f": -1, "a": ["Views"], "y": "The views make the page."}
     )
     data["maps"][0]["ne"] = {"t": 9, "c": 4, "x": MISSING, "mo": 2}
+    data["maps"][1]["sq"][0]["dr"] = 1
     top = data["maps"][0]["sq"][0]["s"]
     top.append({**top[0], "y": "The first flow again."})
     return _write(root / "atlas.html", cfg, tree, data), data
@@ -438,7 +470,7 @@ def labelled(
     request: pytest.FixtureRequest, self_page: tuple[Path, dict[str, Any]]
 ) -> dict[str, Any]:
     w, h = request.param
-    return _drive_size("--labels", self_page[0], w, h)
+    return {"w": w, **_drive_size("--labels", self_page[0], w, h)}
 
 
 def _drive_size(mode: str, page: Path, w: int, h: int) -> dict[str, Any]:
@@ -465,9 +497,9 @@ def test_each_step_label_is_at_its_own_line(
         for lab in run["labels"]:
             seen += 1
             where = (run["k"], run["step"], lab)
+            assert lab["own"] <= 6, where
             if lab["own"] <= 4:
                 continue
-            assert lab["own"] <= 64, where
             assert lab["other"] >= lab["h"] / 2 - 1, where
     assert seen > 0
 
@@ -502,11 +534,12 @@ def test_the_bar_with_the_details_open(opened: dict[str, Any]) -> None:
 def test_the_list_and_the_entry_points_fit(opened: dict[str, Any]) -> None:
     """Acceptance 16."""
     lst, ne = opened["list"]["box"], opened["ne"]
-    bar = opened["whole"]["seq"]["view"]["bar"]["box"]
+    bar = opened["bar"]
     assert lst["height"] > 0 and lst["top"] >= 0
     assert ne["height"] > 0 and ne["top"] >= lst["bottom"] and ne["bottom"] <= opened["h"]
     assert ne["bottom"] <= bar["top"] or ne["right"] <= bar["left"]
     if opened["w"] < 1181:
+        bar = opened["whole"]["seq"]["view"]["bar"]["box"]
         assert ne["bottom"] <= bar["top"]
         frame, rail = opened["whole"]["frame"], opened["whole"]["seq"]["view"]["railBox"]
         assert frame[0] >= rail["right"] and frame[1] + frame[3] <= bar["top"]
@@ -533,3 +566,146 @@ def test_more_keys_and_texts(self_page: tuple[Path, dict[str, Any]], wide: dict[
         assert wide["whole"]["seq"]["view"]["ne"] == (
             f"All {ne['t']} entry points of this map have a sequence."
         )
+
+
+def _apart(a: dict[str, float], b: dict[str, float]) -> bool:
+    return (
+        a["right"] <= b["left"] + 0.5
+        or b["right"] <= a["left"] + 0.5
+        or a["bottom"] <= b["top"] + 0.5
+        or b["bottom"] <= a["top"] + 0.5
+    )
+
+
+def test_the_bar_covers_no_list(opened: dict[str, Any]) -> None:
+    """Acceptance 19."""
+    whole = opened["whole"]["seq"]["view"]
+    states = [
+        (opened["bar"], opened["openNe"], opened["openList"], opened["zoom"]),
+        (
+            opened["late"]["bar"],
+            opened["late"]["ne"],
+            opened["late"]["list"],
+            opened["late"]["zoom"],
+        ),
+        (whole["bar"]["box"], opened["ne"], opened["list"]["box"], opened["zoom"]),
+    ]
+    assert opened["late"]["step"] == whole["n"] - 1 and opened["late"]["side"]["width"] > 0
+    for bar, ne, lst, zoom in states:
+        for other in (ne, lst, zoom):
+            if other["width"] > 0:
+                assert _apart(bar, other), (bar, other)
+
+
+def test_the_bar_width(wide: dict[str, Any]) -> None:
+    """Acceptance 20."""
+    assert abs(wide["whole"]["seq"]["view"]["bar"]["box"]["width"] - 808) < 1
+
+
+def test_the_frame_stays_above_the_bar(labelled: dict[str, Any]) -> None:
+    """Acceptance 21."""
+    if labelled["w"] != 1440:
+        pytest.skip("acceptance 21 is for 1440 x 900")
+    for run in labelled["runs"]:
+        frame = run["frame"]
+        assert frame[1] + frame[3] <= run["barTop"] + 1, (run["k"], run["step"], frame, run["bar"])
+
+
+def test_the_first_label_is_on_a_horizontal_part(
+    self_page: tuple[Path, dict[str, Any]], labelled: dict[str, Any]
+) -> None:
+    """Acceptance 22."""
+    if labelled["w"] != 1440:
+        pytest.skip("acceptance 22 is for 1440 x 900")
+    ids = [q["id"] for q in _top_sq(self_page[1]) if q["n"] == "Make the initial map"]
+    if not ids:
+        pytest.skip("the map has no sequence Make the initial map")
+    runs = [r for r in labelled["runs"] if r["name"] == ids[0] and r["step"] == -1]
+    assert len(runs) == 1
+    first = [lab for lab in runs[0]["labels"] if lab["s"].startswith("1 ")]
+    assert first and first[0]["flat"], first
+
+
+def test_hidden_labels_show_at_their_step(labelled: dict[str, Any]) -> None:
+    """Acceptance 23."""
+    for run in labelled["runs"]:
+        hidden = set(run["hidden"])
+        for lab in run["labels"]:
+            if lab["f"] not in hidden or lab["t"] != "label":
+                continue
+            assert run["step"] >= 0 and lab["step"] in ("now", "was"), (run["k"], run["step"], lab)
+
+
+def test_the_labels_of_a_nested_map(nested_page: tuple[Path, dict[str, Any]]) -> None:
+    """Acceptance 13 on the nested fixture."""
+    run = _drive_size("--labels", nested_page[0], 1440, 900)
+    seen = 0
+    for r in run["runs"]:
+        for lab in r["labels"]:
+            seen += 1
+            assert lab["own"] <= 6, (r["map"], r["k"], r["step"], lab)
+            if lab["own"] > 4:
+                assert lab["other"] >= lab["h"] / 2 - 1, (r["map"], r["k"], r["step"], lab)
+        for line in r["lit"]:
+            assert line["free"] >= min(20, line["all"] / 2), (r["map"], r["step"], line)
+    assert seen > 0
+
+
+def test_the_phone_diagram(self_page: tuple[Path, dict[str, Any]]) -> None:
+    """Acceptance 24."""
+    run = _drive("--phone", self_page[0])
+    for scheme in ("light", "dark"):
+        r = run[scheme]
+        assert "rgba" not in r["step"]["railBg"] or r["step"]["railBg"].endswith(", 1)")
+        board = r["diagram"]["seq"]["board"]
+        assert board["on"] is True and board["texts"]
+        assert min(board["texts"]) >= 9, board["texts"]
+        view = board["view"]
+        cur = [row for row in board["rows"] if row["current"] == "step"]
+        assert len(cur) == 1
+        box = cur[0]["box"]
+        assert box["top"] >= view["top"] - 1 and box["bottom"] <= view["bottom"] + 1, (box, view)
+
+
+def test_a_pointer_during_a_step(wide: dict[str, Any]) -> None:
+    """Acceptance 25."""
+    p = wide["pointed"]
+    if p is None:
+        pytest.skip("the first sequence has no flow after step 2")
+    assert p["on"]["step"] is False and p["card"] in p["on"]["cards"]
+    assert p["off"]["step"] is True
+    assert p["off"]["flows"] == wide["second"]["lit"]["flows"]
+
+
+def test_the_motion_control_the_resize_and_a_draft(
+    self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any], nested: dict[str, Any]
+) -> None:
+    """Acceptance 26."""
+    run = _drive("--motion", self_page[0])
+    assert run["button"]["errors"] == [] and run["button"]["pressed"] == "true"
+    assert run["button"]["parts"] == [1]
+    before, after = wide["diagram"]["seq"]["board"], wide["resized"]["seq"]["board"]
+    assert after["on"] is True and after["nodes"] and before["nodes"]
+    assert after["view"]["right"] <= 1000 and after["view"]["width"] < before["view"]["width"]
+    assert after["nodes"][0]["box"] != before["nodes"][0]["box"]
+    assert "agent draft, source review necessary" in nested["chosen"]["view"]["counts"]
+
+
+def test_the_tags_of_the_cards(
+    self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]
+) -> None:
+    """Acceptance 27."""
+    top = self_page[1]["maps"][0]
+    q = _top_sq(self_page[1])[0]
+    st = q["s"][1]
+    want = {c: "measures" for c in st.get("me", [])}
+    want.update({c: "acts" for c in st.get("a", [])})
+    first = q["s"][0]
+    cards = {c["id"] for c in top["cards"]}
+    start = q.get("st") if q.get("st") in cards else (first.get("a") or [None])[0]
+    if not start and first["f"] >= 0:
+        start = top["flows"][first["f"]]["s"]
+    if start and start not in want:
+        want[start] = "start"
+    got = {m["id"]: m["s"] for m in _drawn(wide["second"], "tag")}
+    assert got == want

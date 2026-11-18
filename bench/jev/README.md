@@ -7448,3 +7448,15 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 509 / 439 (pass) | 16.8 / 33.3 (pass) | 49.9 / 33.4 (pass) | 1,236,352 / 1,163,846 = 0.94 (pass) | 78 (pass) |
 
 Result: PASS for each value. The atlas pages grew by about 3,600 bytes. The time from a pointer move to the lit paths is 77 to 85 ms, against 66 to 68 ms in B6 and a limit of 100 ms. The Map view has no change in this part of the script, so one run is not sufficient to show a cause. The budget does not measure the Sequences view.
+
+## B8: the performance budget of the atlas page, stage 3 after the second review (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 3 page after the repairs of the second review. The change that can affect the Map view: the search for the place of a label on a part of a line tries each twentieth of the part after the seven places of the study (`SEAT_T` in `atlas_lines`). A card in the Sequences view can have a tag (`seqTag`). The diagram is in a part of the screen that scrolls. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 320 / 294 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 315,781 / 257,070 = 0.81 (pass) | 77 (pass) |
+| workspace | 350 / 284 (pass) | 33.3 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,900 / 203,940 = 0.76 (pass) | 68 (pass) |
+| M11 tree | 450 / 423 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 1,236,352 / 1,167,973 = 0.94 (pass) | 75 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 4,100 bytes. The budget does not measure the Sequences view.

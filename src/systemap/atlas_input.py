@@ -372,7 +372,7 @@ requestAnimationFrame(function () { setTimeout(buildTree, 0); });
 // The screen boxes of the labels at rest of map m in the layer of the frame.
 function restLabels(m) {
   var v = view(m), s = seatsOf(m, shownLayer(m), v.a);
-  return s ? s.list.map(function (x) { return {s: x.e.s, f: x.e.f.i, x: v.ox + v.a * x.x, y: v.oy + v.a * x.y}; }) : [];
+  return s ? s.list.map(function (x) { return {s: x.e.s, f: x.e.f.i, x: v.ox + v.a * x.x, y: v.oy + v.a * x.y, hide: !!x.hide}; }) : [];
 }
 function linesState(id) {
   var m = MAPS[id], L = linesOf(m, shownLayer(m));
@@ -417,7 +417,7 @@ window.systemapCanvas = {
   keys: keyState,
   // The light, the reading line and the details (`atlas_lit`, `atlas_details`).
   lit: function () {
-    return {key: LIGHT.key, map: LIGHT.m ? LIGHT.m.id : null, focus: LIGHT.focus, dim: DIM, shown: LIT_SHOWN,
+    return {key: LIGHT.key, map: LIGHT.m ? LIGHT.m.id : null, focus: LIGHT.focus, step: !!LIGHT.step, dim: DIM, shown: LIT_SHOWN,
       flows: LIGHT.flows ? Array.prototype.reduce.call(LIGHT.flows, function (o, v, i) { if (v) o.push(i); return o; }, []) : [],
       cards: LIGHT.cards ? Object.keys(LIGHT.cards) : [], pin: PIN ? PIN.i : null, hot: HOT.c ? HOT.c.id : HOT.f ? HOT.f.i : null, from: HOT.from};
   },

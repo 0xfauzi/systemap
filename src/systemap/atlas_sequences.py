@@ -16,13 +16,13 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   phone. The list is under the headline at its height (`--ask-b`).
 - A sequence is a layer of its map with only the flows of its steps (`layerFlags` in
   `atlas_view`, with the ID "q:" and the index of the sequence). The label of each line
-  has the numbers of its steps before the artifact (`seqLabel`), and each line of the
-  route has a label (`seatsOf` in `atlas_lines`). The cards that no step uses are quiet. The
+  has the numbers of its steps before the artifact (`seqLabel`). A label is on its line or
+  beside it and touching it. A label with no such place at rest shows only at its step and
+  after it, as in the design study (`seatsOf` in `atlas_lines`). The cards that no step uses are quiet. The
   other maps keep the layer of the Map view. A choice moves the camera to the fit of the
   map of the sequence, with the list at the left and the bar at the bottom free.
 - The bar at the bottom has the two forms (On the map, As a diagram), the step count, a dot
-  for each step, the sentence of the step and the step controls. When the details are
-  open at the side, the bar is in the width at their left. At the start no step
+  for each step, the sentence of the step and the step controls. At the start no step
   shows: the bar gives "Whole route". Next goes to the next step, and Done after the last
   step goes back to the whole route.
 - The step state. The current step is the light of the map (`lightSource` in `atlas_lit`):
@@ -30,10 +30,20 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   cards get the outline of the ink. Earlier steps are dark (`--ink-2`). Later steps are
   faint (LATER_A). The other cards and lines do not go back. A pointer on a card or a line
   gives the usual light, and the step state shows again when the pointer goes.
+- The tags of the cards, as on the canvas page: ACTS on an acting card of the current step,
+  MEASURES on its measurement card, and START on the first card of the sequence (`seqTag`).
+  The live region also gives the acting and the measurement cards of the step.
 - A step with no flow (`f` is -1) has no line. The bar gives "This step has no flow" and its
   acting cards, and these cards get the outline of the ink.
 - When the cards of the step are not fully on the free part of the screen, the camera moves
-  to them at the same zoom, or at a smaller zoom when they do not fit (`stepCamera`).
+  to them at the same zoom, or at a smaller zoom when they do not fit (`stepCamera`). When
+  the new sentence makes the bar taller and the bar then covers the frame of the map that
+  was fully above it, the camera goes to the fit again (`frameBottom`).
+- The bar. On a wide screen the bar is in the width at the right of the list, so that it
+  does not cover the list or the entry points. With the details open, it is between the
+  list and the details, and the sentence has its own row. On a middle screen with the
+  details open, it is in the width at the left of the details, and the list is above it.
+  Its inner width is the width of the study (780 px).
 - The left and right arrow keys change the step, also while a button has the keyboard
   focus. In this view they do not pan the map. The live region gives the sequence at
   a choice and the step at a change.
@@ -45,6 +55,10 @@ each step, with the step state of the map form. The current step has the color o
 of its flow, earlier steps are dark, and later steps are faint. Each row is a button: a
 click, Enter or Space goes to that step. A step with no flow has its number in the column
 of its first acting card and the words "No flow".
+
+The diagram has a scale of BOARD_MIN or more, so that its text can be read. When it is
+larger than its part of the screen at that scale (a phone), that part scrolls, and a change
+of the step scrolls the row of the current step into view (`boardShow`).
 
 The diagram is SVG, not canvas: it does not zoom (docs/design/atlas.md, "The architecture").
 The script makes it with DOM functions. It sets the color of a kind with the style object
@@ -94,7 +108,7 @@ text-transform:uppercase;color:var(--ink-3)}
 .rail__ne ul{margin:0;padding:0;list-style:none;display:grid;gap:3px}
 .rail__ne code{font:400 11px/1.4 var(--fm);color:var(--ink-2);overflow-wrap:anywhere}
 .rail__ne p{margin:0}
-.stepper{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(780px,calc(100% - 32px));
+.stepper{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(808px,calc(100% - 32px));
 box-sizing:border-box;display:none;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-radius:14px;background:var(--surface);
 border:1px solid var(--line);box-shadow:var(--shadow);z-index:2}
 body[data-mode="seq"] .stepper{display:flex}
@@ -119,10 +133,13 @@ transition:background .12s,color .12s,transform .12s}
 .dots2 i.now{background:var(--ink);transform:scale(1.35)}
 body[data-mode="seq"][data-form="diagram"] #canvas{visibility:hidden}
 body[data-mode="seq"][data-form="diagram"] .zoom{display:none}
-@media (min-width:721px){
-body.open[data-mode="seq"] .stepper{left:calc((100% - 380px) / 2);width:min(780px,calc(100% - 412px))}
+@media (min-width:1181px){
+body[data-mode="seq"] .stepper{left:calc(50% + 166px);width:min(808px,calc(100% - 364px))}
+body.open[data-mode="seq"] .stepper{left:calc(50% - 24px);width:min(808px,calc(100% - 744px));flex-wrap:wrap}
+body.open[data-mode="seq"] .stepper p{flex-basis:100%;order:3}
 }
 @media (min-width:721px) and (max-width:1180px){
+body.open[data-mode="seq"] .stepper{left:calc((100% - 380px) / 2);width:min(808px,calc(100% - 412px))}
 body[data-mode="seq"] .rail{top:calc(var(--ask-b,248px) + 24px);bottom:calc(var(--bar-h,62px) + 84px)}
 body.open[data-mode="seq"] .stepper{flex-wrap:wrap}body.open[data-mode="seq"] .stepper p{flex-basis:100%;order:3}
 body[data-mode="seq"] .zoom{bottom:calc(var(--bar-h,62px) + 36px)}
@@ -133,6 +150,7 @@ padding-bottom:4px;scrollbar-width:thin}
 .rail__list{flex-direction:row;gap:6px;flex:none;overflow:visible;background:none}
 body[data-mode="seq"] .ask__n{display:block;margin-top:4px}
 .rail button{margin:0;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+.rail button:hover,.rail button[aria-current="true"]{background:linear-gradient(var(--tint),var(--tint)),var(--surface)}
 .rail__g{display:none}
 .rail__ne{margin:0;flex:none;max-width:260px;max-height:none;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .rail__ne ul{display:block}.rail__ne li{display:inline}.rail__ne li+li::before{content:", "}
@@ -145,7 +163,7 @@ body[data-mode="seq"] .zoom{display:none}
 SEQ = r"""
 // ---- the Sequences view: the state -----------------------------------------------------
 var SEQ_MAPS = ORDER.filter(function (m) { return m.sq && m.sq.length; });
-var SEQ = {m: null, k: 0, step: -1, form: 'map', first: null, nums: null}, LATER_A = 0.4;
+var SEQ = {m: null, k: 0, step: -1, form: 'map', first: null, nums: null, tagKey: '', tags: null}, LATER_A = 0.4;
 var RAIL = document.getElementById('atlas-rail'), RAIL_LIST = document.getElementById('atlas-rail-list'), RAIL_NE = document.getElementById('atlas-rail-ne');
 var BAR = document.getElementById('atlas-step'), BAR_N = document.getElementById('atlas-step-n'), BAR_DOTS = document.getElementById('atlas-step-dots');
 var BAR_P = document.getElementById('atlas-step-p'), BAR_PREV = document.getElementById('atlas-step-prev'), BAR_NEXT = document.getElementById('atlas-step-next');
@@ -204,6 +222,32 @@ function stepSource(m) {
   return {m: m, c: null, f: f, step: 'q' + m.oi + ':' + SEQ.k + ':' + SEQ.step, cards: (st.a || []).concat(st.me || [])};
 }
 
+// The tag of card c in the Sequences view, as on the canvas page: 'acts' for an acting card
+// of the current step, 'measures' for its measurement card, and 'start' for the first card
+// of the sequence (the recorded start `st`, else the first acting card or the source of the
+// first flow). Else ''.
+function seqTag(c) {
+  var m = c.map;
+  if (!seqShown() || SEQ.m !== m || SEQ.form !== 'map' || shownLayer(m) !== 'q:' + SEQ.k) return '';
+  var key = SEQ.k + ':' + SEQ.step;
+  if (SEQ.tagKey !== key) { SEQ.tagKey = key; SEQ.tags = seqTags(m, seqJ(), SEQ.step); }
+  return SEQ.tags[c.id] || '';
+}
+function seqTags(m, j, n) {
+  var out = Object.create(null), cur = n >= 0 ? j.s[n] : null, start = seqStart(m, j);
+  if (cur) {
+    (cur.me || []).forEach(function (id) { out[id] = 'measures'; });
+    (cur.a || []).forEach(function (id) { out[id] = 'acts'; });
+  }
+  if (start && !out[start]) out[start] = 'start';
+  return out;
+}
+function seqStart(m, j) {
+  if (j.st && m.byId[j.st]) return j.st;
+  var first = j.s[0], f = first && first.f >= 0 ? m.flows[first.f] : null;
+  return first ? ((first.a || [])[0] || (f ? f.s : '')) : '';
+}
+
 // ---- the list ---------------------------------------------------------------------------
 function railWrite() {
   if (!RAIL_LIST) return;
@@ -233,6 +277,10 @@ function railSync() {
 }
 
 // ---- the bar -----------------------------------------------------------------------------
+// The acting cards and the measurement cards of step st for the live region.
+function roleWords(st) {
+  return ((st.a || []).length ? ' Acts: ' + st.a.join(', ') + '.' : '') + ((st.me || []).length ? ' Measures: ' + st.me.join(', ') + '.' : '');
+}
 function cardNames(ids) { return ids.length ? ids.join(', ') : 'no card'; }
 function barWrite() {
   if (!BAR || !SEQ.m) return;
@@ -295,7 +343,7 @@ function seqChanged(from) {
 // Show sequence k of map m. `camera` moves the camera to the fit of its map.
 function seqChoose(m, k, camera) {
   var from = viewNow(), same = SEQ.m === m && SEQ.k === k;
-  SEQ.m = m; SEQ.k = k; SEQ.step = -1; SEQ.first = Object.create(null);
+  SEQ.m = m; SEQ.k = k; SEQ.step = -1; SEQ.first = Object.create(null); SEQ.tagKey = '';
   m.sq[k].s.forEach(function (st, n) { if (st.f >= 0 && SEQ.first[st.f] === undefined) SEQ.first[st.f] = n; });
   HOT = {c: null, f: null, from: ''}; PIN = null;
   railSync(); barWrite();
@@ -311,11 +359,22 @@ function stepTo(n) {
   if (!j) return;
   n = clamp(n, -1, j.s.length - 1);
   if (n === SEQ.step) return;
+  var fb = frameBottom(), was = seqFree().y1;
   SEQ.step = n; HOT = {c: null, f: null, from: ''}; PIN = null;
   VIEW.epoch++; barWrite(); speak(); lightMoved();
-  if (SEQ.form === 'diagram') boardDraw(); else if (n >= 0) stepCamera();
+  if (SEQ.form === 'diagram') boardDraw();
+  else if (fb !== null && fb <= was + 1 && fb > seqFree().y1 + 1) fitSeq();
+  else if (n >= 0) stepCamera();
   var st = n >= 0 ? j.s[n] : null, f = stepFlow(n);
-  say(st ? 'Step ' + (n + 1) + ' of ' + j.s.length + ': ' + (f ? f.s + ' to ' + f.t + ', ' + f.a + '. ' : 'No flow. ') + (st.y || 'This step has no sentence.') : 'Whole route of ' + j.n + '.');
+  say(st ? 'Step ' + (n + 1) + ' of ' + j.s.length + ': ' + (f ? f.s + ' to ' + f.t + ', ' + f.a + '. ' : 'No flow. ') + (st.y || 'This step has no sentence.') + roleWords(st) : 'Whole route of ' + j.n + '.');
+}
+// The bottom of the frame of the map of the sequence on the screen, or null while the camera
+// moves or is in a different map, and on a phone, where the fit shows only a part of the map. When a taller bar covers a frame that was fully above
+// the old bar, the step makes the fit again (`stepTo`).
+function frameBottom() {
+  if (W <= WIDE || flight || currentMap() !== SEQ.m || SEQ.form !== 'map') return null;
+  var b = frameOf(SEQ.m);
+  return (b[1] + b[3] - cam.y) * cam.k;
 }
 // The cards of step n: the two cards of its flow, or its acting and measurement cards.
 function stepCards(n) {
@@ -392,14 +451,16 @@ function seqState() {
 """
 
 BOARD_HTML = (
-    '<svg id="atlas-board" class="board" role="group" aria-label="Sequence diagram">'
-    '<g id="atlas-bworld"></g></svg>'
+    '<div id="atlas-board" class="board" role="group" aria-label="Sequence diagram">'
+    '<svg id="atlas-bsvg"><g id="atlas-bworld"></g></svg></div>'
 )
 
 BOARD_CSS = """
-.board{position:fixed;inset:0;width:100%;height:100%;display:none;pointer-events:none;z-index:1}
+.board{position:fixed;left:var(--board-x,0px);top:var(--board-y,0px);width:var(--board-w,100%);height:var(--board-h,100%);display:none;
+overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;z-index:1}
+.board svg{display:block}
 body[data-mode="seq"][data-form="diagram"] .board{display:block}
-.board .qrow{pointer-events:auto;cursor:pointer;outline:none}
+.board .qrow{cursor:pointer;outline:none}
 .board .qrow rect{fill:transparent}
 .board .qrow:hover rect{fill:var(--tint)}
 .board .qrow:focus-visible rect{fill:var(--tint);stroke:var(--brand);stroke-width:2}
@@ -425,7 +486,11 @@ body[data-mode="seq"][data-form="diagram"] .board{display:block}
 
 BOARD = r"""
 // ---- the Sequences view: the diagram ---------------------------------------------------
-var BOARD = document.getElementById('atlas-board'), BWORLD = document.getElementById('atlas-bworld'), SVG_NS = 'http://www.w3.org/2000/svg';
+var BOARD = document.getElementById('atlas-board'), BSVG = document.getElementById('atlas-bsvg'), BWORLD = document.getElementById('atlas-bworld'), SVG_NS = 'http://www.w3.org/2000/svg';
+// The smallest scale of the diagram. At this scale a card name is 9.75 px high and a flow
+// label 9 px. When the diagram is larger than its part of the screen at this scale, that
+// part scrolls (a phone), and a change of the step scrolls the current row into view.
+var BOARD_MIN = 0.75;
 function sv(tag, attrs, parent, text) {
   var e = document.createElementNS(SVG_NS, tag);
   for (var k in attrs) if (attrs[k] !== null && attrs[k] !== undefined) e.setAttribute(k, attrs[k]);
@@ -456,9 +521,13 @@ function boardDraw() {
   var bw = Math.max(0, parts.length - 1) * CW + NW, bh = TOPY + j.s.length * RH + 10, g = seqFree();
   // A wide screen: at the right of the list. A middle screen: at the right of the list and
   // under the headline. A phone: under the row of the list.
-  var left = W > WIDE ? Math.max(g.x0, wide ? 350 : 0) : 16, top = wide ? HEAD_H + 40 : W > WIDE ? ASK_EL.getBoundingClientRect().bottom + 16 : g.y0 + 8, aw = W - left - 30, ah = g.y1 - top - 8, k = Math.min(1.2, aw / bw, Math.max(1, ah) / bh);
-  BWORLD.setAttribute('transform', 'translate(' + (left + (aw - bw * k) / 2) + ' ' + (top + Math.max(0, ah - bh * k) / 2) + ') scale(' + k + ')');
+  var left = W > WIDE ? Math.max(g.x0, wide ? 350 : 0) : 16, top = wide ? HEAD_H + 40 : W > WIDE ? ASK_EL.getBoundingClientRect().bottom + 16 : g.y0 + 8;
+  var aw = Math.max(1, W - left - (W > WIDE ? 30 : 16)), ah = Math.max(1, g.y1 - top - 8), k = Math.max(BOARD_MIN, Math.min(1.2, aw / bw, ah / bh));
+  var tx = Math.max(12 * k, (aw - bw * k) / 2), ty = Math.max(0, (ah - bh * k) / 2);
+  boardBox(left, top, aw, ah, Math.max(aw, tx + (bw + 12) * k), Math.max(ah, ty + (bh + 4) * k));
+  BWORLD.setAttribute('transform', 'translate(' + tx + ' ' + ty + ') scale(' + k + ')');
   function X(id) { var i = parts.indexOf(id); return NW / 2 + Math.max(0, i) * CW; }
+  BOARD.scale = k;
   parts.forEach(function (id) {
     var c = m.byId[id], x = X(id), w = Math.min(NW, CW - 14), ng = sv('g', {'class': 'fnode'}, BWORLD), n = Math.floor((w - 16) / 7.6);
     sv('path', {d: 'M' + x + ' ' + NH + 'V' + bh, 'class': 'qlife'}, BWORLD);
@@ -469,7 +538,7 @@ function boardDraw() {
     var f = st.f >= 0 ? m.flows[st.f] || null : null, y = TOPY + i * RH, cls = i === SEQ.step ? ' lit' : i < SEQ.step ? ' done' : '';
     var row = sv('g', {'class': 'qrow', role: 'button', tabindex: '0', 'data-step': i, 'aria-label': rowWords(m, j, i), 'aria-current': i === SEQ.step ? 'step' : null}, BWORLD);
     sv('rect', {x: -10, y: y - RH / 2 + 4, width: bw + 20, height: RH - 8, rx: 8}, row);
-    var eg = sv('g', {'class': 'sedge' + cls, 'aria-hidden': 'true'}, BWORLD), x1 = f ? X(f.s) : X((st.a || [])[0] || (st.me || [])[0] || parts[0]);
+    var eg = sv('g', {'class': 'sedge' + cls, 'aria-hidden': 'true'}, BWORLD), x1 = X(boardX(m, st, parts));
     if (f) eg.style.setProperty('--k', 'var(' + (KIND[f.k] || '--ink-2') + ')');
     if (f) {
       var x2 = X(f.t), dir = x2 >= x1 ? 1 : -1;
@@ -481,6 +550,24 @@ function boardDraw() {
     sv('circle', {cx: x1, cy: y, r: 10}, bead); sv('text', {x: x1, y: y + 3.6}, bead, String(i + 1));
   });
   if (had !== null) { var back = BWORLD.querySelector('[data-step="' + had + '"]'); if (back) back.focus({preventScroll: true}); }
+  if (SEQ.step >= 0) boardShow(tx + X(boardX(m, j.s[SEQ.step], parts)) * k, ty + (TOPY + SEQ.step * RH) * k, RH * k);
+}
+// The part of the screen of the diagram (x, y, w, h) and the size of its content (cw, ch).
+function boardBox(x, y, w, h, cw, ch) {
+  [['--board-x', x], ['--board-y', y], ['--board-w', w], ['--board-h', h]].forEach(function (v) { BOARD.style.setProperty(v[0], v[1] + 'px'); });
+  BSVG.setAttribute('width', Math.ceil(cw)); BSVG.setAttribute('height', Math.ceil(ch));
+}
+// The column of the bead of a step: the source of its flow, or its first acting card.
+function boardX(m, st, parts) {
+  var f = st.f >= 0 ? m.flows[st.f] : null;
+  return f ? f.s : (st.a || [])[0] || (st.me || [])[0] || parts[0];
+}
+// Scroll the diagram when the row of the current step (at x, y, of height h in the content)
+// is not fully in view.
+function boardShow(x, y, h) {
+  var vw = BOARD.clientWidth, vh = BOARD.clientHeight;
+  if (y - h / 2 < BOARD.scrollTop || y + h / 2 > BOARD.scrollTop + vh) BOARD.scrollTop = Math.max(0, y - vh / 2);
+  if (x - 20 < BOARD.scrollLeft || x + 20 > BOARD.scrollLeft + vw) BOARD.scrollLeft = Math.max(0, x - vw / 3);
 }
 if (BWORLD) {
   BWORLD.addEventListener('click', function (e) { var r = e.target.closest ? e.target.closest('[data-step]') : null; if (r) stepTo(+r.getAttribute('data-step')); });
@@ -494,7 +581,10 @@ function boardOn() { return seqShown() && SEQ.form === 'diagram'; }
 function boardState() {
   if (!BWORLD) return null;
   var edges = BWORLD.querySelectorAll('.sedge'), rows = BWORLD.querySelectorAll('.qrow');
-  return {on: boardOn() && getComputedStyle(BOARD).display !== 'none', cls: BWORLD.getAttribute('class'),
+  var view = BOARD.getBoundingClientRect().toJSON();
+  return {on: boardOn() && getComputedStyle(BOARD).display !== 'none', cls: BWORLD.getAttribute('class'), k: BOARD.scale || 0, view: view,
+    scroll: [BOARD.scrollWidth, BOARD.scrollHeight, BOARD.clientWidth, BOARD.clientHeight],
+    texts: Array.prototype.map.call(BWORLD.querySelectorAll('.fnode text, .sedge > text'), function (t) { return parseFloat(getComputedStyle(t).fontSize) * (BOARD.scale || 0); }),
     nodes: Array.prototype.map.call(BWORLD.querySelectorAll('.fnode'), function (n) { return {text: n.textContent, box: n.getBoundingClientRect().toJSON()}; }),
     rows: Array.prototype.map.call(rows, function (r, i) {
       var e = edges[i];

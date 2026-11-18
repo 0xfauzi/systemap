@@ -19,11 +19,14 @@ section "Map view: the rules" of docs/design/atlas.md:
   has a constant size on the screen (`labelPx`). The short lines get their places first.
   A line with no such place has no label at rest (`seatsOf`).
 - Sequences. In the layer of a sequence (`atlas_sequences`), the label of each line has the
-  numbers of its steps before the artifact, each line has a label, and the busy layer rule
-  does not apply. A label with no free place on its line goes beside its own line, with no
-  other line in it or near it (`seqSeat`). Thus a label is not on the line of a different
-  step, and it does not cover its own line. Only the last choice of `seqSeat`, the middle
-  of the longest part of the line, can cover the line.
+  numbers of its steps before the artifact, and the busy layer rule does not apply. A label
+  with no free place on its line goes beside its own line and touches it, with no other
+  line in it or near it (`seqSeat`). Thus a label is not on the line of a different step,
+  and it does not cover its own line. A label with no such place does not show at rest, as
+  in the design study. It shows only while its step is the current step or an earlier
+  step (`hide`), at its line: on it, or beside it and touching it (`stepSeat`).
+- The places on a part of a line. The page tries the middle of the part first, then
+  places farther from the middle, in steps of a twentieth of the part (`SEAT_T`).
 
 The script calculates the lanes one time for each map and layer, and the places of the
 labels one time for each map, layer and quarter step of zoom, in the full drawing at rest.
@@ -122,6 +125,14 @@ function crossed(b, list, skip) {
   }
   return false;
 }
+// The places on a part of a line, as fractions of the part: the places of the study first,
+// then each twentieth of the part, the nearest to the middle first.
+var SEAT_T = (function () {
+  var out = [0.5, 0.35, 0.65, 0.22, 0.78, 0.12, 0.88], more = [];
+  for (var n = 1; n < 20; n++) if (out.indexOf(n / 20) < 0) more.push(n / 20);
+  more.sort(function (u, v) { return Math.abs(u - 0.5) - Math.abs(v - 0.5); });
+  return out.concat(more);
+})();
 // A place for the label of line e at the font size fs (in units of the map), or null.
 function seat(e, fs, wall, taken, list) {
   var w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, q = e.q, best = null;
@@ -130,7 +141,7 @@ function seat(e, fs, wall, taken, list) {
   for (var o = 0; o < order.length && !best; o++) {
     var i = order[o], a = q[i], b = q[i + 1];
     if (segLen(q, i) < (flat(i) ? w : hh) + 18) continue;
-    [0.5, 0.35, 0.65, 0.22, 0.78, 0.12, 0.88].forEach(function (t) {
+    SEAT_T.forEach(function (t) {
       if (best) return;
       var cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, box = [cx - w / 2, cy - hh / 2, cx + w / 2, cy + hh / 2];
       if (wall.some(function (c) { return over(box, c); }) || taken.some(function (c) { return over(box, c); })) return;
@@ -139,14 +150,13 @@ function seat(e, fs, wall, taken, list) {
   }
   return best;
 }
-// A place beside line e for its label: the box touches the line, or it is one to NEAR_STEPS
-// label heights farther from it, at a right angle to a part of the line. Thus the label
-// never covers its line. The nearest place comes first, and at the same distance a
-// horizontal part, then the longest part. The box is on no box of `wall` and of `taken`.
-// With `strict`, no other line of `list` is nearer to the box than its own line and
-// NEAR_GAP units. Else no other line is within half a label height and NEAR_GAP units of
-// the box. Null when no such place is free.
-var NEAR_GAP = 3, NEAR_STEPS = 3;
+// A place beside line e for its label: the box touches the line, at a right angle to a part
+// of the line. Thus the label never covers its line, and the reader sees which line it
+// names. A horizontal part comes first, then the longest part. The box is on no box of
+// `wall` and of `taken`. With `strict`, no other line of `list` is nearer to the box than
+// its own line and NEAR_GAP units. Else no other line is within half a label height and
+// NEAR_GAP units of the box. Null when no such place is free.
+var NEAR_GAP = 3, NEAR_STEPS = 0;
 function near(e, fs, wall, taken, list, strict) {
   var w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, q = e.q, parts = [];
   for (var i = 0; i + 1 < q.length; i++) {
@@ -178,11 +188,16 @@ function nearPart(q, part, k, w, hh, wall, taken, list, e, strict) {
 // The place of the label of a line of a sequence that has no free place on its line:
 // beside its line with its own line the nearest (`near`, strict), then on its line with
 // other lines through the label but with a free part of the line at each side (`seat`),
-// then beside its line with no other line in or near the label, then the same on other
-// labels, then on the middle of its longest part.
+// then beside its line with no other line in or near the label. Null when no such place is
+// free: then the label does not show at rest (`stepSeat`).
 function seqSeat(e, fs, wall, taken, list) {
-  var at = near(e, fs, wall, taken, list, true) || seat(e, fs, wall, taken, []) || near(e, fs, wall, taken, list, false) ||
-    near(e, fs, wall, [], list, false);
+  return near(e, fs, wall, taken, list, true) || seat(e, fs, wall, taken, []) || near(e, fs, wall, taken, list, false);
+}
+// The place of a label of a sequence that shows only at its step and after it (`hide`): on
+// its line or beside it and touching it, on no other label. A place on no card comes first.
+// The last choice is the middle of the longest part of the line.
+function stepSeat(e, fs, wall, taken) {
+  var at = seat(e, fs, wall, taken, []) || near(e, fs, wall, taken, [], false) || near(e, fs, [], taken, [], false);
   if (at) return at;
   var q = e.q, w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, best = 0;
   for (var i = 1; i + 1 < q.length; i++) if (segLen(q, i) > segLen(q, best)) best = i;
@@ -199,13 +214,17 @@ function seatsOf(m, id, a) {
   // While the camera moves, the labels keep their places: a new calculation costs more than
   // a frame. The full drawing at rest calculates the places of the new zoom.
   if (L.seats && (L.seats.key === key || !sharp)) return L.seats;
-  var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = [], wall = walls(m), out = [];
+  var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = [], wall = walls(m), out = [], later = [];
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
-    // Each line of a sequence has a label with its step numbers: with no free place on the
-    // line, the label goes beside its own line (`near`).
+    // A line of a sequence with no free place on the line: the label goes beside its own
+    // line (`seqSeat`), or it shows only at its step (`stepSeat`).
     var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) : null);
-    if (!at) return;
+    if (!at) { if (L.seq) later.push(e); return; }
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
+  });
+  later.forEach(function (e) {
+    var at = stepSeat(e, fs, wall, taken);
+    taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box, hide: true});
   });
   L.seats = {key: key, list: out, fs: fs};
   return L.seats;
