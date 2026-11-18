@@ -1,0 +1,1028 @@
+<title>systemap Map Study</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one screen. A calm plan of the system; a path lights only when the reader asks for it. */
+:root{
+  --bg:#F1EFEC;--map:#F4F2EF;--surface:#FCFAF7;--card:#FFFEFC;--line:#E2DFDA;--line-2:#CFCBC5;
+  --ink:#1D1B17;--ink-2:#524F4A;--ink-3:#77726B;--wire:#A9A49C;--tint:rgba(29,27,23,.028);
+  --data:#0B6B58;--control:#B4483F;--judge:#7A5C00;--context:#4F5BD5;--tool:#96600A;--brand:#F2B33D;--halo:rgba(242,179,61,.38);
+  --shadow:0 1px 0 rgba(29,27,23,.04),0 12px 32px -18px rgba(29,27,23,.28);
+  --ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --head:"Inter Tight","Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F0E0C;--map:#12110F;--surface:#161411;--card:#1C1A17;--line:#27241F;--line-2:#3A362F;
+  --ink:#F1EDE4;--ink-2:#BEB8AC;--ink-3:#8F887B;--wire:#5E5A52;--tint:rgba(241,237,228,.035);
+  --data:#3CC4A6;--control:#E0776B;--judge:#D6B24A;--context:#9AA4FF;--tool:#E0A44A;--brand:#FCB442;--halo:rgba(252,180,66,.32);
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -18px rgba(0,0,0,.8);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F0E0C;--map:#12110F;--surface:#161411;--card:#1C1A17;--line:#27241F;--line-2:#3A362F;
+  --ink:#F1EDE4;--ink-2:#BEB8AC;--ink-3:#8F887B;--wire:#5E5A52;--tint:rgba(241,237,228,.035);
+  --data:#3CC4A6;--control:#E0776B;--judge:#D6B24A;--context:#9AA4FF;--tool:#E0A44A;--brand:#FCB442;--halo:rgba(252,180,66,.32);
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -18px rgba(0,0,0,.8);color-scheme:dark}
+html,body{height:100%}
+body{background:var(--map);color:var(--ink);font:13px/1.45 var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;min-width:0}
+.bar{display:flex;align-items:stretch;gap:20px;height:48px;background:var(--surface);border-bottom:1px solid var(--line);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));min-width:0}
+.brand{display:flex;align-items:center;gap:9px;font:600 14px/1 var(--head);letter-spacing:-.01em;flex:none}
+.brand svg{display:block}
+.tabs{display:flex;align-items:stretch;gap:2px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{position:relative;padding:0 11px;color:var(--ink-3);font-weight:500;white-space:nowrap;transition:color .16s}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink)}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--ink);border-radius:2px 2px 0 0}
+.tab i{font:500 10.5px/1 var(--mono);font-style:normal;color:var(--ink-3);margin-left:6px;font-variant-numeric:tabular-nums}
+.views{display:flex;align-self:center;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--map);flex:none}
+.views button{height:26px;padding:0 11px;border-radius:7px;color:var(--ink-3);font-weight:500;transition:color .16s,background .16s,box-shadow .16s}
+.views button:hover{color:var(--ink)}
+.views button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(29,27,23,.12)}
+.bar__end{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--ink-3);font:400 11px/1 var(--mono);flex:none}
+.stage{position:relative;min-height:0;overflow:hidden;overflow:clip}
+svg#map{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+svg#map.drag{cursor:grabbing}
+/* the headline: the question that the screen answers, set as type on the ground */
+.ask{position:absolute;top:22px;left:max(24px,env(safe-area-inset-left,0px));right:24px;pointer-events:none;max-width:560px}
+.ask__k{font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.ask__k button{pointer-events:auto;font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--ink-3);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line-2)}
+.ask__k button:hover{color:var(--ink)}
+.ask__k b{font-weight:500;color:var(--ink)}
+.ask__q{margin:9px 0 0;font:600 23px/1.18 var(--head);letter-spacing:-.018em;text-wrap:balance}
+.ask__n{margin-top:8px;color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums}
+.ask.beside{max-width:290px;top:30px}
+.ask::before{content:"";position:absolute;inset:-22px -40px -26px -40px;z-index:-1;background:radial-gradient(closest-side,var(--map) 62%,transparent);opacity:.92}
+.ask>*{transition:opacity .18s,transform .18s}
+.ask.swap>*{opacity:0;transform:translateY(3px)}
+/* the reading line: the map says one sentence for the thing under the pointer */
+.say{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translate(-50%,6px);max-width:min(760px,calc(100% - 32px));
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;justify-content:center;padding:10px 16px;border-radius:12px;background:var(--surface);
+  border:1px solid var(--line);box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .14s,transform .14s;text-align:center}
+.say.on{opacity:1;transform:translate(-50%,0)}
+.say b{font:600 13px/1.3 var(--head);white-space:nowrap}
+.say .arr{color:var(--ink-3);margin:0 2px}
+.say code{font:500 11px/1 var(--mono);padding:3px 6px;border-radius:5px;background:var(--tint);border:1px solid var(--line);white-space:nowrap}
+.say code::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--k,var(--wire));vertical-align:1px}
+.say span{color:var(--ink-2);min-width:0}
+.zoom{position:absolute;left:max(20px,env(safe-area-inset-left,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:2px;
+  color:var(--ink-3);font:500 11px/1 var(--mono);font-variant-numeric:tabular-nums}
+.zoom button{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2);font:400 17px/1 var(--ui)}
+.zoom button:hover{background:var(--tint);color:var(--ink)}
+.zoom span{min-width:38px;text-align:center}
+.key{position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));display:flex;gap:14px;color:var(--ink-3);font-size:11.5px;transition:right .24s cubic-bezier(.2,.8,.2,1)}
+.key i{display:inline-block;width:14px;height:2px;border-radius:2px;margin-right:6px;vertical-align:3px;background:var(--k)}
+.app.open .key{right:calc(380px + 20px)}
+/* the map */
+.dots{fill:var(--line-2);opacity:.6}
+#world *{vector-effect:non-scaling-stroke}
+.lvl{transition:opacity .12s linear}
+.sys{fill:var(--surface);stroke:var(--line);stroke-width:1;filter:drop-shadow(0 10px 18px rgba(29,27,23,.06))}
+.sysname{font:500 9.5px/1 var(--mono);letter-spacing:.11em;fill:var(--ink-3)}
+.syssub{font:400 10px/1 var(--ui);fill:var(--ink-3)}
+.region{fill:var(--tint)}
+.rname{font:500 9px/1 var(--mono);letter-spacing:.11em;fill:var(--ink-3)}
+.rnum{font:500 8.5px/1 var(--mono);fill:var(--ink-3)}
+.rring{fill:none;stroke:var(--line-2)}
+.card{cursor:pointer;outline:none}
+.card rect.box{fill:var(--card);stroke:var(--line-2);stroke-width:1;transition:stroke .16s,fill .2s,opacity .2s}
+.card text.nm{font:600 13.5px/1 var(--head);letter-spacing:-.008em;fill:var(--ink);transition:fill .2s,opacity .2s}
+.card text.pl{font:400 10px/1 var(--ui);fill:var(--ink-3);transition:opacity .2s}
+.card rect.ring{fill:none;stroke:var(--halo);stroke-width:5;opacity:0;transition:opacity .16s}
+.card.actor rect.box{fill:var(--map);stroke:var(--ink-3)}
+.card:hover rect.box,.card.lit rect.box{stroke:var(--ink)}
+.card.sel rect.ring,.card:focus-visible rect.ring{opacity:1}
+.card.sel rect.box{stroke:var(--ink);stroke-width:1.5}
+.card.quiet rect.box{fill:transparent;stroke:var(--line-2);stroke-opacity:.7}
+.card.quiet text.nm{fill:var(--ink-3);opacity:.6;font-weight:500}
+.card.quiet text.pl{opacity:0}
+.card.quiet:hover rect.box{stroke:var(--line-2);fill:var(--card)}
+.card.quiet:hover text.nm{opacity:1;fill:var(--ink)}
+/* a card that opens a map: a second edge behind it, and the count of its parts */
+.card rect.under{fill:var(--card);stroke:var(--line-2);stroke-width:1;transition:opacity .2s}
+.card.quiet rect.under{opacity:0}
+.card text.kind{font:500 8.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;fill:var(--ink-3);text-anchor:end;transition:opacity .2s}
+.card.quiet text.kind{opacity:.5}
+.card text.parts{font:500 9.5px/1 var(--mono);fill:var(--ink-3);text-anchor:end;transition:opacity .2s}
+.lvl.inside .card.host>*{opacity:0}
+.gflows{transition:opacity .16s}
+.gflows.swap{opacity:0}
+.thumb .flow,.thumb text,.thumb .rring,.thumb .region{opacity:0}
+.thumb .card rect.box{stroke-opacity:.6}
+.lvl.far .card text.pl{opacity:0}
+.lvl.far .card text.nm{transform:translateY(6px)}
+.card text.nm{transition:fill .2s,opacity .2s,transform .2s}
+.lvl.focus .card:not(.lit):not(.sel){opacity:.34}
+.card{transition:opacity .2s}
+.flow{transition:opacity .2s}
+.flow path.case{fill:none;stroke:var(--map);stroke-opacity:var(--rest,1);stroke-width:5;stroke-linejoin:round}
+.lvl.dense:not(.focus) .flow text{opacity:0}
+.flow path.wire{fill:none;stroke:var(--wire);stroke-opacity:var(--rest,1);stroke-width:1.15;stroke-linejoin:round;transition:stroke .16s,stroke-width .16s}
+.flow path.hit{fill:none;stroke:transparent;stroke-width:12;cursor:pointer;pointer-events:stroke}
+.flow polygon,.flow circle{fill:var(--ink-3);fill-opacity:var(--ends,1);transition:fill .16s}
+.flow text{font:500 11px/1 var(--ui);fill:var(--ink-2);paint-order:stroke;stroke:var(--map);stroke-width:5px;stroke-linejoin:round;text-anchor:middle;pointer-events:none;transition:opacity .16s,fill .16s}
+.flow text.rest0{opacity:0}
+.flow.lit path.wire{stroke:var(--k);stroke-width:2;stroke-opacity:1}
+.flow.lit polygon,.flow.lit circle{fill:var(--k);fill-opacity:1}
+.flow.lit text{opacity:1;fill:var(--ink)}
+.flow.lit path.case{stroke-width:7;stroke-opacity:1}
+/* a sequence: the lines of the steps before the current step stay dark, the current step has its color */
+.flow.done path.wire{stroke:var(--ink-2);stroke-width:1.6;stroke-opacity:1}
+.flow.done polygon,.flow.done circle{fill:var(--ink-2);fill-opacity:1}
+.lvl.stepping .flow:not(.lit):not(.done){opacity:.4}
+.lvl.stepping .flow.done text,.lvl.stepping .flow.lit text{opacity:1}
+/* the list at the left: the sequences, or the state machines */
+.rail{position:absolute;left:max(24px,env(safe-area-inset-left,0px));top:232px;bottom:74px;width:292px;overflow:auto;display:none;flex-direction:column;gap:1px;scrollbar-width:thin;overscroll-behavior:contain}
+.app[data-mode="seq"] .rail,.app[data-mode="states"] .rail{display:flex}
+.rail button{display:flex;justify-content:space-between;gap:12px;align-items:baseline;text-align:left;padding:7px 10px;margin-left:-10px;border-radius:8px;color:var(--ink-2);transition:background .12s,color .12s;flex:none}
+.rail button:hover{background:var(--tint);color:var(--ink)}
+.rail button[aria-current="true"]{color:var(--ink);font-weight:600;background:var(--tint)}
+.rail button i{font:500 10.5px/1 var(--mono);font-style:normal;color:var(--ink-3);font-variant-numeric:tabular-nums;flex:none}
+/* the steps of a sequence */
+.stepper{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(780px,calc(100% - 32px));display:none;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+.app[data-mode="seq"] .stepper{display:flex}
+.app[data-mode="seq"] .say{bottom:max(96px,env(safe-area-inset-bottom,0px))}
+.app[data-mode="seq"] .key,.app[data-mode="states"] .key,.app:not([data-mode="map"]) .note{display:none}
+.stepper .n{font:500 11px/1 var(--mono);color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums;flex:none}
+.stepper p{margin:0;flex:1;min-width:0;color:var(--ink);line-height:1.4}
+.stepper .nav{display:flex;gap:4px;flex:none}
+.stepper button{height:32px;min-width:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line-2);color:var(--ink-2);font-weight:500;transition:background .12s,color .12s,transform .12s}
+.stepper button:hover:not(:disabled){background:var(--tint);color:var(--ink)}
+.stepper button:disabled{opacity:.4;cursor:default}
+.stepper button.go{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.stepper button.go:hover:not(:disabled){background:var(--ink);color:var(--surface);transform:translateY(-1px)}
+.forms{display:flex;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--map);flex:none}
+.stepper .forms button{height:26px;min-width:0;padding:0 9px;border:0;border-radius:7px;color:var(--ink-3);font-size:12px}
+.stepper .forms button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(29,27,23,.12)}
+.app[data-mode="seq"][data-form="diagram"] svg#board{display:block}
+.app[data-mode="seq"][data-form="diagram"] svg#map{visibility:hidden}
+.app[data-mode="seq"][data-form="diagram"] .zoom{display:none}
+svg#board .qrow{pointer-events:auto;cursor:pointer}
+.qlife{stroke:var(--line-2);stroke-width:1}
+.qbead circle{fill:var(--map);stroke:var(--ink-3);stroke-width:1}
+.sedge .qbead text{font:600 10.5px/1 var(--mono);fill:var(--ink-2);text-anchor:middle;stroke:none}
+.sedge.done path.wire{stroke:var(--ink-2);stroke-width:1.6}
+.sedge.done polygon{fill:var(--ink-2)}
+.sedge.lit .qbead circle{fill:var(--k,var(--ink));stroke:var(--k,var(--ink))}
+.sedge.lit .qbead text{fill:var(--surface);stroke:none}
+#bworld.stepping .sedge:not(.lit):not(.done){opacity:.38}
+.qrow rect{fill:transparent}
+.qrow:hover rect{fill:var(--tint)}
+.dots2{display:flex;gap:4px;flex:none}
+.dots2 i{width:6px;height:6px;border-radius:50%;background:var(--line-2);transition:background .16s,transform .16s}
+.dots2 i.was{background:var(--ink-2)}
+.dots2 i.now{background:var(--ink);transform:scale(1.35)}
+/* the state machine */
+svg#board{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+svg#board .snode,svg#board .hit,svg#board .mcell,svg#board .mname{pointer-events:auto}
+.rail{z-index:2}
+.app[data-mode="states"] svg#board,.app[data-mode="focus"] svg#board,.app[data-mode="history"] svg#board{display:block}
+.app[data-mode="states"] svg#map,.app[data-mode="focus"] svg#map,.app[data-mode="history"] svg#map{visibility:hidden}
+.app[data-mode="states"] .zoom,.app[data-mode="focus"] .zoom,.app[data-mode="history"] .zoom,.app[data-mode="focus"] .key,.app[data-mode="history"] .key{display:none}
+.app[data-mode="focus"] .rail{display:flex}
+svg#board .fnode,svg#board .hcell,svg#board .hrow{pointer-events:auto}
+/* focus: one card in the middle, what it receives at the left, what it gives at the right */
+.fnode{cursor:pointer;outline:none;transition:opacity .2s}
+.fnode rect{fill:var(--card);stroke:var(--line-2);stroke-width:1;transition:stroke .16s}
+.fnode text{font:600 13px/1 var(--head);fill:var(--ink);text-anchor:middle}
+.fnode.far rect{fill:transparent}.fnode.far text{font-weight:500;fill:var(--ink-2)}
+.fnode.mid rect{stroke:var(--ink);stroke-width:1.6}
+.fnode.mid text{font-size:16px}
+.fnode:hover rect,.fnode.lit rect,.fnode:focus-visible rect{stroke:var(--ink)}
+.fhalo{fill:none;stroke:var(--halo);stroke-width:6}
+.fcol{font:500 9.5px/1 var(--mono);letter-spacing:.1em;fill:var(--ink-3);text-anchor:middle}
+.fmore{font:400 11px/1 var(--ui);fill:var(--ink-3);text-anchor:middle}
+.sedge.thin path.wire{stroke-opacity:.55;stroke-width:1}
+.sedge.lit path.wire{stroke:var(--k,var(--ink))}
+.sedge.lit polygon{fill:var(--k,var(--ink))}
+/* history: one row for each component, one column for each part of the time */
+.hcell rect{fill:var(--ink);transition:stroke .12s}
+.hcell:hover rect{stroke:var(--brand);stroke-width:2}
+.hborn{fill:var(--brand);pointer-events:none}
+.hbar{fill:var(--line-2)}
+.hrow{font:500 11.5px/1 var(--ui);fill:var(--ink-2);text-anchor:end;cursor:pointer}
+.hrow:hover{fill:var(--ink)}
+.hsum{font:400 10.5px/1 var(--mono);fill:var(--ink-3);font-variant-numeric:tabular-nums}
+.haxis{font:400 10px/1 var(--mono);fill:var(--ink-3);text-anchor:middle}
+/* the matrix: each flow is one mark, in the row of the card that gives and the column of the card that receives */
+.mgrid{fill:none;stroke:var(--line);stroke-width:1}
+.mband{fill:var(--tint)}
+.mname{font:500 11.5px/1 var(--ui);fill:var(--ink-2);cursor:default;transition:fill .12s}
+.mname.actor{font-style:italic}
+.mname.lit{fill:var(--ink);font-weight:600}
+.mgroup{font:500 9px/1 var(--mono);letter-spacing:.1em;fill:var(--ink-3)}
+.mcell{cursor:pointer}
+.mcell rect.bg{fill:transparent}
+.mcell:hover rect.bg,.mcell.lit rect.bg{fill:var(--halo)}
+.mcell rect.dot{transition:transform .12s}
+.mrow{fill:var(--tint);opacity:0;transition:opacity .12s;pointer-events:none}
+.mrow.on{opacity:1}
+.snode{cursor:default;outline:none}
+.snode rect{fill:var(--card);stroke:var(--ink-3);stroke-width:1;transition:stroke .16s,stroke-width .16s}
+.snode text.nm{font:600 15px/1 var(--head);fill:var(--ink);text-anchor:middle}
+.snode text.sy{font:400 10.5px/1 var(--mono);fill:var(--ink-3);text-anchor:middle}
+.snode:hover rect,.snode.lit rect,.snode:focus-visible rect{stroke:var(--ink);stroke-width:1.6}
+.sedge path.wire{fill:none;stroke:var(--wire);stroke-width:1.3;transition:stroke .16s,stroke-width .16s}
+.sedge path.hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}
+.sedge polygon{fill:var(--ink-3);transition:fill .16s}
+.sedge text{font:500 12px/1 var(--ui);fill:var(--ink-2);text-anchor:middle;paint-order:stroke;stroke:var(--map);stroke-width:6px;stroke-linejoin:round;pointer-events:none}
+.sedge.lit path.wire{stroke:var(--ink);stroke-width:2.2}
+.sedge.lit polygon{fill:var(--ink)}
+.sedge.lit text{fill:var(--ink)}
+.sstart{fill:var(--ink-3)}
+#bworld.focus .sedge:not(.lit),#bworld.focus .snode:not(.lit){opacity:.38}
+.sedge,.snode{transition:opacity .2s}
+.lvl.focus .flow:not(.lit){opacity:.22}
+.lvl.focus .flow:not(.lit) text{opacity:0}
+.flow.draw path.wire{animation:draw .42s cubic-bezier(.3,.7,.2,1) both}
+@keyframes draw{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+/* the inspector */
+.side{position:absolute;top:0;right:0;bottom:0;width:380px;max-width:100%;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);
+  transform:translateX(102%);transition:transform .26s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;min-width:0}
+.app.open .side{transform:none}
+.side__head{padding:20px 22px 16px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.side__k{display:flex;align-items:center;gap:8px;font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.side__k button{margin-left:auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2)}
+.side__k button:hover{background:var(--tint);color:var(--ink)}
+.side h2{margin:0;font:600 21px/1.2 var(--head);letter-spacing:-.015em}
+.side__p{color:var(--ink-2)}
+.side__state{display:flex;gap:6px;align-items:center;color:var(--ink-3);font-size:11.5px;margin-top:2px}
+.side__state i{width:7px;height:7px;border-radius:50%;background:var(--data)}
+.side__state i.no{background:var(--line-2)}
+.side__body{overflow:auto;padding:16px 22px 28px;display:grid;gap:22px;min-height:0;overscroll-behavior:contain}
+.side__d{margin:0;color:var(--ink-2);max-width:62ch}
+.side__d.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.more{color:var(--ink-3);font-size:12px;text-decoration:underline;text-underline-offset:3px;justify-self:start;margin-top:-16px}
+.more:hover{color:var(--ink)}
+.enter{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:9px;background:var(--ink);color:var(--surface);font:600 12.5px/1 var(--head);transition:transform .12s}
+.enter:hover{transform:translateY(-1px)}
+.enter:active{transform:none}
+.enter svg{display:block}
+.sec h3{margin:0 0 6px;display:flex;justify-content:space-between;font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.sec h3 span{font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:14px minmax(0,1fr);gap:2px 10px;width:100%;text-align:left;padding:9px 8px;margin:0 -8px;border-radius:8px;transition:background .12s}
+.row:hover,.row:focus-visible{background:var(--tint)}
+.row i{grid-row:1/3;width:10px;height:2px;border-radius:2px;background:var(--k);margin-top:9px}
+.row b{font:600 13px/1.35 var(--head)}
+.row b em{font-style:normal;font-weight:400;color:var(--ink-3);font-family:var(--ui)}
+.row small{font-size:12px;color:var(--ink-2);line-height:1.45}
+.mods{display:flex;flex-wrap:wrap;gap:5px}
+.mods code{font:400 10.5px/1 var(--mono);padding:4px 6px;border-radius:5px;border:1px solid var(--line);color:var(--ink-2)}
+.note{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:64px;font-size:11.5px;color:var(--ink-3);max-width:230px;line-height:1.5;transition:opacity .2s}
+.note.gone{opacity:0}
+@media (max-width:720px){
+  .bar{gap:12px}.brand span,.bar__end,.note,.key{display:none}
+  .ask{top:14px}.ask__q{font-size:19px}
+  .ask__n{display:none}.app.open .ask__q{font-size:15px}
+  .views button{padding:0 8px}.rail{top:118px;bottom:auto;left:16px;right:16px;width:auto;flex-direction:row;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
+  .rail button{margin:0;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+  .stepper{flex-wrap:wrap}.stepper p{flex-basis:100%;order:3}
+  .app[data-mode="seq"] .zoom{display:none}
+  .side{top:auto;height:62%;width:100%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(104%)}
+  .say{bottom:max(60px,env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M13 4.5H7.2a2.2 2.2 0 0 0 0 4.4h3.6a2.2 2.2 0 0 1 0 4.4H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/><rect x="13.5" y="2" width="3" height="3" fill="var(--brand)"/></svg><span>systemap</span></div>
+    <div class="views" id="views" role="group" aria-label="Views"><button data-mode="map" aria-pressed="true">Map</button><button data-mode="seq" aria-pressed="false">Sequences</button><button data-mode="states" aria-pressed="false">States</button><button data-mode="focus" aria-pressed="false">Focus</button><button data-mode="history" aria-pressed="false">History</button></div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Layers"></nav>
+    <div class="bar__end"><span>system</span><div class="views" id="sets" role="group" aria-label="System"></div></div>
+  </header>
+  <main class="stage" id="stage">
+    <svg id="map" role="group" aria-label="Map of the system"><defs><pattern id="dot" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".9" class="dots"/></pattern></defs><rect width="100%" height="100%" fill="url(#dot)"/><g id="world"></g></svg>
+    <div class="ask" id="ask"><div class="ask__k" id="ask-k"></div><h1 class="ask__q" id="ask-q"></h1><div class="ask__n" id="ask-n"></div></div>
+    <nav class="rail" id="rail" aria-label="List"></nav>
+    <svg id="board" role="group" aria-label="State machine"><g id="bworld"></g></svg>
+    <div class="stepper" id="stepper"></div>
+    <div class="note" id="note">Point at a card or a line to read it. Select a card for its details. Double-click a card with a small map in it to go inside.</div>
+    <div class="say" id="say" aria-live="polite"></div>
+    <div class="zoom"><button id="zo" aria-label="Zoom out" title="Zoom out">−</button><span id="zv">100%</span><button id="zi" aria-label="Zoom in" title="Zoom in">+</button><button id="zf" aria-label="Fit the map" title="Fit the map (F)"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></div>
+    <div class="key" id="key"></div>
+    <aside class="side" id="side" aria-label="Details"><div class="side__head" id="side-head"></div><div class="side__body" id="side-body"></div></aside>
+  </main>
+</div>
+<script id="data" type="application/json">{"sets":[{"name":"systemap","note":"the map of systemap itself","maps":[{"id":"","size":[1174,892],"boxes":[{"id":"outside","n":"OUTSIDE THE PACKAGE","u":"External components","b":[16,16,190,644]},{"id":"systemap","n":"SYSTEMAP","u":"One CLI process","b":[310,16,848,860]}],"regions":[{"id":"operate","n":"OPERATE","b":[330,80,380,204]},{"id":"gather","n":"SOURCE DATA","b":[758,80,190,204]},{"id":"mean","n":"MODEL","b":[330,320,190,204]},{"id":"draw","n":"DIAGRAM","b":[758,320,380,204]},{"id":"keep","n":"MAP CHECKS","b":[330,560,380,296]}],"cards":[{"id":"Placer","b":[350,120,150,56],"k":"component","p":"The card positions","d":"Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. Holds the lock of the model file from the read to the end of the write. With --all, keeps only pinned positions.","as":["examined","current"],"m":[]},{"id":"CLI","b":[540,120,150,56],"k":"component","p":"The commands","d":"Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change. It writes the pages only in its directory and removes the pages of removed maps. The page servers do not supply a file that a symbolic link puts in a location that is not in the served directory. They refuse a POST request and a GET request for /events from a page of a different web site. systemap extract, refresh, render and figure --out hold the write lock .systemap/write.lock. If a different command holds that lock, they stop with exit code 1 and write no file. With --map ID, check, judgement, rules, place, describe, journeys, review and decisions pending and status read only the model files of that map, of its parent maps and of its nested maps, and report only that map. Such a run does not examine the pages or the entry coverage. refresh, extract and decisions submit refuse --map. render, refresh and live write the canvas page, and a small page that goes to the canvas page for each nested map. With [render] canvas = false, they write the linked pages and give one notice line. systemap parts --stub CARD writes a stub of a new nested map with positions. It writes no file if the stub has a check problem or if the file exists.","as":["examined","current"],"m":[]},{"id":"FactsExtractor","b":[778,120,150,56],"k":"component","p":"The source records","d":"Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. An import of a declaration file is not an unresolved import. Relative imports and path aliases can also name declaration files. A comment directly before a TypeScript variable does not become the module description without a blank line or a module tag. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Writes the Python syntax digest and the api fingerprints from the syntax text of systemap, and takes the Python signatures and constant values from the source text. Thus these values are the same on each supported Python version. A Python syntax node that the syntax text does not know stops the extraction. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language. For the upgrade of answers from 2.0.0, the Python adapter gives each module record with the ast.unparse text of 2.0.0 for the signatures and constant values. The stored facts do not change.","as":["examined","current"],"m":[]},{"id":"OpenAI","b":[36,184,150,44],"k":"actor","p":"The OpenAI service","d":"The OpenAI Decisions API. Gives typed answers about the map only when the user selects the openai provider.","as":[],"m":[]},{"id":"Scaffold","b":[350,212,150,56],"k":"component","p":"The initial files","d":"Writes the initial configuration, model, contract file, output directory and workflow. On a pull request, the workflow writes the architecture summary to the job summary. For a branch of the same repository, it also writes the summary as one comment and changes that comment on each push. Prints a suggested CODEOWNERS line for the contract file and does not write CODEOWNERS. The model has regions on a grid with spaces between them. Does not replace files. Does not write systemap.toml when pyproject.toml has a [tool.systemap] table. Writes no file if a symbolic link puts a file in a location that is not in the repository. Writes test_patterns for the type-test files that the language adapter finds. If no package root is found, prints the cause and the [package_roots] table to write.","as":["examined","current"],"m":[]},{"id":"Config","b":[540,212,150,52],"k":"store","p":"The configuration","d":"Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. For TypeScript, selects the one source folder of the tsconfig include entries, then src, then the repository root. Finds the type-test files for test_patterns. Finds the configuration files that the language reads, with the tsconfig files that extends and references name. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile, the [rules] table, the [render] table and the decision provider. Reads model files as data and does not run their code. Reads the invariants and import rules of each map from its contract file. From 2.0, also reads them from the model file, and rejects a map whose two files both give them. systemap refresh and systemap extract move them from the model file to the contract file one time. Reads a repository file only if the file is a regular file in the repository. Reads and writes a cache file or an output file only in the repository. A write replaces a link and does not write to the target of the link. Rejects a configured cache, output or model path that is not in the repository. Writes a cache file or an output file through a temporary file of each writer. On Windows, if os.replace gives PermissionError, waits and tries os.replace again a small number of times. A new file gets the mode of a usual write. A file that is present keeps its mode. Holds a lock on a cache file while one process reads or changes it. Makes the write lock .systemap/write.lock with O_EXCL, so that only one command at a time writes the shared files. A second process does not wait. It stops with an error that gives the lock path and the command that holds the lock. In one process, an inner lock continues. A lock that a stopped process left stays until a person removes it. If .systemap/.gitignore does not exist, systemap init and a write of the answer cache, the facts cache or the decision store in .systemap write that file with the line *. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file. It holds the lock of each model file of the map from the read to the write. A dry run takes no lock. When systemap refresh and systemap extract move a contract or record the source records of flow reviews, they also hold the lock of each model file from the read to the write. In each release, systemap refresh and systemap extract record the source records of each flow review before source tracking one time. They also write the current evidence digest of each answer from 2.0.0 that agrees with the source one time. For the 2.0.0 form of the evidence, they get the ast.unparse text of the Python signatures and constant previews from the source again. Adds exact answers with citations to systemap.toml and keeps the other text of the file. Rejects a family answer with a previous name of a decision finding kind. Rejects a package root that is not in the repository. Rejects a model value that does not agree with the type of its field. Rejects a configured output file that is not in the output directory. Rejects a layer ID that is not a safe name and a component ID that is a key of the page data.","as":["examined","current"],"m":[]},{"id":"ChangeDetector","b":[778,212,150,56],"k":"component","p":"The source comparison","d":"Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With --comment, it writes the architecture summary of a pull request: the contract changes, the map changes and the rule results, with the assurance level of each item. With a page URL in the configuration of the base commit, the comment also has a link to the Changes view. systemap history shows changes to the software structure through time. Resolves each revision from a person to a commit SHA before the other Git commands use it. A working-tree path can have a Git filter that only the repository configuration gives. Such a path is not a changed path, and its change is not known.","as":["examined","current"],"m":[]},{"id":"TypeSafe","b":[36,276,150,44],"k":"actor","p":"The Jev service","d":"The Jev model through the TypeSafe HTTP API. Gives typed answers about the map only when an option on the command line asks for a request and the environment has the key.","as":[],"m":[]},{"id":"Skill","b":[350,360,150,56],"k":"component","p":"The agent procedure","d":"Gives the procedure for the agent: extraction, model draft, check, judgement, render and second examination. Gives completion conditions, output requirements and maintenance instructions. Stores text files and references in the package. Writes no file if a symbolic link puts a skill file in a location that is not in the selected directory.","as":["examined","current"],"m":[]},{"id":"Figures","b":[778,360,150,56],"k":"component","p":"The document figures","d":"Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background. Shows the model and configuration text as HTML text. Rejects an SVG ID that is not a safe HTML ID.","as":["examined","current"],"m":[]},{"id":"Page","b":[968,360,150,56],"k":"component","p":"The map page","d":"Makes the map page. Uses no external files. Gives one data object with all maps of a map tree for the canvas: the cards, the flow routes, the ports of each nested map and their boundary findings. By default, makes the canvas page: one canvas element for all maps of the tree, with the data object one time. The page of each nested map is a redirect page that goes to the canvas page with the map ID and the hash of the link in the URL hash. The URL hash #changes opens the Changes view. With [render] canvas = false, makes one linked page for each map in place of the canvas page. The linked page shows the map, the sequences and the revision changes in separate views, with a panel for components, flows and source records. Its rules list gives the assurance level and the freshness of each invariant and import rule. On a phone, it shows the regions of the top map as a grid. The canvas page draws only the cards and flows on the screen, and draws at half resolution while the camera moves. While the camera moves, it can draw a large map from images of the full map, which it makes in slices in the free time of the frames. Each boundary flow fades in and out with the camera, and the text of each card fades in and out with the zoom. A hidden list after the canvas gives the maps, the cards and the flows for a screen reader. Each link in the list moves the camera to its item. On the canvas page, Tab moves the keyboard focus through the cards of the current map in reading order, and Enter goes into the focused card or selects it. On a touch screen, a tap selects a card, and a second tap on a card that opens a map goes into it. A header over the canvas has the views Map, Sequences and Changes and the layers. In the Map view, a layer shows only its flows, and the cards that no flow of the layer touches become quiet. The page opens with the layer System context when the top map has flows in that layer. Each change of the view fades. In the Sequences view, a toolbar under the header selects a sequence of a map of the tree. The camera goes to that map, the route shows with a number at each step, and the other cards and flows of the map become quiet. In the Steps mode, Previous and Next move the camera to the cards of each step. In the Changes view of the canvas page, each card shows its change mark, only the flows of changed source with structural or declared evidence show, and a card that opens a map with map changes in it or below it shows \"changed inside\". A bar under the header gives the changes of the current map in words. When the map changes are not known, the bar gives the reason. The layer and the view also control which boundary flows show. On the canvas page, Ctrl K opens the Find dialog for the cards and the flows of all maps. A result in a different map moves the camera to that card and selects it. A click with a mouse also selects a card and opens the Details panel. On a wide screen, the open panel makes the canvas narrower, so it covers no card. The canvas has a dot grid and a legend with the count of the flows of the layer. In the Map view, a selected card keeps its flows at full contrast, and the other flows and cards of its map go to low contrast. The header of the canvas page has the theme, Reduce motion, the Keyboard keys and the source of the map. The Details panel gives the selected card: its flows with their evidence, its sequences, its rules with their assurance, and its source records. In the Sequences view, with no selected card, the panel gives the steps of the sequence in order. The Sequences toolbar can show the steps as a sequence diagram in place of the route on the map. When a map has a state machine, the header has a States view. It draws the states and the transitions of one machine, and for a transition, the panel gives the flow and the sequence that show the same change. A caption at the right of the path gives the question of the layer, or the sentence of the step. The canvas data has only the open boundary findings of the judgement. In the Map view, the actor card of each open boundary finding has a dotted ring and a short text, and the list of the tree and the live region give the open findings.","as":["examined","current"],"m":[]},{"id":"CI","b":[36,412,150,44],"k":"actor","p":"The CI process","d":"Runs the map check for each pull request. Rejects the pull request if the map is not correct.","as":[],"m":[]},{"id":"Model","b":[350,452,150,52],"k":"store","p":"The map schema","d":"Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the schema for state machines: the states of one item of a component, each with its source symbol, and the transitions with their causes. Finds a state machine that names an unknown component, state, flow or sequence. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. With a map ID, loads only that map, its parent maps and its nested maps, and does not read the files of other maps. A card that opens a map must have an ID that is one path segment. Replaces a model file through a temporary file. If a replacement fails, restores the previous files. Holds the lock <model file>.lock of each model file during the write, so that two processes can write two different model files at the same time. Gives the file name of a nested map: the map ID in lower case, with _ in place of each /, and .py. Gives the files of the part plan and of the result files in map/parts. Refuses a stem of a nested map that is reserved, that is the same as a different stem, or whose prefix is the start of a different stem. To find the modules that the module claims of a component cover, it uses a sorted list of the module names. It keeps this list for each of the last 4 module lists that it examined.","as":["examined","current"],"m":[]},{"id":"Router","b":[778,452,150,56],"k":"component","p":"The flow paths","d":"Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions. A label position with fewer paths of other flows through it has priority.","as":["examined","current"],"m":[]},{"id":"Schematic","b":[968,452,150,56],"k":"component","p":"The map diagram","d":"Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.","as":["examined","current"],"m":[]},{"id":"Maintainer","b":[36,504,150,44],"k":"actor","p":"The maintainer","d":"Examines judgement answers. Corrects model errors and writes the map in a Git commit.","as":[],"m":[]},{"id":"Agent","b":[36,596,150,44],"k":"actor","p":"The coding agent","d":"Reads the skill. Runs the commands and writes the model and the contract. Corrects check errors and records judgement answers.","as":[],"m":[]},{"id":"Judgement","b":[350,600,150,56],"k":"component","p":"The review findings","d":"Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. Gives each flow review earlier than source tracking as a row with a label, not as a finding. A change to a cited module opens the flow review again. With --strict, returns exit code 1 for findings without answers or for a model without components. Gives the cause, the fix line and the source location rows of each unknown surface finding. Gives a contract reason finding for each invariant or import rule without a reason. A finding line contains no line number, source excerpt, parser version or count. The evidence digest of an answer contains the names, imports and entry points that the finding cites. A comment, a function body or a test does not open an answer again. Gives no finding about a test file. Gives an answer item with a previous decision kind name as a stale answer with the current line. With --json, writes the findings, answers and counts as one JSON object. Gives the assurance level and the freshness of each component, flow, invariant and import rule to the JSON object and to the page. Gives the open boundary findings of the map tree to the canvas page. It applies the answers only to the boundary findings, thus it does not make the other findings. An exact answer that also names a different finding needs all findings. Only an import rule with the result pass is established. A current source review or flow review gives examined. All other claims are unknown. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap decisions submit holds .systemap/write.lock from the read of the store to the last write. Before the first review write, it takes the lock of each model file that a review can write. The store write reads the store again and keeps the records of the other keys. If the configuration does not load after the answer write, the command restores the previous bytes only if no different writer changed the file. systemap suggest gives initial module groups and the map= file name of each possible nested map. systemap parts writes the part plan of the nested maps of one map: the modules, the module groups, the adjacent components, the flows and imports at each boundary, the entry points, and two digests. A different source fact, or a different contract of the parent map or of a map above it, makes the plan stale. A new commit with the same source facts does not make the plan stale. systemap parts --results examines the result file of each nested part against the plan. In each nested map, gives a boundary flow finding for a flow across the boundary of the map that the parent map does not show in the same direction, and for a parent flow that no nested flow shows. Gives a boundary import finding for an import across the boundary when the nested map has no actor or no flow for the imported component. The owner of an imported module is the component that claims it in the nearest map above the nested map.","as":["examined","current"],"m":[]},{"id":"SecondOpinion","b":[540,600,150,56],"k":"component","p":"The external advice","d":"Sends different questions about the map to a decision provider. Drift ordering sends questions only for a provider with a measured result. Jev is the default provider. OpenAI Decisions answers only when the user selects it. Refuses an answer that does not agree with its question. Stores answers in a cache. Does not read or write a cache file that Git tracks, unless the environment sets SYSTEMAP_TRUST_TRACKED_CACHE=1. Without this setting, it also does not use a cache file in a repository if Git cannot tell if it tracks the file. Can tell a coding agent to read the source and write text. Starts the agent command of the repository only if the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1. The component itself starts only with an explicit option on the command line: --provider for audit, plan and triage, and --decide or --order-by-drift for the other commands. A key or a configuration value does not start a request. Does not control map checks.","as":["examined","current"],"m":[]},{"id":"Check","b":[350,692,150,56],"k":"component","p":"The map checks","d":"Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Compares the import rules with the resolved imports. Compares the source symbol of each state of a state machine with the constants in the facts. Gives each contract rule without a reason, and does not reject the map for it. Gives all findings. Returns exit code 1 if there are errors.","as":["examined","current"],"m":[]},{"id":"Describe","b":[350,784,150,56],"k":"component","p":"The diagram measurements","d":"Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.","as":["examined","current"],"m":[]}],"flows":[{"s":"Agent","t":"CLI","a":"commands","k":"control","p":[[36,602],[22,602],[22,404],[61,404],[61,325.7],[22,325.7],[22,180],[520,180],[520,140],[540,140]],"say":"The agent uses the commands for all operations. It does not import the package."},{"s":"CI","t":"CLI","a":"check","k":"control","p":[[186,418],[244.3,418],[244.3,109],[565,109],[565,120]],"say":"The initial workflow runs the check for each push and pull request."},{"s":"CLI","t":"Scaffold","a":"init","k":"control","p":[[540,164],[520,164],[520,224],[500,224]],"say":"init writes the initial files. It does not replace files."},{"s":"CLI","t":"Placer","a":"place","k":"control","p":[[540,148],[500,148]],"say":"place writes initial card positions. With --all, it keeps only pinned cards. describe calculates positions without file changes."},{"s":"CLI","t":"Skill","a":"init, skill","k":"control","p":[[565,176],[565,206],[520,206],[520,372],[500,372]],"say":"init installs the bundled skill directory. The skill command installs it again on request."},{"s":"CLI","t":"FactsExtractor","a":"extract, facts","k":"control","p":[[690,148],[778,148]],"say":"extract and refresh make facts for the configured package roots. facts reads the stored result by module or view."},{"s":"CLI","t":"Check","a":"check","k":"control","p":[[640,176],[640,198],[197,198],[197,542],[232.3,542],[232.3,634],[339,634],[339,728],[350,728]],"say":"check does all rules and gives each error with a necessary action. refresh does the same checks before the render operation."},{"s":"CLI","t":"ChangeDetector","a":"--base, delta","k":"control","p":[[690,164],[756,164],[756,224],[778,224]],"say":"render --base and figure --base compare source revisions. delta compares map facts at two commits."},{"s":"CLI","t":"Page","a":"render","k":"control","p":[[665,176],[665,206],[734,206],[734,314],[1043,314],[1043,360]],"say":"render and refresh make the page from the facts and model."},{"s":"CLI","t":"Figures","a":"figure","k":"control","p":[[690,156],[745,156],[745,380],[778,380]],"say":"figure writes one figure. refresh writes all figures in the configuration."},{"s":"CLI","t":"Judgement","a":"judgement","k":"control","p":[[590,176],[590,201],[285.7,201],[285.7,628],[350,628]],"say":"judgement gives findings for examination or answers. With --strict, it returns exit code 1 if findings without answers stay."},{"s":"CLI","t":"Describe","a":"describe","k":"control","p":[[665,120],[665,109],[723,109],[723,427],[712,427],[712,820],[500,820]],"say":"describe makes the same diagram as the page and shows its measurements."},{"s":"CLI","t":"SecondOpinion","a":"model commands","k":"control","p":[[690,140],[701,140],[701,612],[690,612]],"say":"audit, journeys, plan, triage and --decide run model commands. These commands use a decision provider or a configured coding agent. audit, plan, and triage send questions only with --provider. delta sends questions to the provider only with --decide. A key or a configuration value does not start a request. judgement sends its open stale source review lines to Jev only with --order-by-drift. check does not call external services."},{"s":"Check","t":"Page","a":"render to compare","k":"control","p":[[500,720],[520,720],[520,704],[1129,704],[1129,404],[1118,404]],"say":"The output check makes the page from stored facts. It compares the result with the stored page."},{"s":"Check","t":"Figures","a":"render to compare","k":"control","p":[[500,712],[767,712],[767,404],[778,404]],"say":"The output check makes all configured figures. It compares each result with the stored figure."},{"s":"Check","t":"ChangeDetector","a":"interface rule","k":"control","p":[[500,736],[1142,736],[1142,240],[928,240]],"say":"delta uses the interface rule from check to find errors when an interface name is missing."},{"s":"Config","t":"CLI","a":"settings","k":"data","p":[[615,212],[615,176]],"say":"The configuration gives the package roots, model path and output paths to the commands."},{"s":"Config","t":"FactsExtractor","a":"package roots","k":"data","p":[[690,222],[767,222],[767,164],[778,164]],"say":"The package roots and test directories set the source files that the extractor reads."},{"s":"Config","t":"ChangeDetector","a":"roots, test directories","k":"data","p":[[690,238],[767,238],[767,240],[778,240]],"say":"The package roots and test directories identify changed module files and test files."},{"s":"Config","t":"Page","a":"name, paths","k":"data","p":[[640,264],[640,349],[948,349],[948,372],[968,372]],"say":"The page reads its title, source file paths and outside-region label from the configuration."},{"s":"Config","t":"Figures","a":"figures table","k":"data","p":[[665,264],[665,372],[778,372]],"say":"The [[figures]] table gives the figures, output modes and output files for refresh."},{"s":"Page","t":"Figures","a":"map hash","k":"data","p":[[968,388],[928,388]],"say":"The canvas page gives the URL hash of a map. A figure caption uses it to name the place of a nested map on the canvas page."},{"s":"Config","t":"Check","a":"ignores","k":"data","p":[[540,254],[511,254],[511,272],[268,272],[268,720],[350,720]],"say":"An ignore entry removes a module from the coverage check. The entry must have a reason."},{"s":"Config","t":"Judgement","a":"answers, sdks","k":"data","p":[[590,264],[590,404],[640,404],[640,589],[475,589],[475,600]],"say":"Judgement uses accepted answers with evidence or explicit policies. The [facts] model_sdks list changes the SDK names for its checks."},{"s":"Config","t":"SecondOpinion","a":"answers, model, cache","k":"data","p":[[615,264],[615,600]],"say":"The configuration gives the model, answer cache and answers for decision findings."},{"s":"FactsExtractor","t":"SecondOpinion","a":"map.json","k":"data","p":[[803,176],[803,206],[767,206],[767,306],[734,306],[734,628],[690,628]],"say":"The facts give module docstrings, public names, imports and source lines for each question."},{"s":"SecondOpinion","t":"TypeSafe","a":"questions","k":"data","p":[[665,600],[665,554],[22,554],[22,314],[36,314]],"say":"The command sends one typed question through HTTPS with the Jev key. It sends no requests without a key or without an explicit option on the command line."},{"s":"TypeSafe","t":"SecondOpinion","a":"typed answers","k":"data","p":[[36,306],[19,306],[19,589],[511,589],[511,612],[540,612]],"say":"Jev gives a probability or choice with a distribution. The cache stores each answer by model release and question."},{"s":"SecondOpinion","t":"OpenAI","a":"questions","k":"data","p":[[640,600],[640,542],[232.3,542],[232.3,426],[220.7,426],[220.7,222],[186,222]],"say":"The command sends the questions with one evidence text through HTTPS with the OpenAI key. It sends no request without an explicit provider selection."},{"s":"OpenAI","t":"SecondOpinion","a":"typed answers","k":"data","p":[[186,214],[268,214],[268,306],[520,306],[520,486],[756,486],[756,636],[690,636]],"say":"OpenAI gives a probability, a choice with a distribution, or a refusal. The cache stores each answer by provider, model and question."},{"s":"ChangeDetector","t":"SecondOpinion","a":"delta lines","k":"data","p":[[778,256],[723,256],[723,620],[690,620]],"say":"For delta --decide, the delta lines give the removed modules without a match and the modules without a component claim. The decision provider gets one question for each. The answers are suggestions. They do not change the delta lines or the exit code."},{"s":"Judgement","t":"SecondOpinion","a":"uncovered entry points","k":"data","p":[[500,628],[540,628]],"say":"Judgement has one rule for entry-point sequence coverage. The sequence writer uses this rule to find entry points without sequences."},{"s":"Judgement","t":"Page","a":"uncovered entry points, assurance levels, boundary findings","k":"data","p":[[500,644],[511,644],[511,720],[948,720],[948,404],[968,404]],"say":"The Sequences view uses the same coverage rule. It gives the number and the names of the entry points without a sequence. The rules list gives the assurance level of each invariant and import rule. The canvas data gives the boundary findings of each nested map."},{"s":"Judgement","t":"Schematic","a":"assurance levels","k":"data","p":[[475,656],[475,681],[1018,681],[1018,508]],"say":"Judgement gives the assurance level and the freshness of each component, flow and invariant to the inspector of the diagram."},{"s":"SecondOpinion","t":"Describe","a":"uncovered entry points","k":"data","p":[[565,656],[565,804],[500,804]],"say":"Describe reads the entry points without sequences from the sequence writer. It shows the first entry points in this list."},{"s":"FactsExtractor","t":"Describe","a":"entry points","k":"data","p":[[928,140],[939,140],[939,272],[828,272],[828,298],[665,298],[665,572],[745,572],[745,773],[475,773],[475,784]],"say":"Describe uses the entry-point labels from the extractor."},{"s":"Config","t":"Scaffold","a":"existing table","k":"data","p":[[540,238],[511,238],[511,240],[500,240]],"say":"init reads an existing [tool.systemap] table in pyproject.toml. Then it writes no systemap.toml, and it writes the model at the model path of the table."},{"s":"Scaffold","t":"Model","a":"initial model","k":"data","p":[[500,256],[511,256],[511,462],[500,462]],"say":"init writes an initial model with regions and no component cards. The agent must add components from the facts before check completes without errors."},{"s":"FactsExtractor","t":"Check","a":"map.json","k":"data","p":[[828,176],[828,201],[756,201],[756,526],[828,526],[828,759],[475,759],[475,748]],"say":"The check uses facts for module coverage, entry points and output comparison."},{"s":"FactsExtractor","t":"Schematic","a":"map.json","k":"data","p":[[928,156],[957,156],[957,472],[968,472]],"say":"The diagram uses facts for source states, entry modules and flow evidence."},{"s":"FactsExtractor","t":"Judgement","a":"entry points","k":"data","p":[[928,148],[1155,148],[1155,577.3],[511,577.3],[511,636],[500,636]],"say":"Judgement finds entry points without sequences and imports between components without flows."},{"s":"FactsExtractor","t":"ChangeDetector","a":"public surfaces","k":"data","p":[[853,176],[853,212]],"say":"The change detector uses the extractor parser for public names at each revision."},{"s":"FactsExtractor","t":"Page","a":"source records","k":"data","p":[[928,164],[1018,164],[1018,360]],"say":"The page shows stored source records for a selected component. Imports show connections, not evidence for the flow explanation."},{"s":"ChangeDetector","t":"Page","a":"change map","k":"data","p":[[928,248],[993,248],[993,360]],"say":"With --base, the page shows source changes and components that import changed modules. Imports do not show program execution or effects."},{"s":"ChangeDetector","t":"Figures","a":"change","k":"data","p":[[928,256],[939,256],[939,372],[928,372]],"say":"The change detector gives changed components and components with import connections for a revision comparison. A plan figure reads component IDs directly."},{"s":"Model","t":"Placer","a":"cards, flows","k":"data","p":[[500,470],[529,470],[529,156],[500,156]],"say":"The placer reads component cards, regions and flows. It keeps positions in the model. With --all, it keeps only pinned positions."},{"s":"Placer","t":"Model","a":"positions","k":"data","p":[[350,164],[315.3,164],[315.3,462],[350,462]],"say":"The placer writes positions, boxes and canvas size in map/model.py. It keeps all other file bytes unchanged."},{"s":"Model","t":"FactsExtractor","a":"claims","k":"data","p":[[350,470],[232.3,470],[232.3,72],[756,72],[756,132],[778,132]],"say":"The extractor uses model claims to find modules that are no longer in the repository."},{"s":"Model","t":"ChangeDetector","a":"claims","k":"data","p":[[400,452],[400,434],[756,434],[756,248],[778,248]],"say":"The change detector gives changed modules their component identifiers. It compares recorded source reviews with digests of source and claims."},{"s":"Model","t":"Schematic","a":"topology, meaning","k":"data","p":[[450,504],[450,518],[993,518],[993,508]],"say":"The diagram shows model positions and relationships. The flow list shows model text."},{"s":"Model","t":"Check","a":"model","k":"data","p":[[500,486],[520,486],[520,704],[500,704]],"say":"The check finds model errors before it makes a diagram. It also does module coverage, entry and interface checks."},{"s":"Model","t":"CLI","a":"loaded map","k":"data","p":[[425,452],[425,427],[712,427],[712,132],[690,132]],"say":"The commands load the model and meaning through the map tree. They find model errors before the render operation."},{"s":"Config","t":"Placer","a":"model file lock","k":"control","p":[[540,222],[511,222],[511,164],[500,164]],"say":"The placer holds the lock of a model file from the read to the end of the write. Thus a different command cannot write that model file at the same time."},{"s":"Config","t":"Model","a":"path and model","k":"data","p":[[565,264],[565,442],[475,442],[475,452]],"say":"The map tree reads the model path from the configuration. The loader validates MODEL and MEANING against their schema."},{"s":"Model","t":"Page","a":"layers","k":"data","p":[[375,452],[375,441],[993,441],[993,416]],"say":"The page uses model components, layers, sequences and invariants for its controls and text."},{"s":"Model","t":"Figures","a":"layers","k":"data","p":[[450,452],[450,426],[803,426],[803,416]],"say":"The figure uses model components and layers to select the diagram and caption."},{"s":"Model","t":"Describe","a":"readings","k":"data","p":[[500,478],[529,478],[529,796],[500,796]],"say":"Describe reads model components, flows, regions and layers to give diagram measurements."},{"s":"Router","t":"Schematic","a":"routes, labels","k":"data","p":[[928,480],[968,480]],"say":"The router gives paths and label positions. It gives route and label errors with necessary actions."},{"s":"Router","t":"Describe","a":"gutters, seats","k":"data","p":[[803,508],[803,812],[500,812]],"say":"Describe shows spaces between cards and the number of label positions in each space."},{"s":"Router","t":"Placer","a":"routes, seats","k":"data","p":[[778,464],[665,464],[665,372],[640,372],[640,314],[339,314],[339,148],[350,148]],"say":"The placer uses the router to score selected region orders. It selects the order with the fewest collisions and route errors. Bends and path length also contribute to the score."},{"s":"Schematic","t":"Placer","a":"geometry","k":"data","p":[[1018,452],[1018,426],[948,426],[948,59.7],[511,59.7],[511,132],[500,132]],"say":"The placer uses the diagram geometry to score layouts. Header measurements set the minimum box sizes."},{"s":"Placer","t":"Describe","a":"region order, score","k":"data","p":[[350,156],[291.7,156],[291.7,804],[350,804]],"say":"Describe reads the region order and diagram score. It shows the number of orders in the layout search."},{"s":"Schematic","t":"Page","a":"svg, detail","k":"data","p":[[1043,452],[1043,416]],"say":"The page contains the SVG and JSON data for the interaction script."},{"s":"Schematic","t":"Figures","a":"svg","k":"data","p":[[968,464],[939,464],[939,404],[928,404]],"say":"A figure contains the same SVG in an HTML figure element or as an SVG image."},{"s":"Schematic","t":"Check","a":"geometry","k":"data","p":[[968,496],[939,496],[939,728],[500,728]],"say":"The check makes the diagram and reads its geometry: paths, labels and text sizes."},{"s":"Schematic","t":"Describe","a":"geometry","k":"data","p":[[968,488],[957,488],[957,828],[500,828]],"say":"describe makes the diagram and reads geometry for regions, flows, spaces and layers."},{"s":"Describe","t":"Agent","a":"diagram measurements","k":"data","p":[[350,796],[136,796],[136,640]],"say":"After refresh, the agent reads diagram measurements if it cannot open the page."},{"s":"Page","t":"Maintainer","a":"the page","k":"data","p":[[1068,416],[1068,442],[565,442],[565,526],[186,526]],"say":"The maintainer opens the page and examines layers and sequences. Map position and zoom controls show diagram data."},{"s":"Check","t":"Agent","a":"the fix","k":"data","p":[[350,704],[161,704],[161,640]],"say":"Each error has a necessary action. The agent changes the model until coverage and layout checks give no errors."},{"s":"ChangeDetector","t":"Agent","a":"change history","k":"data","p":[[853,268],[853,290.7],[640,290.7],[640,530.7],[339,530.7],[339,559],[161,559],[161,596]],"say":"delta gives change findings with necessary actions. history shows intervals with the largest changes first, with the commits for each interval."},{"s":"Check","t":"CI","a":"verdict","k":"data","p":[[350,712],[244.3,712],[244.3,450],[186,450]],"say":"Exit code 1 rejects the pull request. The message gives the necessary command."},{"s":"Judgement","t":"ChangeDetector","a":"judgement data","k":"data","p":[[500,620],[511,620],[511,585],[745,585],[745,302.3],[803,302.3],[803,268]],"say":"Delta uses judgement answer rules and import groups. Its report uses explanations for finding kinds."},{"s":"Skill","t":"Agent","a":"procedure","k":"judge","p":[[350,404],[220.7,404],[220.7,610],[186,610]],"say":"The skill gives the procedure, schema, example, second examination and output requirements to the agent."},{"s":"Skill","t":"SecondOpinion","a":"language policy","k":"data","p":[[500,404],[590,404],[590,600]],"say":"The configured coding-agent request reads the packaged language policy. The request and cache key contain that policy."},{"s":"Agent","t":"Model","a":"map/model.py","k":"judge","p":[[186,602],[315.3,602],[315.3,494],[350,494]],"say":"The agent writes module groups, flows, explanations, sequences and invariants in map/model.py."},{"s":"Maintainer","t":"Model","a":"corrections","k":"judge","p":[[186,510],[375,510],[375,504]],"say":"The maintainer corrects model errors. The maintainer controls the model after examination."},{"s":"Model","t":"Judgement","a":"model","k":"judge","p":[[500,494],[511,494],[511,612],[500,612]],"say":"Judgement finds possible model errors for examination."},{"s":"Judgement","t":"Check","a":"finding explanations","k":"judge","p":[[425,656],[425,692]],"say":"Judgement stores explanations for finding kinds. The check uses these explanations to give reasons and necessary actions."},{"s":"Judgement","t":"Agent","a":"second-pass list","k":"judge","p":[[350,620],[197,620],[197,618],[186,618]],"say":"During the second examination, the agent examines each import between components and each entry point without a sequence. It changes the model or records answers."},{"s":"Judgement","t":"Maintainer","a":"judgement answers","k":"judge","p":[[350,612],[197,612],[197,542],[186,542]],"say":"The maintainer examines each judgement answer. The agent must give the findings for this examination."},{"s":"Model","t":"SecondOpinion","a":"cards, sentences","k":"judge","p":[[475,504],[475,559],[565,559],[565,600]],"say":"Questions use the model components, flow explanations, flows and invariants."},{"s":"SecondOpinion","t":"Agent","a":"jev lines","k":"judge","p":[[590,656],[590,667],[232.3,667],[232.3,634],[186,634]],"say":"The agent gets decision findings for correction or answers. If the configuration has a coding-agent command and the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1, the agent also gets text questions."}],"layers":[{"id":"system","n":"System context","q":"Which actors connect to the system?","e":[0,1,26,27,28,29,66,67,68,69,70,72,74,75,78,79,81]},{"id":"structure","n":"Structure","q":"Which components are in each region and container?","e":[]},{"id":"data","n":"Data flow","q":"Which artifacts move between components?","e":[16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,73]},{"id":"control","n":"Control flow","q":"Which components cause other components to act?","e":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,52]},{"id":"judge","n":"Map review","q":"Who writes and examines the model?","e":[72,74,75,76,77,78,79,80,81]}],"sq":[{"n":"Read the change history","en":"systemap history","s":[{"a":["Agent"],"f":0,"y":"The user runs systemap history with a start date and a sample interval."},{"a":["ChangeDetector"],"f":7,"y":"The change detector selects one commit per interval from git, in date order. Each interval has the same weight."},{"a":["FactsExtractor"],"f":41,"y":"The extractor reads facts from each git revision. It does not read the working tree. The cache stores facts in .systemap/facts."},{"a":["ChangeDetector"],"f":48,"y":"The comparison uses the components in the model for all samples. Each component has module claims for its function."},{"a":["ChangeDetector"],"f":69,"y":"The report shows the largest changes first: component size, imports between components and commits that added modules."}]},{"n":"Compare a plan with source changes","en":"plan in systemap.jev_cli","s":[{"a":["Agent"],"f":0,"y":"Before source changes, the agent or maintainer runs systemap plan with a task description and --provider."},{"a":["SecondOpinion"],"f":80,"y":"The plan projection reads component functions from the model. Its question uses the model component names."},{"a":["SecondOpinion"],"f":26,"y":"Jev receives a question about the probability of a change in each component for this task."},{"a":["TypeSafe"],"f":27,"y":"Jev gives a weight for each component. The projection selects components at or above the measured threshold."},{"a":["SecondOpinion"],"f":81,"y":"The report shows flows, sequences and rules for each selected component. The command writes the projection in .systemap/plans."},{"a":["ChangeDetector"],"f":41,"y":"After source changes, systemap plan --check compares the initial facts with the new facts. It identifies changed components outside the plan."}]},{"n":"Get an audit or issue assessment","en":"audit in systemap.jev_cli","s":[{"a":["Agent"],"f":0,"y":"If the maintainer asks and no judgement findings are open, the agent runs systemap audit --provider jev. For an issue, the maintainer runs systemap triage --provider jev."},{"a":["SecondOpinion"],"f":80,"y":"The second-opinion process reads components, explanations, flows, invariants and facts. It makes a different question for each claim."},{"a":["SecondOpinion"],"f":26,"y":"The command sends questions without cached answers to Jev through HTTPS. audit --dry-run shows the data before transmission."},{"a":["TypeSafe"],"f":27,"y":"Jev gives a probability or choice. The cache stores each answer by model release."},{"a":["SecondOpinion"],"f":81,"y":"The report shows Jev findings that are different from map claims, or three components with the largest probabilities for triage. The agent corrects or answers findings."}]},{"n":"Make the initial map","en":"systemap init","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap init. The command writes the configuration, initial model and workflow."},{"a":["CLI"],"f":4,"y":"init installs the skill directory in the project. systemap skill installs it again on request."},{"a":["Skill"],"f":72,"y":"The skill gives the procedure: extraction, model draft, check, judgement, render and second examination."},{"a":["FactsExtractor"],"f":5,"y":"systemap extract reads modules, public names, imports and entry points from the source tree."},{"a":["Agent"],"f":74,"y":"The agent runs systemap suggest for initial module groups. Then the agent writes components, flows, explanations and sequences in map/model.py, without positions."},{"a":["Placer"],"f":46,"y":"systemap place sets regions and component cards on a grid. It keeps spaces between regions and writes positions in the model file."},{"a":["Check"],"f":68,"y":"systemap check gives each error and necessary action, and the result of each import rule. systemap rules gives only the import rule results. The agent makes changes until module coverage is N/N and layout checks give no errors."}]},{"n":"Examine the model and refresh the map","en":"systemap judgement","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap judgement."},{"a":["Judgement"],"f":40,"y":"Judgement examines fact imports for connections without model flows. It finds entry points without sequences."},{"a":["Judgement"],"f":78,"y":"Findings identify imports between components, entry points without sequence coverage and layers with few flows. The agent corrects or answers each finding."},{"a":["Agent"],"f":74,"y":"The agent adds missing flows and corrects module groups. The agent does the check again. If a full examination finds no necessary changes, stop."},{"a":["Page"],"f":8,"y":"systemap refresh renders the page and figures. systemap describe gives diagram measurements. systemap serve opens the page for examination."},{"a":["Judgement"],"f":79,"y":"The agent records judgement answers in systemap.toml. judgement --strict must give exit code 0. The maintainer examines the answers and writes docs/map in a Git commit."}]},{"n":"Update the map after a module move","en":"systemap delta","s":[{"a":["CI"],"f":1,"y":"A pull request moves a module. The workflow runs systemap delta --base with the base branch. It posts a map-change report."},{"a":["ChangeDetector"],"f":7,"y":"The detector reads facts from both git revisions. It identifies old module claims and the renames that correct them."},{"a":["Check"],"f":70,"y":"The CI job rejects the change if a finding has no answer or if it is necessary to update the map. The job log gives the necessary actions."},{"a":["Agent"],"f":0,"y":"The agent examines delta findings and changed component source. The agent records review digests. The agent runs refresh, check and judgement --strict, then writes docs/map in a Git commit."},{"a":["Page"],"f":67,"y":"The maintainer reads the page. The changed component shows the new source location."}]},{"n":"Read stored source facts","en":"systemap facts","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap facts with --module or --entry-points. The command reads stored facts and prints the selected record."}]},{"n":"Render the map page","en":"systemap render","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap render to make the page from stored facts and the model."},{"a":["Page"],"f":8,"y":"The command gives stored facts, the model and the selected theme to the page generator."},{"a":["Schematic"],"f":62,"y":"The page contains the schematic SVG and detail data for its controls."},{"a":["Maintainer"],"f":67,"y":"The maintainer opens the page to examine components, flows and sequences."}]},{"n":"Show the map of the working tree","en":"live in systemap.serve","s":[{"a":["Agent"],"f":0,"y":"The agent or the maintainer runs systemap live. The command supplies the page on 127.0.0.1 and writes one event line for each version."},{"a":["FactsExtractor"],"f":5,"y":"When a watched file changes, or after POST /refresh, the command extracts the facts of the working tree. It does not write the facts file."},{"a":["ChangeDetector"],"f":7,"y":"The detector compares the working tree with the merge base of the base ref and HEAD. The delta lines that need an action are the map updates."},{"a":["Page"],"f":8,"y":"The page generator makes the pages in a temporary directory. The page script loads the page again for each version and keeps the view of the reader."},{"a":["Figures"],"f":9,"y":"The figure generator makes change.svg beside the page. It is the change figure, or the system figure if the comparison has no change."},{"a":["Maintainer"],"f":67,"y":"The maintainer examines the page in a browser while the agent changes the code."}]},{"n":"Write a model file with literal values","en":"convert in systemap.model_convert","s":[{"a":["Agent"],"f":0,"y":"The maintainer examines the code of the model files. Then the maintainer or the agent runs systemap convert with SYSTEMAP_TRUST_MODEL_CODE=1."},{"a":["Config"],"f":53,"y":"The configuration reader runs each model file that the safe reader refuses, one time. It gives the model and its meaning."},{"a":["SecondOpinion"],"f":24,"y":"The command reads the new text without running code. If it gives the same model, the model writer replaces the file."}]},{"n":"Record the review of one target","en":"review in systemap.review","s":[{"a":["Agent"],"f":0,"y":"The agent examines the source and all the claims of one component or one flow. Then the agent runs systemap review for that target."},{"a":["Config"],"f":53,"y":"The command reads the model as data. The model gives the current digest of the target from the source and the claims."},{"a":["SecondOpinion"],"f":24,"y":"The command reads the new text without running code. If only the review value changes, the model writer replaces the file."}]},{"n":"Examine the claims with the agent","en":"decisions in systemap.decisions_cli","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap decisions pending. The command gives each claim without a current decision, with its source files and their digests."},{"a":["Judgement"],"f":78,"y":"The requests are the open judgement lines, the missing or stale source reviews and the flow reviews that are not current."},{"a":["Agent"],"f":74,"y":"The agent reads the source files and gives one verdict with citations for each request. After a contradicted verdict, the agent corrects the map."},{"a":["Config"],"f":53,"y":"systemap decisions submit rejects incorrect citations and writes nothing. Otherwise, it writes the review digests into the model and the exact answers into systemap.toml."},{"a":["Judgement"],"f":79,"y":"systemap decisions status and systemap judgement show each unknown request. The maintainer examines these claims."}]},{"n":"Make a map figure","en":"systemap figure","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap figure. The command can use a selected mode and output path."},{"a":["Figures"],"f":9,"y":"The command tells the figure generator to make one diagram from stored facts and the model."},{"a":["Schematic"],"f":63,"y":"The figure uses the schematic SVG, alone or in an HTML figure element."}]},{"n":"Read a finding explanation","en":"systemap explain","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap explain with a finding kind. The command gives the explanation, cause and necessary action."}]},{"n":"Write a sequence for an entry point","en":"journeys in systemap.jev_cli","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap journeys for an entry point without a sequence with source review."},{"a":["SecondOpinion"],"f":12,"y":"The command groups entry points without sequences by component. If the environment sets SYSTEMAP_TRUST_AGENT_COMMAND=1, it tells the configured coding agent to read the source for one group."},{"a":["SecondOpinion"],"f":81,"y":"The command validates the sequence draft against model components and flows. Then it writes the draft for the maintainer to examine."}]},{"n":"Divide the map into nested parts","en":"parts in systemap.parts_cli","s":[{"a":["Agent"],"f":0,"y":"The agent runs systemap parts --stub CARD for a component with more than ten modules."},{"a":["CLI"],"f":51,"y":"The command loads the map and finds the parent components that have a flow or an import across the boundary of the component."},{"a":["Placer"],"f":3,"y":"The stub gets one component for each module group of systemap suggest, the actors, and positions from systemap place."},{"a":["Check"],"f":6,"y":"The command examines the stub with the model checks and the nesting check. If a check gives a problem, it writes no file."},{"a":["Judgement"],"f":10,"y":"After the agent sets map= on the component, systemap parts writes the part plan to map/parts/plan.json with two digests."},{"a":["Agent"],"f":78,"y":"The agent gives each nested part its record from the plan. Then systemap parts --results examines each result file against the plan."}]}],"sm":[{"n":"Source review of a component","of":"Model","st":[{"id":"missing","c":0,"r":0,"first":1,"sym":"card_review.MISSING","y":"The component has no source_review value."},{"id":"current","c":1,"r":0,"first":0,"sym":"card_review.CURRENT","y":"The source_review value is the current digest."},{"id":"stale","c":1,"r":1,"first":0,"sym":"card_review.STALE","y":"The source_review value is not the current digest."}],"tr":[{"a":0,"b":1,"l":"review","c":"systemap review COMPONENT writes the current digest in the model file."},{"a":1,"b":2,"l":"source or claims change","c":"The source or the claims of the component change. Then the digest is different."},{"a":2,"b":1,"l":"review","c":"A person or an agent examines the claims again. Then systemap review writes the current digest."}]},{"n":"Review of a flow","of":"Model","st":[{"id":"missing","c":0,"r":0,"first":1,"sym":"flow_review.MISSING","y":"The flow has no source records or no review digest."},{"id":"current","c":1,"r":0,"first":0,"sym":"flow_review.CURRENT","y":"The review digest agrees with the claim and the cited source."},{"id":"stale","c":1,"r":1,"first":0,"sym":"flow_review.STALE","y":"The cited source or the flow changed after the review."},{"id":"earlier","c":2,"r":0,"first":0,"sym":"flow_review.EARLIER","y":"The review is earlier than source tracking. Its digest does not identify the examined source."}],"tr":[{"a":0,"b":1,"l":"review --flow","c":"systemap review --flow writes the review digest of the flow."},{"a":1,"b":2,"l":"cited source or flow changes","c":"The cited source or the flow claim changes. Then the digest is different."},{"a":2,"b":1,"l":"review --flow","c":"A person or an agent examines the flow claim again."},{"a":3,"b":1,"l":"review --flow","c":"A new review identifies the examined source."}]}]},{"id":"Page","size":[1154,686],"boxes":[{"id":"part","n":"PAGE","u":"","b":[248.0,28.0,658,516]}],"regions":[{"id":"data","n":"DATA","b":[268.0,320.0,190,112]},{"id":"canvas","n":"CANVAS PAGE","b":[506.0,320.0,380,204]},{"id":"linked","n":"LINKED PAGE","b":[268.0,80.0,190,204]},{"id":"shared","n":"SHARED PARTS","b":[506.0,80.0,190,112]}],"cards":[{"id":"LinkedViews","b":[288,120,150,56],"k":"component","p":"The linked views","d":"Gives the Sequences view and the Changes view of the linked page: their toolbars, their panels, their data and their scripts.","as":["examined","current"],"m":[]},{"id":"PageAssets","b":[526,120,150,56],"k":"component","p":"The page assets","d":"Gives the parts that the two pages share: the styles, the icons, the Find list, the font, the content security policy and the script of the live page.","as":["examined","current"],"m":[]},{"id":"LinkedPage","b":[288,212,150,56],"k":"component","p":"The linked page","d":"Makes the linked page: one page for each map, with the SVG diagram, the reading panel, the guide, the map controls and the phone layout. Gives its text tools to the other parts.","as":["examined","current"],"m":[]},{"id":"FactsExtractor","b":[28,244,150,44],"k":"actor","p":"The source records","d":"Reads the syntax tree and writes module records. Records public names, imports, the lines that use imported names, test imports and entry points. Records the source files and TypeScript syntax that it cannot read or parse, with the cause of each record. Resolves self-name imports and package.json subpath imports to modules of the same package. An import of a declaration file is not an unresolved import. Relative imports and path aliases can also name declaration files. A comment directly before a TypeScript variable does not become the module description without a blank line or a module tag. Records each re-export target without a module one time for each statement and target, with its line and names. An indirect re-export through an import gives the same record. A license notice does not become a module description. Records a digest of the configuration values that extraction reads. Writes the Python syntax digest and the api fingerprints from the syntax text of systemap, and takes the Python signatures and constant values from the source text. Thus these values are the same on each supported Python version. A Python syntax node that the syntax text does not know stops the extraction. Reads stored facts through systemap facts. The language adapters give the language operations and the facts with the same meaning for each language. For the upgrade of answers from 2.0.0, the Python adapter gives each module record with the ast.unparse text of 2.0.0 for the signatures and constant values. The stored facts do not change.","as":[],"m":[]},{"id":"Config","b":[404,614,150,44],"k":"actor","p":"The configuration","d":"Reads systemap.toml or [tool.systemap] in pyproject.toml with default values. Finds package roots, test files and source-language settings. For TypeScript, selects the one source folder of the tsconfig include entries, then src, then the repository root. Finds the type-test files for test_patterns. Finds the configuration files that the language reads, with the tsconfig files that extends and references name. Keeps judgement answers and reasons. Rejects unknown keys, values of the wrong form and entries without reasons. Reads the writing profile, the [rules] table, the [render] table and the decision provider. Reads model files as data and does not run their code. Reads the invariants and import rules of each map from its contract file. From 2.0, also reads them from the model file, and rejects a map whose two files both give them. systemap refresh and systemap extract move them from the model file to the contract file one time. Reads a repository file only if the file is a regular file in the repository. Reads and writes a cache file or an output file only in the repository. A write replaces a link and does not write to the target of the link. Rejects a configured cache, output or model path that is not in the repository. Writes a cache file or an output file through a temporary file of each writer. On Windows, if os.replace gives PermissionError, waits and tries os.replace again a small number of times. A new file gets the mode of a usual write. A file that is present keeps its mode. Holds a lock on a cache file while one process reads or changes it. Makes the write lock .systemap/write.lock with O_EXCL, so that only one command at a time writes the shared files. A second process does not wait. It stops with an error that gives the lock path and the command that holds the lock. In one process, an inner lock continues. A lock that a stopped process left stays until a person removes it. If .systemap/.gitignore does not exist, systemap init and a write of the answer cache, the facts cache or the decision store in .systemap write that file with the line *. systemap convert writes a model file that needs code again with literal values. systemap review writes the current review digest of one component or one flow into the model file. It holds the lock of each model file of the map from the read to the write. A dry run takes no lock. When systemap refresh and systemap extract move a contract or record the source records of flow reviews, they also hold the lock of each model file from the read to the write. In each release, systemap refresh and systemap extract record the source records of each flow review before source tracking one time. They also write the current evidence digest of each answer from 2.0.0 that agrees with the source one time. For the 2.0.0 form of the evidence, they get the ast.unparse text of the Python signatures and constant previews from the source again. Adds exact answers with citations to systemap.toml and keeps the other text of the file. Rejects a family answer with a previous name of a decision finding kind. Rejects a package root that is not in the repository. Rejects a model value that does not agree with the type of its field. Rejects a configured output file that is not in the output directory. Rejects a layer ID that is not a safe name and a component ID that is a key of the page data.","as":[],"m":[]},{"id":"PageData","b":[288,360,150,56],"k":"component","p":"The page data","d":"Makes the data of the pages. For the canvas page, gives one object with the cards, the flow paths, the sequences, the state machines, the changes and the details of all maps. For the linked page, gives the module records.","as":["examined","current"],"m":[]},{"id":"CanvasControls","b":[526,360,150,56],"k":"component","p":"The canvas controls","d":"Gives the script parts for the keyboard, the touch screen, the list of the map tree and Find.","as":["examined","current"],"m":[]},{"id":"CanvasViews","b":[716,360,150,56],"k":"component","p":"The canvas views","d":"Gives the script parts for the views of the canvas page: the layers, the Sequences view, the States view, the Changes view, the caption and the Details panel.","as":["examined","current"],"m":[]},{"id":"Judgement","b":[28,314,150,44],"k":"actor","p":"The review findings","d":"Gives findings for examination: single-module components, incorrect groups, missing flow explanations, layers, entry points, imports and TypeScript records. Uses accepted answers and policies. Reports stale component source reviews and source records outside the flow endpoints or the sequence step components. Gives each flow review earlier than source tracking as a row with a label, not as a finding. A change to a cited module opens the flow review again. With --strict, returns exit code 1 for findings without answers or for a model without components. Gives the cause, the fix line and the source location rows of each unknown surface finding. Gives a contract reason finding for each invariant or import rule without a reason. A finding line contains no line number, source excerpt, parser version or count. The evidence digest of an answer contains the names, imports and entry points that the finding cites. A comment, a function body or a test does not open an answer again. Gives no finding about a test file. Gives an answer item with a previous decision kind name as a stale answer with the current line. With --json, writes the findings, answers and counts as one JSON object. Gives the assurance level and the freshness of each component, flow, invariant and import rule to the JSON object and to the page. Gives the open boundary findings of the map tree to the canvas page. It applies the answers only to the boundary findings, thus it does not make the other findings. An exact answer that also names a different finding needs all findings. Only an import rule with the result pass is established. A current source review or flow review gives examined. All other claims are unknown. With require_reviews, a missing source review is a finding. systemap decisions gives the claims to a coding agent, rejects verdicts without correct citations, records the correct verdicts and shows the unknown claims. With --order-by-drift, puts the stale source review lines in sequence by the drift score from a decision provider. systemap decisions submit holds .systemap/write.lock from the read of the store to the last write. Before the first review write, it takes the lock of each model file that a review can write. The store write reads the store again and keeps the records of the other keys. If the configuration does not load after the answer write, the command restores the previous bytes only if no different writer changed the file. systemap suggest gives initial module groups and the map= file name of each possible nested map. systemap parts writes the part plan of the nested maps of one map: the modules, the module groups, the adjacent components, the flows and imports at each boundary, the entry points, and two digests. A different source fact, or a different contract of the parent map or of a map above it, makes the plan stale. A new commit with the same source facts does not make the plan stale. systemap parts --results examines the result file of each nested part against the plan. In each nested map, gives a boundary flow finding for a flow across the boundary of the map that the parent map does not show in the same direction, and for a parent flow that no nested flow shows. Gives a boundary import finding for an import across the boundary when the nested map has no actor or no flow for the imported component. The owner of an imported module is the component that claims it in the nearest map above the nested map.","as":[],"m":[]},{"id":"CanvasPage","b":[526,452,150,56],"k":"component","p":"The canvas page","d":"Makes the canvas page from the page data and the script parts. Makes the header, and a page for each nested map that goes to the canvas page. Gives the pages of a map tree to the commands. If the configuration sets canvas = false, starts the linked page.","as":["examined","current"],"m":[]},{"id":"CanvasDrawing","b":[716,452,150,56],"k":"component","p":"The canvas drawing","d":"Gives the script parts that draw the maps on the canvas: the scene, the cards, the flow lines, the labels, the stored images, the fades, the text, the ports and the legend.","as":["examined","current"],"m":[]},{"id":"Schematic","b":[28,384,150,44],"k":"actor","p":"The map diagram","d":"Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.","as":[],"m":[]},{"id":"Model","b":[976,279,150,44],"k":"actor","p":"The map schema","d":"Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the schema for state machines: the states of one item of a component, each with its source symbol, and the transitions with their causes. Finds a state machine that names an unknown component, state, flow or sequence. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. With a map ID, loads only that map, its parent maps and its nested maps, and does not read the files of other maps. A card that opens a map must have an ID that is one path segment. Replaces a model file through a temporary file. If a replacement fails, restores the previous files. Holds the lock <model file>.lock of each model file during the write, so that two processes can write two different model files at the same time. Gives the file name of a nested map: the map ID in lower case, with _ in place of each /, and .py. Gives the files of the part plan and of the result files in map/parts. Refuses a stem of a nested map that is reserved, that is the same as a different stem, or whose prefix is the start of a different stem. To find the modules that the module claims of a component cover, it uses a sorted list of the module names. It keeps this list for each of the last 4 module lists that it examined.","as":[],"m":[]},{"id":"ChangeDetector","b":[28,454,150,44],"k":"actor","p":"The source comparison","d":"Compares source revisions, or a revision and the working tree. Shows changed public names, module renames and components that import changed modules. systemap delta gives findings and necessary actions. With --comment, it writes the architecture summary of a pull request: the contract changes, the map changes and the rule results, with the assurance level of each item. With a page URL in the configuration of the base commit, the comment also has a link to the Changes view. systemap history shows changes to the software structure through time. Resolves each revision from a person to a commit SHA before the other Git commands use it. A working-tree path can have a Git filter that only the repository configuration gives. Such a path is not a changed path, and its change is not known.","as":[],"m":[]},{"id":"CLI","b":[580,614,150,44],"k":"actor","p":"The commands","d":"Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change. It writes the pages only in its directory and removes the pages of removed maps. The page servers do not supply a file that a symbolic link puts in a location that is not in the served directory. They refuse a POST request and a GET request for /events from a page of a different web site. systemap extract, refresh, render and figure --out hold the write lock .systemap/write.lock. If a different command holds that lock, they stop with exit code 1 and write no file. With --map ID, check, judgement, rules, place, describe, journeys, review and decisions pending and status read only the model files of that map, of its parent maps and of its nested maps, and report only that map. Such a run does not examine the pages or the entry coverage. refresh, extract and decisions submit refuse --map. render, refresh and live write the canvas page, and a small page that goes to the canvas page for each nested map. With [render] canvas = false, they write the linked pages and give one notice line. systemap parts --stub CARD writes a stub of a new nested map with positions. It writes no file if the stub has a check problem or if the file exists.","as":[],"m":[]},{"id":"Check","b":[756,614,150,44],"k":"actor","p":"The map checks","d":"Does checks of module coverage, entries, interfaces, TypeScript records, layout, routes, labels, text, meaning and outputs. Compares the import rules with the resolved imports. Compares the source symbol of each state of a state machine with the constants in the facts. Gives each contract rule without a reason, and does not reject the map for it. Gives all findings. Returns exit code 1 if there are errors.","as":[],"m":[]},{"id":"Figures","b":[976,500,150,44],"k":"actor","p":"The document figures","d":"Makes a figure from the same diagram generator for a document. Shows the system, components in a plan, or a change. Gives an SVG file with a background. Shows the model and configuration text as HTML text. Rejects an SVG ID that is not a safe HTML ID.","as":[],"m":[]},{"id":"Maintainer","b":[976,430,150,44],"k":"actor","p":"The maintainer","d":"Examines judgement answers. Corrects model errors and writes the map in a Git commit.","as":[],"m":[]}],"flows":[{"s":"PageData","t":"CanvasPage","a":"canvas data","k":"data","p":[[413.0,416.0],[413.0,464.0],[526.0,464.0]],"say":"The canvas page puts the data object in the page one time."},{"s":"CanvasDrawing","t":"CanvasPage","a":"drawing script","k":"data","p":[[716.0,480.0],[676.0,480.0]],"say":"The canvas page joins the drawing parts into one script."},{"s":"CanvasControls","t":"CanvasPage","a":"control script","k":"data","p":[[601.0,416.0],[601.0,452.0]],"say":"The canvas page joins the control parts into the same script."},{"s":"CanvasViews","t":"CanvasPage","a":"view script","k":"data","p":[[716.0,404.0],[680.0,404.0],[680.0,464.0],[676.0,464.0]],"say":"The canvas page joins the view parts into the same script."},{"s":"CanvasPage","t":"LinkedPage","a":"render","k":"control","p":[[526.0,472.0],[460.0,472.0],[460.0,248.0],[438.0,248.0]],"say":"If the configuration sets canvas = false, the page writer makes the linked pages."},{"s":"PageAssets","t":"CanvasPage","a":"font, policy","k":"data","p":[[676.0,156.0],[687.0,156.0],[687.0,472.0],[676.0,472.0]],"say":"The canvas page gets the font and the content security policy."},{"s":"PageAssets","t":"LinkedPage","a":"styles, icons","k":"data","p":[[551.0,176.0],[551.0,224.0],[438.0,224.0]],"say":"The linked page gets its styles and icons."},{"s":"LinkedViews","t":"LinkedPage","a":"view parts","k":"data","p":[[363.0,176.0],[363.0,212.0]],"say":"The linked page gets the toolbars, panels and scripts of the two views."},{"s":"PageData","t":"LinkedPage","a":"module records","k":"data","p":[[438.0,372.0],[449.0,372.0],[449.0,256.0],[438.0,256.0]],"say":"The linked page gets the module records for its source panel."},{"s":"LinkedViews","t":"PageData","a":"entries, comparison","k":"data","p":[[438.0,164.0],[454.0,164.0],[454.0,380.0],[438.0,380.0]],"say":"The page data uses the entry text of a sequence and the test for a comparison."},{"s":"LinkedPage","t":"CanvasViews","a":"keys sheet","k":"data","p":[[438.0,232.0],[766.0,232.0],[766.0,360.0]],"say":"The Details part gets the sheet of the keyboard keys."},{"s":"LinkedViews","t":"CanvasViews","a":"changes command","k":"data","p":[[413.0,176.0],[413.0,201.0],[705.0,201.0],[705.0,372.0],[716.0,372.0]],"say":"The Changes view of the canvas page shows the same command as the linked page."},{"s":"PageAssets","t":"CanvasControls","a":"Find list","k":"data","p":[[676.0,164.0],[680.0,164.0],[680.0,372.0],[676.0,372.0]],"say":"Find on the canvas page uses the list of the linked page."},{"s":"PageAssets","t":"CanvasViews","a":"icons","k":"data","p":[[676.0,148.0],[741.0,148.0],[741.0,360.0]],"say":"The Sequences toolbar gets its icons."},{"s":"PageAssets","t":"LinkedViews","a":"icons","k":"data","p":[[526.0,148.0],[438.0,148.0]],"say":"The Sequences toolbar of the linked page gets its icons."},{"s":"CLI","t":"CanvasPage","a":"render","k":"control","p":[[580.0,620.0],[576.0,620.0],[576.0,508.0]],"say":"render and refresh make the pages from the facts and the model."},{"s":"Check","t":"CanvasPage","a":"render to compare","k":"control","p":[[781.0,614.0],[781.0,514.0],[651.0,514.0],[651.0,508.0]],"say":"The output check makes the pages from stored facts. It compares the result with the stored pages."},{"s":"Config","t":"CanvasPage","a":"name, paths","k":"data","p":[[504.0,614.0],[504.0,496.0],[526.0,496.0]],"say":"The pages read their title and the render settings from the configuration."},{"s":"CanvasPage","t":"Figures","a":"map hash","k":"data","p":[[626.0,508.0],[626.0,522.0],[976.0,522.0]],"say":"The canvas page gives the URL hash of a map. A figure caption uses it."},{"s":"Judgement","t":"PageData","a":"uncovered entry points, assurance levels, boundary findings","k":"data","p":[[178.0,352.0],[313.0,352.0],[313.0,360.0]],"say":"The page data gets the assurance level of each claim and the open boundary findings."},{"s":"FactsExtractor","t":"PageData","a":"source records","k":"data","p":[[178.0,282.0],[262.3,282.0],[262.3,372.0],[288.0,372.0]],"say":"The page data gets the stored source records of each module."},{"s":"ChangeDetector","t":"PageData","a":"change map","k":"data","p":[[178.0,460.0],[313.0,460.0],[313.0,416.0]],"say":"With --base, the page data gets the changed components."},{"s":"Model","t":"PageData","a":"layers","k":"data","p":[[976.0,309.0],[471.0,309.0],[471.0,388.0],[438.0,388.0]],"say":"The page data uses the components, layers, sequences and state machines of the model."},{"s":"Schematic","t":"LinkedPage","a":"svg, detail","k":"data","p":[[178.0,390.0],[234.0,390.0],[234.0,256.0],[288.0,256.0]],"say":"The linked page contains the SVG and the detail data of the diagram."},{"s":"CanvasPage","t":"Maintainer","a":"the page","k":"data","p":[[651.0,452.0],[651.0,444.0],[976.0,444.0]],"say":"The maintainer opens the canvas page."},{"s":"Schematic","t":"PageData","a":"svg, detail","k":"data","p":[[153.0,384.0],[153.0,380.0],[288.0,380.0]],"say":"The page data uses the geometry of the diagram and the marks of the change map."},{"s":"Config","t":"PageData","a":"name, paths","k":"data","p":[[404.0,620.0],[388.0,620.0],[388.0,416.0]],"say":"The page data reads the name of the system and the evidence settings."},{"s":"Judgement","t":"CanvasPage","a":"uncovered entry points, assurance levels, boundary findings","k":"data","p":[[178.0,344.0],[203.7,344.0],[203.7,444.0],[551.0,444.0],[551.0,452.0]],"say":"The canvas page gets the open boundary findings of the map tree."},{"s":"Model","t":"CanvasPage","a":"layers","k":"data","p":[[976.0,317.0],[696.0,317.0],[696.0,488.0],[676.0,488.0]],"say":"The canvas page reads the map tree."},{"s":"Schematic","t":"CanvasPage","a":"svg, detail","k":"data","p":[[178.0,422.0],[262.3,422.0],[262.3,488.0],[526.0,488.0]],"say":"The canvas page gets the theme tokens of the map page."},{"s":"ChangeDetector","t":"CanvasPage","a":"change map","k":"data","p":[[178.0,476.0],[515.0,476.0],[515.0,480.0],[526.0,480.0]],"say":"With --base, the page writer gets the source change."},{"s":"Judgement","t":"LinkedPage","a":"uncovered entry points, assurance levels, boundary findings","k":"data","p":[[178.0,320.0],[313.0,320.0],[313.0,268.0]],"say":"The linked page gets the assurance level of each invariant and import rule."},{"s":"Config","t":"LinkedPage","a":"name, paths","k":"data","p":[[479.0,614.0],[479.0,240.0],[438.0,240.0]],"say":"The linked page reads the name of the system and the evidence settings."},{"s":"Model","t":"LinkedPage","a":"layers","k":"data","p":[[976.0,285.0],[413.0,285.0],[413.0,268.0]],"say":"The linked page uses the components, layers and sequences of the model."},{"s":"Model","t":"CanvasViews","a":"layers","k":"data","p":[[1001.0,323.0],[1001.0,372.0],[866.0,372.0]],"say":"The Details part gets the words for each evidence state of a flow."},{"s":"Schematic","t":"LinkedViews","a":"svg, detail","k":"data","p":[[178.0,398.0],[233.0,398.0],[233.0,148.0],[288.0,148.0]],"say":"The Changes view of the linked page uses the change marks of the diagram."},{"s":"ChangeDetector","t":"LinkedViews","a":"change map","k":"data","p":[[178.0,468.0],[218.3,468.0],[218.3,140.0],[288.0,140.0]],"say":"The Changes view of the linked page gets the comparison of the model with its base."},{"s":"Judgement","t":"LinkedViews","a":"uncovered entry points, assurance levels, boundary findings","k":"data","p":[[178.0,328.0],[247.7,328.0],[247.7,156.0],[288.0,156.0]],"say":"The Sequences view of the linked page uses the coverage rule for entry points."},{"s":"Model","t":"LinkedViews","a":"layers","k":"data","p":[[976.0,293.0],[471.0,293.0],[471.0,156.0],[438.0,156.0]],"say":"The Sequences view of the linked page reads the sequences of the model."},{"s":"FactsExtractor","t":"LinkedViews","a":"source records","k":"data","p":[[153.0,244.0],[153.0,164.0],[288.0,164.0]],"say":"The Sequences view of the linked page reads the entry points from the source records."},{"s":"Config","t":"PageAssets","a":"name, paths","k":"data","p":[[454.0,614.0],[454.0,436.0],[504.0,436.0],[504.0,164.0],[526.0,164.0]],"say":"The policy part reads a page file through the file reader of the configuration."}],"layers":[{"id":"system","n":"System context","q":"Which actors connect to the system?","e":[15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40]},{"id":"structure","n":"Structure","q":"Which components are in each region and container?","e":[]},{"id":"data","n":"Data flow","q":"Which artifacts move between components?","e":[0,1,2,3,5,6,7,8,9,10,11,12,13,14,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40]},{"id":"control","n":"Control flow","q":"Which components cause other components to act?","e":[4,15,16]}]}],"history":{"commits":216,"from":"12 Oct","to":"17 Nov","buckets":[["12 Oct","15 Oct"],["15 Oct","18 Oct"],["18 Oct","21 Oct"],["21 Oct","24 Oct"],["24 Oct","27 Oct"],["27 Oct","30 Oct"],["30 Oct","2 Nov"],["2 Nov","5 Nov"],["5 Nov","8 Nov"],["8 Nov","11 Nov"],["11 Nov","14 Nov"],["14 Nov","17 Nov"]],"cells":{"Judgement":[{"f":57,"l":2230,"n":["step_refs","decisions_supported"]},{"f":6,"l":302,"n":["assurance"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":15,"l":342,"n":[]},{"f":1,"l":1,"n":[]},{"f":0,"l":0,"n":[]},{"f":30,"l":1384,"n":["parts_plan","parts_result","nest_join"]},{"f":3,"l":71,"n":[]},{"f":7,"l":262,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Model":[{"f":19,"l":870,"n":["flow_ids","entry_names","flow_review"]},{"f":4,"l":127,"n":["contract"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":8,"l":304,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":8,"l":266,"n":["parts"]},{"f":3,"l":168,"n":["claim_index"]},{"f":2,"l":33,"n":[]},{"f":0,"l":0,"n":[]},{"f":2,"l":181,"n":["states"]}],"Config":[{"f":38,"l":1482,"n":["typescript_roots","config_paths","tool_table","review_upgrade","answer_upgrade"]},{"f":14,"l":706,"n":["contract_edit","contract_file","contract_move"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":33,"l":1047,"n":["jsonc_text","tsconfig_glob","file_names","terminal_text","tree_walk"]},{"f":1,"l":17,"n":[]},{"f":0,"l":0,"n":[]},{"f":19,"l":330,"n":[]},{"f":2,"l":46,"n":["config_render"]},{"f":5,"l":187,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":5,"n":[]}],"SecondOpinion":[{"f":33,"l":789,"n":[]},{"f":5,"l":47,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":18,"l":476,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":12,"l":228,"n":[]},{"f":0,"l":0,"n":[]},{"f":3,"l":75,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"ChangeDetector":[{"f":22,"l":575,"n":["change_tests"]},{"f":2,"l":394,"n":["pr_summary"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":20,"l":763,"n":["git_command"]},{"f":1,"l":1,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":12,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Check":[{"f":19,"l":825,"n":["check_actions","check_report"]},{"f":2,"l":22,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":4,"l":58,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":4,"l":44,"n":[]},{"f":2,"l":53,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":2,"n":[]}],"CLI":[{"f":18,"l":294,"n":[]},{"f":4,"l":39,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":28,"l":818,"n":["serve_guard","live_render"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":19,"l":804,"n":["cli_scope","parts_cli","parts_stub"]},{"f":2,"l":57,"n":[]},{"f":3,"l":27,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"FactsExtractor":[{"f":143,"l":4965,"n":["extraction","call_sites","python_calls","typescript_calls","notice_text","typescript_package_imports","unknown_causes","typescript_reexport_targets","typescript_resolve","typescript_scopes","typescript_strings"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":81,"l":3542,"n":["python_tree","facts_shape","control_names","fact_cache"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":14,"l":956,"n":["source_segment","syntax_text"]},{"f":1,"l":8,"n":[]},{"f":6,"l":198,"n":["python_earlier_text"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Page":[{"f":18,"l":151,"n":[]},{"f":2,"l":59,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":18,"l":1105,"n":["page_group_lines","page_csp"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":20,"l":3388,"n":["canvas_data","canvas_page","page_canvas","page_canvas_draw","page_canvas_fade","page_canvas_image","page_canvas_scene","page_canvas_text","render_pages","page_canvas_keys","page_canvas_touch","page_canvas_tree"]},{"f":40,"l":3743,"n":["canvas_changes","canvas_header","canvas_sequences","page_canvas_changes","page_canvas_find","page_canvas_sequences","page_canvas_view","canvas_details","canvas_redirect","page_canvas_details","page_canvas_ports"]},{"f":0,"l":0,"n":[]},{"f":47,"l":1207,"n":["page_canvas_caption","canvas_states","page_canvas_board","page_canvas_finish"]}],"Schematic":[{"f":10,"l":215,"n":[]},{"f":4,"l":34,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":12,"l":385,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":2,"l":58,"n":[]},{"f":1,"l":9,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Describe":[{"f":1,"l":17,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Figures":[{"f":1,"l":2,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":6,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":18,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Placer":[{"f":2,"l":23,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":2,"l":28,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":15,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Scaffold":[{"f":3,"l":79,"n":[]},{"f":3,"l":57,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":2,"l":12,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]}],"Router":[{"f":1,"l":76,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":10,"l":1069,"n":["seat_grid","route_search","route_astar"]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":1,"l":6,"n":[]},{"f":0,"l":0,"n":[]},{"f":0,"l":0,"n":[]},{"f":2,"l":65,"n":[]}]}}},{"name":"wharf","note":"a real project with agents, made anonymous","maps":[{"id":"","size":[1800,720],"boxes":[{"id":"client","n":"CLIENT","u":"the office sidebar, outside these packages","b":[16,16,196,164]},{"id":"server","n":"SERVER","u":"one gateway process: FastAPI with AgentKit embedded","b":[230,16,1560,520]},{"id":"outside","n":"OUTSIDE","u":"providers, behind the roster","b":[630,560,190,130]},{"id":"render","n":"RENDER CONTAINER","u":"the pinned Linux image; the only place OfficeSuite runs","b":[1010,560,570,130]}],"regions":[{"id":"gateway","n":"GATEWAY","b":[250,50,1520,130]},{"id":"contracts","n":"CONTRACTS","b":[250,230,190,282]},{"id":"content","n":"CONTENT","b":[440,230,190,282]},{"id":"orchestration","n":"ORCHESTRATION","b":[630,230,380,282]},{"id":"style","n":"STYLE","b":[1010,230,380,282]},{"id":"layout","n":"LAYOUT AND EMIT","b":[1390,230,380,282]}],"cards":[{"id":"Sidebar","b":[36,92,150,44],"k":"actor","p":"The add-in interface","d":"The office add-in a person works in; sends briefs, references and edits, shows progress.","as":[],"m":[]},{"id":"ModelProvider","b":[650,624,150,44],"k":"actor","p":"the model on the wire","d":"A frontier model behind the proxy or AgentKit's registry; every call reaches it through the roster.","as":[],"m":[]},{"id":"OfficeSuite","b":[1030,624,150,44],"k":"actor","p":"the suite that renders","d":"The headless suite process the renderer drives over the bridge.","as":[],"m":[]},{"id":"Gateway","b":[460,90,150,56],"k":"component","p":"the front door of the server","d":"The HTTP and WebSocket surface: sessions, uploads, guide compile, corrections, extraction, text metrics and durable jobs, on AgentKit's FastAPI embedding.","as":[],"m":["gateway","__main__","app","errors","extraction_run","jobs","routes","stub_run"]},{"id":"GatewayStore","b":[840,90,150,52],"k":"store","p":"the server's memory of sessions and jobs","d":"The gateway's durable state: sessions, uploads, jobs and the event log, in SQLite.","as":[],"m":["store"]},{"id":"ArtifactStore","b":[650,90,150,52],"k":"store","p":"where the bytes are kept","d":"Where bytes live: a disk-backed AgentKit artifact service; session state carries URIs.","as":[],"m":["*"]},{"id":"PageModel","b":[270,270,150,56],"k":"component","p":"the one shape every page is described in","d":"The thin waist: the PageModel tree, its components, geometry, limits, validators and the flattened wire form every provider sees.","as":[],"m":["wharf_contracts","__main__","page_model","components","geometry","limits","validators","wire","frame_identity","registries","sources"]},{"id":"StyleGuide","b":[270,362,150,56],"k":"component","p":"the record of what a reference folio looks like","d":"The one place literal values legitimately live: typography, colour, spacing, frame, composition grammar, each member with its provenance.","as":[],"m":["styleguide"]},{"id":"WireContracts","b":[270,454,150,56],"k":"component","p":"the shapes that cross to the client","d":"What crosses to the client: route payloads, the WSS event union, durable jobs, the closed typed-op schema and the reports.","as":[],"m":["gateway","ops","reports"]},{"id":"SourceExtractor","b":[460,270,150,56],"k":"agent","p":"the part that reads files into cited numbers","d":"Turns attached XLSX, CSV, PDF, DOCX and page images into cited Datasets: tabular files deterministically, documents through a metered TextExtract call.","as":[],"m":["content","documents","document_tuning","extraction_provider","refusal","tabular","tieouts","tuning"]},{"id":"FolioPlanner","b":[460,362,150,56],"k":"agent","p":"the part that decides what each page says","d":"One structured call: brief plus data plus guide to an ordered list of PageGoals, then deterministic density and repetition verdicts.","as":[],"m":["planner","plan_eval"]},{"id":"Orchestrator","b":[650,270,150,56],"k":"agent","p":"the agent that talks with the user","d":"The root LlmAgent in AgentKit's loadable layout: the only loop that runs with the user. Today a skeleton with one echo tool.","as":[],"m":["*"]},{"id":"RosterClient","b":[840,362,150,56],"k":"component","p":"the one road to a model","d":"The only way to reach a provider: the single-shot call template, the roster client, the telemetry plugins and the import-boundary lint that enforces it.","as":[],"m":["orchestration","single_shot","roster_client","telemetry","import_boundary"]},{"id":"PromptTemplates","b":[650,362,150,52],"k":"context","p":"the words each model call is given","d":"Versioned XML prompt templates, design-skill packages and extraction schemas, rendered into the cacheable system prefix and the payload of each call.","as":[],"m":["prompts","compose","design_skills","extraction_schemas","loader","prompts"]},{"id":"BudgetLedger","b":[650,454,150,56],"k":"component","p":"the meter on every model call","d":"The Runner plugin every model call passes: multi-dimensional budgets counted atomically, a typed budget error at the invocation boundary.","as":[],"m":["ledger"]},{"id":"Config","b":[840,270,150,56],"k":"component","p":"the pinned model list and the provisional numbers","d":"The model roster pinned exactly, the routing guard and telemetry scrub, and every constant that ships before its measurement exists.","as":[],"m":["config","models","governance","provisional"]},{"id":"GuideCache","b":[1030,270,150,52],"k":"store","p":"the shelf of finished style guides","d":"Final guides by content hash, their retention and the user overlay; the one content digest every producer shares.","as":[],"m":["cache","hashing"]},{"id":"StyleCompiler","b":[1030,362,150,56],"k":"component","p":"the part that reads a reference folio's style","d":"Walks a reference folio's XML through the untrusted-input boundary, compiles observations into a StyleGuideDraft, and recompiles with corrections applied.","as":[],"m":["style","compiler","walker","tokens","drawml","inheritance","schema","hardening","records","shapes","tuning","recompile","invalidation","pointers","inspect","selection"]},{"id":"StyleCompleter","b":[1030,454,150,56],"k":"agent","p":"the part that fills what reading left open","d":"One joint multimodal completion call over the draft's unresolved paths, then a deterministic finalizer that refuses what it cannot validate.","as":[],"m":["completer","completion_eval","measurements","review_packet"]},{"id":"CropPicker","b":[1220,270,150,56],"k":"tool","p":"the completer's crop tool","d":"Picks the gallery crops the completer asks for; the function lives beside the completer in its own module, so the card claims the symbol.","as":[],"m":["pick_crops"]},{"id":"ComponentGallery","b":[1220,454,150,52],"k":"context","p":"the pictures of a reference folio's parts","d":"Which of a reference folio's components are interesting, rendered and cropped into the images the completer sees.","as":[],"m":["gallery"]},{"id":"TextMeasurer","b":[1410,270,150,56],"k":"component","p":"the ruler for text","d":"Server-side text measurement: whole runs shaped with the shaper, integer EMU, the client-server tolerance and the fit margin derived from it.","as":[],"m":["*"]},{"id":"LayoutEngine","b":[1600,362,150,56],"k":"component","p":"the part that places things on the page","d":"The geometry core: a PageModel tree to integer-EMU boxes at scale s, the open kind registry, the fixed-element precheck and the hard predicates.","as":[],"m":["*"]},{"id":"Sandbox","b":[1410,454,150,56],"k":"component","p":"the locked room where generated code runs","d":"The only place generated code runs: AgentKit's container executor plus the limits it does not set, verified at start.","as":[],"m":["*"]},{"id":"ComponentLibrary","b":[1600,270,150,52],"k":"store","p":"the shelf of admitted components","d":"Admitted components, their versions and embeddings, in SQLite. Nothing in the tree fills it yet.","as":[],"m":["*"]},{"id":"SourceLineage","b":[1410,362,150,56],"k":"component","p":"the trail from a figure back to its source","d":"Where a rendered figure's claim to a source is computed, read and refused; builds the page's source line from its citations.","as":[],"m":["*"]},{"id":"OfxEmitter","b":[1600,454,150,56],"k":"component","p":"the part that writes the office file","d":"ResolvedPageModel to byte-valid OFX: text, tables, native charts, images, frame, master reuse, assembly, and validators that fail the emit.","as":[],"m":["*"]},{"id":"Renderer","b":[1220,624,150,56],"k":"component","p":"the part that turns a folio into pictures","d":"The OfficeSuite worker pool, font provisioning and substitution detection, the PNG and PDF API, and the worker's HTTP surface inside the container.","as":[],"m":["render","__main__","app","cpu","deadline","fonts","jobs","pool","profiles","raster","service","suite","tuning"]}],"flows":[{"s":"Sidebar","t":"Gateway","a":"request","k":"data","p":[[186.0,114.0],[449.0,114.0],[449.0,118.0],[460.0,118.0]],"say":"The sidebar opens a session, uploads a reference or a source, and asks for a generate or an edit; it never reaches past the gateway."},{"s":"Gateway","t":"Sidebar","a":"progress events","k":"data","p":[[460.0,110.0],[197.0,110.0],[197.0,106.0],[186.0,106.0]],"say":"The gateway streams stage, narration and preview events over the WebSocket, and replays them on reconnect."},{"s":"Gateway","t":"GatewayStore","a":"job record","k":"data","p":[[585.0,90.0],[585.0,79.0],[865.0,79.0],[865.0,90.0]],"say":"The gateway records every session, upload and job in the store so a restart resumes or cleanly reports, never orphans."},{"s":"Gateway","t":"ArtifactStore","a":"service registration","k":"control","p":[[610.0,118.0],[639.0,118.0],[639.0,116.0],[650.0,116.0]],"say":"The gateway registers the disk artifact service through AgentKit's own seam so bytes land on disk and state carries URIs."},{"s":"Gateway","t":"SourceExtractor","a":"attached source","k":"data","p":[[610.0,134.0],[621.0,134.0],[621.0,282.0],[610.0,282.0]],"say":"The gateway hands an uploaded source to the extractor as a durable stage of the job."},{"s":"SourceExtractor","t":"Gateway","a":"cited Datasets","k":"data","p":[[460.0,282.0],[440.0,282.0],[440.0,134.0],[460.0,134.0]],"say":"The extractor returns cited datasets and typed refusals; the gateway records them against the upload."},{"s":"Gateway","t":"GuideCache","a":"reference bytes","k":"data","p":[[560.0,146.0],[560.0,208.0],[1010.0,208.0],[1010.0,280.0],[1030.0,280.0]],"say":"The gateway asks the cache for the guide of a reference by content hash; a miss compiles, a hit returns."},{"s":"Gateway","t":"StyleCompiler","a":"correction","k":"data","p":[[535.0,146.0],[535.0,191.0],[1191.0,191.0],[1191.0,374.0],[1180.0,374.0]],"say":"The gateway loads the house style at startup and passes each user correction to the compiler, which recompiles the reference with it applied and says which guide heads it invalidates."},{"s":"Gateway","t":"TextMeasurer","a":"text run","k":"data","p":[[610.0,110.0],[639.0,110.0],[639.0,225.0],[1390.0,225.0],[1390.0,282.0],[1410.0,282.0]],"say":"The gateway's text-metrics route measures a run for the client so the two rulers can be compared."},{"s":"Orchestrator","t":"RosterClient","a":"model binding","k":"control","p":[[800.0,314.0],[829.0,314.0],[829.0,374.0],[840.0,374.0]],"say":"The orchestrator's root agent is bound to the roster's model through the client; it never names a provider."},{"s":"Orchestrator","t":"BudgetLedger","a":"plugin registration","k":"control","p":[[650.0,314.0],[639.0,314.0],[639.0,466.0],[650.0,466.0]],"say":"The agent app registers the ledger plugin at assembly so every call the orchestrator makes is counted."},{"s":"Gateway","t":"BudgetLedger","a":"open budget","k":"control","p":[[585.0,146.0],[585.0,225.0],[630.0,225.0],[630.0,474.0],[650.0,474.0]],"say":"The gateway opens a budget and run config for each generate or edit job, and classifies a typed budget error into the job's failed state."},{"s":"Gateway","t":"Orchestrator","a":"run","k":"control","p":[[610.0,126.0],[630.0,126.0],[630.0,282.0],[650.0,282.0]],"say":"AgentKit's FastAPI embedding loads the wharf agent app from its directory; the gateway runs it and relays its events."},{"s":"RosterClient","t":"BudgetLedger","a":"call usage","k":"data","p":[[865.0,418.0],[865.0,466.0],[800.0,466.0]],"say":"Every call the client constructs reports its usage and cache tokens to the ledger before it runs."},{"s":"Config","t":"RosterClient","a":"roster","k":"data","p":[[915.0,326.0],[915.0,362.0]],"say":"The roster tells the client which pinned model each role may use and the routing guard refuses the rest."},{"s":"Config","t":"BudgetLedger","a":"call caps","k":"data","p":[[840.0,306.0],[811.0,306.0],[811.0,474.0],[800.0,474.0]],"say":"The ledger's dimensions and per-job call caps are read from the provisional table, where every unmeasured constant is on record."},{"s":"RosterClient","t":"ModelProvider","a":"request","k":"data","p":[[890.0,418.0],[890.0,630.0],[800.0,630.0]],"say":"The client sends one request per logical call, with a stable cacheable prefix."},{"s":"ModelProvider","t":"RosterClient","a":"response","k":"data","p":[[800.0,638.0],[829.0,638.0],[829.0,406.0],[840.0,406.0]],"say":"The provider returns the structured reply the call's output schema demanded, or a refusal the client types."},{"s":"PromptTemplates","t":"Orchestrator","a":"system prompt","k":"context","p":[[725.0,362.0],[725.0,326.0]],"say":"The orchestrator's instruction is loaded from a versioned template."},{"s":"PromptTemplates","t":"FolioPlanner","a":"planner template","k":"context","p":[[650.0,388.0],[621.0,388.0],[621.0,390.0],[610.0,390.0]],"say":"The planner's call prompt is composed from its versioned template and the planner's design skills."},{"s":"PromptTemplates","t":"SourceExtractor","a":"extraction schema","k":"context","p":[[650.0,372.0],[621.0,372.0],[621.0,314.0],[610.0,314.0]],"say":"The extractor loads a per-document-class extraction schema as a versioned prompt asset."},{"s":"PromptTemplates","t":"StyleCompleter","a":"completion template","k":"context","p":[[800.0,404.0],[820.0,404.0],[820.0,482.0],[1030.0,482.0]],"say":"The completer's call prompt is composed from its versioned template and the completer's design skills."},{"s":"FolioPlanner","t":"RosterClient","a":"plan call","k":"control","p":[[585.0,362.0],[585.0,351.0],[865.0,351.0],[865.0,362.0]],"say":"The planner makes exactly one structured call per folio through the single-shot template."},{"s":"SourceExtractor","t":"RosterClient","a":"extraction call","k":"control","p":[[585.0,326.0],[585.0,337.0],[890.0,337.0],[890.0,362.0]],"say":"Document extraction routes TextExtract's calls through the roster and the ledger; tabular files make no call."},{"s":"StyleCompleter","t":"RosterClient","a":"completion call","k":"control","p":[[1030.0,474.0],[965.0,474.0],[965.0,418.0]],"say":"The completer makes one joint completion call per reference through the single-shot template."},{"s":"GuideCache","t":"StyleCompiler","a":"compile on miss","k":"control","p":[[1105.0,322.0],[1105.0,362.0]],"say":"On a miss the cache runs the compiler it was built with on the reference bytes."},{"s":"StyleCompiler","t":"StyleCompleter","a":"StyleGuideDraft","k":"data","p":[[1105.0,418.0],[1105.0,454.0]],"say":"The compiler hands the completer a draft whose unresolved paths are listed."},{"s":"StyleCompleter","t":"GuideCache","a":"CompletedGuide","k":"data","p":[[1030.0,466.0],[1019.0,466.0],[1019.0,312.0],[1030.0,312.0]],"say":"The completed guide, with its draft and completion patch, is what the cache keeps by content hash."},{"s":"StyleCompiler","t":"ComponentGallery","a":"walk observations","k":"data","p":[[1180.0,406.0],[1245.0,406.0],[1245.0,454.0]],"say":"The gallery selects components from the walker's observations and leaf shapes; it never re-reads the folio."},{"s":"ComponentGallery","t":"StyleCompleter","a":"gallery crops","k":"context","p":[[1220.0,480.0],[1191.0,480.0],[1191.0,482.0],[1180.0,482.0]],"say":"The gallery's crops and exemplar pages are the images in the completer's window."},{"s":"StyleCompleter","t":"CropPicker","a":"crop query","k":"tool","p":[[1180.0,466.0],[1209.0,466.0],[1209.0,314.0],[1220.0,314.0]],"say":"The completer asks the picker for the crops one member needs; the picker is a function beside it in the completer's module."},{"s":"ComponentGallery","t":"Renderer","a":"render job","k":"control","p":[[1345.0,506.0],[1345.0,624.0]],"say":"The gallery asks the renderer for PNG pages of the reference folio to crop."},{"s":"Renderer","t":"ComponentGallery","a":"PNG pages","k":"data","p":[[1370.0,636.0],[1381.0,636.0],[1381.0,496.0],[1370.0,496.0]],"say":"The renderer returns the pages at the requested scale, with any font substitution reported."},{"s":"Renderer","t":"OfficeSuite","a":"conversion","k":"control","p":[[1220.0,652.0],[1191.0,652.0],[1191.0,646.0],[1180.0,646.0]],"say":"The pool drives one long-lived suite per worker over the bridge, one conversion at a time."},{"s":"OfficeSuite","t":"Renderer","a":"PDF","k":"data","p":[[1180.0,638.0],[1209.0,638.0],[1209.0,644.0],[1220.0,644.0]],"say":"suite returns the PDF the renderer rasterises into pages."},{"s":"SourceLineage","t":"LayoutEngine","a":"installed source line","k":"data","p":[[1560.0,390.0],[1600.0,390.0]],"say":"Lineage installs the page's source line before the registry expands and solves."},{"s":"SourceLineage","t":"OfxEmitter","a":"source line","k":"data","p":[[1560.0,406.0],[1589.0,406.0],[1589.0,466.0],[1600.0,466.0]],"say":"The emitter writes the source line lineage built from the page's citations, and refuses uncited numerics."},{"s":"LayoutEngine","t":"OfxEmitter","a":"ResolvedPageModel","k":"data","p":[[1675.0,418.0],[1675.0,454.0]],"say":"The emitter takes a solved tree with every box in integer EMU; nothing is re-solved at emit time."},{"s":"LayoutEngine","t":"Sandbox","a":"expand call","k":"control","p":[[1600.0,398.0],[1571.0,398.0],[1571.0,466.0],[1560.0,466.0]],"say":"The kind registry runs a component's expand code in the sandbox and validates the returned tree."}],"layers":[{"id":"system","n":"System context","q":"Which actors connect to the system?","e":[0,1,16,17,33,34]},{"id":"structure","n":"Structure","q":"Which parts make the system?","e":[]},{"id":"data","n":"Data flow","q":"Which artifacts move between components?","e":[0,1,2,4,5,6,7,8,13,14,15,16,17,26,27,28,32,34,35,36,37]},{"id":"control","n":"Control flow","q":"Which component starts which component?","e":[3,9,10,11,12,22,23,24,25,31,33,38]},{"id":"context","n":"Context","q":"What does each agent read?","e":[18,19,20,21,29]},{"id":"tool","n":"Tools","q":"Which tools can an agent use?","e":[30]}],"sq":[{"n":"python -m wharf_server.gateway: a request becomes a durable job","en":"","s":[{"a":["Sidebar"],"f":0,"y":"`main` starts uvicorn; the sidebar opens a session and posts a generate request."},{"a":["Gateway"],"f":2,"y":"The gateway records the job and its stage checkpoints so a restart resumes rather than orphans."},{"a":["Gateway"],"f":11,"y":"The gateway opens the job's budget; today the generate run is a scripted stub that walks the stages."},{"a":["Gateway"],"f":1,"y":"Stage and narration events stream to the sidebar and replay on reconnect."}]},{"n":"An orchestrator turn","en":"","s":[{"a":["Gateway"],"f":12,"y":"AgentKit's embedding runs the wharf agent app for a user message."},{"a":["PromptTemplates"],"f":18,"y":"The orchestrator's instruction enters its window from a versioned template."},{"a":["Orchestrator"],"f":9,"y":"The root agent's model is the roster's; the ledger plugin counts the call."},{"a":["RosterClient"],"f":16,"y":"The call goes to the provider with a stable prefix."},{"a":["ModelProvider"],"f":17,"y":"The reply comes back; today the only tool the agent can invoke is echo."}]},{"n":"A reference folio becomes a guide","en":"","s":[{"a":["Gateway"],"f":6,"y":"An uploaded reference is looked up by content hash."},{"a":["GuideCache"],"f":25,"y":"On a miss the cache runs the compiler."},{"a":["StyleCompiler"],"f":26,"y":"The walker reads every page, layout, master and theme through the hardening boundary; tokens compile the draft and list what stays unresolved."},{"a":["ComponentGallery"],"f":31,"y":"The gallery renders the reference to pages."},{"a":["Renderer"],"f":33,"y":"A pooled suite converts the folio; font substitution is detected."},{"a":["OfficeSuite"],"f":34,"y":"The PDF comes back and is rasterised."},{"a":["Renderer"],"f":32,"y":"Pages return; the gallery crops the interesting components."},{"a":["ComponentGallery"],"f":29,"y":"Crops and exemplars enter the completer's window."},{"a":["PromptTemplates"],"f":21,"y":"The completion template and design skills enter the window."},{"a":["StyleCompleter"],"f":24,"y":"One joint completion call over the unresolved groups."},{"a":["RosterClient"],"f":16,"y":"The call reaches the provider."},{"a":["StyleCompleter"],"f":27,"y":"The finalizer validates the patch deterministically; the completed guide is cached."}]},{"n":"An attached source becomes cited datasets","en":"","s":[{"a":["Gateway"],"f":4,"y":"Extraction runs as a durable stage over the uploaded source."},{"a":["PromptTemplates"],"f":20,"y":"For a document, the extraction schema for its class enters the window; a tabular file skips the model entirely."},{"a":["SourceExtractor"],"f":23,"y":"TextExtract's calls are metered through the roster."},{"a":["RosterClient"],"f":16,"y":"The extraction call reaches the provider."},{"a":["SourceExtractor"],"f":5,"y":"Datasets with citation chains, or a typed refusal, return to the job."}]},{"n":"A folio plan call","en":"","s":[{"a":["PromptTemplates"],"f":19,"y":"The planner template and its skills enter the window with the brief, data summaries and style description."},{"a":["FolioPlanner"],"f":22,"y":"One structured call per folio; today only the eval script calls plan, the gateway does not yet."},{"a":["RosterClient"],"f":16,"y":"The call reaches the provider; the reply's density and repetition are judged deterministically."}]},{"n":"python -m wharf_server.render: a folio becomes pages","en":"","s":[{"a":["ComponentGallery"],"f":31,"y":"A render job enters the priority queue; `main` serves the worker's HTTP surface inside the container."},{"a":["Renderer"],"f":33,"y":"Fonts are provisioned, then one pooled suite converts."},{"a":["OfficeSuite"],"f":34,"y":"The PDF returns within the render deadline."},{"a":["Renderer"],"f":32,"y":"Pages are rasterised and returned with the substitution report."}]},{"n":"A solved page becomes OFX bytes","en":"","s":[{"a":["SourceLineage"],"f":35,"y":"The source line is installed from the page's citations before solving."},{"a":["LayoutEngine"],"f":38,"y":"Registered component kinds expand in the sandbox; the returned tree is validated."},{"a":["LayoutEngine"],"f":37,"y":"Every box is solved in integer EMU and validated before emission."},{"a":["OfxEmitter"],"f":36,"y":"The emitter writes the folio and its validators fail the emit on any uncited numeric."}]}],"sm":[]}],"history":null}]}</script>
+<script>
+(function () {
+'use strict';
+var D = JSON.parse(document.getElementById('data').textContent), NS = 'http://www.w3.org/2000/svg';
+var KIND = {data: ['--data', 'Data'], control: ['--control', 'Control'], judge: ['--judge', 'Map review'], context: ['--context', 'Context'], tool: ['--tool', 'Tool']};
+var svg = document.getElementById('map'), world = document.getElementById('world'), app = document.getElementById('app'), stage = document.getElementById('stage');
+var dot = document.getElementById('dot'), cam = {x: 0, y: 0, k: 1}, cur = null, sel = null, hot = null, hotFlow = null, LANE = 4.5, started = false;
+var REDUCE = matchMedia('(prefers-reduced-motion:reduce)').matches, MODE = 'map', SEQ = {i: 0, step: -1, form: 'map'}, SM = {i: 0}, FOCUS = {id: ''};
+function el(tag, attrs, parent, text) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+function kvar(f) { return 'var(' + (KIND[f.k] || KIND.data)[0] + ')'; }
+
+// ---- the maps: the top map, and each map that a card opens --------------------------------
+var SET, MAPS, TOP;
+function prepare() {
+MAPS.forEach(function (m) {
+  m.byId = {}; m.s = 1; m.ox = 0; m.oy = 0; m.host = null; m.shown = [];
+  m.cards.forEach(function (c, i) { c.i = i; c.map = m; c.fl = []; m.byId[c.id] = c; });
+  m.flows.forEach(function (f, i) { f.i = i; f.map = m; });
+  m.layers.push({id: 'all', n: 'All', q: 'Which flows connect the components?', e: m.flows.map(function (f) { return f.i; })});
+  m.name = m.id || SET.name;
+});
+// Inside a card, the first layer asks about the neighbours of that card.
+MAPS.slice(1).forEach(function (m) { m.layers.forEach(function (l) { if (l.id === 'system') { l.n = 'Neighbours'; l.q = 'Which neighbours connect to ' + m.name + '?'; } }); });
+MAPS.slice(1).forEach(function (m) {
+  var c = TOP.byId[m.id]; if (!c) return;
+  // The map sits in the right part of its card. Its scale makes it fit the height of the card.
+  m.host = c; c.opens = m; m.parts = m.cards.filter(function (x) { return x.k !== 'actor'; }).length;
+  m.s = Math.min((c.b[3] - 12) / m.size[1], 44 / m.size[0]);
+  m.ox = c.b[0] + c.b[2] - 9 - m.size[0] * m.s; m.oy = c.b[1] + (c.b[3] - m.size[1] * m.s) / 2;
+});
+}
+
+function build(m) {
+  var g = m.g = el('g', {class: 'lvl'}, m.host ? TOP.g : world);
+  if (m.host) g.setAttribute('transform', 'translate(' + m.ox + ' ' + m.oy + ') scale(' + m.s + ')');
+  m.boxes.forEach(function (b) {
+    var inside = m.cards.filter(function (c) { return c.b[0] >= b.b[0] && c.b[0] < b.b[0] + b.b[2] && c.b[1] >= b.b[1] && c.b[1] < b.b[1] + b.b[3]; });
+    if (!inside.length) return;
+    if (inside.every(function (c) { return c.k === 'actor'; })) {
+      // Only actors: no surface. The name is above the first actor.
+      var first = Math.min.apply(null, inside.map(function (c) { return c.b[1]; }));
+      if (!m.host) el('text', {x: Math.min.apply(null, inside.map(function (c) { return c.b[0]; })) + 6, y: first - 14, class: 'sysname'}, g, b.n);
+      return;
+    }
+    el('rect', {x: b.b[0], y: b.b[1], width: b.b[2], height: b.b[3], rx: 16, class: 'sys'}, g);
+    el('text', {x: b.b[0] + 20, y: b.b[1] + 30, class: 'sysname'}, g, b.n);
+    var room = Math.floor((b.b[2] - 50 - b.n.length * 7.4) / 5.1), sub = b.u && b.u.length > room ? b.u.slice(0, Math.max(0, room - 1)).replace(/[ ,;]+$/, '') + '\u2026' : b.u;
+    if (sub && room > 12) el('text', {x: b.b[0] + 20 + b.n.length * 7.4 + 10, y: b.b[1] + 30, class: 'syssub'}, g, sub);
+  });
+  m.regions.forEach(function (r, i) {
+    el('rect', {x: r.b[0] + 3, y: r.b[1] + 3, width: r.b[2] - 6, height: r.b[3] - 6, rx: 12, class: 'region'}, g);
+    el('circle', {cx: r.b[0] + 17, cy: r.b[1] + 17, r: 7, class: 'rring'}, g);
+    el('text', {x: r.b[0] + 17, y: r.b[1] + 20, 'text-anchor': 'middle', class: 'rnum'}, g, i + 1);
+    el('text', {x: r.b[0] + 31, y: r.b[1] + 20.5, class: 'rname'}, g, r.n);
+  });
+  m.gFlows = el('g', {class: 'gflows'}, g); m.gCards = el('g', {}, g);
+  m.cards.forEach(function (c) {
+    var b = c.b, actor = c.k === 'actor', rx = actor ? b[3] / 2 : 9, tx = b[0] + (actor ? 20 : 13);
+    var cg = c.g = el('g', {class: 'card' + (actor ? ' actor' : '') + (c.opens ? ' host' : ''), tabindex: 0, role: 'button', 'aria-label': c.id + ', ' + c.p + (c.opens ? ', opens a map of ' + c.opens.parts + ' parts' : '')}, m.gCards);
+    if (c.opens) el('rect', {x: b[0] + 4, y: b[1] + 4, width: b[2], height: b[3], rx: rx, class: 'under'}, cg);
+    el('rect', {x: b[0] - 3, y: b[1] - 3, width: b[2] + 6, height: b[3] + 6, rx: rx + 3, class: 'ring'}, cg);
+    el('rect', {x: b[0], y: b[1], width: b[2], height: b[3], rx: rx, class: 'box'}, cg);
+    el('text', {x: tx, y: b[1] + b[3] / 2 - 1.5, class: 'nm'}, cg, c.id);
+    el('text', {x: tx, y: b[1] + b[3] / 2 + 13, class: 'pl'}, cg, c.p);
+    if (c.k !== 'actor' && c.k !== 'component') el('text', {x: b[0] + b[2] - 9, y: b[1] + 14, class: 'kind'}, cg, c.k);
+    cg.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') point(c, null); });
+    cg.addEventListener('pointerleave', function () { point(null, null); });
+    cg.addEventListener('focus', function () { point(c, null); });
+    cg.addEventListener('blur', function () { point(null, null); });
+    cg.addEventListener('click', function (e) { e.stopPropagation(); act(c); });
+    cg.addEventListener('dblclick', function (e) { e.stopPropagation(); if (c.opens) enter(c.opens); });
+    cg.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.shiftKey && c.opens) enter(c.opens); else act(c); } });
+  });
+}
+// A click on a card selects it. In a nested map, an actor is a card of the map above: a click goes to that card.
+function act(c) {
+  if (c.map.host && c.k === 'actor') { var up = c.map.host.map.byId[c.id]; fitMap(c.map.host.map); if (up) setTimeout(function () { select(up); }, 380); return; }
+  select(sel === c ? null : c);
+}
+
+// ---- the lines of a layer: parallel lanes, round corners, a casing at each crossing -------
+function lanes(list) {
+  [0, 1].forEach(function (ax) {
+    var segs = [];
+    list.forEach(function (f) {
+      for (var i = 0; i + 1 < f.q.length; i++) {
+        var a = f.q[i], b = f.q[i + 1];
+        if (Math.abs(a[ax] - b[ax]) < 0.01 && Math.abs(a[1 - ax] - b[1 - ax]) > 1) segs.push({f: f, i: i, c: Math.round(a[ax] * 2) / 2, lo: Math.min(a[1 - ax], b[1 - ax]), hi: Math.max(a[1 - ax], b[1 - ax])});
+      }
+    });
+    segs.sort(function (a, b) { return a.c - b.c || a.lo - b.lo; });
+    var k = 0;
+    while (k < segs.length) {
+      var group = [segs[k]], hi = segs[k].hi, j = k + 1;
+      while (j < segs.length && segs[j].c === segs[k].c && segs[j].lo < hi - 2) { group.push(segs[j]); hi = Math.max(hi, segs[j].hi); j++; }
+      if (group.length > 1) {
+        group.sort(function (a, b) { return a.f.i - b.f.i; });
+        group.forEach(function (s, n) { var d = (n - (group.length - 1) / 2) * LANE; s.f.q[s.i][ax] += d; s.f.q[s.i + 1][ax] += d; });
+      }
+      k = j;
+    }
+  });
+}
+function pathOf(q) {
+  var d = 'M' + q[0][0] + ' ' + q[0][1];
+  for (var i = 1; i < q.length - 1; i++) {
+    var a = q[i - 1], p = q[i], b = q[i + 1], la = Math.hypot(p[0] - a[0], p[1] - a[1]), lb = Math.hypot(b[0] - p[0], b[1] - p[1]), r = Math.min(7, la / 2, lb / 2);
+    if (r < 0.5) { d += 'L' + p[0] + ' ' + p[1]; continue; }
+    d += 'L' + (p[0] - (p[0] - a[0]) / la * r) + ' ' + (p[1] - (p[1] - a[1]) / la * r) + 'Q' + p[0] + ' ' + p[1] + ' ' + (p[0] + (b[0] - p[0]) / lb * r) + ' ' + (p[1] + (b[1] - p[1]) / lb * r);
+  }
+  var z = q[q.length - 1], y = q[q.length - 2], l = Math.hypot(z[0] - y[0], z[1] - y[1]) || 1;
+  return d + 'L' + (z[0] - (z[0] - y[0]) / l * 5) + ' ' + (z[1] - (z[1] - y[1]) / l * 5);
+}
+function head(q) {
+  var z = q[q.length - 1], y = q[q.length - 2], l = Math.hypot(z[0] - y[0], z[1] - y[1]) || 1, ux = (z[0] - y[0]) / l, uy = (z[1] - y[1]) / l, s = 7.5, w = 3.6;
+  return [z[0], z[1], z[0] - ux * s - uy * w, z[1] - uy * s + ux * w, z[0] - ux * s + uy * w, z[1] - uy * s - ux * w].join(' ');
+}
+function seg(q, i) { return Math.abs(q[i + 1][0] - q[i][0]) + Math.abs(q[i + 1][1] - q[i][1]); }
+function mid(q) { var i = Math.floor((q.length - 1) / 2); return {x: (q[i][0] + q[i + 1][0]) / 2, y: (q[i][1] + q[i + 1][1]) / 2}; }
+function hits(b, list, skip) {
+  for (var n = 0; n < list.length; n++) {
+    if (list[n] === skip) continue;
+    var q = list[n].q;
+    for (var i = 0; i + 1 < q.length; i++) if (Math.min(q[i][0], q[i + 1][0]) <= b[2] && Math.max(q[i][0], q[i + 1][0]) >= b[0] && Math.min(q[i][1], q[i + 1][1]) <= b[3] && Math.max(q[i][1], q[i + 1][1]) >= b[1]) return true;
+  }
+  return false;
+}
+function over(a, b) { return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]; }
+// A place for the label of each line: on the line, first on a part that goes left to right. It is on no
+// card, on no name of a region and on no other label, and no other line goes through it. A line with no
+// such place has no label at rest.
+function short(a) { return a.length > 30 ? a.slice(0, 28).replace(/[ ,]+$/, '') + '\u2026' : a; }
+function walls(m) {
+  return m.cards.map(function (c) { return [c.b[0] - 3, c.b[1] - 3, c.b[0] + c.b[2] + 3, c.b[1] + c.b[3] + 3]; })
+    .concat(m.regions.map(function (r) { return [r.b[0], r.b[1] + 6, r.b[0] + 40 + r.n.length * 6.6, r.b[1] + 28]; }))
+    .concat(m.boxes.map(function (b) { return [b.b[0] + 12, b.b[1] + 16, b.b[0] + 230, b.b[1] + 38]; }));
+}
+// A place for the label of line f. `lines` are the lines that must not go through the label.
+function seat(f, fs, wall, taken, lines) {
+  var w = f.lbl.length * fs * 0.56 + 8, hh = fs * 1.35, best = null;
+  var flat = function (i) { return Math.abs(f.q[i][1] - f.q[i + 1][1]) < 0.01; };
+  var order = f.q.slice(0, -1).map(function (p, i) { return i; }).sort(function (a, b) { return (flat(b) - flat(a)) || seg(f.q, b) - seg(f.q, a); });
+  order.forEach(function (i) {
+    if (best) return;
+    var a = f.q[i], b = f.q[i + 1], L = seg(f.q, i), need = (flat(i) ? w : hh) + 18;
+    if (L < need) return;
+    [0.5, 0.35, 0.65, 0.22, 0.78, 0.12, 0.88].forEach(function (t) {
+      if (best) return;
+      var cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, box = [cx - w / 2, cy - hh / 2, cx + w / 2, cy + hh / 2];
+      if (wall.some(function (c) { return over(box, c); }) || taken.some(function (o) { return over(box, o); })) return;
+      if (!hits(box, lines, f)) best = {x: cx, y: cy, box: box};
+    });
+  });
+  return best;
+}
+function put(f, at, fs) { f.tx.setAttribute('x', at.x); f.tx.setAttribute('y', at.y + fs * 0.34); f.tx.style.fontSize = fs + 'px'; }
+// At rest a line has a label only if the label is on no card, on no name of a region and on no other
+// label, and no other line goes through it.
+function place(m) {
+  var list = m.shown, fs = m.fs = Math.min(15, 11 / (cam.k * m.s)), taken = [], wall = walls(m);
+  list.slice().sort(function (a, b) { return a.len - b.len; }).forEach(function (f) {
+    var best = seat(f, fs, wall, taken, list);
+    f.rest = !!best; f.lab = best || mid(f.q);
+    if (best) taken.push(best.box);
+  });
+  list.forEach(function (f) { put(f, f.lab, fs); f.tx.setAttribute('class', f.rest ? '' : 'rest0'); });
+  relit(m);
+}
+// The lit lines that have no label at rest get a place among the lit lines only.
+function relit(m) {
+  var lit = m.shown.filter(function (f) { return f.g.classList.contains('lit'); }), wall = walls(m);
+  var taken = lit.filter(function (f) { return f.rest; }).map(function (f) { return f.lab.box; });
+  lit.filter(function (f) { return !f.rest; }).forEach(function (f) {
+    var at = seat(f, m.fs, wall, taken, lit) || seat(f, m.fs, wall, taken, []) || seat(f, m.fs, [], taken, []);
+    if (!at) {
+      // No free place on the line: the label goes above the labels that are in its way.
+      var w = f.lbl.length * m.fs * 0.56 + 8, hh = m.fs * 1.35, c = mid(f.q), n = 0;
+      at = {x: c.x, y: c.y, box: [c.x - w / 2, c.y - hh / 2, c.x + w / 2, c.y + hh / 2]};
+      while (n++ < 6 && taken.some(function (o) { return over(at.box, o); })) { at.y -= hh; at.box[1] -= hh; at.box[3] -= hh; }
+    }
+    taken.push(at.box); put(f, at, m.fs);
+  });
+}
+
+function setLayer(m, id, quick) {
+  var lay = typeof id === 'object' ? id : m.layers.filter(function (l) { return l.id === id; })[0] || m.layers[m.layers.length - 1];
+  m.layer = lay; if (typeof id !== 'object') m.mapLayer = lay;
+  var swap = function () {
+    m.shown = lay.e.map(function (i) { return m.flows[i]; });
+    m.cards.forEach(function (c) { c.fl = []; });
+    m.gFlows.textContent = '';
+    m.shown.forEach(function (f) { f.q = f.p.map(function (p) { return [p[0], p[1]]; }); f.len = 0; m.byId[f.s].fl.push(f); m.byId[f.t].fl.push(f); });
+    lanes(m.shown);
+    m.shown.forEach(function (f) {
+      for (var i = 0; i + 1 < f.q.length; i++) f.len += seg(f.q, i);
+      var g = f.g = el('g', {class: 'flow', style: '--k:' + kvar(f)}, m.gFlows), d = pathOf(f.q);
+      el('path', {d: d, class: 'case'}, g); f.w = el('path', {d: d, class: 'wire'}, g);
+      el('circle', {cx: f.q[0][0], cy: f.q[0][1], r: 2}, g); el('polygon', {points: head(f.q)}, g);
+      f.lbl = (lay.nums ? lay.nums[f.i].join(', ') + '  ' : '') + short(f.a);
+      f.tx = el('text', {}, g, f.lbl);
+      var hit = el('path', {d: d, class: 'hit'}, g);
+      hit.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') point(null, f); });
+      hit.addEventListener('pointerleave', function () { point(null, null); });
+      hit.addEventListener('click', function (e) { e.stopPropagation(); point(null, f); });
+    });
+    var used = {}; m.shown.forEach(function (f) { used[f.s] = used[f.t] = 1; });
+    (lay.also || []).forEach(function (id) { used[id] = 1; });
+    m.g.classList.toggle('dense', m.shown.length > 48);
+    m.used = used; m.none = !m.shown.length;
+    m.cards.forEach(function (c) { c.g.classList.toggle('quiet', !m.none && !used[c.id]); });
+    // A layer with many flows: the lines go light, and the dot and the arrowhead at each card stay. The cards
+    // and their ports are the first thing to read. A line is at full strength when the reader points at it.
+    m.g.style.setProperty('--rest', Math.max(0.3, Math.min(1, 1.25 - m.shown.length / 56)).toFixed(2));
+    m.g.style.setProperty('--ends', Math.max(0.75, Math.min(1, 1.25 - m.shown.length / 160)).toFixed(2));
+    place(m);
+    m.gFlows.classList.remove('swap');
+    if (m === cur) { chrome(); if (sel && sel.map === m && !m.none) inspector(sel); light(); }
+  };
+  if (quick || REDUCE) swap(); else { m.gFlows.classList.add('swap'); setTimeout(swap, 150); }
+}
+
+// ---- the headline, the tabs and the key of the map that the camera is in -------------------
+var askTimer = 0;
+function chrome() {
+  var m = cur, lay = m.layer, tabs = document.getElementById('tabs'), ask = document.getElementById('ask');
+  tabs.textContent = '';
+  if (MODE !== 'map') { headline(); return; }
+  m.layers.forEach(function (l) {
+    var t = h('button', 'tab', l.n); t.setAttribute('role', 'tab'); t.id = 'tab-' + l.id; t.setAttribute('aria-selected', l === lay ? 'true' : 'false');
+    if (l.e.length) t.appendChild(h('i', '', l.e.length));
+    t.addEventListener('click', function () { setLayer(m, l.id); });
+    tabs.appendChild(t);
+  });
+  var actors = m.cards.filter(function (c) { return c.k === 'actor' && m.used[c.id]; }).length, comps = Object.keys(m.used).length - actors;
+  ask.classList.add('swap'); clearTimeout(askTimer);
+  askTimer = setTimeout(function () {
+    var k = document.getElementById('ask-k'); k.textContent = '';
+    if (m.host) { var up = h('button', '', m.host.map.name); up.title = 'Go out (Esc)'; up.addEventListener('click', function () { fitMap(m.host.map); }); k.appendChild(up); k.appendChild(h('span', '', '/')); k.appendChild(h('b', '', m.name)); k.appendChild(h('span', '', '·')); }
+    k.appendChild(h('span', '', lay.n));
+    document.getElementById('ask-q').textContent = lay.q;
+    document.getElementById('ask-n').textContent = m.none ? plural(m.cards.length, 'card') + ' in ' + plural(m.regions.length, 'region')
+      : (actors ? plural(actors, m.host ? 'neighbour' : 'actor') + ' · ' : '') + plural(comps, m.host ? 'part' : 'component') + ' · ' + plural(m.shown.length, 'flow');
+    ask.classList.remove('swap');
+  }, started ? 150 : 0);
+  var kinds = {}; m.shown.forEach(function (f) { kinds[f.k] = 1; });
+  var key = document.getElementById('key'); key.textContent = '';
+  Object.keys(KIND).forEach(function (k) { if (!kinds[k]) return; var s = h('span'), i = h('i'); i.style.setProperty('--k', 'var(' + KIND[k][0] + ')'); s.appendChild(i); s.appendChild(document.createTextNode(KIND[k][1])); key.appendChild(s); });
+}
+
+// ---- pointing and selecting ------------------------------------------------------------------
+function point(c, f) {
+  if ((c && c.map !== cur) || (f && f.map !== cur)) return;
+  hot = c; hotFlow = f; if (c || f) document.getElementById('note').classList.add('gone'); light();
+}
+function light() {
+  var m = cur, c = hot || (hotFlow ? null : (sel && sel.map === m ? sel : null)), f = hotFlow, on = {}, any = !!(c || f), ke = cam.k * m.s;
+  var st = MODE === 'seq' && !any && SEQ.step >= 0 ? TOP.sq[SEQ.i].s[SEQ.step] : null, nums = m.layer.nums;
+  m.g.classList.toggle('stepping', MODE === 'seq' && !any && SEQ.step >= 0);
+  m.shown.forEach(function (x) {
+    var lit = st ? x.i === st.f : f ? x === f : c ? (x.s === c.id || x.t === c.id) : false, was = x.g.classList.contains('lit');
+    x.g.classList.toggle('done', !!(st && nums && !lit && nums[x.i][0] - 1 < SEQ.step));
+    x.g.classList.toggle('lit', lit);
+    if (lit) { on[x.s] = on[x.t] = 1; m.gFlows.appendChild(x.g); }
+    if (lit && !was && !REDUCE) { var L = Math.ceil(x.len * ke) + 6; x.w.style.strokeDasharray = L; x.w.style.setProperty('--len', L); x.g.classList.remove('draw'); void x.w.getBoundingClientRect(); x.g.classList.add('draw'); }
+    if (!lit) { x.g.classList.remove('draw'); x.w.style.strokeDasharray = ''; }
+  });
+  if (c) on[c.id] = 1;
+  if (st) { st.a.forEach(function (id) { on[id] = 1; }); any = true; }
+  m.cards.forEach(function (x) { x.g.classList.toggle('lit', !!on[x.id]); x.g.classList.toggle('sel', x === sel); });
+  // A card with no flow in the layer does not make the other cards go back.
+  var some = m.shown.some(function (x) { return x.g.classList.contains('lit'); });
+  m.g.classList.toggle('focus', any && !st && (some || !!f));
+  if (m.fs) relit(m);
+  speak(c, f);
+}
+function speak(c, f) {
+  var say = document.getElementById('say'); say.textContent = '';
+  if (f) {
+    var b = h('b'); b.appendChild(document.createTextNode(f.s)); b.appendChild(h('span', 'arr', '→')); b.appendChild(document.createTextNode(f.t));
+    var code = h('code', '', f.a); code.style.setProperty('--k', kvar(f));
+    say.appendChild(b); say.appendChild(code); if (f.say) say.appendChild(h('span', '', f.say));
+  } else if (c && c !== sel) {
+    var ins = c.fl.filter(function (x) { return x.t === c.id; }).length, outs = c.fl.length - ins;
+    say.appendChild(h('b', '', c.id));
+    var words = c.p + (c.fl.length ? ' · receives ' + ins + ', gives ' + outs : ' · no flow in this layer');
+    if (c.opens) words += ' · double-click to see its ' + c.opens.parts + ' parts';
+    if (c.map.host && c.k === 'actor') words += ' · outside ' + c.map.name + ', select to go to it';
+    say.appendChild(h('span', '', words));
+  }
+  say.classList.toggle('on', !!(f || (c && c !== sel)));
+}
+function select(c, keep) {
+  var was = app.classList.contains('open'); sel = c; app.classList.toggle('open', !!c);
+  if (c) inspector(c);
+  light();
+  var r = stage.getBoundingClientRect();
+  if (r.width <= 720 && c && !keep) {
+    // On a phone the details are a sheet at the bottom. The selected card goes to the middle of the part above the sheet.
+    var m = c.map, k = Math.max(cam.k, 0.62 / m.s), band = r.height * 0.38;
+    go({k: k, x: m.ox + (c.b[0] + c.b[2] / 2) * m.s - r.width / 2 / k, y: m.oy + (c.b[1] + c.b[3] / 2) * m.s - (96 + (band - 96) / 2 + 20) / k});
+  } else if (was !== !!c && !keep) fitMap(cur);
+}
+function inspector(c) {
+  var head = document.getElementById('side-head'), body = document.getElementById('side-body'), m = c.map;
+  head.textContent = ''; body.textContent = '';
+  var k = h('div', 'side__k', c.k === 'actor' ? (m.host ? 'Outside ' + m.name : 'Actor · outside the system') : m.host ? 'Part of ' + m.name : c.k === 'component' ? 'Component' : c.k), x = h('button'); x.setAttribute('aria-label', 'Close the details'); x.title = 'Close (Esc)';
+  x.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+  x.addEventListener('click', function () { select(null); }); k.appendChild(x);
+  head.appendChild(k); head.appendChild(h('h2', '', c.id)); head.appendChild(h('div', 'side__p', c.p));
+  if (c.as && c.as.length) { var st = h('div', 'side__state'); st.appendChild(h('i', c.as[0] === 'examined' ? '' : 'no')); st.appendChild(document.createTextNode(c.as[0] === 'examined' ? 'Claims examined against the source, ' + c.as[1] : 'Claims not examined')); head.appendChild(st); }
+  if (c.opens) {
+    var go2 = h('button', 'enter'); go2.innerHTML = '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 4.5v-3h3M11.5 8.5v3h-3M8 1.5h3.5V5M5 11.5H1.5V8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+    go2.appendChild(document.createTextNode('See its ' + c.opens.parts + ' parts')); go2.addEventListener('click', function () { enter(c.opens); }); body.appendChild(go2);
+  }
+  if (!m.host && c.fl.length) { var fo = h('button', 'more', 'Focus on this card'); fo.style.marginTop = '0'; fo.addEventListener('click', function () { FOCUS.id = c.id; setMode('focus'); }); body.appendChild(fo); }
+  if (c.d) {
+    var d = h('p', 'side__d clip', c.d); body.appendChild(d);
+    if (c.d.length > 260) { var more = h('button', 'more', 'Read all'); more.addEventListener('click', function () { var shut = d.classList.toggle('clip'); more.textContent = shut ? 'Read all' : 'Show less'; }); body.appendChild(more); }
+  }
+  [['Receives', function (f) { return f.t === c.id; }, 's', 'from'], ['Gives', function (f) { return f.s === c.id; }, 't', 'to']].forEach(function (g) {
+    var list = c.fl.filter(g[1]); if (!list.length) return;
+    var sec = h('section', 'sec'), t = h('h3', '', g[0]); t.appendChild(h('span', '', list.length)); sec.appendChild(t);
+    list.forEach(function (f) {
+      var r = h('button', 'row'); r.style.setProperty('--k', kvar(f)); r.appendChild(h('i'));
+      var b = h('b', '', f.a + ' '); b.appendChild(h('em', '', g[3] + ' ' + f[g[2]])); r.appendChild(b); if (f.say) r.appendChild(h('small', '', f.say));
+      r.addEventListener('pointerenter', function () { point(null, f); }); r.addEventListener('pointerleave', function () { point(null, null); });
+      r.addEventListener('focus', function () { point(null, f); }); r.addEventListener('blur', function () { point(null, null); });
+      r.addEventListener('click', function () { var o = m.byId[f[g[2]]]; if (o.map.host && o.k === 'actor') act(o); else select(o); });
+      sec.appendChild(r);
+    });
+    body.appendChild(sec);
+  });
+  if (!c.fl.length) body.appendChild(h('p', 'side__d', 'This card has no flow in the layer ' + m.layer.n + '.'));
+  if (c.m && c.m.length) {
+    var ms = h('section', 'sec'), mt = h('h3', '', 'Source modules'); mt.appendChild(h('span', '', c.m.length)); ms.appendChild(mt);
+    var wrap = h('div', 'mods'); c.m.slice(0, 14).forEach(function (n) { wrap.appendChild(h('code', '', n)); });
+    if (c.m.length > 14) wrap.appendChild(h('code', '', '+ ' + (c.m.length - 14) + ' more'));
+    ms.appendChild(wrap); body.appendChild(ms);
+  }
+  body.scrollTop = 0;
+}
+
+// ---- the camera, and the map that it is in -----------------------------------------------------
+var raf = 0, relabel = 0;
+function smooth(a, b, v) { var t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); }
+function apply() {
+  world.setAttribute('transform', 'translate(' + (-cam.x * cam.k) + ' ' + (-cam.y * cam.k) + ') scale(' + cam.k + ')');
+  var step = 24 * Math.pow(2, -Math.round(Math.log2(Math.max(0.5, Math.min(2, cam.k)))) ) * cam.k; if (step < 14) step *= 2; if (step > 34) step /= 2;
+  dot.setAttribute('width', step); dot.setAttribute('height', step); dot.setAttribute('patternTransform', 'translate(' + (-cam.x * cam.k % step) + ' ' + (-cam.y * cam.k % step) + ')');
+  var r = stage.getBoundingClientRect(), into = null, deep = 0;
+  MAPS.forEach(function (m) {
+    if (!m.host) return;
+    // t is 0 when the nested map is a small picture in its card, and 1 when it has the screen.
+    var t = smooth(0.16, 0.5, m.size[1] * m.s * cam.k / r.height), cx = (m.ox + m.size[0] * m.s / 2 - cam.x) * cam.k, cy = (m.oy + m.size[1] * m.s / 2 - cam.y) * cam.k;
+    var seen = cx > 0 && cx < r.width && cy > 0 && cy < r.height;
+    m.g.classList.toggle('thumb', t < 0.2); m.g.classList.toggle('far', cam.k * m.s < 0.95);
+    m.t = seen ? t : 0;
+    m.g.style.pointerEvents = m.t > 0.5 ? '' : 'none';
+    if (m.t > 0.5) into = m; deep = Math.max(deep, m.t);
+  });
+  TOP.g.classList.toggle('inside', deep > 0.5); TOP.g.classList.toggle('far', cam.k < 0.95);
+  // The map above goes away as the nested map takes the screen.
+  Array.prototype.forEach.call(TOP.g.children, function (n) { if (!n.classList.contains('lvl')) { n.style.opacity = deep > 0.02 ? String(1 - deep) : ''; n.style.pointerEvents = deep > 0.5 ? 'none' : ''; } });
+  var now = into || TOP;
+  if (now !== cur) { var old = cur; cur = now; if (old) { old.g.classList.remove('focus'); } hot = hotFlow = null; if (sel && sel.map !== cur) { sel = null; app.classList.remove('open'); } chrome(); light(); }
+  document.getElementById('zv').textContent = Math.round(cam.k * cur.s * 100) + '%';
+  clearTimeout(relabel); relabel = setTimeout(function () { place(cur); }, 140);
+}
+function frame(m) { return [m.ox, m.oy, m.size[0] * m.s, m.size[1] * m.s]; }
+function fitMap(m, now, whole) {
+  var now2 = !!whole;
+  var r = stage.getBoundingClientRect(), wide = r.width > 720, right = (app.classList.contains('open') && wide && sel && sel.map === m ? 380 : 0) + 24, bottom = 30;
+  var b = frame(m), fitK = function (left, top) { return Math.min((r.width - left - right) / b[2], (r.height - top - bottom) / b[3], 1.6 / m.s); };
+  var beside = r.width - right > 1180 && fitK(330, 26) >= fitK(20, 112), top = beside ? 26 : wide ? 112 : 96, left = beside ? 330 : 20;
+  document.getElementById('ask').classList.toggle('beside', beside);
+  var k = fitK(left, top);
+  if (!wide && k * m.s < 0.5 && !now2) { k = 0.5 / m.s; go({k: k, x: b[0] - 14 / k, y: b[1] - top / k}, now); return; }
+  // Under a headline, a wide map starts near the headline and does not go to the middle of the screen.
+  var free = r.height - top - bottom - b[3] * k, lift = beside ? free / 2 : Math.min(free / 2, 10);
+  go({k: k, x: b[0] + b[2] / 2 - (left + (r.width - left - right) / 2) / k, y: b[1] - (top + lift) / k}, now);
+}
+function enter(m) { if (sel) { sel = null; app.classList.remove('open'); } fitMap(m); }
+function go(to, now) {
+  cancelAnimationFrame(raf);
+  if (now || REDUCE) { cam = to; apply(); return; }
+  // A move with a large change of zoom goes at one rate in the logarithm of the zoom, so it does not rush at one end.
+  var from = {x: cam.x, y: cam.y, k: cam.k}, r = stage.getBoundingClientRect(), big = Math.abs(Math.log(to.k / from.k)), ms = 320 + Math.min(520, big * 190), t0 = performance.now();
+  var fc = [from.x + r.width / 2 / from.k, from.y + r.height / 2 / from.k], tc = [to.x + r.width / 2 / to.k, to.y + r.height / 2 / to.k];
+  (function step(t) {
+    var u = Math.min(1, (t - t0) / ms), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2, k = from.k * Math.pow(to.k / from.k, e);
+    var w = big > 0.05 ? (1 / from.k - 1 / k) / (1 / from.k - 1 / to.k) : e, cx = fc[0] + (tc[0] - fc[0]) * w, cy = fc[1] + (tc[1] - fc[1]) * w;
+    cam = {k: k, x: cx - r.width / 2 / k, y: cy - r.height / 2 / k}; apply();
+    if (u < 1) raf = requestAnimationFrame(step);
+  })(t0);
+}
+function zoomAt(px, py, f) { var k = Math.max(0.3, Math.min(60, cam.k * f)), wx = cam.x + px / cam.k, wy = cam.y + py / cam.k; cam = {k: k, x: wx - px / k, y: wy - py / k}; apply(); }
+svg.addEventListener('wheel', function (e) { e.preventDefault(); cancelAnimationFrame(raf); var r = svg.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0016))); }, {passive: false});
+var pts = {}, drag = null, pinch = 0, moved = false;
+svg.addEventListener('pointerdown', function (e) { cancelAnimationFrame(raf); pts[e.pointerId] = [e.clientX, e.clientY]; drag = {x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y}; moved = false; pinch = 0; });
+svg.addEventListener('pointermove', function (e) {
+  if (!pts[e.pointerId]) return;
+  pts[e.pointerId] = [e.clientX, e.clientY];
+  var ids = Object.keys(pts);
+  if (ids.length === 2) { var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]), r = svg.getBoundingClientRect(); if (pinch) zoomAt((a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top, d / pinch); pinch = d; moved = true; return; }
+  if (!drag) return;
+  var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!moved && Math.hypot(dx, dy) < 4) return;
+  if (!moved) { moved = true; svg.classList.add('drag'); try { svg.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ } }
+  cam.x = drag.cx - dx / cam.k; cam.y = drag.cy - dy / cam.k; apply();
+});
+function up(e) { delete pts[e.pointerId]; drag = null; pinch = 0; svg.classList.remove('drag'); }
+svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
+svg.addEventListener('click', function () { if (!moved) { if (hotFlow) point(null, null); else if (sel) select(null); } });
+function center() { var r = stage.getBoundingClientRect(); return [r.width / 2, r.height / 2]; }
+document.getElementById('zi').addEventListener('click', function () { var c = center(); zoomAt(c[0], c[1], 1.25); });
+document.getElementById('zo').addEventListener('click', function () { var c = center(); zoomAt(c[0], c[1], 0.8); });
+document.getElementById('zf').addEventListener('click', function () { fitMap(cur, false, true); });
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { if (sel) { var c = sel; select(null); c.g.focus(); } else if (cur.host) fitMap(cur.host.map); }
+  if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) fitMap(cur);
+  if (MODE === 'seq' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !/SELECT|INPUT/.test(e.target.tagName)) { e.preventDefault(); stepTo(SEQ.step + (e.key === 'ArrowRight' ? 1 : -1)); }
+});
+addEventListener('resize', function () { fitMap(cur, true); if (MODE === 'states') drawMachine(); if (MODE === 'seq' && SEQ.form === 'diagram') drawSeq(); if (MODE === 'focus') drawFocus(); if (MODE === 'history') drawHistory(); });
+
+// ---- the other views: a sequence on the map, and a state machine ------------------------------
+function setMode(mode) {
+  MODE = mode; app.dataset.mode = mode;
+  Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
+  if (sel) { sel = null; app.classList.remove('open'); }
+  hot = hotFlow = null; document.getElementById('say').classList.remove('on');
+  if (cur !== TOP) fitMap(TOP, true);
+  rail();
+  if (mode === 'map') setLayer(TOP, TOP.mapLayer || 'system');
+  if (mode === 'seq') pickSeq(SEQ.i);
+  if (mode === 'states') { chrome(); drawMachine(); }
+  if (mode === 'focus') { chrome(); drawFocus(); }
+  if (mode === 'history') { chrome(); drawHistory(); }
+}
+function rail() {
+  var r = document.getElementById('rail'); r.textContent = '';
+  var deg = {}; TOP.flows.forEach(function (f) { deg[f.s] = (deg[f.s] || 0) + 1; deg[f.t] = (deg[f.t] || 0) + 1; });
+  var cards = TOP.cards.filter(function (c) { return deg[c.id]; }).sort(function (a, b) { return deg[b.id] - deg[a.id]; });
+  var list = MODE === 'seq' ? TOP.sq.map(function (q) { return [q.n, q.s.length]; }) : MODE === 'states' ? TOP.sm.map(function (x) { return [x.n, x.st.length]; }) : MODE === 'focus' ? cards.map(function (c) { return [c.id, deg[c.id]]; }) : [];
+  list.forEach(function (it, i) {
+    var b = h('button', '', it[0]); b.appendChild(h('i', '', it[1])); b.setAttribute('aria-current', (MODE === 'focus' ? it[0] === FOCUS.id : i === (MODE === 'seq' ? SEQ.i : SM.i)) ? 'true' : 'false');
+    b.addEventListener('click', function () { if (MODE === 'seq') pickSeq(i); else if (MODE === 'focus') { FOCUS.id = it[0]; chrome(); drawFocus(); } else { SM.i = i; chrome(); drawMachine(); } rail(); });
+    r.appendChild(b);
+  });
+}
+function headline() {
+  var ask = document.getElementById('ask'), k, q, n;
+  if (MODE === 'seq') { var s = TOP.sq[SEQ.i]; k = 'Sequence'; q = s.n; n = plural(s.s.length, 'step') + (s.en ? ' · starts at ' + s.en : ''); }
+  else if (MODE === 'focus') { var fc = focusCard(), up = reach(fc.id, 't', 's'), dn = reach(fc.id, 's', 't'); k = 'Focus'; q = 'What does ' + fc.id + ' use, and what uses ' + fc.id + '?'; n = 'receives from ' + count(up, 1) + ' · gives to ' + count(dn, 1) + ' · a change here can reach ' + Object.keys(dn).length + ' of ' + (TOP.cards.length - 1) + ' cards'; }
+  else if (MODE === 'history') { var hi = SET.history; k = 'History'; q = 'Where did the system change, and when?'; n = plural(hi.commits, 'commit') + ' · ' + hi.from + ' to ' + hi.to + ' · changed source files, by component'; }
+  else { var x = TOP.sm[SM.i]; k = 'State machine' + (x.of ? ' · of ' + x.of : ''); q = x.n; n = plural(x.st.length, 'state') + ' · ' + plural(x.tr.length, 'transition'); }
+  ask.classList.add('swap'); clearTimeout(askTimer);
+  askTimer = setTimeout(function () { document.getElementById('ask-k').textContent = k; document.getElementById('ask-q').textContent = q; document.getElementById('ask-n').textContent = n; ask.classList.remove('swap'); }, 150);
+}
+// A sequence is a layer with only the flows of its steps. Each line has the numbers of its steps.
+function pickSeq(i) {
+  SEQ.i = i; SEQ.step = -1;
+  var q = TOP.sq[i], ids = [], nums = {}, also = [];
+  q.s.forEach(function (st, n) { st.a.forEach(function (id) { also.push(id); }); if (st.f < 0) return; if (ids.indexOf(st.f) < 0) ids.push(st.f); (nums[st.f] = nums[st.f] || []).push(n + 1); });
+  setLayer(TOP, {id: 'seq', n: q.n, q: q.n, e: ids, nums: nums, also: also});
+  stepper(); if (SEQ.form === 'diagram') drawSeq();
+}
+function stepTo(n) {
+  var q = TOP.sq[SEQ.i]; n = Math.max(-1, Math.min(q.s.length - 1, n)); if (n === SEQ.step) return;
+  SEQ.step = n; hot = hotFlow = null; light(); stepper(); if (SEQ.form === 'diagram') drawSeq();
+}
+function stepper() {
+  var box = document.getElementById('stepper'), q = TOP.sq[SEQ.i], n = SEQ.step, st = n >= 0 ? q.s[n] : null; box.textContent = '';
+  var dots = h('div', 'dots2'); q.s.forEach(function (x, i) { dots.appendChild(h('i', i < n ? 'was' : i === n ? 'now' : '')); });
+  var forms = h('div', 'forms'); [['map', 'On the map'], ['diagram', 'As a diagram']].forEach(function (f) { var b = h('button', '', f[1]); b.setAttribute('aria-pressed', SEQ.form === f[0] ? 'true' : 'false'); b.addEventListener('click', function () { SEQ.form = f[0]; app.dataset.form = f[0]; stepper(); if (f[0] === 'diagram') drawSeq(); else fitMap(TOP, true); }); forms.appendChild(b); });
+  box.appendChild(forms);
+  box.appendChild(h('span', 'n', st ? 'Step ' + (n + 1) + ' of ' + q.s.length : 'Whole route')); box.appendChild(dots);
+  box.appendChild(h('p', '', st ? st.y : 'The map shows the ' + plural(q.s.length, 'step') + ' of this sequence, with a number on each line.'));
+  var nav = h('div', 'nav'), prev = h('button', '', '←'), next = h('button', 'go', st ? (n === q.s.length - 1 ? 'Done' : 'Next →') : 'Start →');
+  prev.setAttribute('aria-label', 'Previous step'); prev.disabled = n < 0; prev.addEventListener('click', function () { stepTo(n - 1); });
+  next.addEventListener('click', function () { stepTo(n === q.s.length - 1 ? -1 : n + 1); });
+  nav.appendChild(prev); nav.appendChild(next); box.appendChild(nav);
+}
+// The same sequence as a diagram: one column for each card, one row for each step. A click on a row
+// goes to that step.
+function drawSeq() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, q = TOP.sq[SEQ.i], parts = [];
+  g.textContent = ''; g.setAttribute('class', SEQ.step >= 0 ? 'stepping' : '');
+  q.s.forEach(function (st) { var f = st.f >= 0 ? TOP.flows[st.f] : null; (f ? [f.s, f.t] : st.a).forEach(function (id) { if (TOP.byId[id] && parts.indexOf(id) < 0) parts.push(id); }); });
+  var NW = 150, NH = 40, RH = 56, TOPY = 86, CW = Math.max(120, Math.min(210, 1000 / parts.length)), bw = (parts.length - 1) * CW + NW, bh = TOPY + q.s.length * RH + 10;
+  var left = wide ? 350 : 16, top = wide ? 40 : 190, aw = r.width - left - 30, ah = r.height - top - 130, k = Math.min(1.2, aw / bw, ah / bh);
+  g.setAttribute('transform', 'translate(' + (left + (aw - bw * k) / 2) + ' ' + (top + (ah - bh * k) / 2) + ') scale(' + k + ')');
+  var X = function (id) { return NW / 2 + parts.indexOf(id) * CW; };
+  parts.forEach(function (id) {
+    var c = TOP.byId[id], x = X(id), w = Math.min(NW, CW - 14), ng = el('g', {class: 'fnode'}, g);
+    el('path', {d: 'M' + x + ' ' + NH + 'V' + bh, class: 'qlife'}, g);
+    el('rect', {x: x - w / 2, y: 0, width: w, height: NH, rx: c.k === 'actor' ? NH / 2 : 9}, ng); el('text', {x: x, y: NH / 2 + 4.5}, ng, id.length * 7.6 > w - 10 ? id.slice(0, Math.floor((w - 16) / 7.6)) + '…' : id);
+  });
+  q.s.forEach(function (st, i) {
+    var f = st.f >= 0 ? TOP.flows[st.f] : null, y = TOPY + i * RH, cls = i === SEQ.step ? ' lit' : i < SEQ.step ? ' done' : '';
+    var row = el('g', {class: 'qrow'}, g); el('rect', {x: -10, y: y - RH / 2 + 4, width: bw + 20, height: RH - 8, rx: 8}, row);
+    row.addEventListener('click', function () { stepTo(i); });
+    var eg = el('g', {class: 'sedge' + cls, style: f ? '--k:' + kvar(f) : ''}, g), x1 = f ? X(f.s) : X(st.a[0] || parts[0]);
+    if (f) {
+      var x2 = X(f.t), dir = x2 >= x1 ? 1 : -1;
+      el('path', {d: 'M' + (x1 + dir * 11) + ' ' + y + 'H' + (x2 - dir * 9), class: 'wire'}, eg);
+      el('polygon', {points: [x2 - dir * 1, y, x2 - dir * 10, y - 4.4, x2 - dir * 10, y + 4.4].join(' ')}, eg);
+      el('text', {x: (x1 + x2) / 2, y: y - 9}, eg, short(f.a));
+    } else el('text', {x: x1 + 18, y: y + 4, style: 'text-anchor:start'}, eg, 'no flow');
+    var bead = el('g', {class: 'qbead'}, eg); el('circle', {cx: x1, cy: y, r: 10}, bead); el('text', {x: x1, y: y + 3.6}, bead, i + 1);
+  });
+}
+// The state machine: one board, in the same language as the map. A state has the shape of an actor,
+// because a state is not a component.
+function drawMachine() {
+  var g = document.getElementById('bworld'), x = TOP.sm[SM.i], r = stage.getBoundingClientRect(), wide = r.width > 1180, CW = 290, CH = 170, NW = 200, NH = 62;
+  g.textContent = ''; g.setAttribute('class', '');
+  var cols = Math.max.apply(null, x.st.map(function (s) { return s.c; })) + 1, rows = Math.max.apply(null, x.st.map(function (s) { return s.r; })) + 1;
+  var bw = (cols - 1) * CW + NW, bh = (rows - 1) * CH + NH, left = wide ? 340 : 24, top = wide ? 60 : 190, aw = r.width - left - 40, ah = r.height - top - 110;
+  var k = Math.min(1.25, aw / (bw + 80), ah / (bh + 60)), ox = left + (aw - bw * k) / 2, oy = top + (ah - bh * k) / 2;
+  g.setAttribute('transform', 'translate(' + ox + ' ' + oy + ') scale(' + k + ')');
+  var pos = x.st.map(function (s) { return [s.c * CW + NW / 2, s.r * CH + NH / 2]; }), say = document.getElementById('say');
+  function tell(parts) { say.textContent = ''; parts.forEach(function (p) { say.appendChild(p); }); say.classList.toggle('on', parts.length > 0); }
+  function focus(edges, nodes) { g.setAttribute('class', edges.length || nodes.length ? 'focus' : ''); x.tr.forEach(function (t) { t.g.classList.toggle('lit', edges.indexOf(t) >= 0); }); x.st.forEach(function (s, i) { s.g.classList.toggle('lit', nodes.indexOf(i) >= 0); }); }
+  var gE = el('g', {}, g), gN = el('g', {}, g);
+  x.tr.forEach(function (t) {
+    var a = pos[t.a], b = pos[t.b], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    var back = x.tr.some(function (o) { return o !== t && o.a === t.b && o.b === t.a; }), bend = back ? 30 : 0;
+    // The line starts and ends at the edge of the two states.
+    var ea = Math.min(Math.abs(ux) > 0.01 ? NW / 2 / Math.abs(ux) : 1e9, Math.abs(uy) > 0.01 ? NH / 2 / Math.abs(uy) : 1e9) + 3;
+    var p0 = [a[0] + ux * ea - uy * bend * 0.45, a[1] + uy * ea + ux * bend * 0.45], p1 = [b[0] - ux * (ea + 4) - uy * bend * 0.45, b[1] - uy * (ea + 4) + ux * bend * 0.45];
+    var mx = (p0[0] + p1[0]) / 2 - uy * bend, my = (p0[1] + p1[1]) / 2 + ux * bend, d = 'M' + p0[0] + ' ' + p0[1] + 'Q' + mx + ' ' + my + ' ' + p1[0] + ' ' + p1[1];
+    var tx = p1[0] - mx, ty = p1[1] - my, tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    var tip = [p1[0] + tx * 4, p1[1] + ty * 4], eg = t.g = el('g', {class: 'sedge'}, gE);
+    el('path', {d: d, class: 'wire'}, eg);
+    el('polygon', {points: [tip[0], tip[1], tip[0] - tx * 9 - ty * 4.2, tip[1] - ty * 9 + tx * 4.2, tip[0] - tx * 9 + ty * 4.2, tip[1] - ty * 9 - tx * 4.2].join(' ')}, eg);
+    // The label of a straight line is above the line. The label of a bent line is at the outer side of the bend.
+    var lx = (p0[0] + 2 * mx + p1[0]) / 4, ly = (p0[1] + 2 * my + p1[1]) / 4, side = -uy * bend;
+    if (!bend) el('text', {x: lx - uy * 0, y: ly - 12}, eg, t.l);
+    else el('text', {x: lx + (side < 0 ? -14 : 14), y: ly + ux * bend * 0.4 + 4, style: 'text-anchor:' + (Math.abs(side) < 4 ? 'middle' : side < 0 ? 'end' : 'start')}, eg, t.l);
+    var hit = el('path', {d: d, class: 'hit'}, eg);
+    var on = function () { focus([t], [t.a, t.b]); var bb = h('b'); bb.appendChild(document.createTextNode(x.st[t.a].id)); bb.appendChild(h('span', 'arr', '→')); bb.appendChild(document.createTextNode(x.st[t.b].id)); tell([bb, h('code', '', t.l), h('span', '', t.c)]); };
+    hit.addEventListener('pointerenter', on); hit.addEventListener('click', on); hit.addEventListener('pointerleave', function () { focus([], []); tell([]); });
+  });
+  x.st.forEach(function (s, i) {
+    var p = pos[i], ng = s.g = el('g', {class: 'snode' + (s.first ? ' first' : ''), tabindex: 0, role: 'img', 'aria-label': 'State ' + s.id + '. ' + s.y}, gN);
+    if (s.first) { el('circle', {cx: p[0] - NW / 2 - 34, cy: p[1], r: 4, class: 'sstart'}, ng); el('path', {d: 'M' + (p[0] - NW / 2 - 30) + ' ' + p[1] + 'H' + (p[0] - NW / 2 - 6), class: 'wire', style: 'fill:none;stroke:var(--ink-3);stroke-width:1.3'}, ng); }
+    el('rect', {x: p[0] - NW / 2, y: p[1] - NH / 2, width: NW, height: NH, rx: NH / 2}, ng);
+    el('text', {x: p[0], y: p[1] - 1, class: 'nm'}, ng, s.id); el('text', {x: p[0], y: p[1] + 16, class: 'sy'}, ng, s.sym);
+    var on = function () { var e = x.tr.filter(function (t) { return t.a === i || t.b === i; }), n = [i]; e.forEach(function (t) { n.push(t.a, t.b); }); focus(e, n); tell([h('b', '', s.id), h('span', '', s.y + (s.first ? ' This is the first state.' : ''))]); };
+    ng.addEventListener('pointerenter', on); ng.addEventListener('focus', on); ng.addEventListener('click', on);
+    ng.addEventListener('pointerleave', function () { focus([], []); tell([]); }); ng.addEventListener('blur', function () { focus([], []); tell([]); });
+  });
+}
+// ---- focus: one card, the cards that it receives from, and the cards that it gives to ---------
+function focusCard() { var deg = {}; TOP.flows.forEach(function (f) { deg[f.s] = (deg[f.s] || 0) + 1; deg[f.t] = (deg[f.t] || 0) + 1; }); return TOP.byId[FOCUS.id] || TOP.cards.slice().sort(function (a, b) { return (deg[b.id] || 0) - (deg[a.id] || 0); })[0]; }
+// The cards that a card can reach along the flows, with the count of steps. `from` and `to` are 's' and 't'.
+function reach(id, from, to) {
+  var dist = {}, edge = [id], d = 0;
+  while (edge.length) { d++; var next = []; TOP.flows.forEach(function (f) { if (edge.indexOf(f[from]) >= 0 && f[to] !== id && !dist[f[to]]) { dist[f[to]] = d; next.push(f[to]); } }); edge = next; }
+  return dist;
+}
+function count(dist, d) { return Object.keys(dist).filter(function (k) { return dist[k] === d; }).length; }
+function drawFocus() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, say = document.getElementById('say'), c = focusCard();
+  FOCUS.id = c.id; g.textContent = ''; g.setAttribute('class', '');
+  var up = reach(c.id, 't', 's'), dn = reach(c.id, 's', 't'), CW = 250, NW = 168, NH = 40, RH = 52, MAX = 9;
+  var cols = [[-2, up, 2, 'TWO STEPS BEFORE'], [-1, up, 1, 'GIVES TO ' + c.id.toUpperCase()], [1, dn, 1, c.id.toUpperCase() + ' GIVES TO'], [2, dn, 2, 'TWO STEPS AFTER']].map(function (d) {
+    var ids = Object.keys(d[1]).filter(function (k) { return d[1][k] === d[2]; });
+    return {j: d[0], ids: ids.slice(0, MAX), more: Math.max(0, ids.length - MAX), name: d[3]};
+  }).filter(function (col) { return col.ids.length && (wide || Math.abs(col.j) === 1); });
+  var rows = Math.max.apply(null, cols.map(function (col) { return col.ids.length + (col.more ? 1 : 0); }).concat([1])), js = cols.map(function (col) { return col.j; }).concat([0]);
+  var x0 = Math.min.apply(null, js) * CW - NW / 2, x1 = Math.max.apply(null, js) * CW + NW / 2, bw = x1 - x0, bh = rows * RH + 40;
+  var left = wide ? 350 : 16, top = wide ? 50 : 200, aw = r.width - left - 30, ah = r.height - top - 110, k = Math.min(1.2, aw / (bw + 20), ah / bh);
+  g.setAttribute('transform', 'translate(' + (left + aw / 2 - (x0 + bw / 2) * k) + ' ' + (top + ah / 2) + ') scale(' + k + ')');
+  var at = {}, gE = el('g', {}, g), gN = el('g', {}, g), edges = [];
+  function pos(j, i, n) { return [j * CW, (i - (n - 1) / 2) * RH]; }
+  function tell(parts) { say.textContent = ''; parts.forEach(function (p) { say.appendChild(p); }); say.classList.toggle('on', parts.length > 0); }
+  function focus(es, keys) { g.setAttribute('class', es.length ? 'focus' : ''); edges.forEach(function (e) { e.g.classList.toggle('lit', es.indexOf(e) >= 0); }); Object.keys(at).forEach(function (key) { at[key].g.classList.toggle('lit', keys.indexOf(key) >= 0); }); }
+  function node(key, id, p, cls) {
+    var card = TOP.byId[id], ng = el('g', {class: 'fnode ' + cls, tabindex: 0, role: 'button', 'aria-label': id}, gN), w = cls === 'mid' ? NW + 24 : NW, hh = cls === 'mid' ? NH + 10 : NH;
+    if (cls === 'mid') el('rect', {x: p[0] - w / 2 - 4, y: p[1] - hh / 2 - 4, width: w + 8, height: hh + 8, rx: card.k === 'actor' ? hh / 2 + 4 : 13, class: 'fhalo'}, ng);
+    el('rect', {x: p[0] - w / 2, y: p[1] - hh / 2, width: w, height: hh, rx: card.k === 'actor' ? hh / 2 : 9}, ng); el('text', {x: p[0], y: p[1] + 4.5}, ng, id);
+    at[key] = {p: p, w: w, g: ng, id: id};
+    var on = function () { var es = edges.filter(function (e) { return e.a === key || e.b === key; }), keys = [key]; es.forEach(function (e) { keys.push(e.a, e.b); }); focus(es, keys); tell([h('b', '', id), h('span', '', card.p + (cls === 'mid' ? '' : ' · select to focus on it'))]); };
+    ng.addEventListener('pointerenter', on); ng.addEventListener('focus', on);
+    ng.addEventListener('pointerleave', function () { focus([], []); tell([]); }); ng.addEventListener('blur', function () { focus([], []); tell([]); });
+    if (cls !== 'mid') ng.addEventListener('click', function () { FOCUS.id = id; chrome(); drawFocus(); rail(); });
+  }
+  node('0', c.id, [0, 0], 'mid');
+  cols.forEach(function (col) {
+    var n = col.ids.length + (col.more ? 1 : 0);
+    el('text', {x: col.j * CW, y: -(rows * RH) / 2 - 14, class: 'fcol'}, g, col.name);
+    col.ids.forEach(function (id, i) { node(col.j + ':' + id, id, pos(col.j, i, n), Math.abs(col.j) === 2 ? 'far' : ''); });
+    if (col.more) { var p = pos(col.j, n - 1, n); el('text', {x: p[0], y: p[1] + 4, class: 'fmore'}, g, '+ ' + col.more + ' more'); }
+  });
+  // A line for each flow between two columns that are adjacent.
+  TOP.flows.forEach(function (f) {
+    [[-2, -1], [-1, 0], [0, 1], [1, 2]].forEach(function (pair) {
+      var a = at[pair[0] === 0 ? '0' : pair[0] + ':' + f.s], b = at[pair[1] === 0 ? '0' : pair[1] + ':' + f.t];
+      if (!a || !b || a.id !== f.s || b.id !== f.t) return;
+      var p0 = [a.p[0] + a.w / 2 + 3, a.p[1]], p1 = [b.p[0] - b.w / 2 - 9, b.p[1]], dx = (p1[0] - p0[0]) * 0.5, d = 'M' + p0[0] + ' ' + p0[1] + 'C' + (p0[0] + dx) + ' ' + p0[1] + ' ' + (p1[0] - dx) + ' ' + p1[1] + ' ' + p1[0] + ' ' + p1[1];
+      var near = pair[0] === 0 || pair[1] === 0, eg = el('g', {class: 'sedge' + (near ? '' : ' thin'), style: '--k:' + kvar(f)}, gE), e = {g: eg, a: pair[0] === 0 ? '0' : pair[0] + ':' + f.s, b: pair[1] === 0 ? '0' : pair[1] + ':' + f.t};
+      el('path', {d: d, class: 'wire'}, eg); el('polygon', {points: [p1[0] + 7, p1[1], p1[0] - 1, p1[1] - 4, p1[0] - 1, p1[1] + 4].join(' ')}, eg);
+      var hit = el('path', {d: d, class: 'hit'}, eg), on = function () { focus([e], [e.a, e.b]); var bb = h('b'); bb.appendChild(document.createTextNode(f.s)); bb.appendChild(h('span', 'arr', '→')); bb.appendChild(document.createTextNode(f.t)); var code = h('code', '', f.a); code.style.setProperty('--k', kvar(f)); tell([bb, code].concat(f.say ? [h('span', '', f.say)] : [])); };
+      hit.addEventListener('pointerenter', on); hit.addEventListener('click', on); hit.addEventListener('pointerleave', function () { focus([], []); tell([]); });
+      edges.push(e);
+    });
+  });
+}
+// ---- history: where the source files of each component changed, in equal parts of the time ---
+function drawHistory() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, say = document.getElementById('say'), hi = SET.history;
+  g.textContent = ''; g.setAttribute('class', '');
+  var rows = TOP.cards.filter(function (c) { return hi.cells[c.id]; }), N = hi.buckets.length, CW = 46, CH = 24, LAB = 150, BAR = 46, max = 1, tot = [];
+  rows.forEach(function (c) { hi.cells[c.id].forEach(function (x, i) { max = Math.max(max, x.l); tot[i] = (tot[i] || 0) + x.l; }); });
+  var bw = LAB + N * CW + 70, bh = BAR + 26 + rows.length * CH, left = wide ? 350 : 16, top = wide ? 40 : 190, aw = r.width - left - 30, ah = r.height - top - 120, k = Math.min(1.25, aw / bw, ah / bh);
+  g.setAttribute('transform', 'translate(' + (left + (aw - bw * k) / 2) + ' ' + (top + (ah - bh * k) / 2) + ') scale(' + k + ')');
+  var tmax = Math.max.apply(null, tot);
+  hi.buckets.forEach(function (b, i) {
+    var hh = Math.max(1, (tot[i] || 0) / tmax * BAR); el('rect', {x: LAB + i * CW + 3, y: BAR - hh, width: CW - 6, height: hh, rx: 2, class: 'hbar'}, g);
+    if (i % 2 === 0) el('text', {x: LAB + i * CW + CW / 2, y: BAR + 16, class: 'haxis'}, g, b[0]);
+  });
+  rows.forEach(function (c, ri) {
+    var y = BAR + 26 + ri * CH, cells = hi.cells[c.id], files = 0;
+    var name = el('text', {x: LAB - 12, y: y + CH / 2 + 4, class: 'hrow'}, g, c.id);
+    name.addEventListener('click', function () { setMode('map'); select(TOP.byId[c.id]); });
+    cells.forEach(function (x, i) {
+      files += x.f; if (!x.f) { el('rect', {x: LAB + i * CW + 2, y: y + 2, width: CW - 4, height: CH - 4, rx: 4, fill: 'var(--tint)'}, g); return; }
+      var cg = el('g', {class: 'hcell', tabindex: 0, role: 'img', 'aria-label': c.id + ', ' + hi.buckets[i][0] + ' to ' + hi.buckets[i][1] + ', ' + plural(x.f, 'file change')}, g);
+      el('rect', {x: LAB + i * CW + 2, y: y + 2, width: CW - 4, height: CH - 4, rx: 4, 'fill-opacity': (0.1 + 0.82 * Math.sqrt(x.l / max)).toFixed(2)}, cg);
+      if (x.n.length) el('circle', {cx: LAB + i * CW + CW - 9, cy: y + 8, r: 3, class: 'hborn'}, cg);
+      var on = function () { say.textContent = ''; say.appendChild(h('b', '', c.id)); say.appendChild(h('code', '', hi.buckets[i][0] + ' to ' + hi.buckets[i][1])); say.appendChild(h('span', '', plural(x.f, 'file change') + ', ' + x.l + ' lines' + (x.n.length ? ' · new: ' + x.n.slice(0, 4).join(', ') + (x.n.length > 4 ? ' and ' + (x.n.length - 4) + ' more' : '') : ''))); say.classList.add('on'); };
+      cg.addEventListener('pointerenter', on); cg.addEventListener('focus', on); cg.addEventListener('pointerleave', function () { say.classList.remove('on'); }); cg.addEventListener('blur', function () { say.classList.remove('on'); });
+    });
+    el('text', {x: LAB + N * CW + 12, y: y + CH / 2 + 4, class: 'hsum'}, g, files);
+  });
+  el('text', {x: LAB + N * CW + 12, y: BAR + 16, class: 'hsum'}, g, 'files');
+}
+// The matrix shows all flows with no line that crosses a different line. The cards are in the order of
+// their regions. A mark is in the row of its source and the column of its target.
+function drawMatrix() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, say = document.getElementById('say');
+  g.textContent = ''; g.setAttribute('class', '');
+  var order = TOP.cards.filter(function (c) { return c.k === 'actor'; }), groups = [['OUTSIDE', order.length]];
+  TOP.regions.forEach(function (reg) { var inside = TOP.cards.filter(function (c) { return c.k !== 'actor' && c.b[0] >= reg.b[0] && c.b[0] < reg.b[0] + reg.b[2] && c.b[1] >= reg.b[1] && c.b[1] < reg.b[1] + reg.b[3]; }); order = order.concat(inside); groups.push([reg.n, inside.length]); });
+  TOP.cards.forEach(function (c) { if (order.indexOf(c) < 0) order.push(c); });
+  var n = order.length, CELL = 26, LAB = 128, GAPG = 8, at = [], off = 0, gi = 0, left = wide ? 350 : 16, top = wide ? 40 : 190;
+  groups.forEach(function (gr) { for (var i = 0; i < gr[1]; i++) at.push(off + i * CELL); off += gr[1] * CELL + GAPG; });
+  while (at.length < n) { at.push(off); off += CELL; }
+  var size = off - GAPG, aw = r.width - left - 30, ah = r.height - top - 132, k = Math.min(1.15, aw / (size + LAB + 20), ah / (size + LAB + 10));
+  g.setAttribute('transform', 'translate(' + (left + (aw - (size + LAB) * k) / 2) + ' ' + (top + (ah - (size + LAB) * k) / 2) + ') scale(' + k + ')');
+  var idx = {}; order.forEach(function (c, i) { idx[c.id] = i; });
+  var rowHi = el('rect', {x: LAB, width: size, height: CELL, class: 'mrow'}, g), colHi = el('rect', {y: LAB, width: CELL, height: size, class: 'mrow'}, g), names = {row: [], col: []};
+  // the bands of the regions, and their names
+  off = 0; groups.forEach(function (gr) {
+    if (!gr[1]) return; var len = gr[1] * CELL;
+    el('rect', {x: LAB + off, y: LAB + off, width: len, height: len, rx: 6, class: 'mband'}, g);
+    el('text', {x: LAB + size + 12, y: LAB + off + len / 2 + 3, class: 'mgroup'}, g, gr[0]);
+    off += len + GAPG;
+  });
+  order.forEach(function (c, i) {
+    el('path', {d: 'M' + LAB + ' ' + (LAB + at[i] + CELL) + 'h' + size, class: 'mgrid', style: 'opacity:.55'}, g);
+    names.row[i] = el('text', {x: LAB - 10, y: LAB + at[i] + CELL / 2 + 4, 'text-anchor': 'end', class: 'mname' + (c.k === 'actor' ? ' actor' : '')}, g, c.id);
+    names.col[i] = el('text', {transform: 'translate(' + (LAB + at[i] + CELL / 2 + 4) + ' ' + (LAB - 10) + ') rotate(-52)', class: 'mname' + (c.k === 'actor' ? ' actor' : '')}, g, c.id);
+  });
+  function mark(i, j) { rowHi.setAttribute('y', LAB + at[i]); colHi.setAttribute('x', LAB + at[j]); rowHi.classList.add('on'); colHi.classList.add('on'); names.row.forEach(function (t, a) { t.classList.toggle('lit', a === i); }); names.col.forEach(function (t, a) { t.classList.toggle('lit', a === j); }); }
+  function clear() { rowHi.classList.remove('on'); colHi.classList.remove('on'); names.row.concat(names.col).forEach(function (t) { t.classList.remove('lit'); }); say.classList.remove('on'); }
+  var cells = {};
+  TOP.flows.forEach(function (f) { var key = idx[f.s] + ',' + idx[f.t]; (cells[key] = cells[key] || []).push(f); });
+  Object.keys(cells).forEach(function (key) {
+    var ij = key.split(',').map(Number), list = cells[key], x = LAB + at[ij[1]], y = LAB + at[ij[0]], cg = el('g', {class: 'mcell', tabindex: 0, role: 'button', 'aria-label': list[0].s + ' gives ' + list.map(function (f) { return f.a; }).join(' and ') + ' to ' + list[0].t}, g);
+    el('rect', {x: x + 1, y: y + 1, width: CELL - 2, height: CELL - 2, rx: 5, class: 'bg'}, cg);
+    list.forEach(function (f, a) { var w = list.length > 1 ? 7 : 10; el('rect', {x: x + CELL / 2 - (list.length * (w + 2) - 2) / 2 + a * (w + 2), y: y + CELL / 2 - 5, width: w, height: 10, rx: 3, class: 'dot', fill: kvar(f)}, cg); });
+    var on = function () {
+      mark(ij[0], ij[1]); say.textContent = '';
+      var f = list[0], b = h('b'); b.appendChild(document.createTextNode(f.s)); b.appendChild(h('span', 'arr', '→')); b.appendChild(document.createTextNode(f.t)); say.appendChild(b);
+      list.forEach(function (x2) { var code = h('code', '', x2.a); code.style.setProperty('--k', kvar(x2)); say.appendChild(code); });
+      if (f.say) say.appendChild(h('span', '', list.length === 1 ? f.say : f.say + ' (and ' + (list.length - 1) + ' more)'));
+      say.classList.add('on');
+    };
+    cg.addEventListener('pointerenter', on); cg.addEventListener('focus', on); cg.addEventListener('pointerleave', clear); cg.addEventListener('blur', clear);
+    // A click shows the same flow on the map.
+    cg.addEventListener('click', function () { setMode('map'); setLayer(TOP, 'all', true); hotFlow = list[0]; light(); });
+  });
+}
+Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
+app.dataset.mode = 'map';
+
+// ---- start: the lines of the first map draw one time, the short lines first -------------------
+function load(i) {
+  SET = D.sets[i]; MAPS = SET.maps; TOP = MAPS[0];
+  world.textContent = ''; sel = hot = hotFlow = null; cur = null; app.classList.remove('open'); started = false;
+  SEQ = {i: 0, step: -1, form: 'map'}; SM = {i: 0}; FOCUS = {id: ''}; MODE = 'map'; app.dataset.mode = 'map'; app.dataset.form = 'map';
+  prepare(); MAPS.forEach(build);
+  MAPS.forEach(function (m) { m.used = {}; setLayer(m, 'system', true); });
+  cur = TOP; fitMap(TOP, true); chrome(); light();
+  Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) {
+    b.setAttribute('aria-pressed', b.dataset.mode === 'map' ? 'true' : 'false');
+    b.hidden = (b.dataset.mode === 'states' && !(TOP.sm && TOP.sm.length)) || (b.dataset.mode === 'history' && !SET.history) || (b.dataset.mode === 'seq' && !(TOP.sq && TOP.sq.length));
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#sets button'), function (b, n) { b.setAttribute('aria-pressed', n === i ? 'true' : 'false'); });
+  if (!REDUCE) {
+    var ke = cam.k;
+    TOP.shown.slice().sort(function (a, b) { return a.len - b.len; }).forEach(function (f, n) {
+      var L = Math.ceil(f.len * ke) + 6; f.w.style.strokeDasharray = L; f.w.style.strokeDashoffset = L; f.tx.style.transition = 'none'; f.tx.style.opacity = 0;
+      setTimeout(function () {
+        f.w.style.transition = 'stroke-dashoffset .5s cubic-bezier(.3,.7,.2,1)'; f.w.style.strokeDashoffset = 0;
+        setTimeout(function () { f.w.style.transition = ''; f.w.style.strokeDasharray = ''; f.w.style.strokeDashoffset = ''; f.tx.style.transition = ''; f.tx.style.opacity = ''; }, 540);
+      }, 160 + n * 28);
+    });
+  }
+  started = true;
+}
+D.sets.forEach(function (st, i) { var b = h('button', '', st.name); b.title = st.note; b.addEventListener('click', function () { load(i); }); document.getElementById('sets').appendChild(b); });
+load(0);
+})();
+</script>

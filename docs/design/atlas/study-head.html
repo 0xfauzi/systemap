@@ -1,0 +1,309 @@
+<title>systemap Map Study</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one screen. A calm plan of the system; a path lights only when the reader asks for it. */
+:root{
+  --bg:#F1EFEC;--map:#F4F2EF;--surface:#FCFAF7;--card:#FFFEFC;--line:#E2DFDA;--line-2:#CFCBC5;
+  --ink:#1D1B17;--ink-2:#524F4A;--ink-3:#77726B;--wire:#A9A49C;--tint:rgba(29,27,23,.028);
+  --data:#0B6B58;--control:#B4483F;--judge:#7A5C00;--context:#4F5BD5;--tool:#96600A;--brand:#F2B33D;--halo:rgba(242,179,61,.38);
+  --shadow:0 1px 0 rgba(29,27,23,.04),0 12px 32px -18px rgba(29,27,23,.28);
+  --ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --head:"Inter Tight","Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0F0E0C;--map:#12110F;--surface:#161411;--card:#1C1A17;--line:#27241F;--line-2:#3A362F;
+  --ink:#F1EDE4;--ink-2:#BEB8AC;--ink-3:#8F887B;--wire:#5E5A52;--tint:rgba(241,237,228,.035);
+  --data:#3CC4A6;--control:#E0776B;--judge:#D6B24A;--context:#9AA4FF;--tool:#E0A44A;--brand:#FCB442;--halo:rgba(252,180,66,.32);
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -18px rgba(0,0,0,.8);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F0E0C;--map:#12110F;--surface:#161411;--card:#1C1A17;--line:#27241F;--line-2:#3A362F;
+  --ink:#F1EDE4;--ink-2:#BEB8AC;--ink-3:#8F887B;--wire:#5E5A52;--tint:rgba(241,237,228,.035);
+  --data:#3CC4A6;--control:#E0776B;--judge:#D6B24A;--context:#9AA4FF;--tool:#E0A44A;--brand:#FCB442;--halo:rgba(252,180,66,.32);
+  --shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -18px rgba(0,0,0,.8);color-scheme:dark}
+html,body{height:100%}
+body{background:var(--map);color:var(--ink);font:13px/1.45 var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr;min-width:0}
+.bar{display:flex;align-items:stretch;gap:20px;height:48px;background:var(--surface);border-bottom:1px solid var(--line);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));min-width:0}
+.brand{display:flex;align-items:center;gap:9px;font:600 14px/1 var(--head);letter-spacing:-.01em;flex:none}
+.brand svg{display:block}
+.tabs{display:flex;align-items:stretch;gap:2px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{position:relative;padding:0 11px;color:var(--ink-3);font-weight:500;white-space:nowrap;transition:color .16s}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink)}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--ink);border-radius:2px 2px 0 0}
+.tab i{font:500 10.5px/1 var(--mono);font-style:normal;color:var(--ink-3);margin-left:6px;font-variant-numeric:tabular-nums}
+.views{display:flex;align-self:center;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--map);flex:none}
+.views button{height:26px;padding:0 11px;border-radius:7px;color:var(--ink-3);font-weight:500;transition:color .16s,background .16s,box-shadow .16s}
+.views button:hover{color:var(--ink)}
+.views button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(29,27,23,.12)}
+.bar__end{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--ink-3);font:400 11px/1 var(--mono);flex:none}
+.stage{position:relative;min-height:0;overflow:hidden;overflow:clip}
+svg#map{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+svg#map.drag{cursor:grabbing}
+/* the headline: the question that the screen answers, set as type on the ground */
+.ask{position:absolute;top:22px;left:max(24px,env(safe-area-inset-left,0px));right:24px;pointer-events:none;max-width:560px}
+.ask__k{font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.ask__k button{pointer-events:auto;font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--ink-3);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line-2)}
+.ask__k button:hover{color:var(--ink)}
+.ask__k b{font-weight:500;color:var(--ink)}
+.ask__q{margin:9px 0 0;font:600 23px/1.18 var(--head);letter-spacing:-.018em;text-wrap:balance}
+.ask__n{margin-top:8px;color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums}
+.ask.beside{max-width:290px;top:30px}
+.ask::before{content:"";position:absolute;inset:-22px -40px -26px -40px;z-index:-1;background:radial-gradient(closest-side,var(--map) 62%,transparent);opacity:.92}
+.ask>*{transition:opacity .18s,transform .18s}
+.ask.swap>*{opacity:0;transform:translateY(3px)}
+/* the reading line: the map says one sentence for the thing under the pointer */
+.say{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translate(-50%,6px);max-width:min(760px,calc(100% - 32px));
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;justify-content:center;padding:10px 16px;border-radius:12px;background:var(--surface);
+  border:1px solid var(--line);box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .14s,transform .14s;text-align:center}
+.say.on{opacity:1;transform:translate(-50%,0)}
+.say b{font:600 13px/1.3 var(--head);white-space:nowrap}
+.say .arr{color:var(--ink-3);margin:0 2px}
+.say code{font:500 11px/1 var(--mono);padding:3px 6px;border-radius:5px;background:var(--tint);border:1px solid var(--line);white-space:nowrap}
+.say code::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--k,var(--wire));vertical-align:1px}
+.say span{color:var(--ink-2);min-width:0}
+.zoom{position:absolute;left:max(20px,env(safe-area-inset-left,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:2px;
+  color:var(--ink-3);font:500 11px/1 var(--mono);font-variant-numeric:tabular-nums}
+.zoom button{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2);font:400 17px/1 var(--ui)}
+.zoom button:hover{background:var(--tint);color:var(--ink)}
+.zoom span{min-width:38px;text-align:center}
+.key{position:absolute;right:max(20px,env(safe-area-inset-right,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));display:flex;gap:14px;color:var(--ink-3);font-size:11.5px;transition:right .24s cubic-bezier(.2,.8,.2,1)}
+.key i{display:inline-block;width:14px;height:2px;border-radius:2px;margin-right:6px;vertical-align:3px;background:var(--k)}
+.app.open .key{right:calc(380px + 20px)}
+/* the map */
+.dots{fill:var(--line-2);opacity:.6}
+#world *{vector-effect:non-scaling-stroke}
+.lvl{transition:opacity .12s linear}
+.sys{fill:var(--surface);stroke:var(--line);stroke-width:1;filter:drop-shadow(0 10px 18px rgba(29,27,23,.06))}
+.sysname{font:500 9.5px/1 var(--mono);letter-spacing:.11em;fill:var(--ink-3)}
+.syssub{font:400 10px/1 var(--ui);fill:var(--ink-3)}
+.region{fill:var(--tint)}
+.rname{font:500 9px/1 var(--mono);letter-spacing:.11em;fill:var(--ink-3)}
+.rnum{font:500 8.5px/1 var(--mono);fill:var(--ink-3)}
+.rring{fill:none;stroke:var(--line-2)}
+.card{cursor:pointer;outline:none}
+.card rect.box{fill:var(--card);stroke:var(--line-2);stroke-width:1;transition:stroke .16s,fill .2s,opacity .2s}
+.card text.nm{font:600 13.5px/1 var(--head);letter-spacing:-.008em;fill:var(--ink);transition:fill .2s,opacity .2s}
+.card text.pl{font:400 10px/1 var(--ui);fill:var(--ink-3);transition:opacity .2s}
+.card rect.ring{fill:none;stroke:var(--halo);stroke-width:5;opacity:0;transition:opacity .16s}
+.card.actor rect.box{fill:var(--map);stroke:var(--ink-3)}
+.card:hover rect.box,.card.lit rect.box{stroke:var(--ink)}
+.card.sel rect.ring,.card:focus-visible rect.ring{opacity:1}
+.card.sel rect.box{stroke:var(--ink);stroke-width:1.5}
+.card.quiet rect.box{fill:transparent;stroke:var(--line-2);stroke-opacity:.7}
+.card.quiet text.nm{fill:var(--ink-3);opacity:.6;font-weight:500}
+.card.quiet text.pl{opacity:0}
+.card.quiet:hover rect.box{stroke:var(--line-2);fill:var(--card)}
+.card.quiet:hover text.nm{opacity:1;fill:var(--ink)}
+/* a card that opens a map: a second edge behind it, and the count of its parts */
+.card rect.under{fill:var(--card);stroke:var(--line-2);stroke-width:1;transition:opacity .2s}
+.card.quiet rect.under{opacity:0}
+.card text.kind{font:500 8.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;fill:var(--ink-3);text-anchor:end;transition:opacity .2s}
+.card.quiet text.kind{opacity:.5}
+.card text.parts{font:500 9.5px/1 var(--mono);fill:var(--ink-3);text-anchor:end;transition:opacity .2s}
+.lvl.inside .card.host>*{opacity:0}
+.gflows{transition:opacity .16s}
+.gflows.swap{opacity:0}
+.thumb .flow,.thumb text,.thumb .rring,.thumb .region{opacity:0}
+.thumb .card rect.box{stroke-opacity:.6}
+.lvl.far .card text.pl{opacity:0}
+.lvl.far .card text.nm{transform:translateY(6px)}
+.card text.nm{transition:fill .2s,opacity .2s,transform .2s}
+.lvl.focus .card:not(.lit):not(.sel){opacity:.34}
+.card{transition:opacity .2s}
+.flow{transition:opacity .2s}
+.flow path.case{fill:none;stroke:var(--map);stroke-opacity:var(--rest,1);stroke-width:5;stroke-linejoin:round}
+.lvl.dense:not(.focus) .flow text{opacity:0}
+.flow path.wire{fill:none;stroke:var(--wire);stroke-opacity:var(--rest,1);stroke-width:1.15;stroke-linejoin:round;transition:stroke .16s,stroke-width .16s}
+.flow path.hit{fill:none;stroke:transparent;stroke-width:12;cursor:pointer;pointer-events:stroke}
+.flow polygon,.flow circle{fill:var(--ink-3);fill-opacity:var(--ends,1);transition:fill .16s}
+.flow text{font:500 11px/1 var(--ui);fill:var(--ink-2);paint-order:stroke;stroke:var(--map);stroke-width:5px;stroke-linejoin:round;text-anchor:middle;pointer-events:none;transition:opacity .16s,fill .16s}
+.flow text.rest0{opacity:0}
+.flow.lit path.wire{stroke:var(--k);stroke-width:2;stroke-opacity:1}
+.flow.lit polygon,.flow.lit circle{fill:var(--k);fill-opacity:1}
+.flow.lit text{opacity:1;fill:var(--ink)}
+.flow.lit path.case{stroke-width:7;stroke-opacity:1}
+/* a sequence: the lines of the steps before the current step stay dark, the current step has its color */
+.flow.done path.wire{stroke:var(--ink-2);stroke-width:1.6;stroke-opacity:1}
+.flow.done polygon,.flow.done circle{fill:var(--ink-2);fill-opacity:1}
+.lvl.stepping .flow:not(.lit):not(.done){opacity:.4}
+.lvl.stepping .flow.done text,.lvl.stepping .flow.lit text{opacity:1}
+/* the list at the left: the sequences, or the state machines */
+.rail{position:absolute;left:max(24px,env(safe-area-inset-left,0px));top:232px;bottom:74px;width:292px;overflow:auto;display:none;flex-direction:column;gap:1px;scrollbar-width:thin;overscroll-behavior:contain}
+.app[data-mode="seq"] .rail,.app[data-mode="states"] .rail{display:flex}
+.rail button{display:flex;justify-content:space-between;gap:12px;align-items:baseline;text-align:left;padding:7px 10px;margin-left:-10px;border-radius:8px;color:var(--ink-2);transition:background .12s,color .12s;flex:none}
+.rail button:hover{background:var(--tint);color:var(--ink)}
+.rail button[aria-current="true"]{color:var(--ink);font-weight:600;background:var(--tint)}
+.rail button i{font:500 10.5px/1 var(--mono);font-style:normal;color:var(--ink-3);font-variant-numeric:tabular-nums;flex:none}
+/* the steps of a sequence */
+.stepper{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(780px,calc(100% - 32px));display:none;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+.app[data-mode="seq"] .stepper{display:flex}
+.app[data-mode="seq"] .say{bottom:max(96px,env(safe-area-inset-bottom,0px))}
+.app[data-mode="seq"] .key,.app[data-mode="states"] .key,.app:not([data-mode="map"]) .note{display:none}
+.stepper .n{font:500 11px/1 var(--mono);color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums;flex:none}
+.stepper p{margin:0;flex:1;min-width:0;color:var(--ink);line-height:1.4}
+.stepper .nav{display:flex;gap:4px;flex:none}
+.stepper button{height:32px;min-width:32px;padding:0 10px;border-radius:9px;border:1px solid var(--line-2);color:var(--ink-2);font-weight:500;transition:background .12s,color .12s,transform .12s}
+.stepper button:hover:not(:disabled){background:var(--tint);color:var(--ink)}
+.stepper button:disabled{opacity:.4;cursor:default}
+.stepper button.go{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.stepper button.go:hover:not(:disabled){background:var(--ink);color:var(--surface);transform:translateY(-1px)}
+.forms{display:flex;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--map);flex:none}
+.stepper .forms button{height:26px;min-width:0;padding:0 9px;border:0;border-radius:7px;color:var(--ink-3);font-size:12px}
+.stepper .forms button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(29,27,23,.12)}
+.app[data-mode="seq"][data-form="diagram"] svg#board{display:block}
+.app[data-mode="seq"][data-form="diagram"] svg#map{visibility:hidden}
+.app[data-mode="seq"][data-form="diagram"] .zoom{display:none}
+svg#board .qrow{pointer-events:auto;cursor:pointer}
+.qlife{stroke:var(--line-2);stroke-width:1}
+.qbead circle{fill:var(--map);stroke:var(--ink-3);stroke-width:1}
+.sedge .qbead text{font:600 10.5px/1 var(--mono);fill:var(--ink-2);text-anchor:middle;stroke:none}
+.sedge.done path.wire{stroke:var(--ink-2);stroke-width:1.6}
+.sedge.done polygon{fill:var(--ink-2)}
+.sedge.lit .qbead circle{fill:var(--k,var(--ink));stroke:var(--k,var(--ink))}
+.sedge.lit .qbead text{fill:var(--surface);stroke:none}
+#bworld.stepping .sedge:not(.lit):not(.done){opacity:.38}
+.qrow rect{fill:transparent}
+.qrow:hover rect{fill:var(--tint)}
+.dots2{display:flex;gap:4px;flex:none}
+.dots2 i{width:6px;height:6px;border-radius:50%;background:var(--line-2);transition:background .16s,transform .16s}
+.dots2 i.was{background:var(--ink-2)}
+.dots2 i.now{background:var(--ink);transform:scale(1.35)}
+/* the state machine */
+svg#board{position:absolute;inset:0;width:100%;height:100%;display:none;pointer-events:none}
+svg#board .snode,svg#board .hit,svg#board .mcell,svg#board .mname{pointer-events:auto}
+.rail{z-index:2}
+.app[data-mode="states"] svg#board,.app[data-mode="focus"] svg#board,.app[data-mode="history"] svg#board{display:block}
+.app[data-mode="states"] svg#map,.app[data-mode="focus"] svg#map,.app[data-mode="history"] svg#map{visibility:hidden}
+.app[data-mode="states"] .zoom,.app[data-mode="focus"] .zoom,.app[data-mode="history"] .zoom,.app[data-mode="focus"] .key,.app[data-mode="history"] .key{display:none}
+.app[data-mode="focus"] .rail{display:flex}
+svg#board .fnode,svg#board .hcell,svg#board .hrow{pointer-events:auto}
+/* focus: one card in the middle, what it receives at the left, what it gives at the right */
+.fnode{cursor:pointer;outline:none;transition:opacity .2s}
+.fnode rect{fill:var(--card);stroke:var(--line-2);stroke-width:1;transition:stroke .16s}
+.fnode text{font:600 13px/1 var(--head);fill:var(--ink);text-anchor:middle}
+.fnode.far rect{fill:transparent}.fnode.far text{font-weight:500;fill:var(--ink-2)}
+.fnode.mid rect{stroke:var(--ink);stroke-width:1.6}
+.fnode.mid text{font-size:16px}
+.fnode:hover rect,.fnode.lit rect,.fnode:focus-visible rect{stroke:var(--ink)}
+.fhalo{fill:none;stroke:var(--halo);stroke-width:6}
+.fcol{font:500 9.5px/1 var(--mono);letter-spacing:.1em;fill:var(--ink-3);text-anchor:middle}
+.fmore{font:400 11px/1 var(--ui);fill:var(--ink-3);text-anchor:middle}
+.sedge.thin path.wire{stroke-opacity:.55;stroke-width:1}
+.sedge.lit path.wire{stroke:var(--k,var(--ink))}
+.sedge.lit polygon{fill:var(--k,var(--ink))}
+/* history: one row for each component, one column for each part of the time */
+.hcell rect{fill:var(--ink);transition:stroke .12s}
+.hcell:hover rect{stroke:var(--brand);stroke-width:2}
+.hborn{fill:var(--brand);pointer-events:none}
+.hbar{fill:var(--line-2)}
+.hrow{font:500 11.5px/1 var(--ui);fill:var(--ink-2);text-anchor:end;cursor:pointer}
+.hrow:hover{fill:var(--ink)}
+.hsum{font:400 10.5px/1 var(--mono);fill:var(--ink-3);font-variant-numeric:tabular-nums}
+.haxis{font:400 10px/1 var(--mono);fill:var(--ink-3);text-anchor:middle}
+/* the matrix: each flow is one mark, in the row of the card that gives and the column of the card that receives */
+.mgrid{fill:none;stroke:var(--line);stroke-width:1}
+.mband{fill:var(--tint)}
+.mname{font:500 11.5px/1 var(--ui);fill:var(--ink-2);cursor:default;transition:fill .12s}
+.mname.actor{font-style:italic}
+.mname.lit{fill:var(--ink);font-weight:600}
+.mgroup{font:500 9px/1 var(--mono);letter-spacing:.1em;fill:var(--ink-3)}
+.mcell{cursor:pointer}
+.mcell rect.bg{fill:transparent}
+.mcell:hover rect.bg,.mcell.lit rect.bg{fill:var(--halo)}
+.mcell rect.dot{transition:transform .12s}
+.mrow{fill:var(--tint);opacity:0;transition:opacity .12s;pointer-events:none}
+.mrow.on{opacity:1}
+.snode{cursor:default;outline:none}
+.snode rect{fill:var(--card);stroke:var(--ink-3);stroke-width:1;transition:stroke .16s,stroke-width .16s}
+.snode text.nm{font:600 15px/1 var(--head);fill:var(--ink);text-anchor:middle}
+.snode text.sy{font:400 10.5px/1 var(--mono);fill:var(--ink-3);text-anchor:middle}
+.snode:hover rect,.snode.lit rect,.snode:focus-visible rect{stroke:var(--ink);stroke-width:1.6}
+.sedge path.wire{fill:none;stroke:var(--wire);stroke-width:1.3;transition:stroke .16s,stroke-width .16s}
+.sedge path.hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;pointer-events:stroke}
+.sedge polygon{fill:var(--ink-3);transition:fill .16s}
+.sedge text{font:500 12px/1 var(--ui);fill:var(--ink-2);text-anchor:middle;paint-order:stroke;stroke:var(--map);stroke-width:6px;stroke-linejoin:round;pointer-events:none}
+.sedge.lit path.wire{stroke:var(--ink);stroke-width:2.2}
+.sedge.lit polygon{fill:var(--ink)}
+.sedge.lit text{fill:var(--ink)}
+.sstart{fill:var(--ink-3)}
+#bworld.focus .sedge:not(.lit),#bworld.focus .snode:not(.lit){opacity:.38}
+.sedge,.snode{transition:opacity .2s}
+.lvl.focus .flow:not(.lit){opacity:.22}
+.lvl.focus .flow:not(.lit) text{opacity:0}
+.flow.draw path.wire{animation:draw .42s cubic-bezier(.3,.7,.2,1) both}
+@keyframes draw{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+/* the inspector */
+.side{position:absolute;top:0;right:0;bottom:0;width:380px;max-width:100%;background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);
+  transform:translateX(102%);transition:transform .26s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;min-width:0}
+.app.open .side{transform:none}
+.side__head{padding:20px 22px 16px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.side__k{display:flex;align-items:center;gap:8px;font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.side__k button{margin-left:auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2)}
+.side__k button:hover{background:var(--tint);color:var(--ink)}
+.side h2{margin:0;font:600 21px/1.2 var(--head);letter-spacing:-.015em}
+.side__p{color:var(--ink-2)}
+.side__state{display:flex;gap:6px;align-items:center;color:var(--ink-3);font-size:11.5px;margin-top:2px}
+.side__state i{width:7px;height:7px;border-radius:50%;background:var(--data)}
+.side__state i.no{background:var(--line-2)}
+.side__body{overflow:auto;padding:16px 22px 28px;display:grid;gap:22px;min-height:0;overscroll-behavior:contain}
+.side__d{margin:0;color:var(--ink-2);max-width:62ch}
+.side__d.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.more{color:var(--ink-3);font-size:12px;text-decoration:underline;text-underline-offset:3px;justify-self:start;margin-top:-16px}
+.more:hover{color:var(--ink)}
+.enter{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:9px;background:var(--ink);color:var(--surface);font:600 12.5px/1 var(--head);transition:transform .12s}
+.enter:hover{transform:translateY(-1px)}
+.enter:active{transform:none}
+.enter svg{display:block}
+.sec h3{margin:0 0 6px;display:flex;justify-content:space-between;font:500 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.sec h3 span{font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:14px minmax(0,1fr);gap:2px 10px;width:100%;text-align:left;padding:9px 8px;margin:0 -8px;border-radius:8px;transition:background .12s}
+.row:hover,.row:focus-visible{background:var(--tint)}
+.row i{grid-row:1/3;width:10px;height:2px;border-radius:2px;background:var(--k);margin-top:9px}
+.row b{font:600 13px/1.35 var(--head)}
+.row b em{font-style:normal;font-weight:400;color:var(--ink-3);font-family:var(--ui)}
+.row small{font-size:12px;color:var(--ink-2);line-height:1.45}
+.mods{display:flex;flex-wrap:wrap;gap:5px}
+.mods code{font:400 10.5px/1 var(--mono);padding:4px 6px;border-radius:5px;border:1px solid var(--line);color:var(--ink-2)}
+.note{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:64px;font-size:11.5px;color:var(--ink-3);max-width:230px;line-height:1.5;transition:opacity .2s}
+.note.gone{opacity:0}
+@media (max-width:720px){
+  .bar{gap:12px}.brand span,.bar__end,.note,.key{display:none}
+  .ask{top:14px}.ask__q{font-size:19px}
+  .ask__n{display:none}.app.open .ask__q{font-size:15px}
+  .views button{padding:0 8px}.rail{top:118px;bottom:auto;left:16px;right:16px;width:auto;flex-direction:row;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
+  .rail button{margin:0;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
+  .stepper{flex-wrap:wrap}.stepper p{flex-basis:100%;order:3}
+  .app[data-mode="seq"] .zoom{display:none}
+  .side{top:auto;height:62%;width:100%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(104%)}
+  .say{bottom:max(60px,env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<div class="app" id="app">
+  <header class="bar">
+    <div class="brand"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M13 4.5H7.2a2.2 2.2 0 0 0 0 4.4h3.6a2.2 2.2 0 0 1 0 4.4H5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/><rect x="13.5" y="2" width="3" height="3" fill="var(--brand)"/></svg><span>systemap</span></div>
+    <div class="views" id="views" role="group" aria-label="Views"><button data-mode="map" aria-pressed="true">Map</button><button data-mode="seq" aria-pressed="false">Sequences</button><button data-mode="states" aria-pressed="false">States</button><button data-mode="focus" aria-pressed="false">Focus</button><button data-mode="history" aria-pressed="false">History</button></div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Layers"></nav>
+    <div class="bar__end"><span>system</span><div class="views" id="sets" role="group" aria-label="System"></div></div>
+  </header>
+  <main class="stage" id="stage">
+    <svg id="map" role="group" aria-label="Map of the system"><defs><pattern id="dot" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".9" class="dots"/></pattern></defs><rect width="100%" height="100%" fill="url(#dot)"/><g id="world"></g></svg>
+    <div class="ask" id="ask"><div class="ask__k" id="ask-k"></div><h1 class="ask__q" id="ask-q"></h1><div class="ask__n" id="ask-n"></div></div>
+    <nav class="rail" id="rail" aria-label="List"></nav>
+    <svg id="board" role="group" aria-label="State machine"><g id="bworld"></g></svg>
+    <div class="stepper" id="stepper"></div>
+    <div class="note" id="note">Point at a card or a line to read it. Select a card for its details. Double-click a card with a small map in it to go inside.</div>
+    <div class="say" id="say" aria-live="polite"></div>
+    <div class="zoom"><button id="zo" aria-label="Zoom out" title="Zoom out">−</button><span id="zv">100%</span><button id="zi" aria-label="Zoom in" title="Zoom in">+</button><button id="zf" aria-label="Fit the map" title="Fit the map (F)"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></button></div>
+    <div class="key" id="key"></div>
+    <aside class="side" id="side" aria-label="Details"><div class="side__head" id="side-head"></div><div class="side__body" id="side-body"></div></aside>
+  </main>
+</div>
+<script id="data" type="application/json">__DATA__</script>

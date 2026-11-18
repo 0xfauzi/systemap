@@ -1,0 +1,70 @@
+"""Place the neighbours of the nested map Page at the four sides of its frame, near the parts they
+connect to. Route the flows with the router of the product. Write the result into data2.json."""
+import json, runpy, sys
+from dataclasses import replace
+from pathlib import Path
+sys.path.insert(0, 'bench/jev')
+from systemap.route import route_all
+from systemap.schematic_cards import geometry
+
+S = Path(sys.argv[1])
+model = runpy.run_path(str(S / 'page_model.py'))['MODEL']
+W, H, GAP, SIDE, M = 150.0, 44.0, 26.0, 70.0, 28.0
+actors = [c for c in model.components if c.kind == 'actor']
+ids = {c.id for c in actors}
+cen = {c.id: (c.x + 75, c.y + 26) for c in model.components}
+part = next(b for b in model.containers if b.id == 'part')
+x0, y0, w, h = part.box
+x1, y1 = x0 + w, y0 + h
+wants = {'left': [], 'right': [], 'top': [], 'bottom': []}
+for a in actors:
+    others = [f.dst if f.src == a.id else f.src for f in model.flows if a.id in (f.src, f.dst)]
+    others = [o for o in others if o not in ids]
+    bx = sum(cen[o][0] for o in others) / len(others); by = sum(cen[o][1] for o in others) / len(others)
+    far = {'left': bx - x0, 'right': x1 - bx, 'top': by - y0, 'bottom': y1 - by}
+    wants[min(far, key=far.get)].append((a.id, bx, by))
+# No side has more neighbours than it has room for: the last ones go to the side with the most room.
+room = {'left': int(h // (H + GAP)), 'right': int(h // (H + GAP)), 'top': int(w // (W + GAP)), 'bottom': int(w // (W + GAP))}
+for side in list(wants):
+    while len(wants[side]) > room[side]:
+        moved = wants[side].pop()
+        to = max((s for s in wants if s != side), key=lambda s: room[s] - len(wants[s]))
+        wants[to].append(moved)
+def spread(items, size, lo, hi, key):
+    items = sorted(items, key=key); n = len(items)
+    if not n: return {}
+    pos = []; last = lo - GAP
+    for it in items:
+        start = max(key(it) - size / 2, last + GAP); pos.append(start); last = start + size
+    over = last - hi
+    if over > 0: pos = [p - over for p in pos]
+    for i in range(n - 2, -1, -1):
+        pos[i] = min(pos[i], pos[i + 1] - size - GAP)
+    return {it[0]: p for it, p in zip(items, pos)}
+dx = SIDE + W + M - x0 if wants['left'] else M - x0
+dy = SIDE + H + M - y0 if wants['top'] else M - y0
+at = {}
+for cid, y in spread(wants['left'], H, y0, y1, lambda t: t[2]).items(): at[cid] = (x0 - SIDE - W, y)
+for cid, y in spread(wants['right'], H, y0, y1, lambda t: t[2]).items(): at[cid] = (x1 + SIDE, y)
+for cid, x in spread(wants['top'], W, x0, x1, lambda t: t[1]).items(): at[cid] = (x, y0 - SIDE - H)
+for cid, x in spread(wants['bottom'], W, x0, x1, lambda t: t[1]).items(): at[cid] = (x, y1 + SIDE)
+def mv(b): return (b[0] + dx, b[1] + dy, b[2], b[3])
+comps = tuple(replace(c, x=round(at[c.id][0] + dx), y=round(at[c.id][1] + dy)) if c.id in at else replace(c, x=round(c.x + dx), y=round(c.y + dy)) for c in model.components)
+right = max([x1 + dx] + [c.x + W for c in comps]) + M; low = max([y1 + dy] + [c.y + H for c in comps]) + M
+moved = replace(model, components=comps, regions=tuple(replace(r, box=mv(r.box)) for r in model.regions),
+                containers=tuple(replace(b, box=mv(b.box)) for b in model.containers if b.id == 'part'), canvas=(round(right), round(low)))
+geo = geometry(moved)
+routes = route_all([(f.src, f.dst) for f in moved.flows], geo.boxes, geo.actors, geo.blocks, geo.region_boxes, geo.region_of, (float(right), float(low)))
+print({s: [t[0] for t in v] for s, v in wants.items()}, 'canvas', moved.canvas, 'refused', sum(1 for r in routes.values() if r.fallback), 'bends', sum(max(0, len(r.points) - 2) for r in routes.values()))
+d = json.load(open(S / 'data2.json'))
+m = d['maps'][1]
+m['size'] = [round(right), round(low)]
+m['boxes'] = [{'id': b.id, 'n': b.label, 'u': '', 'b': list(b.box)} for b in moved.containers]
+pos = {c.id: c for c in comps}
+for c in m['cards']:
+    c['b'] = [pos[c['id']].x, pos[c['id']].y, 150, c['b'][3]]
+for r, mr in zip(moved.regions, m['regions']): mr['b'] = list(r.box)
+for i, f in enumerate(m['flows']):
+    assert (f['s'], f['t']) == (moved.flows[i].src, moved.flows[i].dst)
+    f['p'] = [[round(p[0], 1), round(p[1], 1)] for p in routes[i].points]
+json.dump(d, open(S / 'data3.json', 'w'), separators=(',', ':'))
