@@ -110,6 +110,22 @@ Acceptance values of the second repair after the review, written before the firs
     the step, "measures" on each measurement card that does not act, and "start" on the
     first card of the sequence when it has no other tag. The first card is the recorded
     start when it is a card, else the first acting card or the source of the first flow.
+
+Acceptance values of the third repair after the review, written before the first run on
+2026-11-18:
+
+28. The diagram fits (tests/atlas_seq.js --fit). For each sequence of the map of this
+    repository at the whole route, at 1440 x 900, 1280 x 720 and 390 x 844: when the scale
+    of the diagram is more than BOARD_MIN (0.75), each card of the diagram is fully in the
+    part of the screen of the diagram, and that part does not scroll (the scroll width and
+    height are equal to the client width and height). At 1440 x 900 the scale of each
+    diagram is more than BOARD_MIN.
+29. On a phone of 390 x 844, at each step of each sequence of the map of this repository,
+    the zoom of the map is 0.5 or more, and the target card of the step (the last card of
+    the step) is fully in the free part of the screen.
+30. On a phone of 390 x 844, in each sequence of the map of this repository, the dots of
+    the bar are on the row of the step count (their vertical centres are 4 px apart or
+    less), and the step controls have the same top in each sequence.
 """
 
 from __future__ import annotations
@@ -709,3 +725,62 @@ def test_the_tags_of_the_cards(
         want[start] = "start"
     got = {m["id"]: m["s"] for m in _drawn(wide["second"], "tag")}
     assert got == want
+
+
+FIT_SIZES = [(1440, 900), (1280, 720), (390, 844)]
+BOARD_MIN = 0.75
+
+
+@pytest.fixture(scope="module", params=FIT_SIZES, ids=lambda v: f"{v[0]}x{v[1]}")
+def fitted(
+    request: pytest.FixtureRequest, self_page: tuple[Path, dict[str, Any]]
+) -> dict[str, Any]:
+    w, h = request.param
+    return {"w": w, **_drive_size("--fit", self_page[0], w, h)}
+
+
+def test_the_diagram_fits(self_page: tuple[Path, dict[str, Any]], fitted: dict[str, Any]) -> None:
+    """Acceptance 28."""
+    count = sum(len(m.get("sq") or []) for m in self_page[1]["maps"])
+    assert len(fitted["runs"]) == count
+    for run in fitted["runs"]:
+        board = run["board"]
+        if fitted["w"] == 1440:
+            assert board["k"] > BOARD_MIN + 1e-6, run["k"]
+        if board["k"] <= BOARD_MIN + 1e-6:
+            continue
+        view, (sw, sh, cw, ch) = board["view"], board["scroll"]
+        assert (sw, sh) == (cw, ch), (run["k"], board["scroll"])
+        for node in board["nodes"]:
+            b = node["box"]
+            assert b["left"] >= view["left"] - 0.5 and b["right"] <= view["right"] + 0.5, (
+                run["k"],
+                node,
+                view,
+            )
+            assert b["top"] >= view["top"] - 0.5 and b["bottom"] <= view["bottom"] + 0.5
+
+
+def test_the_phone_step_zoom(labelled: dict[str, Any]) -> None:
+    """Acceptance 29."""
+    if labelled["w"] != 390:
+        pytest.skip("acceptance 29 is for 390 x 844")
+    steps = [run for run in labelled["runs"] if run["step"] >= 0]
+    assert steps
+    for run in steps:
+        assert run["zoom"] >= 0.5 - 1e-6, (run["k"], run["step"], run["zoom"])
+        assert run["cards"], (run["k"], run["step"])
+        assert _inside(run["cards"][-1], run["free"]), (run["k"], run["step"], run["cards"])
+
+
+def test_the_phone_bar_rows(fitted: dict[str, Any]) -> None:
+    """Acceptance 30."""
+    if fitted["w"] != 390:
+        pytest.skip("acceptance 30 is for 390 x 844")
+    tops = set()
+    for run in fitted["runs"]:
+        dots, n = run["dots"], run["count"]
+        mid = abs((dots["top"] + dots["bottom"]) / 2 - (n["top"] + n["bottom"]) / 2)
+        assert mid <= 4, (run["k"], dots, n)
+        tops.add(round(run["nav"]["top"], 1))
+    assert len(tops) == 1, tops

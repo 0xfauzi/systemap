@@ -7460,3 +7460,17 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 450 / 423 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 1,236,352 / 1,167,973 = 0.94 (pass) | 75 (pass) |
 
 Result: PASS for each value. The atlas pages grew by about 4,100 bytes. The budget does not measure the Sequences view.
+
+## B9: the performance budget of the atlas page, stage 3 after the third review (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 3 page after the repairs of the third review: the scale of the diagram includes the margins of its content, the step camera keeps a zoom of 0.5 or more on a phone, and the dots of the bar stay on the row of the step count on a phone. These changes are in the Sequences view. The budget measures the Map view. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 293 / 298 (pass) | 33.2 / 16.8 (pass) | 33.4 / 33.3 (pass) | 315,781 / 257,575 = 0.82 (pass) | 71 (pass) |
+| workspace | 303 / 254 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,900 / 204,445 = 0.76 (pass) | 65 (pass) |
+| M11 tree | 436 / 371 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 1,236,352 / 1,168,478 = 0.95 (pass) | 73 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 500 bytes.
+
+The diagram fit, from tests/atlas_seq.js --fit on the map of this repository (acceptance 28 of tests/test_atlas_sequences_browser.py). Before the repair, at 1440 x 900, the content of 12 of 16 diagrams was 1086 or 1087 px wide in a box of 1060 px, and the last card was cut. At 1280 x 720 it was 13 of 16 (922 or 928 px in 900 px). At 390 x 844 the two diagrams with a scale of 0.99 were 382 px wide in 358 px. After the repair, each diagram with a scale of more than 0.75 has a scroll width and height equal to its box, and each of its cards is in the box, at the three sizes. The phone step zoom (acceptance 29), at 390 x 844 on each step of each sequence: the review measured a smallest zoom of 0.30 before the repair (this run did not measure it again). After the repair each zoom is 0.50 and the target card of each step is in the free part of the screen.

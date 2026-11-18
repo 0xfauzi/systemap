@@ -36,14 +36,18 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
 - A step with no flow (`f` is -1) has no line. The bar gives "This step has no flow" and its
   acting cards, and these cards get the outline of the ink.
 - When the cards of the step are not fully on the free part of the screen, the camera moves
-  to them at the same zoom, or at a smaller zoom when they do not fit (`stepCamera`). When
+  to them at the same zoom, or at a smaller zoom when they do not fit (`stepCamera`). On a
+  phone the zoom stays at 0.5 or more. When the two cards do not fit at that zoom, the
+  target card of the step is fully in view. When
   the new sentence makes the bar taller and the bar then covers the frame of the map that
   was fully above it, the camera goes to the fit again (`frameBottom`).
 - The bar. On a wide screen the bar is in the width at the right of the list, so that it
   does not cover the list or the entry points. With the details open, it is between the
   list and the details, and the sentence has its own row. On a middle screen with the
   details open, it is in the width at the left of the details, and the list is above it.
-  Its inner width is the width of the study (780 px).
+  Its inner width is the width of the study (780 px). On a phone the dots stay on the row
+  of the step count for each count of steps: they get smaller when the row has no space for
+  them at their full size.
 - The left and right arrow keys change the step, also while a button has the keyboard
   focus. In this view they do not pan the map. The live region gives the sequence at
   a choice and the step at a change.
@@ -56,9 +60,11 @@ of its flow, earlier steps are dark, and later steps are faint. Each row is a bu
 click, Enter or Space goes to that step. A step with no flow has its number in the column
 of its first acting card and the words "No flow".
 
-The diagram has a scale of BOARD_MIN or more, so that its text can be read. When it is
-larger than its part of the screen at that scale (a phone), that part scrolls, and a change
-of the step scrolls the row of the current step into view (`boardShow`).
+The diagram has a scale of BOARD_MIN or more, so that its text can be read. Above BOARD_MIN,
+the full diagram with its margins is in its part of the screen, and that part does not
+scroll. When the diagram is larger than its part of the screen at BOARD_MIN (a phone), that
+part scrolls, and a change of the step scrolls the row of the current step into view
+(`boardShow`).
 
 The diagram is SVG, not canvas: it does not zoom (docs/design/atlas.md, "The architecture").
 The script makes it with DOM functions. It sets the color of a kind with the style object
@@ -155,6 +161,7 @@ body[data-mode="seq"] .ask__n{display:block;margin-top:4px}
 .rail__ne{margin:0;flex:none;max-width:260px;max-height:none;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .rail__ne ul{display:block}.rail__ne li{display:inline}.rail__ne li+li::before{content:", "}
 .stepper{flex-wrap:wrap}.stepper p{flex-basis:100%;order:3}
+.dots2{flex:1 1 0;min-width:0;align-items:center}.dots2 i{flex:0 1 6px;min-width:2px;height:auto;aspect-ratio:1}
 body[data-mode="seq"] .zoom{display:none}
 }
 @media (pointer:coarse){.stepper .nav button{height:44px;min-width:44px}.rail button{min-height:44px;align-items:center}}
@@ -382,16 +389,27 @@ function stepCards(n) {
   return (f ? [f.s, f.t] : (st.a || []).concat(st.me || [])).map(function (id) { return m.byId[id]; }).filter(Boolean);
 }
 // Move the camera when the cards of the current step are not fully in the free part of the
-// screen: at the same zoom, or at a smaller zoom when they do not fit.
+// screen: at the same zoom, or at a smaller zoom when they do not fit. On a phone the zoom
+// stays at 0.5 or more, as at the fit (`mapFit`), so that the text stays readable. When the
+// two cards do not fit at that zoom, the camera goes to the middle of the step and moves so
+// that the last card of the step (the target of the flow) is fully in view.
 function stepCamera() {
   var list = stepCards(SEQ.step);
   if (!list.length || currentMap() !== SEQ.m) return;
   var box = list.map(worldBox).reduce(union), g = seqFree(), k = cam.k, sx = (box[0] - cam.x) * k, sy = (box[1] - cam.y) * k;
   if (sx >= g.x0 && sy >= g.y0 && sx + box[2] * k <= g.x1 && sy + box[3] * k <= g.y1) return;
-  var fw = Math.max(1, g.x1 - g.x0), fh = Math.max(1, g.y1 - g.y0);
+  var fw = Math.max(1, g.x1 - g.x0), fh = Math.max(1, g.y1 - g.y0), lo = W > WIDE ? KMIN : 0.5 / SEQ.m.T.s;
   if (box[2] * k > fw || box[3] * k > fh) k = clamp(Math.min(fw * 0.9 / box[2], fh * 0.9 / box[3]), KMIN, KMAX);
-  fly({x: box[0] + box[2] / 2 - (g.x0 + g.x1) / 2 / k, y: box[1] + box[3] / 2 - (g.y0 + g.y1) / 2 / k, k: k});
+  var cx = box[0] + box[2] / 2, cy = box[1] + box[3] / 2;
+  if (k < lo) {
+    var t = worldBox(list[list.length - 1]);
+    k = lo; cx = viewAround(cx, t[0], t[2], fw / k); cy = viewAround(cy, t[1], t[3], fh / k);
+  }
+  fly({x: cx - (g.x0 + g.x1) / 2 / k, y: cy - (g.y0 + g.y1) / 2 / k, k: k});
 }
+// The centre c of a view of the size v, moved so that the part from a of the size s is in
+// the view with a margin of 16 or less.
+function viewAround(c, a, s, v) { var m = Math.min(16, Math.max(0, (v - s) / 2)); return clamp(c, a + s + m - v / 2, a - m + v / 2); }
 function setForm(form) {
   if (form === SEQ.form) return;
   SEQ.form = form; document.body.setAttribute('data-form', form);
@@ -446,7 +464,8 @@ function seqState() {
       box: BAR.getBoundingClientRect().toJSON()} : null,
     rail: RAIL_LIST ? Array.prototype.map.call(RAIL_LIST.querySelectorAll('button'), function (b) { return {text: b.textContent, on: b.getAttribute('aria-current') === 'true'}; }) : [],
     railBox: RAIL ? RAIL.getBoundingClientRect().toJSON() : null, ne: RAIL_NE ? RAIL_NE.textContent : '',
-    states: SEQ.m ? SEQ.m.flows.map(function (f) { return stepState(SEQ.m, f.i); }) : [], free: seqFree()};
+    states: SEQ.m ? SEQ.m.flows.map(function (f) { return stepState(SEQ.m, f.i); }) : [], free: seqFree(),
+    zoom: SEQ.m ? cam.k * SEQ.m.T.s : 0};
 }
 """
 
@@ -522,7 +541,10 @@ function boardDraw() {
   // A wide screen: at the right of the list. A middle screen: at the right of the list and
   // under the headline. A phone: under the row of the list.
   var left = W > WIDE ? Math.max(g.x0, wide ? 350 : 0) : 16, top = wide ? HEAD_H + 40 : W > WIDE ? ASK_EL.getBoundingClientRect().bottom + 16 : g.y0 + 8;
-  var aw = Math.max(1, W - left - (W > WIDE ? 30 : 16)), ah = Math.max(1, g.y1 - top - 8), k = Math.max(BOARD_MIN, Math.min(1.2, aw / bw, ah / bh));
+  var aw = Math.max(1, W - left - (W > WIDE ? 30 : 16)), ah = Math.max(1, g.y1 - top - 8);
+  // The scale includes the margins of the content (12 at each side, 4 at the bottom), so that
+  // the diagram scrolls only at BOARD_MIN. The 1 px keeps the rounded size in the box.
+  var k = Math.max(BOARD_MIN, Math.min(1.2, (aw - 1) / (bw + 24), (ah - 1) / (bh + 4)));
   var tx = Math.max(12 * k, (aw - bw * k) / 2), ty = Math.max(0, (ah - bh * k) / 2);
   boardBox(left, top, aw, ah, Math.max(aw, tx + (bw + 12) * k), Math.max(ah, ty + (bh + 4) * k));
   BWORLD.setAttribute('transform', 'translate(' + tx + ' ' + ty + ') scale(' + k + ')');

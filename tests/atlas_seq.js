@@ -17,7 +17,9 @@
 // - --labels W H: W x H with reduced motion. Each sequence of each map, at the whole route
 //   and at each step: for each label of a line, the distance of its screen box to its own
 //   line and to the nearest other line, and the height of the box. For the line of the
-//   current step, its length on the screen and the part of it that no label covers.
+//   current step, its length on the screen and the part of it that no label covers. Also the
+//   zoom of the map (`zoom`), the free part of the screen and the screen boxes of the cards
+//   of the step: the source and the target of its flow, or its acting and measurement cards.
 // - --open W H: W x H. A click on a card at step 2 opens the details: the boxes of the bar,
 //   of the button Next, of the details, of the list and of the entry points with no
 //   sequence, and the frame of the map at the whole route.
@@ -28,6 +30,9 @@
 // - --labels also: the labels that show only at their step (`hide`), the frame of the map
 //   and the box of the bar.
 // - --open also: the boxes with the details open, at step 3 and at the last step.
+// - --fit W H: W x H with reduced motion. Each sequence of each map in the diagram form: the
+//   scale, the box, the scroll and the cards of the diagram, and the boxes of the step count,
+//   the dots and the step controls of the bar.
 // - --axe: axe-core in the Sequences view at step 2 on the map and in the diagram, in the
 //   light and the dark scheme, at 1440 x 900 and at 390 x 844 (null when axe-core is not on
 //   NODE_PATH).
@@ -299,7 +304,13 @@ async function labels(browser, file, W, H) {
       for (let n = -1; n < counts[k]; n++) {
         await page.evaluate((n) => window.systemapCanvas.step(n), n);
         await page.waitForTimeout(n < 0 ? 400 : 260);
-        const extra = await page.evaluate((id) => { const s = window.systemapCanvas, v = s.seq().view; return { hidden: s.lines(id).labels.filter((x) => x.hide).map((x) => x.f), frame: s.frame(id), barTop: v.bar.box.top, bar: v.bar.box, name: s.seq().view.id }; }, id);
+        const extra = await page.evaluate((id) => {
+          const s = window.systemapCanvas, v = s.seq().view, d = JSON.parse(document.getElementById('atlas-data').textContent);
+          const m = d.maps.find((x) => x.id === id), st = v.step >= 0 ? m.sq[v.k].s[v.step] : null, f = st && st.f >= 0 ? m.flows[st.f] : null;
+          const cards = st ? (f ? [f.s, f.t] : (st.a || []).concat(st.me || [])).map((c) => s.box(id, c)).filter(Boolean) : [];
+          return { hidden: s.lines(id).labels.filter((x) => x.hide).map((x) => x.f), frame: s.frame(id), barTop: v.bar.box.top, bar: v.bar.box, name: v.id,
+            zoom: v.zoom, free: v.free, cards };
+        }, id);
         runs.push({map: id, k: k, step: n, ...extra, ...measure(await marksOf(page, id), W, H)});
       }
     }
@@ -337,6 +348,29 @@ async function opened(browser, file, W, H) {
   return out;
 }
 
+// Each sequence of each map in the diagram form at the whole route: the scale, the part of
+// the screen, the scroll and the card boxes of the diagram, and the boxes of the step count,
+// the dots and the step controls of the bar.
+async function fitted(browser, file, W, H) {
+  const { page, errors } = await open(browser, file, { viewport: { width: W, height: H }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+  await page.evaluate(() => { window.systemapCanvas.mode('seq'); window.systemapCanvas.form('diagram'); });
+  const runs = [];
+  const maps = await page.evaluate(() => JSON.parse(document.getElementById('atlas-data').textContent).maps.filter((m) => m.sq && m.sq.length).map((m) => [m.id, m.sq.length]));
+  for (const [id, count] of maps) {
+    for (let k = 0; k < count; k++) {
+      await page.evaluate(([id, k]) => window.systemapCanvas.choose(id, k), [id, k]);
+      await page.waitForTimeout(150);
+      runs.push(await page.evaluate(([id, k]) => {
+        const s = window.systemapCanvas, b = s.seq().board, v = s.seq().view;
+        const r = (sel) => document.querySelector(sel).getBoundingClientRect().toJSON();
+        return { map: id, k, name: v.id, n: v.n, board: { k: b.k, view: b.view, scroll: b.scroll, nodes: b.nodes }, count: r('#atlas-step-n'), dots: r('#atlas-step-dots'), nav: r('#atlas-step .nav') };
+      }, [id, k]));
+    }
+  }
+  await page.close();
+  return { errors, runs };
+}
+
 async function axeRun(page) {
   let source;
   try { source = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch (e) { return null; }
@@ -367,7 +401,7 @@ async function axe(browser, file) {
 (async () => {
   const [mode, file, w, h] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const run = { '--wide': wide, '--nested': nested, '--phone': phone, '--motion': motion, '--axe': axe, '--labels': labels, '--open': opened }[mode];
+  const run = { '--wide': wide, '--nested': nested, '--phone': phone, '--motion': motion, '--axe': axe, '--labels': labels, '--open': opened, '--fit': fitted }[mode];
   const out = await run(browser, file, +w, +h);
   await browser.close();
   process.stdout.write(JSON.stringify(out) + '\n');
