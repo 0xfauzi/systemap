@@ -7299,3 +7299,17 @@ the pan (p95 16.7 to 33.3 ms) and the count of SVG elements (2,447 or less) pass
 Not measured: a host with a GPU, other changes to the renderer (for example a raster image
 of a map during a zoom, or no transform of the maps above while a nested map has the screen),
 and the other inputs of the performance budget.
+
+### G1, trial 3: a painted layer during the zoom (2026-11-18, not kept as a solution)
+
+The first two trials changed when a nested map is built. This trial changes how a frame of a zoom is made. With `ATLAS_LAYER=1.6`, the page does not set the transform of each map in each frame. It moves the painted svg element with one CSS transform, and it paints again when the zoom changed by the factor 1.6, and 120 ms after the last move. Command: `ATLAS_LAYER=1.6 uv run python bench/jev/atlas_frames.py 720 480 0`, three times, three runs each.
+
+| Command run | Dive, atlas: median / p95 / max (ms) | Dive, canvas: median / p95 / max (ms) | Ratio of the p95 values |
+|---|---|---|---|
+| 1 | 50.0 / 83.4 / 116.7, 50.0 / 83.4 / 116.6, 50.0 / 83.3 / 100.1 | 16.7 / 50.0 / 66.7, 16.7 / 49.9 / 50.1, 16.7 / 33.4 / 83.3 | 1.67, 1.67, 2.49 |
+| 2 | 50.0 / 83.4 / 183.4, 50.0 / 99.9 / 150.0, 50.0 / 100.0 / 116.8 | 16.7 / 33.4 / 50.1, 16.7 / 33.4 / 116.6, 16.7 / 33.4 / 66.6 | 2.50, 2.99, 2.99 |
+| 3 | 50.0 / 100.0 / 133.3, 50.0 / 116.6 / 150.0, 50.0 / 100.1 / 183.4 | 16.7 / 50.0 / 100.0, 16.7 / 50.0 / 66.6, 16.7 / 50.0 / 83.4 | 2.00, 2.33, 2.00 |
+
+Result: FAIL in each of 9 runs. The first frame, the pan and the element count pass as before. The page painted again 4 times in each dive. The median frame of the dive is 50.0 ms, against 16.7 ms for the canvas page. Thus a frame that only moves the painted layer is also slow on this host. The host has no GPU, so the browser makes each frame of the layer on the CPU. A machine with a GPU can give a different result. That was not measured.
+
+Conclusion of G1: in 18 runs with three techniques, the zoom into a nested map is 1.67 to 4.49 times slower with SVG than with the canvas page on this host. The limit of the performance budget is 1.25 times. The map of the atlas page must not draw with SVG.

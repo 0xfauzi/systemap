@@ -145,38 +145,37 @@ These are not in the study. They are necessary.
 
 ## The architecture
 
-- A new page, the atlas page, is built beside the canvas page. The canvas page and its
-  tests stay until the atlas page is the default and the maintainer removes them.
+The gate failed for SVG (G1 in `bench/jev/README.md`, 2026-11-18): the zoom into a nested
+map was 1.67 to 4.49 times slower than the canvas page in 18 runs. The first frame, the
+pan and the element count passed. Thus the architecture is this:
+
+- **The map draws on the canvas engine.** The Map view, the nested maps and a sequence on
+  the map use the renderer of the canvas page: its camera, its level of detail, its
+  stored images and its frame budget. The look and the behavior change to the rules of
+  this document: lanes, casing, the cards, the regions, the labels at rest, the lit paths
+  with one draw in the direction of the flow.
+- **The parts that do not zoom are HTML and SVG, as in the study.** The header, the
+  headline, the reading line, the details, the lists, the step bar, the sequence diagram,
+  States, Focus and History. These parts have no deep zoom, so the gate result does not
+  apply to them. Take them from the study, changed to the requirements of the product
+  page.
+- **A fork, not a flag.** Copy the canvas page modules (`page_canvas*.py`, `canvas_*.py`
+  where the page part changes) to `atlas_*.py` modules and change the copies. The canvas
+  page and its tests stay as they are until the atlas page is the default and the
+  maintainer removes the canvas page. Do not put the two looks in one module with a
+  switch.
 - `[render] page` selects the page: `"atlas"`, `"canvas"` or `"linked"`. Until stage 9 the
   default stays `"canvas"`. `[render] canvas` keeps its meaning.
 - The page data is the canvas data object (`canvas_data.build`) with additions: the
   relation sentence of each flow, and the history. Do not make a second copy of the map
   data in the page.
-- Modules: `atlas_page.py` builds the page. `atlas_*.py` modules hold the style, the
-  markup and the parts of the script. `history_data.py` reads the commits.
-- The page draws with SVG. The gate examines this decision.
+- `history_data.py` reads the commits.
 
-## The gate
+## The gate (done, FAIL for SVG)
 
-Before stage 1, measure the SVG approach on the generated tree with 50 maps
-(`bench/jev/canvas_frames.py`, `m11_tree`), with nested maps built only near the camera.
-Write the acceptance values before the run:
-
-1. The time to the first complete frame is 1,500 ms or less at 4 times CPU slowdown.
-2. The 95th percentile of the frame time is 35 ms or less at 4 times CPU slowdown, for a
-   pan of 2 s on the top map and for a zoom from the top map into a nested map.
-3. The count of SVG elements in the document is 6,000 or less at each moment of that zoom.
-
-A second rule applies to the zoom of value 2. It was added on 2026-11-18, before the first
-run. The measurement host has no GPU and is slow: the canvas page itself has a p95 of more
-than 35 ms for its dive on this host (the cases "400 cards-dive" and "M11 shape-dive" of
-`tests/test_canvas_frames.py` fail at commit c96e021). Thus the run also measures the dive
-of the canvas page (`bench/jev/canvas_frames.py`, scenario `dive`) on the same tree, in the
-same run. If the p95 of the zoom of the atlas page is more than 35 ms, the value passes only
-if it is not more than 1.1 times the p95 of the dive of the canvas page in the same run. This
-rule does not apply to the pan. The script is `bench/jev/atlas_frames.py`.
-
-If a value fails, stop. Do not start stage 1. Report the numbers.
+The gate measured an SVG page on the generated tree with 50 maps. The record is G1 in
+`bench/jev/README.md`. The script is `bench/jev/atlas_frames.py`. The architecture above
+is the result. The gate does not run again.
 
 ## The performance budget
 
@@ -211,7 +210,8 @@ branch `views-prototype`. No stage makes a pull request.
 1. **Scaffold and the Map view at rest.** `[render] page`, `atlas_page.py`, the data
    additions, the headline, the cards, the regions, the lanes, the casing, the labels at
    rest, the busy layer rule, the layers, the camera, the dot grid, the nested maps built
-   near the camera, the redirect pages, the policy and the fonts.
+   near the camera, the redirect pages, the policy and the fonts. The map is on the
+   canvas engine (see the architecture).
 2. **Pointing and selecting.** The lit paths, the reading line, the details with the
    content of the canvas page, the keyboard, reduced motion, the phone sheet.
 3. **Sequences**, on the map and as a diagram.

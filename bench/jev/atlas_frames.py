@@ -70,6 +70,7 @@ Run from the repository root (Node and the Playwright package must be installed)
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -95,7 +96,10 @@ def write_page(data: dict[str, Any], out: Path, build: tuple[float, float, float
     from systemap import page_font  # noqa: PLC0415
 
     body = json.dumps(data, separators=(",", ":")).replace("<", "\\u003c")
-    rule = json.dumps({"build": build[0], "drop": build[1], "margin": build[2]})
+    # Trial 3 (2026-11-18): ATLAS_LAYER=R makes the page move a painted layer during a zoom and paint
+    # again when the zoom changed by the factor R. Without it, the page paints in each frame.
+    layer = float(os.environ.get("ATLAS_LAYER", "0"))
+    rule = json.dumps({"build": build[0], "drop": build[1], "margin": build[2], "layer": layer})
     script = SCRIPT.read_text(encoding="utf-8").replace("__RULE__", rule)
     page = (
         TEMPLATE.read_text(encoding="utf-8")

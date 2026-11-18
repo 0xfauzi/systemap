@@ -405,9 +405,24 @@ started = true;
 var READY = {built: performance.now(), painted: 0};
 requestAnimationFrame(function () { setTimeout(function () { READY.painted = performance.now(); }, 0); });
 // The interface of the measurement (bench/jev/atlas_frames.js).
+var LAYER = {t: 0, n: 0};
+svg.style.transformOrigin = '0 0'; if (RULE.layer) svg.style.willChange = 'transform';
 window.atlas = {
   ready: READY,
-  view: function (c) { cancelAnimationFrame(raf); cam = {x: c.x, y: c.y, k: c.k}; apply(); },
+  // With RULE.layer, a zoom moves the painted layer of the map: one CSS transform of the svg element. The
+  // page paints again when the zoom changed by the factor RULE.layer, and 120 ms after the last move.
+  view: function (c) {
+    cancelAnimationFrame(raf);
+    if (!RULE.layer) { cam = {x: c.x, y: c.y, k: c.k}; apply(); return; }
+    var rel = c.k / cam.k, dx = (cam.x - c.x) * c.k, dy = (cam.y - c.y) * c.k;
+    clearTimeout(LAYER.t);
+    // The layer covers the screen only when the new view is inside the painted view.
+    var inside = rel >= 1 && dx <= 0 && dy <= 0 && dx + W * rel >= W && dy + H * rel >= H;
+    if (!inside || rel > RULE.layer) { svg.style.transform = ''; cam = {x: c.x, y: c.y, k: c.k}; apply(); LAYER.n++; return; }
+    svg.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + rel + ')';
+    LAYER.t = setTimeout(function () { svg.style.transform = ''; cam = {x: c.x, y: c.y, k: c.k}; apply(); }, 120);
+  },
+  layer: function () { return LAYER.n; },
   fit: function (id) { return fitCam(BY[id]); },
   between: between,
   // The deepest map below the first card that opens a map.
