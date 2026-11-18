@@ -167,6 +167,15 @@ Write the acceptance values before the run:
    pan of 2 s on the top map and for a zoom from the top map into a nested map.
 3. The count of SVG elements in the document is 6,000 or less at each moment of that zoom.
 
+A second rule applies to the zoom of value 2. It was added on 2026-11-18, before the first
+run. The measurement host has no GPU and is slow: the canvas page itself has a p95 of more
+than 35 ms for its dive on this host (the cases "400 cards-dive" and "M11 shape-dive" of
+`tests/test_canvas_frames.py` fail at commit c96e021). Thus the run also measures the dive
+of the canvas page (`bench/jev/canvas_frames.py`, scenario `dive`) on the same tree, in the
+same run. If the p95 of the zoom of the atlas page is more than 35 ms, the value passes only
+if it is not more than 1.1 times the p95 of the dive of the canvas page in the same run. This
+rule does not apply to the pan. The script is `bench/jev/atlas_frames.py`.
+
 If a value fails, stop. Do not start stage 1. Report the numbers.
 
 ## The stages
