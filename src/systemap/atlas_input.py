@@ -16,13 +16,14 @@
   map. A double-click with a mouse goes into the map that a card opens. A click or a tap
   selects a card or pins a line (`clickAt` and `tapAt` in `atlas_keys`). Esc closes the
   details or goes out one level, F fits the current map, + and - zoom, and the arrow keys
-  move the map. The zoom control at the bottom left has the same functions and the
+  move the map. Esc, F, + and - also operate while a button has the keyboard focus. The zoom control at the bottom left has the same functions and the
   readout of the scale.
 - Pointing. A move of a mouse or a pen over the canvas points at the card or the line
   under it (`point` in `atlas_lit`). A card comes before a line.
 - Frames. As on the canvas page: an input event asks for one frame. While the camera
   moves, the canvas has half of the device resolution. STILL_MS after the last move, the
-  script draws one frame at full resolution (`atlas_image`).
+  script draws one frame at full resolution (`atlas_image`). A change of the light draws one
+  frame at half of the device resolution, and the next frame at full resolution.
 
 `window.systemapCanvas` gives the camera and the state to the tests and the measurement
 scripts, with the names of the canvas page where the function is the same. It changes
@@ -103,17 +104,23 @@ function zoomed(f) {
 
 // ---- frames -------------------------------------------------------------------
 var pending = false, sharp = true, stillTimer = 0, CHAIN = [], drawn = 0, LOG = null, MOVED_AT = -Infinity, SHOWN_MAP = null;
-// A change of the light (`atlas_lit`) draws at the moving resolution for LIGHT_MS, as a
-// camera move does: a full frame at rest costs about 4 times the time of a moving frame.
-// Thus the lit paths come to the screen in the next frame. LIGHT_MOVE is true while only
-// the light changes: then the text does not fade and no stored image is made.
-var LIGHT_MOVE = false, LIGHT_MS = 480;
+// A change of the light (`atlas_lit`) draws one frame at the moving resolution, as a camera
+// move does: a full frame at rest costs about 4 times the time of a moving frame. Thus the
+// lit paths come to the screen in the next frame. The frame after it is a full frame at
+// rest again (`draw`), so that the map is soft for one frame only. LIGHT_MOVE is true for
+// that one frame: then the text does not fade and no stored image is made.
+var LIGHT_MOVE = false;
 function lightMoved() {
-  if (!sharp && !LIGHT_MOVE) { request(); return; }
+  if (!sharp) { request(); return; }
   sharp = false; LIGHT_MOVE = true;
   clearTimeout(stillTimer);
-  stillTimer = setTimeout(function () { sharp = true; LIGHT_MOVE = false; if (!flight) stillStart(); }, reduced() ? 0 : LIGHT_MS);
   stillStop();
+  request();
+}
+// After the one frame of a change of the light: the next frame is a full frame at rest.
+function lightSharp() {
+  if (!LIGHT_MOVE) return;
+  LIGHT_MOVE = false; sharp = true;
   request();
 }
 function moved(now) {
@@ -148,11 +155,12 @@ function draw() {
   frameShown();
   drawn++;
   var m = currentMap();
-  if (m !== SHOWN_MAP) { SHOWN_MAP = m; headSync(true); }
+  if (m !== SHOWN_MAP) { SHOWN_MAP = m; headSync(true); mapChanged(m); }
   if (SIDE_ON) sideSync();
   zoomShown();
   if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, hide: HIDE, images: LAYERS});
   if (SPEED_FADING || VIEW_FADING) fadeLater();
+  lightSharp();
 }
 var fadeTimer = 0, FADE_WAIT = 50;
 function fadeLater() {
@@ -273,8 +281,11 @@ cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
 cv.addEventListener('pointerleave', function () { cv.classList.remove('over'); if (HOT.from === 'pointer') point(null, null, ''); });
 cv.addEventListener('dblclick', function (e) { var p = local(e); if (kind === 'mouse') enter(p[0], p[1]); });
+// Esc, F, + and - also operate while a button of the page has the keyboard focus, as in the
+// design study. The arrow keys of a button stay with the button (`ownKeys`).
+var PAGE_KEYS = {Escape: true, f: true, F: true, '+': true, '=': true, '-': true};
 window.addEventListener('keydown', function (e) {
-  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e, !!PAGE_KEYS[e.key])) return;
   var step = 80 / cam.k, keys = {
     Escape: escapeKey, f: function () { fitCurrent(); }, F: function () { fitCurrent(); },
     '+': function () { fly(zoomed(1.6), 260); },

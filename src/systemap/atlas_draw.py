@@ -218,7 +218,7 @@ function drawLines(g, m, list, L, a, ox, oy, alpha) {
     g.globalAlpha = rest * backLine(lit, e.f.i); g.strokeStyle = C['--map']; g.lineWidth = cw; g.stroke();
     g.strokeStyle = C['--wire']; g.lineWidth = ww; g.stroke();
     if (!VIEW_AIM) STATS.flows++;
-    if (DLOG) logged({t: 'line', f: e.f.i, casing: cw, wire: ww, p: e.d.map(function (v) { return [ox + a * v[0], oy + a * v[1]]; })});
+    if (DLOG) logged({t: 'line', f: e.f.i, casing: cw, wire: ww, alpha: g.globalAlpha, p: e.d.map(function (v) { return [ox + a * v[0], oy + a * v[1]]; })});
   });
   var s = clamp(7.5 * a, 2.5, 9), w = s * 0.48, r = clamp(2 * a, 0.8, 2.6);
   g.fillStyle = C['--ink-3'];
@@ -266,7 +266,7 @@ function cardBox(c, x, y, w, h, alpha, qv) {
   alpha *= backCard(lit, c);
   if (ink) qv = 0;
   var t = cardShow(h), actor = c.k === 'actor', r = cardCorner(c, w, h), live = 1 - qv;
-  if (DLOG) logged({t: 'card', id: c.id, k: c.k, b: [x, y, w, h], r: r, shape: t, under: !!c.child && t > 0, map: c.map.id});
+  if (DLOG) logged({t: 'card', id: c.id, k: c.k, b: [x, y, w, h], r: r, shape: t, under: !!c.child && t > 0, map: c.map.id, alpha: alpha});
   if (t < 1) MARK.rect(C['--line-2'], alpha * (1 - t) * (0.6 - 0.3 * qv), x, y, w, h, 0);
   if (t <= 0) return;
   if (c.child) {
@@ -347,6 +347,7 @@ function drawMap(m, alpha, open) {
     var byFlow = L._by || (L._by = (function () { var o = []; L.list.forEach(function (e) { o[e.f.i] = e; }); return o; })());
     drawLines(ctx, m, list.map(function (f) { return byFlow[f.i]; }).filter(Boolean), L, a, ox, oy, flowA);
     drawLit(m, L, a, ox, oy, flowA);
+    if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open), true);
     var texts = [];
     for (var i = 0; i < cards.length; i++) {
       var c = cards[i], b = c.b, x = ox + a * b[0], y = oy + a * b[1], w = a * b[2], h = a * b[3];
@@ -358,7 +359,7 @@ function drawMap(m, alpha, open) {
     flushCards(ctx);
     drawSelected(m, a, ox, oy, own);
     if (open > 0.3 && !L.dense) drawLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open));
-    if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open));
+    if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open), false);
     texts.forEach(function (e) { cardText(e[0], e[1], e[2], e[3], e[4], own, e[5]); });
     if (whole) drawLayer(whole, ox, oy, mw, mh, own);
   }

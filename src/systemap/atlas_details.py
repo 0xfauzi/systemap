@@ -8,7 +8,8 @@ rules are the section "Map view: the rules" of docs/design/atlas.md:
   `atlas_input`). On a phone (720 px or less), the details are a sheet at the bottom, and
   the selected card goes to the part of the screen above the sheet (`showAbove`). A click
   with a mouse opens the details after OPEN_WAIT ms, so that a double-click goes into a
-  card and opens no details. With reduced motion, they open at once.
+  card and opens no details. With reduced motion, they open at once. After Enter, the
+  keyboard focus goes to the heading of the details.
 - The details keep the content of the canvas page (`page_canvas_details`): the kind, the
   short name, the assurance level and the freshness, the description, the note, the flows
   in and out with the evidence state and the relation sentence, the sequences that use the
@@ -137,7 +138,7 @@ _ENTER = "M1.5 4.5v-3h3M11.5 8.5v3h-3M8 1.5h3.5V5M5 11.5H1.5V8"  # the icon of t
 DETAILS = r"""
 // ---- the details of the selected card ---------------------------------------------------
 var SIDE = document.getElementById('atlas-side'), SIDE_B = document.getElementById('atlas-side-b');
-var SIDE_ON = false, SIDE_TIMER = 0, OPEN_WAIT = 0, OPEN_MS = 240, SIDE_W = 380, SIDE_KEY = '', AFTER = null;
+var SIDE_ON = false, SIDE_TIMER = 0, OPEN_WAIT = 0, OPEN_MS = 240, SIDE_W = 380, SIDE_KEY = '', AFTER = null, AFTER_KEY = false;
 var EV = EVIDENCE_JSON, FF = DATA.maps[0].ff || 'the facts file';
 // The width that the details take from the map at the right of a wide screen, for the fit
 // of map m. A flight to a neighbour's card keeps it (`AFTER`).
@@ -146,7 +147,8 @@ function sideRight(m) {
   return (SIDE_ON && SEL && SEL.map === m) || (AFTER && AFTER.map === m) ? SIDE_W : 0;
 }
 // Select card c, or no card. `how.wait` opens the details after OPEN_MS (a click of a
-// mouse). `how.keep` does not move the camera.
+// mouse). `how.keep` does not move the camera. `how.focus` gives the keyboard focus to the
+// heading of the details (Enter on a card), so that Tab goes next into the details.
 function select(c, how) {
   how = how || {};
   clearTimeout(OPEN_WAIT);
@@ -162,6 +164,7 @@ function select(c, how) {
     if (SEL !== c) return;
     sideSync(); sideShow(true);
     say('Selected: ' + c.id + '. The details are open.');
+    if (how.focus) document.getElementById('atlas-side-h').focus({preventScroll: true});
     if (how.keep) return;
     if (W <= WIDE) showAbove(c); else if (!was) fitCurrent();
   };
@@ -191,11 +194,12 @@ function closeSide() {
   if (c && c.map === currentMap()) { cv.focus({preventScroll: true}); setFocus(c); }
 }
 // Select a card, or go out to the card of a neighbour. `mouse` waits for a double-click.
-function act(c, mouse) {
+// `keyed` is true for Enter: the keyboard focus goes to the details.
+function act(c, mouse, keyed) {
   var up = upCard(c);
-  if (!up) { select(SEL === c ? null : c, {wait: mouse}); return; }
+  if (!up) { select(SEL === c ? null : c, {wait: mouse, focus: keyed}); return; }
   select(null, {keep: true});
-  AFTER = up;
+  AFTER = up; AFTER_KEY = !!keyed;
   flyTo(frameOf(up.map), FIT);
 }
 // When the camera stops in the map of the card of a neighbour, select that card.
@@ -203,12 +207,14 @@ function afterFlight() {
   if (!AFTER || currentMap() !== AFTER.map) return;
   var c = AFTER;
   AFTER = null;
-  select(c, {keep: W > WIDE});
+  select(c, {keep: W > WIDE, focus: AFTER_KEY});
 }
-// Go into the map that card c opens. The selection goes.
+// Go into the map that card c opens. The selection, the pin and the pointed item go, and
+// the reading line is empty.
 function dive(c) {
   select(null, {keep: true});
-  PIN = null; FOCUS = null; FOCUS_MAP = c.child;
+  PIN = null; FOCUS = null; FOCUS_MAP = c.child; HOT = {c: null, f: null, from: ''};
+  speak();
   flyGoal(goalOf(c.map, c, null));
   if (flight) flight.into = c.child;
 }
@@ -307,7 +313,7 @@ function ruleItems(m, c) {
   });
   (m.ir || []).forEach(function (r) {
     var s = r.s || [], t = r.t || [];
-    if (!c || s.indexOf(c.id) >= 0 || t.indexOf(c.id) >= 0) out.push(el('li', null, el('b', null, 'Import rule ' + r.id + '.'), ' Kind: ' + r.k + '. ', el('span', {'class': 'as'}, levelWords(r))));
+    if (!c || !s.length || s.indexOf(c.id) >= 0 || t.indexOf(c.id) >= 0) out.push(el('li', null, el('b', null, 'Import rule ' + r.id + '.'), ' Kind: ' + r.k + '. ', el('span', {'class': 'as'}, levelWords(r))));
   });
   return out;
 }

@@ -204,13 +204,15 @@ function zoomShown() {
   if (ZOOM_V && ZOOM_V.textContent !== z) ZOOM_V.textContent = z;
 }
 // True when a key belongs to the element that has it: a control of the page, a text field
-// or a dialog. Then the camera keys do not operate.
-function ownKeys(e) {
+// or a dialog. Then the camera keys do not operate. `pageKey` is true for a key of the page
+// (Esc, F, + and -): then only a dialog or a text field keeps it, not a button.
+function ownKeys(e, pageKey) {
   var t = e.target, tag = t && t.tagName;
   if (document.querySelector('dialog[open]')) return true;
   if (!t || !t.closest || t === cv) return false;
   if (t.closest('dialog, [role="dialog"], [data-own-keys]')) return true;
-  return tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON' || !!t.isContentEditable;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || !!t.isContentEditable) return true;
+  return tag === 'BUTTON' && !pageKey;
 }
 function viewState() {
   var m = currentMap();

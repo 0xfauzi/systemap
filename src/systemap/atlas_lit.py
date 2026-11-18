@@ -6,7 +6,7 @@ section "Map view: the rules" of docs/design/atlas.md:
 - Pointing at a card. The flows of the card in the layer of the frame are lit: each one
   gets the color of its kind and draws one time in the direction of the flow, from the
   source to the target, in DRAW_MS. Their labels show and do not cover each other
-  (`litSeats`). The other cards and lines go back. A card with no flow in the layer does
+  (`litSeats`). A label covers no card name: with no free place, it draws below the cards. The other cards and lines go back. A card with no flow in the layer does
   not make the map go back.
 - Pointing at a line. That flow is lit, and the reading line gives the source, the
   target, the artifact and the relation sentence of the model.
@@ -118,8 +118,7 @@ function drawLit(m, L, a, ox, oy, alpha) {
 // The places of the labels of the lit lines of map m at the scale a. A lit line with a
 // label at rest keeps that place. Each other lit line gets a place among the lit lines
 // only: on its line, on no card, on no name and on no other label, and with no other lit
-// line through it. Then without the lines, then without the cards. A line with no such
-// place gets a place at its middle, above the labels in its way. The places are calculated
+// line through it. Then without the lines, then near the line (`stacked`). The places are calculated
 // again for a new light, a new layer or a new step of zoom, in the full drawing at rest.
 function litSeats(m, id, a, lit) {
   var step = Math.floor(Math.log2(a) * 4), key = lit.key + '|' + step + '|' + TEXTS;
@@ -132,30 +131,47 @@ function litSeats(m, id, a, lit) {
   }
   list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
     if (done[e.f.i]) return;
-    var at = seat(e, fs, wall, taken, list) || seat(e, fs, wall, taken, []) || seat(e, fs, [], taken, []);
-    if (!at) at = stacked(e, fs, taken);
-    taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
+    var at = seat(e, fs, wall, taken, list) || seat(e, fs, wall, taken, []) || stacked(e, fs, taken, wall);
+    taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box, under: !!at.under});
   });
   lit.seats = {key: key, list: out, fs: fs};
   return lit.seats;
 }
-// A place at the middle of the line, moved up while it covers a label of `taken`.
-function stacked(e, fs, taken) {
-  var q = e.q, i = Math.floor((q.length - 1) / 2), w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35;
-  var c = [(q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2], box = [c[0] - w / 2, c[1] - hh / 2, c[0] + w / 2, c[1] + hh / 2], n = 0;
+// A place near the middle of a part of the line, on no label of `taken` and on no box of
+// `wall`: at the part, or one to three label heights above or below it. The longest part
+// comes first. With no such place, the label is at the middle of the line, moved up while
+// it covers a label of `taken`. When that place is on a card, the label draws below the
+// cards (`under`), as in the design study. Thus a label never hides the name of a card.
+function stacked(e, fs, taken, wall) {
+  var q = e.q, w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, parts = [];
+  function boxAt(x, y) { return [x - w / 2, y - hh / 2, x + w / 2, y + hh / 2]; }
+  function free(b) { return !taken.some(function (o) { return over(b, o); }) && !wall.some(function (o) { return over(b, o); }); }
+  for (var i = 0; i + 1 < q.length; i++) parts.push({x: (q[i][0] + q[i + 1][0]) / 2, y: (q[i][1] + q[i + 1][1]) / 2, l: segLen(q, i)});
+  parts.sort(function (u, v) { return v.l - u.l; });
+  var shifts = [0, -1, 1, -2, 2, -3, 3];
+  for (var p = 0; p < parts.length; p++) {
+    for (var k = 0; k < shifts.length; k++) {
+      var y = parts[p].y + shifts[k] * hh, b = boxAt(parts[p].x, y);
+      if (free(b)) return {x: parts[p].x, y: y, box: b};
+    }
+  }
+  var j = Math.floor((q.length - 1) / 2), c = [(q[j][0] + q[j + 1][0]) / 2, (q[j][1] + q[j + 1][1]) / 2], box = boxAt(c[0], c[1]), n = 0;
   while (n++ < 6 && taken.some(function (o) { return over(box, o); })) { c[1] -= hh; box[1] -= hh; box[3] -= hh; }
-  return {x: c[0], y: c[1], box: box};
+  return {x: c[0], y: c[1], box: box, under: wall.some(function (o) { return over(box, o); })};
 }
-function drawLitLabels(m, id, a, ox, oy, alpha) {
+// The labels of the lit lines. `under` true draws the labels that draw below the cards, and
+// false draws the other labels, over the cards.
+function drawLitLabels(m, id, a, ox, oy, alpha, under) {
   var lit = litOf(m), fs = q(labelPx(a));
   if (!lit || !lit.focus || fs < textMin() || alpha * DIM <= 0.02) return;
   var seats = litSeats(m, id, a, lit);
   ctx.font = font(500, fs); ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.setLineDash([]);
   seats.list.forEach(function (s) {
+    if (!!s.under !== under) return;
     var x = ox + a * s.x, y = oy + a * s.y + fs * 0.34;
     ctx.globalAlpha = alpha * DIM; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
     text(s.e.s, x, y, fs, C['--ink'], alpha * DIM, 500, false, 'center');
-    if (DLOG) logged({t: 'litLabel', f: s.e.f.i, s: s.e.s, x: x, y: y});
+    if (DLOG) logged({t: 'litLabel', f: s.e.f.i, s: s.e.s, x: x, y: y, under: under});
   });
 }
 // The ring of the selected card: a wide ring in the color of the halo, and the outline of
@@ -238,7 +254,7 @@ function cardSay(c, keyed) {
 function flowSay(f) {
   var code = el('code', null, f.a);
   code.style.setProperty('--k', 'var(' + (KIND[f.k] || '--ink-2') + ')');
-  return [el('b', null, f.s, el('span', {'class': 'arr', 'aria-label': 'to'}, '→'), f.t), code, f.y ? el('span', null, f.y) : null];
+  return [el('b', null, f.s, el('span', {'class': 'arr', 'aria-hidden': 'true'}, '→'), el('span', {'class': 'sr-only'}, ' to '), f.t), code, f.y ? el('span', null, f.y) : null];
 }
 // The words for a screen reader before the item of the keyboard focus: its place in the
 // order of Tab.
@@ -246,18 +262,33 @@ function placeWords(x) {
   var list = tabOrder(x.map), n = list.indexOf(x) + 1;
   return el('span', {'class': 'sr-only'}, (isFlow(x) ? 'Line ' : 'Card ') + n + ' of ' + list.length + '. ');
 }
-// Write the reading line for the pointed item, else for the pinned line. A selected card
-// has its details, so the reading line does not give it. The line changes only when its
-// item changes.
+// The item of the reading line: the pointed item, else the pinned line, in the current map,
+// or null.
+function sayItem() {
+  var m = currentMap();
+  if (HOT.c && HOT.c.map === m) return HOT.c;
+  if (HOT.f && HOT.f.map === m) return HOT.f;
+  return PIN && PIN.map === m ? PIN : null;
+}
+// Write the reading line for the pointed item, else for the pinned line, in the current map.
+// A selected card has its details, so the reading line does not give it. The line changes
+// only when its item changes.
 function speak() {
   if (!SAY) return;
-  var x = HOT.c || HOT.f || PIN, key = x ? (isFlow(x) ? 'f' : 'c') + x.map.oi + ':' + x.i + HOT.from + shownLayer(x.map) : '';
-  if (x && x === SEL && !HOT.f) key = '';
+  var x = sayItem(), hot = !!x && (x === HOT.c || x === HOT.f), from = hot ? HOT.from : '';
+  var key = x ? (isFlow(x) ? 'f' : 'c') + x.map.oi + ':' + x.i + from + shownLayer(x.map) : '';
+  if (x && x === SEL && !isFlow(x)) key = '';
   if (key === SAID_KEY) return;
   SAID_KEY = key;
   if (!key) { SAY.classList.remove('on'); SAY.replaceChildren(); return; }
-  var keyed = HOT.from === 'key' && (x === HOT.c || x === HOT.f);
+  var keyed = from === 'key';
   SAY.replaceChildren.apply(SAY, [keyed ? placeWords(x) : null].concat(isFlow(x) ? flowSay(x) : cardSay(x, keyed)).filter(Boolean));
   SAY.classList.add('on');
+}
+// When the camera goes into a different map: the pointed item of the map before is not
+// pointed, and the reading line tells only an item of the new map.
+function mapChanged(m) {
+  if ((HOT.c && HOT.c.map !== m) || (HOT.f && HOT.f.map !== m)) HOT = {c: null, f: null, from: ''};
+  speak();
 }
 """

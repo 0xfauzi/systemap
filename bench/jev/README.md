@@ -7389,3 +7389,19 @@ The budget run after the kept change, with no other command on the host:
 | M11 tree | 423 / 385 (pass) | 16.8 / 33.3 (pass) | 33.4 / 33.3 (pass) | 1,236,352 / 1,132,712 = 0.92 (pass) | 64 (pass) |
 
 Result: PASS for each value. The page sizes of the atlas pages grew by about 34,000 bytes (the lit part and the details part of the script).
+
+## B4: the performance budget of the atlas page after the repair of stage 2 (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 2 page after the repair of an independent review. The change that can affect the budget: a change of the light draws one frame at the moving resolution, and the next frame at full resolution (`lightMoved` and `lightSharp` in `atlas_input`). In B3 the map stayed at the moving resolution for 480 ms after each change of the light. On a screen with device pixel ratio 2, that made all text of the map soft for 480 ms. Now it is soft for one frame. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU.
+
+Probes during the work (one run of `atlas_point.js` on the self-map, three times, at the rate 4): largest times 66, 82.8 and 53.1 ms.
+
+A first budget run of this change overlapped with browser tests on the same host. I stopped it and did not use its values. The budget run with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 308 / 294 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 315,194 / 222,633 = 0.71 (pass) | 70 (pass) |
+| workspace | 309 / 282 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,900 / 170,092 = 0.63 (pass) | 83 (pass) |
+| M11 tree | 408 / 366 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 1,236,352 / 1,134,235 = 0.92 (pass) | 77 (pass) |
+
+Result: PASS for each value. The map is still soft for one frame after each change of the light at device pixel ratio 2. The study has no soft frame. The first form of stage 2, with no soft frame, failed the point limit in B3 (125 ms). The maintainer must decide if one soft frame is acceptable.

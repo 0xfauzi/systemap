@@ -7,15 +7,20 @@
 //   each frame for 900 ms (`systemapCanvas.drawn`), the colors of the canvas at the middle of
 //   the lit lines, the labels, and the reading line. Then the same for a move onto the line
 //   of the first lit flow, and for a card with no flow in the layer.
+//   Also the rest marks before the move, and one frame in the middle of the draw.
+// - --labels: 1440 x 900, layer All. The lit labels of each card that is not an actor.
 // - --select: 1440 x 900. A click on CARD: the details, the frame of the map, the selection
 //   ring and the rows. Then a pointer on the first row, a click on that row, and Esc.
-// - --phone: 390 x 844 with a touch screen. A tap on CARD: the sheet and the card box.
-// - --keys: 1440 x 900. Tab, Enter, Esc and F on the canvas.
-// - --motion: the light of CARD with the reduced motion of the device, and with the Reduce
-//   motion button of the page.
+// - --phone: 390 x 844 with a touch screen. A tap on CARD: the sheet and the card box. Then
+//   a tap on a line.
+// - --keys: 1440 x 900. Tab through the full order, Enter on a line and on CARD, Tab to a
+//   row of the details, Esc in the details, F, and Esc and F on a button of the page.
+// - --motion: the light of CARD and a click on CARD with the reduced motion of the device,
+//   with the Reduce motion button of the page, and with no reduced motion.
 // - --nested: 1440 x 900 on a page with the nested map MAP that CARD opens. The details of
 //   CARD, the button that goes into the map, the path of the headline, a click on a
-//   neighbour in MAP, and Esc in MAP.
+//   neighbour in MAP, and Esc in MAP. The reading line after a double-click, after a zoom
+//   and after Shift+Enter on the card, and a click on the path of the headline.
 // - --axe: axe-core with the details open, in the light and the dark scheme, at 1440 x 900
 //   and at 390 x 844 (null when axe-core is not on NODE_PATH).
 // Each mode prints one JSON object. `errors` has the script errors of the page.
@@ -60,9 +65,41 @@ function samples(marks) {
   });
 }
 
+// In the page: wait for a frame in which a lit line is drawn from 30 % to 65 % of its
+// length. In that same frame, give the colors of the canvas near the start and near the end
+// of each such line, and the dash of the line.
+function midDraw() {
+  return new Promise((done) => {
+    const t0 = performance.now();
+    function along(p, t) {
+      const seg = [];
+      let total = 0;
+      for (let i = 0; i + 1 < p.length; i++) { const l = Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]); seg.push(l); total += l; }
+      let want = total * t;
+      for (let i = 0; i < seg.length; i++) {
+        if (want <= seg[i] || i === seg.length - 1) { const u = seg[i] ? Math.min(1, want / seg[i]) : 0; return [p[i][0] + (p[i + 1][0] - p[i][0]) * u, p[i][1] + (p[i + 1][1] - p[i][1]) * u]; }
+        want -= seg[i];
+      }
+      return p[0];
+    }
+    (function step() {
+      const marks = window.systemapCanvas.drawn().marks.filter((m) => m.t === 'lit' && m.part >= 0.3 && m.part <= 0.65);
+      if (marks.length || performance.now() - t0 > 2000) {
+        const c = document.getElementById('canvas'), g = c.getContext('2d'), d = c.width / innerWidth;
+        const at = (q) => Array.from(g.getImageData(Math.round(q[0] * d), Math.round(q[1] * d), 1, 1).data.slice(0, 3));
+        done(marks.map((m) => ({ f: m.f, k: m.k, part: m.part, dash: m.dash,
+          start: [0.06, 0.12, 0.18].map((t) => at(along(m.p, t))), end: [0.82, 0.88, 0.94].map((t) => at(along(m.p, t))) })));
+        return;
+      }
+      requestAnimationFrame(step);
+    })();
+  });
+}
+
 async function point(browser, file, card) {
   const { page, errors } = await open(browser, file, WIDE);
   const at = mid(await boxOf(page, '', card));
+  const restMarks = (await page.evaluate(() => window.systemapCanvas.drawn())).marks.filter((m) => m.t === 'line' || m.t === 'card');
   await page.mouse.move(at[0], at[1]);
   // The frames of the draw, each 30 ms.
   const frames = [];
@@ -70,7 +107,7 @@ async function point(browser, file, card) {
     frames.push(await page.evaluate(() => window.systemapCanvas.drawn().marks.filter((m) => m.t === 'lit' || m.t === 'line' || m.t === 'litLabel')));
     await page.waitForTimeout(30);
   }
-  const out = { errors, frames, state: await page.evaluate(state) };
+  const out = { errors, frames, restMarks, state: await page.evaluate(state) };
   const drawn = await page.evaluate(() => window.systemapCanvas.drawn());
   out.drawn = drawn;
   out.colors = [];
@@ -94,6 +131,14 @@ async function point(browser, file, card) {
     await page.waitForTimeout(300);
     out.unpinned = await page.evaluate(state);
   }
+  // The direction of the draw: a new move onto the card, and one frame in the middle of the
+  // draw of its lines.
+  await page.mouse.move(5, 300);
+  await page.waitForTimeout(600);
+  await page.mouse.move(at[0], at[1]);
+  out.middle = await page.evaluate(`(${midDraw.toString()})()`);
+  await page.mouse.move(5, 300);
+  await page.waitForTimeout(400);
   // A card with no flow in the layer.
   const quiet = await page.evaluate(() => { const q = window.systemapCanvas.quiet('').find((x) => x.q); return q ? q.id : null; });
   if (quiet) {
@@ -106,12 +151,37 @@ async function point(browser, file, card) {
   return out;
 }
 
+// Layer All: for each card that is not an actor, the lit labels, the card boxes and the
+// texts of one frame with the full light.
+async function labels(browser, file) {
+  const { page, errors } = await open(browser, file, WIDE);
+  await page.evaluate(() => window.systemapCanvas.setLayer('all'));
+  await page.waitForTimeout(800);
+  const ids = await page.evaluate(() => window.systemapCanvas.boxes('').filter((c) => c.k !== 'actor').map((c) => c.id));
+  const runs = [];
+  for (const id of ids) {
+    await page.evaluate((c) => window.systemapCanvas.pointAt('', c), id);
+    await page.waitForTimeout(700);
+    const d = await page.evaluate(() => window.systemapCanvas.drawn());
+    runs.push({ id, labels: d.marks.filter((m) => m.t === 'litLabel'), cards: d.marks.filter((m) => m.t === 'card' && m.map === '').map((m) => ({ id: m.id, b: m.b })),
+      texts: d.texts.filter((t) => t.weight === 500) });
+  }
+  await page.close();
+  return { errors, runs };
+}
+
 const sideText = () => {
   const s = document.getElementById('atlas-side');
   return { kicker: document.getElementById('atlas-side-k').textContent, title: document.getElementById('atlas-side-h').textContent,
     rows: Array.prototype.map.call(s.querySelectorAll('.row'), (r) => ({ f: +r.getAttribute('data-f'), text: r.textContent })),
     heads: Array.prototype.map.call(s.querySelectorAll('.sec h3'), (h) => h.firstChild.textContent),
-    text: s.textContent, enter: (s.querySelector('[data-go]') || { textContent: null }).textContent };
+    text: s.textContent, enter: (s.querySelector('[data-go]') || { textContent: null }).textContent,
+    state: document.getElementById('atlas-side-s').textContent, short: document.getElementById('atlas-side-p').textContent,
+    about: (s.querySelector('.side__body > .side__d') || { textContent: null }).textContent,
+    summaries: Array.prototype.map.call(s.querySelectorAll('summary'), (x) => x.textContent),
+    records: (s.querySelector('.rec') || { textContent: '' }).textContent,
+    sequences: Array.prototype.map.call(s.querySelectorAll('.sec'), (x) => x).filter((x) => x.querySelector('h3').firstChild.textContent === 'Sequences').map((x) => Array.prototype.map.call(x.querySelectorAll('li'), (li) => li.textContent))[0] || [],
+    rules: Array.prototype.map.call(s.querySelectorAll('.sec'), (x) => x).filter((x) => x.querySelector('h3').firstChild.textContent === 'Rules').map((x) => x.textContent)[0] || '' };
 };
 
 async function select(browser, file, card) {
@@ -147,6 +217,28 @@ async function phone(browser, file, card) {
   const out = { errors, state: await page.evaluate(state), box: await boxOf(page, '', card),
     head: await page.evaluate(() => document.getElementById('atlas-ask').getBoundingClientRect().bottom),
     scroll: await page.evaluate(() => document.documentElement.scrollWidth) };
+  // A tap on empty space closes the details. Then a tap on a line pins it.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(800);
+  const target = await page.evaluate(() => {
+    const a = window.systemapCanvas, cards = a.boxes(''), H = innerHeight, side = a.side();
+    const free = (q) => q[0] > 10 && q[0] < innerWidth - 10 && q[1] > document.getElementById('atlas-ask').getBoundingClientRect().bottom + 10 && q[1] < (side.on ? side.top : H) - 70 &&
+      !cards.some((c) => q[0] > c.b[0] - 8 && q[0] < c.b[0] + c.b[2] + 8 && q[1] > c.b[1] - 8 && q[1] < c.b[1] + c.b[3] + 8);
+    for (const x of a.tabOrder('')) {
+      if (x.f === undefined) continue;
+      const p = a.line('', x.f);
+      for (let i = 0; p && i + 1 < p.length; i++) {
+        const q = [(p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2];
+        if (Math.hypot(p[i + 1][0] - p[i][0], p[i + 1][1] - p[i][1]) > 30 && free(q)) return { f: x.f, at: q };
+      }
+    }
+    return null;
+  });
+  if (target) {
+    await page.touchscreen.tap(target.at[0], target.at[1]);
+    await page.waitForTimeout(500);
+    out.tapLine = { f: target.f, state: await page.evaluate(state) };
+  }
   await page.close();
   return out;
 }
@@ -155,16 +247,44 @@ async function keys(browser, file, card) {
   const { page, errors } = await open(browser, file, WIDE);
   const order = await page.evaluate(() => window.systemapCanvas.tabOrder(''));
   await page.focus('#canvas');
+  // Each Tab step through the full order. The camera can move (`showFocus`), so each step
+  // waits for the reading line.
   const steps = [];
-  for (let i = 0; i < 3; i++) { await page.keyboard.press('Tab'); await page.waitForTimeout(350); steps.push(await page.evaluate(state)); }
+  for (let i = 0; i < order.length; i++) {
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(i < 3 ? 350 : 60);
+    steps.push(await page.evaluate(state));
+  }
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(100);
+  const after = await page.evaluate(state);
+  // Enter on a focused line pins it. A click on empty space removes the keyboard focus of
+  // the item and gives the focus to the canvas.
+  await page.mouse.click(5, 300);
+  const li = order.findIndex((x) => x.f !== undefined);
+  for (let i = 0; i <= li; i++) await page.keyboard.press('Tab');
+  await page.waitForTimeout(1200);
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(300);
+  const pinned = await page.evaluate(state);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
   // Tab to the card, then Enter.
+  await page.mouse.click(5, 300);
+  await page.waitForTimeout(1200);
   const n = order.findIndex((x) => x.id === card);
-  for (let i = 3; i <= n; i++) await page.keyboard.press('Tab');
+  for (let i = 0; i <= n; i++) await page.keyboard.press('Tab');
   await page.waitForTimeout(400);
   const onCard = await page.evaluate(state);
   await page.keyboard.press('Enter');
   await page.waitForTimeout(1200);
   const entered = await page.evaluate(state);
+  // Tab from the heading of the details to the first flow row.
+  let tabs = 0;
+  while (tabs < 40 && !(await page.evaluate(() => !!(document.activeElement && document.activeElement.classList.contains('row'))))) { await page.keyboard.press('Tab'); tabs++; }
+  await page.waitForTimeout(300);
+  const onRow = { tabs, f: await page.evaluate(() => +document.activeElement.getAttribute('data-f')), state: await page.evaluate(state) };
+  // Esc with the keyboard focus in the details.
   await page.keyboard.press('Escape');
   await page.waitForTimeout(1200);
   const escaped = await page.evaluate(state);
@@ -173,8 +293,24 @@ async function keys(browser, file, card) {
   await page.keyboard.press('f');
   await page.waitForTimeout(1500);
   const fitted = { camera: await page.evaluate(() => window.systemapCanvas.camera()), fit: await page.evaluate(() => window.systemapCanvas.fit('')) };
+  // Esc and F with the keyboard focus on a button of the page: the details open with a
+  // click, then a click on the Reduce motion button (two times), then Esc.
+  const at = mid(await boxOf(page, '', card));
+  await page.mouse.click(at[0], at[1]);
+  await page.waitForTimeout(1200);
+  await page.click('#atlas-motion'); await page.click('#atlas-motion');
+  const before = await page.evaluate(state);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(1200);
+  const button = { before, after: await page.evaluate(state) };
+  await page.evaluate(() => { const a = window.systemapCanvas, c = a.camera(); a.view({ x: c.x + 300, y: c.y, k: c.k * 1.7 }); });
+  await page.waitForTimeout(300);
+  await page.focus('#atlas-zf');
+  await page.keyboard.press('F');
+  await page.waitForTimeout(1500);
+  button.fitted = { active: await page.evaluate(() => document.activeElement.id), camera: await page.evaluate(() => window.systemapCanvas.camera()), fit: await page.evaluate(() => window.systemapCanvas.fit('')) };
   await page.close();
-  return { errors, order, steps, onCard, entered, escaped, fitted };
+  return { errors, order, steps, after, pinned, onCard, entered, onRow, escaped, fitted, button };
 }
 
 async function lightOf(page, card) {
@@ -196,8 +332,27 @@ async function motion(browser, file, card) {
   await plain.page.click('#atlas-motion');
   out.button = { pressed: await plain.page.getAttribute('#atlas-motion', 'aria-pressed'), attr: await plain.page.evaluate(() => document.documentElement.getAttribute('data-reduce-motion')),
     light: await lightOf(plain.page, card), errors: plain.errors };
+  out.button.select = await selectNow(plain.page, card);
   await plain.page.close();
+  const dev = await open(browser, file, { ...WIDE, reducedMotion: 'reduce' });
+  out.device.select = await selectNow(dev.page, card);
+  await dev.page.close();
+  const slow = await open(browser, file, WIDE);
+  out.plain.select = await selectNow(slow.page, card);
+  await slow.page.close();
   return out;
+}
+// A click on the card: the details and the camera 50 ms later and 1.5 s later, and the
+// transition of the details.
+async function selectNow(page, card) {
+  const at = mid(await boxOf(page, '', card));
+  await page.mouse.click(at[0], at[1]);
+  await page.waitForTimeout(50);
+  const soon = await page.evaluate(() => ({ side: window.systemapCanvas.side(), camera: window.systemapCanvas.camera(),
+    shown: document.getElementById('atlas-side').classList.contains('on'), transform: getComputedStyle(document.getElementById('atlas-side')).transform }));
+  await page.waitForTimeout(1500);
+  return { soon, late: await page.evaluate(() => ({ side: window.systemapCanvas.side(), camera: window.systemapCanvas.camera(),
+    transform: getComputedStyle(document.getElementById('atlas-side')).transform })) };
 }
 
 async function nested(browser, file, card, map) {
@@ -230,6 +385,39 @@ async function nested(browser, file, card, map) {
   await page.keyboard.press('Escape');
   await page.waitForTimeout(2000);
   out.esc = { before: again, after: await page.evaluate(state) };
+  // The reading line after a double-click on the pointed card.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(2000);
+  const g2 = mid(await boxOf(page, '', card));
+  await page.mouse.move(g2[0], g2[1]);
+  await page.waitForTimeout(300);
+  out.pointed = await page.evaluate(state);
+  await page.mouse.dblclick(g2[0], g2[1]);
+  await page.waitForTimeout(2000);
+  out.dblSay = await page.evaluate(state);
+  // The path of the headline goes to the top map.
+  await page.click('#atlas-ask-k button');
+  await page.waitForTimeout(2000);
+  out.pathOut = await page.evaluate(state);
+  // A zoom with the camera into the map, while the pointer stays on the card.
+  const g3 = mid(await boxOf(page, '', card));
+  await page.mouse.move(g3[0], g3[1]);
+  await page.waitForTimeout(300);
+  await page.evaluate((m) => { const a = window.systemapCanvas, f = a.fit(m, true); a.view({ x: f.x, y: f.y, k: f.k }); }, map);
+  await page.waitForTimeout(1200);
+  out.zoomSay = await page.evaluate(state);
+  await page.evaluate(() => { const a = window.systemapCanvas, f = a.fit(''); a.view({ x: f.x, y: f.y, k: f.k }); });
+  await page.waitForTimeout(1200);
+  // Tab to the card and Shift+Enter.
+  await page.focus('#canvas');
+  const order = await page.evaluate(() => window.systemapCanvas.tabOrder(''));
+  const n = order.findIndex((x) => x.id === card);
+  for (let i = 0; i <= n; i++) await page.keyboard.press('Tab');
+  await page.waitForTimeout(400);
+  out.keyed = await page.evaluate(state);
+  await page.keyboard.press('Shift+Enter');
+  await page.waitForTimeout(2000);
+  out.shiftEnter = await page.evaluate(state);
   await page.close();
   return out;
 }
@@ -261,7 +449,7 @@ async function axe(browser, file, card) {
 (async () => {
   const [mode, file, card, map] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const run = { '--point': point, '--select': select, '--phone': phone, '--keys': keys, '--motion': motion, '--nested': nested, '--axe': axe }[mode];
+  const run = { '--point': point, '--labels': labels, '--select': select, '--phone': phone, '--keys': keys, '--motion': motion, '--nested': nested, '--axe': axe }[mode];
   const out = await run(browser, file, card, map);
   await browser.close();
   process.stdout.write(JSON.stringify(out) + '\n');

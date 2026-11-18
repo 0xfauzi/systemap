@@ -13,8 +13,9 @@ touch part and the keyboard part of the canvas page (`page_canvas_touch`,
   card in reading order, and after each card the lines that start at it in the layer of
   the map (`tabOrder`). The item with the keyboard focus is lit, and the reading line
   gives it, with its place in the order for a screen reader.
-- Enter selects the focused card, or pins the focused line. Enter on the selected card
-  that opens a map goes into that map. Shift+Enter goes into it at once.
+- Enter selects the focused card, or pins the focused line. The keyboard focus then goes
+  to the heading of the details. Enter on the selected card that opens a map goes into
+  that map. Shift+Enter goes into it at once.
 - Esc closes the details, else removes the pin, else goes out one level (`escapeKey`).
   The keyboard focus goes to the card that the details gave, or to the card that opens the
   map that the camera leaves.
@@ -140,7 +141,7 @@ function enterKey(shift) {
   if (!x) return;
   if (isFlow(x)) { pin(PIN === x ? null : x); return; }
   if (x.child && (shift || SEL === x)) { dive(x); return; }
-  act(x, false);
+  act(x, false, true);
 }
 // Esc on the canvas: the keyboard focus goes to the card that opens the map that the camera
 // leaves. The live region gives that card with the new map, when the camera stops.
