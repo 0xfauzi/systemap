@@ -318,6 +318,7 @@ jobs:
   # into the page. The runner has no GPU, so Chromium paints in software. In this job the
   # tests fail when the browser or axe-core is not available.
   # tests/test_atlas_browser.py examines the Map view of the atlas page (docs/design/atlas.md).
+  # tests/test_atlas_point_browser.py examines pointing and selecting on the atlas page.
   canvas-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -350,7 +351,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the canvas browser tests
-        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py
+        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py tests/test_atlas_point_browser.py
 
   plugin:
     runs-on: ubuntu-latest

@@ -7369,3 +7369,23 @@ Run 3:
 | M11 tree | 496 / 492 (pass) | 33.3 / 33.3 (pass) | 33.4 / 33.4 (pass) | 1,236,352 / 1,098,992 = 0.89 (pass) | not measured |
 
 Result: PASS for each measured value in runs 2 and 3. The frame intervals on this host are steps of about 16.7 ms, and the p95 of the dive of the canvas page also changed between 33.4 ms and 50.0 ms from run to run. Thus one run is not sufficient to find a small change of speed. The time from a pointer move onto a card to the lit paths is not measured, because stage 1 has no lit paths.
+
+## B3: the performance budget of the atlas page, stage 2 (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py`, with the new point measure `bench/jev/atlas_point.js`. The docstring has the acceptance value of the point measure, written before its first run: the largest time of 8 pointer moves onto cards of the top map, from the time stamp of the pointermove event to the first animation frame after the frame that drew the lit paths, as the median of 3 runs, 100 ms or less. The other values and their limits did not change. The atlas page is the stage 2 page of `docs/design/atlas.md`: the lit paths, the reading line, the details, the keyboard, Reduce motion and the phone sheet. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU.
+
+Probes during the work (one run of `atlas_point.js` on the self-map each, not the budget script):
+
+- The first form drew the frame of a new light at full resolution. Times: 125, 79, 106, 100, 84, 98, 80 and 98 ms. The largest is 125 ms: FAIL. A full frame at rest had an interval of 67 ms between animation frames, with 4 ms of script time. A frame at the moving resolution had an interval of 17 ms.
+- The reading line written one frame later, with no other change: times from 74 ms to 166 ms. FAIL. This change did not remove the cause.
+- The kept change: a change of the light draws at the moving resolution for 480 ms, as a camera move does, and then the full drawing comes with the fade of the engine (`lightMoved` in `atlas_input`). The text does not fade and no stored image is made during this time. Times: 76, 27, 27, 31, 43, 34, 46 and 30 ms. The reading line stays one frame later.
+
+The budget run after the kept change, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 332 / 287 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 315,117 / 221,033 = 0.70 (pass) | 67 (pass) |
+| workspace | 296 / 243 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,900 / 168,569 = 0.63 (pass) | 66 (pass) |
+| M11 tree | 423 / 385 (pass) | 16.8 / 33.3 (pass) | 33.4 / 33.3 (pass) | 1,236,352 / 1,132,712 = 0.92 (pass) | 64 (pass) |
+
+Result: PASS for each value. The page sizes of the atlas pages grew by about 34,000 bytes (the lit part and the details part of the script).

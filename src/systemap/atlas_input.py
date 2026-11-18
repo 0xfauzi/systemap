@@ -9,11 +9,17 @@
   has a scale of 1.6 or less.
 - Phone. On a screen of 720 px or less, the map opens at a scale of 0.5 or more, at its
   top left part. The Fit control still shows the whole map.
+- The details. While the details of a selected card are open on a wide screen, the fit
+  of the map of the card keeps the width of the details free (`sideRight` in
+  `atlas_details`).
 - Pan, zoom and pinch. The wheel and a pinch zoom at the pointer, and a drag moves the
-  map. A double-click with a mouse or a tap on a card that opens a map goes into that map.
-  A click on a card does not select it: stage 1 has no selection. Esc goes
-  out one level, F fits the current map, + and - zoom, and the arrow keys move the map.
-  The zoom control at the bottom left has the same functions and the readout of the scale.
+  map. A double-click with a mouse goes into the map that a card opens. A click or a tap
+  selects a card or pins a line (`clickAt` and `tapAt` in `atlas_keys`). Esc closes the
+  details or goes out one level, F fits the current map, + and - zoom, and the arrow keys
+  move the map. The zoom control at the bottom left has the same functions and the
+  readout of the scale.
+- Pointing. A move of a mouse or a pen over the canvas points at the card or the line
+  under it (`point` in `atlas_lit`). A card comes before a line.
 - Frames. As on the canvas page: an input event asks for one frame. While the camera
   moves, the canvas has half of the device resolution. STILL_MS after the last move, the
   script draws one frame at full resolution (`atlas_image`).
@@ -31,7 +37,7 @@ var FIT = 0.04, WIDE = 720, ASK_EL = document.getElementById('atlas-ask');
 // The fit of a box. The frame of a map (`frameOf`) has the rule of the headline. `whole`
 // shows the whole map also on a phone.
 function mapFit(b, whole) {
-  var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24, bottom = 30;
+  var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24 + sideRight(m), bottom = 30;
   function fitK(left, top) { return Math.min((W - left - right) / b[2], (Hs - top - bottom) / b[3], 1.6 / m.T.s); }
   // `kBeside` and `kAbove` are the two fits for the tests: beside the headline (0 when the
   // screen is too narrow) and below it.
@@ -97,8 +103,21 @@ function zoomed(f) {
 
 // ---- frames -------------------------------------------------------------------
 var pending = false, sharp = true, stillTimer = 0, CHAIN = [], drawn = 0, LOG = null, MOVED_AT = -Infinity, SHOWN_MAP = null;
+// A change of the light (`atlas_lit`) draws at the moving resolution for LIGHT_MS, as a
+// camera move does: a full frame at rest costs about 4 times the time of a moving frame.
+// Thus the lit paths come to the screen in the next frame. LIGHT_MOVE is true while only
+// the light changes: then the text does not fade and no stored image is made.
+var LIGHT_MOVE = false, LIGHT_MS = 480;
+function lightMoved() {
+  if (!sharp && !LIGHT_MOVE) { request(); return; }
+  sharp = false; LIGHT_MOVE = true;
+  clearTimeout(stillTimer);
+  stillTimer = setTimeout(function () { sharp = true; LIGHT_MOVE = false; if (!flight) stillStart(); }, reduced() ? 0 : LIGHT_MS);
+  stillStop();
+  request();
+}
 function moved(now) {
-  sharp = false; MOVED_AT = performance.now();
+  sharp = false; LIGHT_MOVE = false; MOVED_AT = performance.now();
   clearTimeout(stillTimer);
   stillTimer = setTimeout(function () { sharp = true; if (!flight) { stillStart(); settled(); } }, STILL_MS);
   stillStop();
@@ -119,14 +138,18 @@ function draw() {
   STATS.cards = 0; STATS.image = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
+  if (SEL && SEL.map !== currentMap()) select(null, {keep: true});
+  litFrame();
   drawMap(TOP, 1, 1);
   drawFocus();
-  if (!sharp) makeImages(began);
+  speakLater();
+  if (!sharp && !LIGHT_MOVE) makeImages(began);
   if (HUD) drawHud(began, !sharp);
   frameShown();
   drawn++;
   var m = currentMap();
   if (m !== SHOWN_MAP) { SHOWN_MAP = m; headSync(true); }
+  if (SIDE_ON) sideSync();
   zoomShown();
   if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, hide: HIDE, images: LAYERS});
   if (SPEED_FADING || VIEW_FADING) fadeLater();
@@ -155,6 +178,7 @@ function currentMap() { return CHAIN.length ? CHAIN[CHAIN.length - 1].child : TO
 function settled() {
   var m = currentMap(), want = hashOf(m.id), hc = hashCard(hashId());
   tell(m);
+  afterFlight();
   if (hc && hc.map === m) want = location.hash;
   if (want !== location.hash && (want || location.hash)) setHash(want);
 }
@@ -190,7 +214,7 @@ function pick(px, py) {
 function pickClosed(px, py) { var c = pick(px, py); return c && !(c.child && deepOf(c) >= 0.5) ? c : null; }
 function enter(px, py) {
   var c = pickClosed(px, py);
-  if (c && c.child) flyGoal(goalOf(c.map, c, null));
+  if (c && c.child) dive(c);
 }
 function goOut() {
   var n = CHAIN.length;
@@ -213,8 +237,9 @@ cv.addEventListener('pointerdown', function (e) {
 });
 cv.addEventListener('pointermove', function (e) {
   if (!pts.has(e.pointerId)) {
-    var at = local(e);
-    cv.classList.toggle('over', !TOUCH && !!pickClosed(at[0], at[1]));
+    var at = local(e), c = e.pointerType === 'touch' ? null : pickHere(at[0], at[1]), f = c || e.pointerType === 'touch' ? null : pickLine(at[0], at[1]);
+    cv.classList.toggle('over', !TOUCH && !!(c || f));
+    if (e.pointerType !== 'touch') point(c, f, 'pointer');
     return;
   }
   var prev = pts.get(e.pointerId), p = local(e);
@@ -242,16 +267,16 @@ function up(e) {
   if (!pts.size) { drag = null; multi = false; cv.classList.remove('drag'); }
   else if (pts.size === 1 && !drag) pts.forEach(function (v) { drag = {x: v[0], y: v[1], cx: cam.x, cy: cam.y}; });
   if (!was || didMove || e.type === 'pointercancel') return;
-  if (e.pointerType !== 'mouse') tapAt(p[0], p[1]);
+  if (e.pointerType === 'touch') tapAt(p[0], p[1]); else clickAt(p[0], p[1], e.pointerType === 'mouse');
 }
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
-cv.addEventListener('pointerleave', function () { cv.classList.remove('over'); });
+cv.addEventListener('pointerleave', function () { cv.classList.remove('over'); if (HOT.from === 'pointer') point(null, null, ''); });
 cv.addEventListener('dblclick', function (e) { var p = local(e); if (kind === 'mouse') enter(p[0], p[1]); });
 window.addEventListener('keydown', function (e) {
   if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e)) return;
   var step = 80 / cam.k, keys = {
-    Escape: goOut, f: function () { fitCurrent(); }, F: function () { fitCurrent(); },
+    Escape: escapeKey, f: function () { fitCurrent(); }, F: function () { fitCurrent(); },
     '+': function () { fly(zoomed(1.6), 260); },
     '-': function () { fly(zoomed(1 / 1.6), 260); },
     ArrowLeft: function () { stopFlight(); cam = {x: cam.x - step, y: cam.y, k: cam.k}; moved(); },
@@ -358,6 +383,22 @@ window.systemapCanvas = {
   // The texts and the geometry of one frame (`DLOG` in `atlas_draw`).
   drawn: function () { TLOG = []; DLOG = []; draw(); var o = {texts: TLOG, marks: DLOG}; TLOG = null; DLOG = null; return o; },
   keys: keyState,
+  // The light, the reading line and the details (`atlas_lit`, `atlas_details`).
+  lit: function () {
+    return {key: LIGHT.key, map: LIGHT.m ? LIGHT.m.id : null, focus: LIGHT.focus, dim: DIM, shown: LIT_SHOWN,
+      flows: LIGHT.flows ? Array.prototype.reduce.call(LIGHT.flows, function (o, v, i) { if (v) o.push(i); return o; }, []) : [],
+      cards: LIGHT.cards ? Object.keys(LIGHT.cards) : [], pin: PIN ? PIN.i : null, hot: HOT.c ? HOT.c.id : HOT.f ? HOT.f.i : null, from: HOT.from};
+  },
+  say: function () { return {on: SAY.classList.contains('on'), text: SAY.textContent, live: SAY.getAttribute('aria-live')}; },
+  side: function () { var r = SIDE.getBoundingClientRect(); return {on: SIDE_ON, hidden: SIDE.hidden, sel: SEL ? {map: SEL.map.id, id: SEL.id} : null, box: [r.left, r.top, r.width, r.height], top: SIDE.offsetTop}; },
+  select: function (mapId, cardId) { var c = MAPS[mapId] && MAPS[mapId].byId[cardId]; if (c) act(c, false); return !!c; },
+  pointAt: function (mapId, cardId, flow) {
+    var m = MAPS[mapId];
+    if (flow !== undefined && flow !== null) point(null, m.flows[flow], 'pointer'); else point(cardId ? m.byId[cardId] : null, null, 'pointer');
+  },
+  // The screen points of the line of flow i of a map, in the layer of the frame.
+  line: function (mapId, i) { var m = MAPS[mapId], e = lineOf(m, i), v = view(m); return e ? e.d.map(function (p) { return [v.ox + v.a * p[0], v.oy + v.a * p[1]]; }) : null; },
+  tabOrder: function (id) { return tabOrder(MAPS[id]).map(function (x) { return isFlow(x) ? {f: x.i} : {id: x.id}; }); },
   order: function (id) { return readingOrder(MAPS[id]).map(function (c) { return c.id; }); },
   stats: function () { return {cards: STATS.cards, image: STATS.image, flows: STATS.flows, drawn: drawn, width: (sharp || !STILL_CV ? cv : STILL_CV).width, sharp: sharp, fading: SPEED_FADING || VIEW_FADING, swap: SWAP_A}; },
   viewState: viewState,

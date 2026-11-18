@@ -6,8 +6,9 @@ the question of the layer, the counts, the key and the readout of the zoom. The 
 has the empty elements and the fixed words only. It has no style attribute and no inline
 event handler (docs/design/atlas.md, "Requirements of the product page").
 
-- The header: the name of the project, the views and the tabs of the layers. The views
-  have only Map in this stage. A view shows only when the map has data for it.
+- The header: the name of the project, the views, the tabs of the layers and the Reduce
+  motion button (`atlas_details`). The views have only Map in this stage. A view shows
+  only when the map has data for it.
 - The headline (`atlas-ask`): type on the ground, beside the map or above it.
 - The zoom control: zoom out, the readout of the scale, zoom in, and Fit.
 - The key of the kinds of lines, and a note with the inputs of the map.
@@ -15,6 +16,7 @@ event handler (docs/design/atlas.md, "Requirements of the product page").
 
 from __future__ import annotations
 
+from systemap import page
 from systemap.page import esc
 
 _MARK = (
@@ -31,7 +33,7 @@ _FIT = (
 )
 
 NOTE = (
-    "Drag to move the map. Use the wheel or two fingers to zoom. "
+    "Point at a card or a line to read it. Select a card for its details. "
     "Double-click a card with a small map in it to go into that map. Esc goes out."
 )
 
@@ -44,7 +46,9 @@ def header(name: str) -> str:
         '<div class="views" role="group" aria-label="Views">'
         '<button type="button" data-mode="map" aria-pressed="true">Map</button></div>'
         '<nav class="tabs" id="atlas-tabs" role="tablist" aria-label="Layers"></nav>'
-        "</header>"
+        '<div class="bar__end">'
+        + page.tool("atlas-motion", "Reduce motion", "motion", ' aria-pressed="false"')
+        + "</div></header>"
     )
 
 

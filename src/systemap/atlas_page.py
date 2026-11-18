@@ -15,8 +15,10 @@ element, and it permits no frame. The markup has no style attribute and no inlin
 handler.
 
 The page also has an empty list of the tree and a live region (`atlas_tree`). The script
-writes the list from the data after the first frame. The canvas, its help text, the list,
-the live region and the headline are in one `main` element.
+writes the list from the data after the first frame. The details of a selected card and
+the reading line come after the canvas (`atlas_details`), so that Tab goes from the last
+item of the canvas to the details. The canvas, its help text, the details, the reading
+line, the list, the live region and the headline are in one `main` element.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from typing import Any
 from systemap import (
     atlas_css,
     atlas_data,
+    atlas_details,
     atlas_header,
     atlas_tree,
     canvas_data,
@@ -37,6 +40,7 @@ from systemap import (
     page,
     page_csp,
     page_font,
+    page_icons,
 )
 from systemap.atlas_script import SCRIPT
 from systemap.config import Config
@@ -44,10 +48,14 @@ from systemap.config import Config
 NAME = "atlas page"
 
 HELP = (
+    "Point at a card or a line to light its flows and read it in the line at the bottom. "
     "The wheel and a pinch zoom the camera. A drag moves the map. "
-    "A double-click or a tap on a card with a small map goes into that map. "
-    "Tab and Shift+Tab move the keyboard focus through the cards of the current map. "
-    "Enter on a card that opens a map goes into that map. Esc goes out one level. "
+    "A click or a tap on a card selects it and opens its details. "
+    "A double-click on a card with a small map goes into that map. "
+    "Tab and Shift+Tab move the keyboard focus through the cards and the lines of the current map. "
+    "Enter selects the focused card or keeps the focused line lit. "
+    "Enter on the selected card that opens a map goes into that map. "
+    "Esc closes the details, or goes out one level. "
     "The arrow keys move the map. The keys + and - zoom. F fits the current map. "
     "The list after the canvas gives the maps, the cards and the flows. "
     "Each link in the list moves the camera to its item."
@@ -80,6 +88,8 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + "<style>"
         + page_font.FACE
         + atlas_css.CSS
+        + page_icons.CSS
+        + atlas_details.CSS
         + atlas_tree.CSS
         + "</style></head><body>"
         + atlas_header.header(name)
@@ -87,6 +97,7 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + f'<p id="canvas-help" class="sr-only">{HELP}</p>'
+        + atlas_details.HTML
         + atlas_header.overlay()
         + atlas_tree.HTML
         + "</main>"

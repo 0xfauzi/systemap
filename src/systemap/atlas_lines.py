@@ -145,7 +145,7 @@ function seatsOf(m, id, a) {
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
     var at = seat(e, fs, wall, taken, L.list);
     if (!at) return;
-    taken.push(at.box); out.push({e: e, x: at.x, y: at.y});
+    taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
   });
   L.seats = {key: key, list: out, fs: fs};
   return L.seats;

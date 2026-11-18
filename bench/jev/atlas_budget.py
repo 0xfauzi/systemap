@@ -1,4 +1,4 @@
-"""B1: the performance budget of the atlas page against the canvas page (stage 1).
+"""B1 to B3: the performance budget of the atlas page against the canvas page.
 
 Acceptance values, written before the first run on 2026-11-18, from "The performance
 budget" in docs/design/atlas.md. Each value compares the atlas page (`atlas_page.build`)
@@ -18,8 +18,13 @@ the same machine, at 4 times CPU slowdown (`Emulation.setCPUThrottlingRate`):
    card that opens a map, and back out. A map with no nested map zooms into its middle
    card. The atlas value is 1.25 times the canvas value or less, or 35 ms or less.
 4. `point`: the time from a pointer move onto a card to the lit paths on the screen,
-   100 ms or less. Stage 1 has no lit paths (they come in stage 2). Thus this value is not
-   measured in stage 1, and the script prints "not measured".
+   100 ms or less. The canvas page has no equal measure. Stage 1 had no lit paths, and
+   the stage 1 records give "not measured". From stage 2 (written on 2026-11-18 before
+   the first run of this measure): bench/jev/atlas_point.js moves the pointer onto 8
+   cards of the top map that have flows in the first layer. The time of one move is from
+   the time stamp of the pointermove event to the first animation frame after the frame
+   that drew the lit paths. The value of a run is the largest time of its moves. The
+   value of the input is the median of RUNS runs, and it passes at 100 ms or less.
 5. `size`: the size of the page file in bytes. The atlas value is 1.5 times the canvas
    value or less.
 
@@ -47,7 +52,9 @@ Run from the repository root (Node and the Playwright package must be installed)
 
 from __future__ import annotations
 
+import json
 import statistics
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -132,6 +139,31 @@ def write_pages(name: str, out: Path) -> tuple[Path, Path]:
     return canvas, atlas
 
 
+POINT_LIMIT = 100.0
+
+
+def _point(page: Path) -> float:
+    """Give the median of RUNS runs of the largest point time of a run (acceptance 4)."""
+    import canvas_frames  # noqa: PLC0415
+
+    found = canvas_frames.node()
+    if found is None:
+        raise RuntimeError(canvas_frames.missing())
+    values = []
+    for _ in range(RUNS):
+        proc = subprocess.run(
+            [found, str(HERE / "atlas_point.js"), str(page), str(RATE)],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr or proc.stdout)
+        values.append(float(json.loads(proc.stdout)["max"]))
+    return statistics.median(values)
+
+
 def _median(page: Path, mode: str) -> float:
     import canvas_frames  # noqa: PLC0415
 
@@ -145,6 +177,7 @@ def measure(canvas: Path, atlas: Path) -> dict[str, tuple[float, float]]:
         mode: (_median(canvas, mode), _median(atlas, mode)) for mode in ("load", "pan-fit", "dive")
     }
     out["size"] = (float(canvas.stat().st_size), float(atlas.stat().st_size))
+    out["point"] = (0.0, _point(atlas))
     return out
 
 
@@ -160,6 +193,7 @@ def verdicts(found: dict[str, tuple[float, float]]) -> dict[str, bool]:
         "pan": frames(pan),
         "dive": frames(dive),
         "size": size[1] <= SIZE_FACTOR * size[0],
+        "point": found["point"][1] <= POINT_LIMIT,
     }
 
 
@@ -180,7 +214,8 @@ def row(name: str, found: dict[str, tuple[float, float]]) -> str:
         )
     c, a = found["size"]
     cells.append(f"{c:,.0f} / {a:,.0f} = {a / c:.2f} ({_word(v['size'])})")
-    return f"| {name} | " + " | ".join(cells) + " | not measured |"
+    point = found["point"][1]
+    return f"| {name} | " + " | ".join(cells) + f" | {point:.0f} ({_word(v['point'])}) |"
 
 
 def main() -> int:
@@ -193,7 +228,7 @@ def main() -> int:
     ok = True
     print(
         "| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | "
-        "Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths |"
+        "Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |"
     )
     print("|---|---|---|---|---|---|")
     with tempfile.TemporaryDirectory() as tmp:
@@ -202,7 +237,7 @@ def main() -> int:
             found = measure(canvas, atlas)
             print(row(name, found), flush=True)
             ok &= all(verdicts(found).values())
-    print("budget: " + _word(ok) + " (point to lit paths: not measured in stage 1)")
+    print("budget: " + _word(ok))
     return 0 if ok else 1
 
 

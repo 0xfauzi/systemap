@@ -1,0 +1,388 @@
+"""The details part of the atlas page: the selected card, the reading line and Reduce motion.
+
+`atlas_script` joins the script of this part after the keyboard part (`atlas_keys`). The
+rules are the section "Map view: the rules" of docs/design/atlas.md:
+
+- Selecting a card. A click, a tap or Enter selects a card. The details open at the side,
+  and the map moves to keep its full frame in view (`sideRight` in the fit of
+  `atlas_input`). On a phone (720 px or less), the details are a sheet at the bottom, and
+  the selected card goes to the part of the screen above the sheet (`showAbove`). A click
+  with a mouse opens the details after OPEN_WAIT ms, so that a double-click goes into a
+  card and opens no details. With reduced motion, they open at once.
+- The details keep the content of the canvas page (`page_canvas_details`): the kind, the
+  short name, the assurance level and the freshness, the description, the note, the flows
+  in and out with the evidence state and the relation sentence, the sequences that use the
+  card, the source modules, the source records and the rules of the map (invariants and
+  import rules). The flows are the flows of the layer of the map. The details give the count
+  of the flows in other layers, with a button that shows all layers.
+- Each flow row lights its flow on the map (`point` in `atlas_lit`). A click on a row
+  selects the card at its other end. A neighbour of a nested map goes out to its card.
+- A card that opens a map has a button that goes into that map.
+- Esc and the Close button close the details. The keyboard focus goes back to the card.
+
+The script writes the details with DOM functions (`el` in `atlas_tree`), not with HTML
+text. Thus no text of the page data goes to an HTML parser. The details change only at a
+change of the selected card or of the layer (`sideSync`).
+
+The reading line (`atlas-say`) is a polite live region at the bottom of the map
+(`speak` in `atlas_lit`). The Reduce motion button of the header sets
+`data-reduce-motion` and keeps the setting with the key of the linked page
+(`page.MOTION_KEY`). The setting of the device for reduced motion also applies.
+"""
+
+from __future__ import annotations
+
+import json
+
+from systemap import page
+from systemap.evidence import READER_TEXT
+
+_CLOSE = (
+    '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">'
+    '<path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>'
+)
+
+HTML = (
+    '<aside class="side" id="atlas-side" aria-label="Details" hidden>'
+    '<div class="side__head"><div class="side__k"><span id="atlas-side-k"></span>'
+    '<button type="button" id="atlas-side-x" aria-label="Close the details" '
+    f'title="Close (Esc)">{_CLOSE}</button></div>'
+    '<h2 id="atlas-side-h" tabindex="-1"></h2><div class="side__p" id="atlas-side-p"></div>'
+    '<div class="side__state" id="atlas-side-s"></div></div>'
+    '<div class="side__body" id="atlas-side-b"></div></aside>'
+    '<div class="say" id="atlas-say" aria-live="polite"></div>'
+)
+
+CSS = """
+.say{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translate(-50%,6px);
+max-width:min(760px,calc(100% - 32px));box-sizing:border-box;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+justify-content:center;padding:10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--line);
+box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .14s,transform .14s;text-align:center;z-index:2}
+.say.on{opacity:1;transform:translate(-50%,0)}
+.say b{font:600 13px/1.3 var(--fs);letter-spacing:-.01em;white-space:nowrap}
+.say .arr{color:var(--ink-3);margin:0 4px}
+.say code{font:500 11px/1 var(--fm);padding:3px 6px;border-radius:5px;background:var(--tint);border:1px solid var(--line);white-space:nowrap}
+.say code::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--k,var(--wire));vertical-align:1px}
+.say span{color:var(--ink-2);min-width:0}
+.note{transition:opacity .2s}.note.gone{opacity:0}
+.bar__end{margin-left:auto;display:flex;align-items:center;gap:4px;flex:none}
+.tool{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--ink-3)}
+.tool:hover{background:var(--tint);color:var(--ink)}
+.tool[aria-pressed="true"]{color:var(--ink);background:var(--tint)}
+.side{position:fixed;top:48px;right:0;bottom:0;z-index:3;width:380px;max-width:100%;box-sizing:border-box;
+background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow);transform:translateX(102%);
+transition:transform .26s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;min-width:0}
+.side.on{transform:none}
+.side[hidden]{display:none}
+.side__head{padding:20px 22px 16px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.side__k{display:flex;align-items:center;gap:8px;font:500 10.5px/1 var(--fm);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.side__k button{margin-left:auto;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:var(--ink-2)}
+.side__k button:hover{background:var(--tint);color:var(--ink)}
+.side h2{margin:0;font:600 21px/1.2 var(--fs);letter-spacing:-.02em;overflow-wrap:anywhere;outline:none}
+.side__p{color:var(--ink-2)}
+.side__state{display:flex;gap:6px;align-items:center;color:var(--ink-3);font-size:11.5px;margin-top:2px}
+.side__state:empty{display:none}
+.side__state i{width:7px;height:7px;border-radius:50%;background:var(--data)}
+.side__state i.no{background:var(--line-2)}
+.side__body{overflow:auto;padding:16px 22px 28px;display:grid;gap:22px;align-content:start;grid-auto-rows:max-content;min-height:0;overscroll-behavior:contain;
+scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+.side__d{margin:0;color:var(--ink-2);max-width:62ch}
+.side__d.clip{max-height:5.8em;overflow:hidden}
+.side p{margin:0}
+.more{color:var(--ink-3);font-size:12px;text-decoration:underline;text-underline-offset:3px;justify-self:start;margin-top:-16px}
+.more:hover{color:var(--ink)}
+.side__body>.more:first-child,.sec .more{margin-top:0}
+.enter{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:9px;
+background:var(--ink);color:var(--surface);font:600 12.5px/1 var(--fs);transition:transform .12s}
+.enter:hover{transform:translateY(-1px)}
+.enter svg{display:block}
+.sec h3{margin:0 0 6px;display:flex;justify-content:space-between;font:500 10.5px/1 var(--fm);letter-spacing:.09em;
+text-transform:uppercase;color:var(--ink-3)}
+.sec h3 span{font-variant-numeric:tabular-nums}
+.sec ul{margin:0;padding:0;list-style:none}
+.sec li{margin:0 0 4px;color:var(--ink-2)}
+.sec li b{color:var(--ink);font-weight:600}
+.row{display:grid;grid-template-columns:14px minmax(0,1fr);gap:2px 10px;width:calc(100% + 16px);box-sizing:border-box;
+text-align:left;padding:9px 8px;margin:0 -8px;border-radius:8px;transition:background .12s}
+.row:hover,.row:focus-visible,.row.on{background:var(--tint)}
+.row i{grid-row:1/4;width:10px;height:2px;border-radius:2px;background:var(--k);margin-top:9px}
+.row b{font:600 13px/1.35 var(--fs);letter-spacing:-.01em;overflow-wrap:anywhere}
+.row b em{font-style:normal;font-weight:400;color:var(--ink-3)}
+.row small{font-size:12px;color:var(--ink-2);line-height:1.45}
+.row small.ev{color:var(--ink-3)}
+.mods{display:flex;flex-wrap:wrap;gap:5px}
+.mods code,.side .rec code{font:400 10.5px/1.4 var(--fm);padding:3px 6px;border-radius:5px;border:1px solid var(--line);
+color:var(--ink-2);overflow-wrap:anywhere}
+.side details{color:var(--ink-2)}
+.side details p{margin:6px 0}
+.side details details{margin-left:12px}
+.side summary{min-height:28px;padding:4px 0;cursor:pointer;color:var(--ink-2)}
+.side summary:hover{color:var(--ink)}
+.side .as{color:var(--ink-3)}
+body.open .key{right:400px}
+@media (max-width:720px){
+.side{top:auto;height:62%;width:100%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(104%)}
+.say{bottom:max(60px,env(safe-area-inset-bottom,0px))}
+body.open .say{bottom:calc(62% + 12px)}
+body.open .ask__q{font-size:15px}
+}
+@media (pointer:coarse){.tool,.side__k button{width:44px;height:44px}.row{min-height:44px}.side summary{min-height:44px}}
+"""
+
+# The words for each evidence state of a flow (`evidence.READER_TEXT`).
+_EVIDENCE = json.dumps(READER_TEXT, sort_keys=True)
+
+_ENTER = "M1.5 4.5v-3h3M11.5 8.5v3h-3M8 1.5h3.5V5M5 11.5H1.5V8"  # the icon of the study
+
+DETAILS = r"""
+// ---- the details of the selected card ---------------------------------------------------
+var SIDE = document.getElementById('atlas-side'), SIDE_B = document.getElementById('atlas-side-b');
+var SIDE_ON = false, SIDE_TIMER = 0, OPEN_WAIT = 0, OPEN_MS = 240, SIDE_W = 380, SIDE_KEY = '', AFTER = null;
+var EV = EVIDENCE_JSON, FF = DATA.maps[0].ff || 'the facts file';
+// The width that the details take from the map at the right of a wide screen, for the fit
+// of map m. A flight to a neighbour's card keeps it (`AFTER`).
+function sideRight(m) {
+  if (W <= WIDE) return 0;
+  return (SIDE_ON && SEL && SEL.map === m) || (AFTER && AFTER.map === m) ? SIDE_W : 0;
+}
+// Select card c, or no card. `how.wait` opens the details after OPEN_MS (a click of a
+// mouse). `how.keep` does not move the camera.
+function select(c, how) {
+  how = how || {};
+  clearTimeout(OPEN_WAIT);
+  var was = SIDE_ON;
+  SEL = c || null; PIN = null;
+  speak(); lightMoved();
+  if (!c) {
+    sideShow(false);
+    if (was && !how.keep) fitCurrent();
+    return;
+  }
+  var go = function () {
+    if (SEL !== c) return;
+    sideSync(); sideShow(true);
+    say('Selected: ' + c.id + '. The details are open.');
+    if (how.keep) return;
+    if (W <= WIDE) showAbove(c); else if (!was) fitCurrent();
+  };
+  if (how.wait && !reduced()) OPEN_WAIT = setTimeout(go, OPEN_MS); else go();
+}
+// On a phone: move the selected card to the middle of the part of the screen between the
+// headline and the sheet, at a scale of 0.62 or more.
+function showAbove(c) {
+  var b = worldBox(c), top = ASK_EL ? ASK_EL.getBoundingClientRect().bottom + 8 : HEAD_H + 8, low = SIDE.offsetTop - 8;
+  var k = clamp(Math.max(cam.k, 0.62 / c.map.T.s), KMIN, Math.min((W - 32) / b[2], Math.max(1, low - top) / b[3], KMAX));
+  var cx = W / 2, cy = (top + low) / 2;
+  fly({x: b[0] + b[2] / 2 - cx / k, y: b[1] + b[3] / 2 - cy / k, k: k});
+}
+function sideShow(on) {
+  if (!SIDE || on === SIDE_ON) return;
+  SIDE_ON = on; clearTimeout(SIDE_TIMER);
+  document.body.classList.toggle('open', on);
+  if (on) { SIDE.hidden = false; SIDE.getBoundingClientRect(); SIDE.classList.add('on'); return; }
+  if (SIDE.contains(document.activeElement)) cv.focus({preventScroll: true});
+  SIDE.classList.remove('on'); point(null, null, '');
+  if (reduced()) SIDE.hidden = true; else SIDE_TIMER = setTimeout(function () { if (!SIDE_ON) SIDE.hidden = true; }, 300);
+}
+// Close the details, and give the keyboard focus back to the card on the canvas.
+function closeSide() {
+  var c = SEL;
+  select(null);
+  if (c && c.map === currentMap()) { cv.focus({preventScroll: true}); setFocus(c); }
+}
+// Select a card, or go out to the card of a neighbour. `mouse` waits for a double-click.
+function act(c, mouse) {
+  var up = upCard(c);
+  if (!up) { select(SEL === c ? null : c, {wait: mouse}); return; }
+  select(null, {keep: true});
+  AFTER = up;
+  flyTo(frameOf(up.map), FIT);
+}
+// When the camera stops in the map of the card of a neighbour, select that card.
+function afterFlight() {
+  if (!AFTER || currentMap() !== AFTER.map) return;
+  var c = AFTER;
+  AFTER = null;
+  select(c, {keep: W > WIDE});
+}
+// Go into the map that card c opens. The selection goes.
+function dive(c) {
+  select(null, {keep: true});
+  PIN = null; FOCUS = null; FOCUS_MAP = c.child;
+  flyGoal(goalOf(c.map, c, null));
+  if (flight) flight.into = c.child;
+}
+
+// ---- the text of the details ------------------------------------------------------
+function kindWords(c) {
+  var o = c.map.owner;
+  if (c.k === 'actor') return o ? 'Outside ' + o.id : 'Actor · outside the system';
+  if (o) return 'Part of ' + o.id;
+  return c.k === 'component' ? 'Component' : c.k;
+}
+function colorOf(f, e) { e.style.setProperty('--k', 'var(' + (KIND[f.k] || '--ink-2') + ')'); return e; }
+function levelWords(o) { return o.as ? 'Assurance level: ' + o.as[0] + '. Freshness: ' + o.as[1] + '.' : ''; }
+function section(name, n, body) {
+  return el('section', {'class': 'sec'}, el('h3', null, name, n === null ? null : el('span', null, String(n))), body);
+}
+// One row of a flow: the line of its kind, the artifact, the card at the other end, the
+// relation sentence and the evidence state.
+function flowRow(f, word, other) {
+  return colorOf(f, el('button', {type: 'button', 'class': 'row', 'data-f': f.i}, el('i'),
+    el('b', null, f.a + ' ', el('em', null, word + ' ' + other)), f.y ? el('small', null, f.y) : null,
+    el('small', {'class': 'ev'}, 'Evidence: ' + (EV[f.ev] || f.ev) + '.' + (f.as ? ' ' + levelWords(f) : ''))));
+}
+function flowLists(c) {
+  var id = shownLayer(c.map), fl = layerFlags(c.map, id).flow, out = [], other = 0;
+  [['Receives', c.ins, 'from', 's'], ['Gives', c.outs, 'to', 't']].forEach(function (g) {
+    var list = g[1].filter(function (f) { return fl[f.i]; });
+    other += g[1].length - list.length;
+    if (list.length) out.push(section(g[0], list.length, list.map(function (f) { return flowRow(f, g[2], f[g[3]]); })));
+  });
+  if (!out.length) out.push(el('p', {'class': 'side__d'}, 'This card has no flow in the layer ' + layerName(c.map, id) + '.'));
+  if (other) out.push(el('p', {'class': 'side__d'}, counted(other, 'flow') + ' of this card ' + (other === 1 ? 'is' : 'are') + ' in other layers. ',
+    el('button', {type: 'button', 'class': 'more', 'data-all': ''}, 'Show all layers')));
+  return out;
+}
+function about(d) {
+  var p = el('p', {'class': 'side__d' + (d.length > 260 ? ' clip' : '')}, d);
+  return d.length > 260 ? [p, el('button', {type: 'button', 'class': 'more', 'data-more': ''}, 'Read all')] : p;
+}
+// The sequences of the map that use card c, with the numbers of their steps.
+function sequencesOf(c) {
+  var m = c.map, out = [];
+  (m.sq || []).forEach(function (q) {
+    var at = [];
+    q.s.forEach(function (s, k) {
+      var f = s.f >= 0 ? m.flows[s.f] : null;
+      if ((f && (f.s === c.id || f.t === c.id)) || (s.a || []).indexOf(c.id) >= 0 || (s.me || []).indexOf(c.id) >= 0) at.push(k + 1);
+    });
+    if (at.length) out.push(el('li', null, el('b', null, q.n), ': ' + (at.length === 1 ? 'step ' : 'steps ') + at.join(', ') + '.'));
+  });
+  return section('Sequences', out.length, out.length ? el('ul', null, out) : el('p', {'class': 'side__d'}, 'No sequence of this map uses this card.'));
+}
+function modules(c) {
+  var list = c.m || [];
+  if (!list.length) return null;
+  return section('Source modules', list.length, el('div', {'class': 'mods'}, list.slice(0, 14).map(function (n) { return el('code', null, n); }),
+    list.length > 14 ? el('code', null, '+ ' + (list.length - 14) + ' more') : null));
+}
+function names(xs) { return xs.length ? xs.map(function (x, i) { return [i ? ', ' : null, el('code', null, x)]; }) : 'none recorded'; }
+function fileOf(m, x) { return 'f' in x ? x.f : m.fr ? m.fr[0] + x.i.replace(/\./g, '/') + m.fr[1] : ''; }
+function nameOf(m, x) { return typeof x === 'number' ? m.md[x].i : x; }
+function importers(m, j) {
+  var x = m.md[j], out = [];
+  if (!x.ia) m.md.forEach(function (o, k) { if ((o.im || []).indexOf(j) >= 0) out.push(k); });
+  return out.concat(x.ib || []).map(function (y) { return nameOf(m, y); });
+}
+function moduleRecord(m, j) {
+  var x = m.md[j], file = fileOf(m, x);
+  return el('details', null, el('summary', null, x.i), el('p', null, file ? el('code', null, file) : 'Source path not recorded.'),
+    el('p', null, 'Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n ? x.n[1] : 0) + '.'),
+    el('p', null, 'Imports: ', names((x.im || []).map(function (y) { return nameOf(m, y); })), '.'),
+    el('p', null, 'Imported by: ', names(importers(m, j)), '.'),
+    el('p', null, 'External imports: ', names(x.ex || []), '.'),
+    (x.uk || []).map(function (u) { return el('p', null, 'Unknown fact: ' + u); }));
+}
+// The source records of a card that is not an actor, as on the canvas page.
+function records(c) {
+  if (c.k === 'actor') return null;
+  var m = c.map, r = (m.sr || {})[c.id] || {}, mo = r.mo || [], pt = r.pt || [];
+  return el('div', {'class': 'rec'},
+    (c.u || []).map(function (u) { return el('p', {'class': 'side__d'}, 'The source data has no source for this module claim: ', el('code', null, u), '.'); }),
+    el('details', null, el('summary', null, 'Source records'),
+      el('p', null, 'Module claims in the model: ', names(c.m || []), '.'),
+      (r.sc || []).map(function (s) { return el('p', null, 'Public name in the model: ', el('code', null, s), '.'); }),
+      mo.length ? mo.map(function (j) { return moduleRecord(m, j); }) : el('p', null, 'The source data has no modules for this card.'),
+      el('p', null, 'The facts file ', el('code', null, FF), ' gives the module descriptions, the public names and the tests. References do not prove coverage.'),
+      el('p', null, el('b', null, 'Entry points.'), ' An entry point is where a program can start.'),
+      pt.length ? pt.map(function (p) { return el('p', null, el('code', null, p)); }) : el('p', null, 'No entry points were extracted for these modules.')));
+}
+// The rules of the map: the invariants and the import rules. `c` keeps only the rules of
+// that card. Each rule gives its assurance level and its freshness.
+function ruleItems(m, c) {
+  var out = [];
+  (m.iv || []).forEach(function (r) {
+    if (!c || (r.g || []).indexOf(c.id) >= 0) out.push(el('li', null, el('b', null, 'Invariant ' + r.n + '.'), ' ' + r.t + ' ', el('span', {'class': 'as'}, levelWords(r))));
+  });
+  (m.ir || []).forEach(function (r) {
+    var s = r.s || [], t = r.t || [];
+    if (!c || s.indexOf(c.id) >= 0 || t.indexOf(c.id) >= 0) out.push(el('li', null, el('b', null, 'Import rule ' + r.id + '.'), ' Kind: ' + r.k + '. ', el('span', {'class': 'as'}, levelWords(r))));
+  });
+  return out;
+}
+function rules(c) {
+  var m = c.map, own = ruleItems(m, c), every = ruleItems(m, null);
+  return section('Rules', own.length, own.length ? el('ul', null, own) : el('p', {'class': 'side__d'}, 'No rule of the model names this card.'),
+    every.length ? el('details', null, el('summary', null, 'All rules of this map (' + every.length + ')'), el('ul', null, every))
+      : el('p', {'class': 'side__d'}, 'The model has no rules for this map.'));
+}
+function enterButton(c) {
+  var icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg'), path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  icon.setAttribute('width', '13'); icon.setAttribute('height', '13'); icon.setAttribute('viewBox', '0 0 13 13'); icon.setAttribute('aria-hidden', 'true');
+  path.setAttribute('d', ENTER_PATH); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '1.5');
+  icon.append(path);
+  return el('button', {type: 'button', 'class': 'enter', 'data-go': ''}, icon, 'See its ' + counted(partsOf(c), 'part'));
+}
+// Write the details of the selected card when the card or the layer changes.
+function sideSync() {
+  var c = SEL;
+  if (!c || !SIDE) return;
+  var key = c.map.oi + ':' + c.i + '|' + shownLayer(c.map);
+  if (key === SIDE_KEY) return;
+  SIDE_KEY = key;
+  document.getElementById('atlas-side-k').textContent = kindWords(c);
+  document.getElementById('atlas-side-h').textContent = c.id;
+  document.getElementById('atlas-side-p').textContent = c.p || '';
+  var st = document.getElementById('atlas-side-s');
+  st.replaceChildren.apply(st, c.as ? [el('i', {'class': c.as[0] === 'unknown' ? 'no' : null}), levelWords(c)] : []);
+  var body = document.createDocumentFragment();
+  addChild(body, [c.child ? enterButton(c) : null, c.d ? about(c.d) : null, c.nt ? el('p', {'class': 'side__d'}, el('b', null, 'Note.'), ' ' + c.nt) : null,
+    flowLists(c), sequencesOf(c), modules(c), records(c), rules(c)]);
+  if (SIDE.contains(document.activeElement) && SIDE_B.contains(document.activeElement)) document.getElementById('atlas-side-h').focus({preventScroll: true});
+  SIDE_B.replaceChildren(body);
+  SIDE_B.scrollTop = 0;
+}
+// The flow of a row of the details, or null.
+function rowFlow(t) {
+  var b = t && t.closest ? t.closest('[data-f]') : null;
+  return b && SEL ? SEL.map.flows[+b.getAttribute('data-f')] : null;
+}
+if (SIDE) {
+  document.getElementById('atlas-side-x').addEventListener('click', closeSide);
+  SIDE.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSide(); } });
+  SIDE_B.addEventListener('pointerover', function (e) { var f = rowFlow(e.target); if (f && e.pointerType !== 'touch') point(null, f, 'row'); });
+  SIDE_B.addEventListener('pointerout', function (e) { if (rowFlow(e.target) && !rowFlow(e.relatedTarget) && HOT.from === 'row') point(null, null, ''); });
+  SIDE_B.addEventListener('focusin', function (e) { var f = rowFlow(e.target); if (f) point(null, f, 'row'); });
+  SIDE_B.addEventListener('focusout', function (e) { if (HOT.from === 'row' && !rowFlow(e.relatedTarget)) point(null, null, ''); });
+  SIDE_B.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null, c = SEL, f = rowFlow(e.target);
+    if (!b || !c) return;
+    if (f) { var o = c.map.byId[f.s === c.id ? f.t : f.s]; if (o) { point(null, null, ''); act(o, false); } }
+    else if (b.hasAttribute('data-go') && c.child) dive(c);
+    else if (b.hasAttribute('data-all')) setLayer('all');
+    else if (b.hasAttribute('data-more')) {
+      var d = b.previousElementSibling, shut = d.classList.toggle('clip');
+      b.textContent = shut ? 'Read all' : 'Show less';
+    }
+  });
+}
+
+// ---- Reduce motion ------------------------------------------------------------------
+var MOTION_BTN = document.getElementById('atlas-motion');
+function showMotion() { if (MOTION_BTN) MOTION_BTN.setAttribute('aria-pressed', String(document.documentElement.getAttribute('data-reduce-motion') === 'true')); }
+if (MOTION_BTN) MOTION_BTN.addEventListener('click', function () {
+  var on = document.documentElement.getAttribute('data-reduce-motion') !== 'true';
+  document.documentElement.setAttribute('data-reduce-motion', String(on));
+  try { localStorage.setItem(MOTION_KEY, String(on)); } catch (e) { /* no storage */ }
+  showMotion(); request();
+  say('Reduce motion: ' + (on ? 'on' : 'off') + '.');
+});
+showMotion();
+"""
+
+DETAILS = (
+    DETAILS.replace("EVIDENCE_JSON", _EVIDENCE)
+    .replace("MOTION_KEY", json.dumps(page.MOTION_KEY))
+    .replace("ENTER_PATH", json.dumps(_ENTER))
+)

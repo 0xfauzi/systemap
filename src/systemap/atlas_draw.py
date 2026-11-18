@@ -211,38 +211,48 @@ function arrowHead(g, z, y, s, w) {
 var CASE_W = 5, WIRE_W = 1.15;
 function drawLines(g, m, list, L, a, ox, oy, alpha) {
   if (alpha <= 0.02 || !list.length) return;
-  var rest = alpha * L.rest, cw = Math.min(CASE_W, CASE_W * a * 1.5), ww = clamp(WIRE_W * a * 1.5, 0.5, WIRE_W);
+  var rest = alpha * L.rest, cw = Math.min(CASE_W, CASE_W * a * 1.5), ww = clamp(WIRE_W * a * 1.5, 0.5, WIRE_W), lit = g === ctx ? litOf(m) : null;
   g.lineJoin = 'round'; g.setLineDash([]);
   list.forEach(function (e) {
     g.beginPath(); cutLine(g, e.d, ox, oy, a);
-    g.globalAlpha = rest; g.strokeStyle = C['--map']; g.lineWidth = cw; g.stroke();
+    g.globalAlpha = rest * backLine(lit, e.f.i); g.strokeStyle = C['--map']; g.lineWidth = cw; g.stroke();
     g.strokeStyle = C['--wire']; g.lineWidth = ww; g.stroke();
     if (!VIEW_AIM) STATS.flows++;
     if (DLOG) logged({t: 'line', f: e.f.i, casing: cw, wire: ww, p: e.d.map(function (v) { return [ox + a * v[0], oy + a * v[1]]; })});
   });
   var s = clamp(7.5 * a, 2.5, 9), w = s * 0.48, r = clamp(2 * a, 0.8, 2.6);
-  g.globalAlpha = alpha * L.ends; g.fillStyle = C['--ink-3']; g.beginPath();
-  list.forEach(function (e) {
-    var p = e.q, n = p.length, z = [ox + a * p[n - 1][0], oy + a * p[n - 1][1]], y = [ox + a * p[n - 2][0], oy + a * p[n - 2][1]];
-    arrowHead(g, z, y, s, w);
-    if (DLOG) logged({t: 'ends', f: e.f.i, dot: [ox + a * p[0][0], oy + a * p[0][1], r], tip: z, from: y, s: s, w: w});
-    g.moveTo(ox + a * p[0][0] + r, oy + a * p[0][1]); g.arc(ox + a * p[0][0], oy + a * p[0][1], r, 0, 2 * Math.PI);
+  g.fillStyle = C['--ink-3'];
+  // The dots and the arrowheads in two paths: of the lines that the light makes go back, and
+  // of the other lines.
+  [true, false].forEach(function (back) {
+    var n0 = 0;
+    g.beginPath();
+    list.forEach(function (e) {
+      if ((backLine(lit, e.f.i) < 1) !== back) return;
+      var p = e.q, n = p.length, z = [ox + a * p[n - 1][0], oy + a * p[n - 1][1]], y = [ox + a * p[n - 2][0], oy + a * p[n - 2][1]];
+      arrowHead(g, z, y, s, w); n0++;
+      if (DLOG) logged({t: 'ends', f: e.f.i, dot: [ox + a * p[0][0], oy + a * p[0][1], r], tip: z, from: y, s: s, w: w});
+      g.moveTo(ox + a * p[0][0] + r, oy + a * p[0][1]); g.arc(ox + a * p[0][0], oy + a * p[0][1], r, 0, 2 * Math.PI);
+    });
+    g.globalAlpha = alpha * L.ends * (back ? 1 - 0.78 * DIM : 1);
+    if (n0) g.fill();
   });
-  g.fill();
 }
 // The labels at rest (`seatsOf`), with a constant size on the screen. A label has a halo
 // in the color of the ground.
+// While a light is on the map, the labels of the lines that go back fade out, and the
+// labels of the lit lines draw with the lit lines (`drawLitLabels`).
 function drawLabels(m, id, a, ox, oy, alpha) {
-  var fs = q(labelPx(a));
+  var fs = q(labelPx(a)), lit = litOf(m);
   if (fs < textMin() || alpha <= 0.02) return;
   var seats = seatsOf(m, id, a);
   if (!seats) return;
   ctx.font = font(500, fs); ctx.textAlign = 'center'; ctx.lineJoin = 'round'; ctx.setLineDash([]);
   seats.list.forEach(function (s) {
-    var x = ox + a * s.x, y = oy + a * s.y + fs * 0.34;
-    if (x < -200 || x > W + 200 || y < -20 || y > H + 20) return;
-    ctx.globalAlpha = alpha; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
-    text(s.e.s, x, y, fs, C['--ink-2'], alpha, 500, false, 'center');
+    var x = ox + a * s.x, y = oy + a * s.y + fs * 0.34, la = alpha * (lit && lit.focus ? 1 - DIM : 1);
+    if (x < -200 || x > W + 200 || y < -20 || y > H + 20 || la <= 0.02) return;
+    ctx.globalAlpha = la; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
+    text(s.e.s, x, y, fs, C['--ink-2'], la, 500, false, 'center');
   });
 }
 
@@ -252,6 +262,9 @@ function cardCorner(c, w, h) { return c.k === 'actor' ? h / 2 : w > 30 ? Math.mi
 // The box of a card into the batches. `qv` is its quiet value (`quietOf`).
 function cardBox(c, x, y, w, h, alpha, qv) {
   STATS.cards++;
+  var lit = litOf(c.map), ink = lit || c === SEL || HOT.c === c ? inkCard(c) : false;
+  alpha *= backCard(lit, c);
+  if (ink) qv = 0;
   var t = cardShow(h), actor = c.k === 'actor', r = cardCorner(c, w, h), live = 1 - qv;
   if (DLOG) logged({t: 'card', id: c.id, k: c.k, b: [x, y, w, h], r: r, shape: t, under: !!c.child && t > 0, map: c.map.id});
   if (t < 1) MARK.rect(C['--line-2'], alpha * (1 - t) * (0.6 - 0.3 * qv), x, y, w, h, 0);
@@ -261,11 +274,13 @@ function cardBox(c, x, y, w, h, alpha, qv) {
     UNDER_LINE.rect(C['--line-2'], alpha * t * live, x + 4 * h / c.b[3], y + 4 * h / c.b[3], w, h, r, 1);
   }
   FILL.rect(actor ? C['--map'] : C['--card'], alpha * t * (actor ? 1 : live), x, y, w, h, r);
-  LINE.rect(actor && !qv ? C['--ink-3'] : C['--line-2'], alpha * t * (1 - 0.3 * qv), x, y, w, h, r, 1);
+  LINE.rect(ink ? C['--ink'] : actor && !qv ? C['--ink-3'] : C['--line-2'], alpha * t * (1 - 0.3 * qv), x, y, w, h, r, 1);
 }
 // The text of a card: the name, the short name below it at a scale of 0.95 or more, and
 // the tag of the kind. The sizes follow the scale `a` of the map, to a limit.
 function cardText(c, x, y, w, h, alpha, qv) {
+  var lit = litOf(c.map);
+  if (lit || c === SEL || HOT.c === c) { alpha *= backCard(lit, c); if (inkCard(c)) qv = 0; }
   var t = alpha * cardShow(h);
   if (t <= 0.02) return;
   var a = h / c.b[3], u = Math.min(a, 1.6), actor = c.k === 'actor', pad = (actor ? 20 : 13) * u;
@@ -310,8 +325,8 @@ function drawMap(m, alpha, open) {
   logged({t: 'map', id: m.id, own: own, a: a, b: [ox, oy, mw, mh]});
   var big = m.cards.length >= BIG, marks = big && m.maxH * a < NAME_H && m.maxW * a < PREVIEW0;
   var near = !marks || (zoomingIn() && m.maxH * a >= NAME_H * Math.pow(2, -MARKS_OVER * MAP_STEP));
-  var whole = big ? imageLayer(m, a, !sharp && open >= 1, near) : null, full = whole && layerFull(whole);
-  if (marks && own > 0.01) {
+  var whole = big ? imageLayer(m, a, !sharp && !LIGHT_MOVE && open >= 1, near) : null, full = whole && layerFull(whole);
+  if (marks && own > 0.01 && !litOf(m)) {
     var img = marksImage(m, a);
     if (full) img = null;
     if (img || full) {
@@ -331,6 +346,7 @@ function drawMap(m, alpha, open) {
     m.flowIndex.query(x0, y0, x1, y1, []).forEach(function (f) { if (fl[f.i]) list.push(f); });
     var byFlow = L._by || (L._by = (function () { var o = []; L.list.forEach(function (e) { o[e.f.i] = e; }); return o; })());
     drawLines(ctx, m, list.map(function (f) { return byFlow[f.i]; }).filter(Boolean), L, a, ox, oy, flowA);
+    drawLit(m, L, a, ox, oy, flowA);
     var texts = [];
     for (var i = 0; i < cards.length; i++) {
       var c = cards[i], b = c.b, x = ox + a * b[0], y = oy + a * b[1], w = a * b[2], h = a * b[3];
@@ -340,7 +356,9 @@ function drawMap(m, alpha, open) {
       if (hasText(h)) texts.push([c, x, y, w, h, qv]);
     }
     flushCards(ctx);
+    drawSelected(m, a, ox, oy, own);
     if (open > 0.3 && !L.dense) drawLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open));
+    if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open));
     texts.forEach(function (e) { cardText(e[0], e[1], e[2], e[3], e[4], own, e[5]); });
     if (whole) drawLayer(whole, ox, oy, mw, mh, own);
   }

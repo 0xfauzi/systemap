@@ -227,7 +227,7 @@ function speedFrame() {
   SPEED_LAST = now; SPEED_FADING = false; LAYERS = [];
   SPEED_STEP = reduced() ? 1 : speedStep(dt, SPEED_MS);
   IMAGE_STEP = reduced() ? 1 : speedStep(dt, IMAGE_MS);
-  HIDE = toward(HIDE, sharp ? 0 : 1, SPEED_STEP);
+  HIDE = toward(HIDE, sharp || LIGHT_MOVE ? 0 : 1, SPEED_STEP);
   if (cam.k > ZOOM_K && ZOOM_K) ZOOM_UP = now;
   ZOOM_K = cam.k;
 }

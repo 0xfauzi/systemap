@@ -22,14 +22,14 @@ LIGHT = (
     "--bg:#F1EFEC;--map:#F4F2EF;--surface:#FCFAF7;--card:#FFFEFC;--line:#E2DFDA;--line-2:#CFCBC5;"
     "--ink:#1D1B17;--ink-2:#524F4A;--ink-3:#716C65;--wire:#A9A49C;--tint:rgba(29,27,23,.028);"
     "--data:#0B6B58;--control:#B4483F;--judge:#7A5C00;--context:#4F5BD5;--tool:#96600A;"
-    "--brand:#F2B33D;--shade:rgba(29,27,23,.06);"
+    "--brand:#F2B33D;--halo:rgba(242,179,61,.38);--shade:rgba(29,27,23,.06);"
     "--shadow:0 1px 0 rgba(29,27,23,.04),0 12px 32px -18px rgba(29,27,23,.28);color-scheme:light"
 )
 DARK = (
     "--bg:#0F0E0C;--map:#12110F;--surface:#161411;--card:#1C1A17;--line:#27241F;--line-2:#3A362F;"
     "--ink:#F1EDE4;--ink-2:#BEB8AC;--ink-3:#8F887B;--wire:#5E5A52;--tint:rgba(241,237,228,.035);"
     "--data:#3CC4A6;--control:#E0776B;--judge:#D6B24A;--context:#9AA4FF;--tool:#E0A44A;"
-    "--brand:#FCB442;--shade:rgba(0,0,0,.35);"
+    "--brand:#FCB442;--halo:rgba(252,180,66,.32);--shade:rgba(0,0,0,.35);"
     "--shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -18px rgba(0,0,0,.8);color-scheme:dark"
 )
 
