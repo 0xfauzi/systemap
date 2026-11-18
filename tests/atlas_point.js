@@ -13,6 +13,8 @@
 //   ring and the rows. Then a pointer on the first row, a click on that row, and Esc.
 // - --phone: 390 x 844 with a touch screen. A tap on CARD: the sheet and the card box. Then
 //   a tap on a line.
+// - --resize: a click on CARD at 1440 x 900, then a change of the window to 390 x 844: the
+//   sheet and the card box.
 // - --keys: 1440 x 900. Tab through the full order, Enter on a line and on CARD, Tab to a
 //   row of the details, Esc in the details, F, and Esc and F on a button of the page.
 // - --motion: the light of CARD and a click on CARD with the reduced motion of the device,
@@ -243,6 +245,21 @@ async function phone(browser, file, card) {
   return out;
 }
 
+// The details open at 1440 x 900, then the window changes to 390 x 844.
+async function resize(browser, file, card) {
+  const { page, errors } = await open(browser, file, WIDE);
+  const at = mid(await boxOf(page, '', card));
+  await page.mouse.move(at[0], at[1]);
+  await page.mouse.click(at[0], at[1]);
+  await page.waitForTimeout(1600);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(1600);
+  const out = { errors, state: await page.evaluate(state), box: await boxOf(page, '', card),
+    head: await page.evaluate(() => document.getElementById('atlas-ask').getBoundingClientRect().bottom) };
+  await page.close();
+  return out;
+}
+
 async function keys(browser, file, card) {
   const { page, errors } = await open(browser, file, WIDE);
   const order = await page.evaluate(() => window.systemapCanvas.tabOrder(''));
@@ -449,7 +466,7 @@ async function axe(browser, file, card) {
 (async () => {
   const [mode, file, card, map] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const run = { '--point': point, '--labels': labels, '--select': select, '--phone': phone, '--keys': keys, '--motion': motion, '--nested': nested, '--axe': axe }[mode];
+  const run = { '--point': point, '--labels': labels, '--select': select, '--phone': phone, '--resize': resize, '--keys': keys, '--motion': motion, '--nested': nested, '--axe': axe }[mode];
   const out = await run(browser, file, card, map);
   await browser.close();
   process.stdout.write(JSON.stringify(out) + '\n');

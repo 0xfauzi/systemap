@@ -7405,3 +7405,22 @@ A first budget run of this change overlapped with browser tests on the same host
 | M11 tree | 408 / 366 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 1,236,352 / 1,134,235 = 0.92 (pass) | 77 (pass) |
 
 Result: PASS for each value. The map is still soft for one frame after each change of the light at device pixel ratio 2. The study has no soft frame. The first form of stage 2, with no soft frame, failed the point limit in B3 (125 ms). The maintainer must decide if one soft frame is acceptable.
+
+## B5: the point measure at device pixel ratio 1 and 2, after the second repair of stage 2 (2026-11-18)
+
+Script: `bench/jev/atlas_point.js`. The script has a new optional argument DPR, the device pixel ratio (default 1). The budget script `atlas_budget.py` does not give it, so the budget still uses device pixel ratio 1, and its acceptance values do not change. The acceptance value for device pixel ratio 2 is in the header of `atlas_point.js`, written before the first run with DPR: the specification gives no pixel ratio, so this is information and not a limit of the budget. The record gives the largest time, the time of the first move after the load, and the largest time of the other moves, each with the limit of 100 ms.
+
+The atlas page is the self-map page of `atlas_budget.write_pages("self", ...)` after the second repair of stage 2. This repair did not change the drawing of a change of the light: one frame at the moving resolution, then a full frame (`lightMoved` and `lightSharp` in `atlas_input`). Rate 4, 1440 x 900, 8 cards, 3 runs for each pixel ratio, one after the other. No other Chromium process operated at the start. The load average (1 minute) was 0.52 at the start. The host has no GPU.
+
+| Pixel ratio | Run | First move (ms) | Largest of the other 7 moves (ms) | Largest time (ms) |
+|---|---|---|---|---|
+| 1 | 1 | 64.9 | 50.3 | 64.9 |
+| 1 | 2 | 72.7 | 49.4 | 72.7 |
+| 1 | 3 | 110.2 | 71.2 | 110.2 |
+| 2 | 1 | 108.5 | 88.4 | 108.5 |
+| 2 | 2 | 103.3 | 96.8 | 103.3 |
+| 2 | 3 | 119.5 | 73.8 | 119.5 |
+
+Result at pixel ratio 1: the median of the largest times is 72.7 ms. PASS for the budget. One run of 3 had a largest time above 100 ms (the first move, 110.2 ms). The independent review of this stage also reported runs at pixel ratio 1 with largest times of 78.4, 114.8 and 77.8 ms. Thus the value is near the limit, and one run is not sufficient to show it.
+
+Result at pixel ratio 2: the limit of 100 ms does not hold for the first pointer move after the load. The first move was the slowest move in each run, at 103.3 to 119.5 ms. The other moves were 100 ms or less in each run (57.9 to 96.8 ms). The independent review reported 154.5 and 155.6 ms for the largest times at pixel ratio 2. The cause of the slow first move is not measured. A measurement is necessary before a change.

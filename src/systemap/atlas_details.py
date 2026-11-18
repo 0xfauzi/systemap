@@ -7,7 +7,7 @@ rules are the section "Map view: the rules" of docs/design/atlas.md:
   and the map moves to keep its full frame in view (`sideRight` in the fit of
   `atlas_input`). On a phone (720 px or less), the details are a sheet at the bottom, and
   the selected card goes to the part of the screen above the sheet (`showAbove`). A click
-  with a mouse opens the details after OPEN_WAIT ms, so that a double-click goes into a
+  with a mouse opens the details after OPEN_MS ms, so that a double-click goes into a
   card and opens no details. With reduced motion, they open at once. After Enter, the
   keyboard focus goes to the heading of the details.
 - The details keep the content of the canvas page (`page_canvas_details`): the kind, the
@@ -228,8 +228,11 @@ function kindWords(c) {
 }
 function colorOf(f, e) { e.style.setProperty('--k', 'var(' + (KIND[f.k] || '--ink-2') + ')'); return e; }
 function levelWords(o) { return o.as ? 'Assurance level: ' + o.as[0] + '. Freshness: ' + o.as[1] + '.' : ''; }
-function section(name, n, body) {
-  return el('section', {'class': 'sec'}, el('h3', null, name, n === null ? null : el('span', null, String(n))), body);
+// A section of the details: a heading with the count n, and each argument after n as a child.
+function section(name, n) {
+  var e = el('section', {'class': 'sec'}, el('h3', null, name, n === null ? null : el('span', null, String(n))));
+  for (var i = 2; i < arguments.length; i++) addChild(e, arguments[i]);
+  return e;
 }
 // One row of a flow: the line of its kind, the artifact, the card at the other end, the
 // relation sentence and the evidence state.

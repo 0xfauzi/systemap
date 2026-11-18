@@ -310,7 +310,9 @@ function measure() {
   HEAD_H = HEAD_EL ? HEAD_EL.getBoundingClientRect().height : 0;
 }
 // After a change of the screen size, a camera at the fit of the open map fits that map
-// again. Each other camera keeps the world point at the middle of the screen.
+// again. Each other camera keeps the world point at the middle of the screen. On a phone
+// with the details open, the selected card goes above the sheet (`showAbove`), as after a
+// selection on a phone.
 function atFit(m) {
   var f = fitBox(frameOf(m), FIT);
   return Math.abs(cam.k / f.k - 1) < 1e-3 && Math.abs(cam.x - f.x) * cam.k < 1 && Math.abs(cam.y - f.y) * cam.k < 1;
@@ -319,7 +321,8 @@ window.addEventListener('resize', function () {
   var m = currentMap(), fitted = !flight && atFit(m), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
   var aim = flight && flight.box ? flight : null;
   measure();
-  if (aim) flyTo(aim.box, aim.pad, aim.whole);
+  if (SIDE_ON && SEL && SEL.map === m && W <= WIDE) showAbove(SEL);
+  else if (aim) flyTo(aim.box, aim.pad, aim.whole);
   else if (fitted) { var f = fitBox(frameOf(m), FIT); ASK_EL.classList.toggle('beside', !!f.beside); cam = {x: f.x, y: f.y, k: f.k}; }
   else if (!flight) {
     var k = clamp(cam.k * Math.min(W / w, H / h), KMIN, KMAX);

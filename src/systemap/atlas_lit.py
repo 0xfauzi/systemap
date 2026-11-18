@@ -6,8 +6,9 @@ section "Map view: the rules" of docs/design/atlas.md:
 - Pointing at a card. The flows of the card in the layer of the frame are lit: each one
   gets the color of its kind and draws one time in the direction of the flow, from the
   source to the target, in DRAW_MS. Their labels show and do not cover each other
-  (`litSeats`). A label covers no card name: with no free place, it draws below the cards. The other cards and lines go back. A card with no flow in the layer does
-  not make the map go back.
+  (`litSeats`). A label covers no card name: with no free place, it draws below the
+  cards. The other cards and lines go back. A card with no flow in the layer does not
+  make the map go back.
 - Pointing at a line. That flow is lit, and the reading line gives the source, the
   target, the artifact and the relation sentence of the model.
 - The reading line is one line of text at the bottom of the map for the thing under the

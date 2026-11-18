@@ -90,6 +90,19 @@ the new checks:
     the map while the pointer stays on the card, and after Shift+Enter on the focused card,
     the camera is in the map and the reading line is empty. A click on the path of the
     headline goes out to the top map.
+
+Acceptance values added on 2026-11-18 after a second independent review, before the first
+run of the new checks:
+
+22. The rules of the map stay available. The details of a card have the entry "All rules
+    of this map (N)", where N is the count of the invariants and the import rules of the
+    map, and the text of each invariant and each import rule of the map. In a map with an
+    invariant that names no card, the details of each card give the text of that
+    invariant. In a map with no rules, the details give "The model has no rules for this
+    map."
+23. On the phone sheet after a resize: with the details open at 1440 x 900, a change of
+    the window to 390 x 844 moves the box of the selected card fully between the headline
+    and the top of the sheet.
 """
 
 from __future__ import annotations
@@ -100,9 +113,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import write_tree
 from test_atlas_browser import nested_page, self_page  # noqa: F401  (fixtures)
 from test_canvas_access import no_axe
 from test_canvas_browser import browser
+from test_nest_join import CONFIG, NESTED, SOURCE, TOP
+
+from systemap import atlas_data, config, facts_file, nest
+from systemap.cli import main
 
 ROOT = Path(__file__).resolve().parent
 DRIVER = ROOT / "atlas_point.js"
@@ -384,6 +402,60 @@ def test_the_details_keep_the_content_of_the_canvas_page(
     for r in top.get("ir", []):
         if not r.get("s") or card in r.get("s", []) or card in r.get("t", []):
             assert f"Import rule {r['id']}." in rules
+    _all_rules(top, rules)
+
+
+def _all_rules(top: dict[str, Any], rules: str) -> None:
+    """Acceptance 22: the details have the full list of the rules of the map."""
+    count = len(top.get("iv", [])) + len(top.get("ir", []))
+    assert count, "the map of the test has no rules"
+    assert f"All rules of this map ({count})" in rules
+    for r in top.get("iv", []):
+        assert f"Invariant {r['n']}. {r['t']}" in rules
+    for r in top.get("ir", []):
+        assert f"Import rule {r['id']}. Kind: {r['k']}." in rules
+
+
+RULES_TOP = TOP.replace(
+    "from systemap import Component,", "from systemap import Component, Invariant,"
+).replace(
+    "flow_kinds=())",
+    'flow_kinds=(), invariants=(Invariant(1, "The auth gives each token.", '
+    'governs=("Auth",)), Invariant(2, "Each request has a record.")))',
+)
+
+
+@pytest.fixture(scope="module")
+def rules_page(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, Any]]:
+    root = tmp_path_factory.mktemp("rules")
+    files = {
+        "systemap.toml": CONFIG + '[render]\npage = "atlas"\n',
+        "map/model.py": RULES_TOP,
+        "map/gateway.py": NESTED,
+        **SOURCE,
+    }
+    write_tree(root, files)
+    for command in ("place", "extract", "render"):
+        assert main(["--root", str(root), command]) == 0
+    cfg = config.load(root)
+    tree = nest.load(cfg)
+    data = atlas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    return root / "docs" / "map" / "index.html", data
+
+
+def test_an_invariant_that_names_no_card_is_in_the_details(
+    rules_page: tuple[Path, dict[str, Any]],
+) -> None:
+    """Acceptance 22, with an invariant that names no card."""
+    top = rules_page[1]["maps"][0]
+    assert any(not r.get("g") for r in top["iv"])
+    for card in ("Store", "Auth"):
+        rules = _drive("--select", rules_page[0], card)["details"]["rules"]
+        _all_rules(top, rules)
+        if card == "Store":
+            assert "No rule of the model names this card." in rules
+        else:
+            assert "Invariant 1. The auth gives each token." in rules.split("All rules")[0]
 
 
 def test_a_row_lights_its_flow_and_esc_closes_the_details(
@@ -418,6 +490,18 @@ def test_a_phone_has_the_details_as_a_sheet(
     f = self_page[1]["maps"][0]["flows"][tap["f"]]
     assert tap["state"]["lit"]["pin"] == tap["f"] and tap["state"]["lit"]["flows"] == [tap["f"]]
     assert tap["state"]["say"]["on"] is True and f["a"] in tap["state"]["say"]["text"]
+
+
+def test_a_resize_to_a_phone_moves_the_card_above_the_sheet(
+    self_page: tuple[Path, dict[str, Any]],  # noqa: F811
+    card: str,
+) -> None:
+    """Acceptance 23."""
+    out = _drive("--resize", self_page[0], card)
+    side, box = out["state"]["side"], out["box"]
+    assert side["sel"] == {"map": "", "id": card}
+    assert side["box"][2] == 390
+    assert box[1] >= out["head"] and box[1] + box[3] <= side["top"]
 
 
 @pytest.fixture(scope="module")
@@ -503,6 +587,8 @@ def test_the_nested_map_affordances(nested_page: Path) -> None:  # noqa: F811
     card = next(m for m in out["marks"] if m["t"] == "card")
     assert card["under"] is True and any(m["t"] == "map" for m in out["marks"])
     assert out["details"]["enter"] == "See its 2 parts"
+    # Acceptance 22: the fixture has no rules.
+    assert "The model has no rules for this map." in out["details"]["rules"]
     inside = out["inside"]
     assert inside["state"]["chain"] == ["Gateway"] and inside["state"]["side"]["sel"] is None
     assert inside["path"] == ["join"]
