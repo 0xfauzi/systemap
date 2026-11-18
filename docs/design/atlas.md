@@ -178,6 +178,31 @@ rule does not apply to the pan. The script is `bench/jev/atlas_frames.py`.
 
 If a value fails, stop. Do not start stage 1. Report the numbers.
 
+## The performance budget
+
+The maintainer said on 2026-11-18: a small loss of speed against the canvas page is
+acceptable, and a large loss is not. These limits make that rule exact. They apply to the
+atlas page against the canvas page, measured in the same run on the same machine, at 4
+times CPU slowdown. An absolute limit of the gate also applies.
+
+| Measure | Limit against the canvas page |
+|---|---|
+| Time to the first complete frame | 1.5 times or less |
+| 95th percentile of the frame time, pan of 2 s | 1.25 times or less, or 35 ms or less |
+| 95th percentile of the frame time, zoom into a nested map | 1.25 times or less, or 35 ms or less |
+| Time from a pointer move onto a card to the lit paths on the screen | 100 ms or less (the canvas page has no equal measure) |
+| Size of the page file | 1.5 times or less |
+
+Measure on three inputs: the map of this repository, `tests/fixture_workspace.py`, and the
+generated tree with 50 maps.
+
+- Stage 1 measures the budget for the first time and records it.
+- Stage 8 adds a test in the suite that fails when a limit of the budget fails.
+- Stage 10 measures the budget again on the finished page and records it. The work is
+  not complete while a limit fails.
+- If a stage makes a measure fail, that stage must correct it or stop and report. Do not
+  change a limit.
+
 ## The stages
 
 Each stage ends with the required checks of `AGENTS.md`, one commit and one push to the
