@@ -14,6 +14,13 @@
 //   the map in the Sequences view. Then two taps on Next.
 // - --motion: the light of the first step 50 ms after Start, with the reduced motion of the
 //   device and with no reduced motion.
+// - --labels W H: W x H with reduced motion. Each sequence of each map, at the whole route
+//   and at each step: for each label of a line, the distance of its screen box to its own
+//   line and to the nearest other line, and the height of the box. For the line of the
+//   current step, its length on the screen and the part of it that no label covers.
+// - --open W H: W x H. A click on a card at step 2 opens the details: the boxes of the bar,
+//   of the button Next, of the details, of the list and of the entry points with no
+//   sequence, and the frame of the map at the whole route.
 // - --axe: axe-core in the Sequences view at step 2 on the map and in the diagram, in the
 //   light and the dark scheme, at 1440 x 900 and at 390 x 844 (null when axe-core is not on
 //   NODE_PATH).
@@ -71,6 +78,14 @@ async function wide(browser, file) {
   await page.keyboard.press('ArrowLeft');
   await page.waitForTimeout(100);
   out.left = await state(page, false);
+  await page.focus('#canvas');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(100);
+  out.canvasRight = await state(page, false);
+  await page.focus('#atlas-rail-list button');
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForTimeout(100);
+  out.railLeft = await state(page, false);
   const n = out.whole.seq.view.n;
   for (let i = 0; i < n + 2; i++) await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(100);
@@ -111,6 +126,13 @@ async function nested(browser, file) {
   await page.waitForTimeout(900);
   out.top = await state(page, false);
   out.groups = await page.evaluate(() => Array.from(document.querySelectorAll('#atlas-rail .rail__g')).map((g) => g.textContent));
+  out.steps = [];
+  for (const n of [0, 1, 2]) {
+    await page.evaluate((k) => window.systemapCanvas.step(k), n);
+    await page.waitForTimeout(150);
+    out.steps.push((await state(page, false)).seq.view);
+  }
+  await page.evaluate(() => window.systemapCanvas.step(-1));
   await page.click('#atlas-rail-list button:nth-of-type(2)');
   await page.waitForTimeout(1800);
   out.chosen = await state(page, true);
@@ -132,6 +154,7 @@ async function phone(browser, file) {
     await page.tap('#atlas-head [data-mode="seq"]');
     await page.waitForTimeout(1200);
     const whole = await state(page, false);
+    whole.askN = await page.evaluate(() => { const e = document.getElementById('atlas-ask-n'); return { display: getComputedStyle(e).display, text: e.textContent, box: e.getBoundingClientRect().toJSON() }; });
     await page.tap('#atlas-step-next');
     await page.waitForTimeout(300);
     await page.tap('#atlas-step-next');
@@ -163,6 +186,100 @@ async function motion(browser, file) {
   return out;
 }
 
+// The distance of box b (x0, y0, x1, y1) to the segment from p to q.
+function boxDist(b, p, q) {
+  let best = Infinity;
+  const n = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1])));
+  for (let i = 0; i <= n; i++) {
+    const x = p[0] + (q[0] - p[0]) * i / n, y = p[1] + (q[1] - p[1]) * i / n;
+    best = Math.min(best, Math.hypot(Math.max(b[0] - x, 0, x - b[2]), Math.max(b[1] - y, 0, y - b[3])));
+  }
+  return best;
+}
+function lineDist(b, pts) {
+  let best = Infinity;
+  for (let i = 0; i + 1 < pts.length; i++) best = Math.min(best, boxDist(b, pts[i], pts[i + 1]));
+  return best;
+}
+// The length of the line pts, and the part of it that is in no box of `boxes`.
+function freeLength(pts, boxes) {
+  let all = 0, free = 0;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const p = pts[i], q = pts[i + 1], l = Math.hypot(q[0] - p[0], q[1] - p[1]), n = Math.max(1, Math.ceil(l));
+    for (let k = 0; k < n; k++) {
+      const x = p[0] + (q[0] - p[0]) * (k + 0.5) / n, y = p[1] + (q[1] - p[1]) * (k + 0.5) / n;
+      all += l / n;
+      if (!boxes.some((b) => x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3])) free += l / n;
+    }
+  }
+  return [all, free];
+}
+// The marks of map `id` in one frame.
+async function marksOf(page, id) {
+  return page.evaluate((id) => {
+    let cur = null;
+    return window.systemapCanvas.drawn().marks.filter((m) => { if (m.t === 'map') cur = m.id; return cur === id && ['line', 'label', 'litLabel', 'lit'].includes(m.t); });
+  }, id);
+}
+function measure(marks, W, H) {
+  const lines = {}, labels = [], out = {labels: [], lit: []};
+  marks.forEach((m) => { if (m.t === 'line') lines[m.f] = m.p; else if (m.t === 'label' || m.t === 'litLabel') labels.push(m); });
+  labels.forEach((l) => {
+    const b = l.box;
+    if (!lines[l.f] || b[2] < 0 || b[0] > W || b[3] < 0 || b[1] > H) return;
+    let other = Infinity;
+    for (const f in lines) if (+f !== l.f) other = Math.min(other, lineDist(b, lines[f]));
+    out.labels.push({f: l.f, s: l.s, t: l.t, own: lineDist(b, lines[l.f]), other: other, h: b[3] - b[1]});
+  });
+  marks.filter((m) => m.t === 'lit').forEach((m) => {
+    const [all, free] = freeLength(m.p, labels.map((l) => l.box));
+    out.lit.push({f: m.f, all: all, free: free});
+  });
+  return out;
+}
+
+async function labels(browser, file, W, H) {
+  const { page, errors } = await open(browser, file, { viewport: { width: W, height: H }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
+  await page.evaluate(() => window.systemapCanvas.mode('seq'));
+  const runs = [];
+  const maps = await page.evaluate(() => JSON.parse(document.getElementById('atlas-data').textContent).maps.filter((m) => m.sq && m.sq.length).map((m) => [m.id, m.sq.map((q) => q.s.length)]));
+  for (const [id, counts] of maps) {
+    for (let k = 0; k < counts.length; k++) {
+      await page.evaluate(([id, k]) => window.systemapCanvas.choose(id, k), [id, k]);
+      for (let n = -1; n < counts[k]; n++) {
+        await page.evaluate((n) => window.systemapCanvas.step(n), n);
+        await page.waitForTimeout(n < 0 ? 400 : 260);
+        runs.push({map: id, k: k, step: n, ...measure(await marksOf(page, id), W, H)});
+      }
+    }
+  }
+  await page.close();
+  return { errors, runs };
+}
+
+async function opened(browser, file, W, H) {
+  const { page, errors } = await open(browser, file, { viewport: { width: W, height: H }, deviceScaleFactor: 2, colorScheme: 'light' });
+  await page.click('#atlas-head [data-mode="seq"]');
+  await page.waitForTimeout(1200);
+  const whole = await state(page, false);
+  const rect = (sel) => page.evaluate((sel) => document.querySelector(sel).getBoundingClientRect().toJSON(), sel);
+  const list = await page.evaluate(() => { const l = document.getElementById('atlas-rail-list'), r = l.getBoundingClientRect(); return { box: r.toJSON(), scroll: l.scrollHeight, client: l.clientHeight }; });
+  const ne = await rect('#atlas-rail-ne');
+  await page.click('#atlas-step-next');
+  await page.click('#atlas-step-next');
+  await page.waitForTimeout(900);
+  const b = await page.evaluate(() => window.systemapCanvas.box('', window.systemapCanvas.lit().cards[0]));
+  await page.mouse.click(b[0] + b[2] / 2, b[1] + b[3] / 2);
+  await page.waitForTimeout(1200);
+  const out = { errors, whole, list, ne, side: await rect('#atlas-side'), bar: await rect('#atlas-step'), next: await rect('#atlas-step-next'),
+    nextHit: await page.evaluate(() => { const r = document.getElementById('atlas-step-next').getBoundingClientRect(), e = document.elementFromPoint(r.right - 4, r.top + r.height / 2); return !!e && !!e.closest('#atlas-step-next'); }) };
+  await page.click('#atlas-step-next');
+  await page.waitForTimeout(200);
+  out.after = (await state(page, false)).seq.view.step;
+  await page.close();
+  return out;
+}
+
 async function axeRun(page) {
   let source;
   try { source = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch (e) { return null; }
@@ -191,10 +308,10 @@ async function axe(browser, file) {
 }
 
 (async () => {
-  const [mode, file] = process.argv.slice(2);
+  const [mode, file, w, h] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const run = { '--wide': wide, '--nested': nested, '--phone': phone, '--motion': motion, '--axe': axe }[mode];
-  const out = await run(browser, file);
+  const run = { '--wide': wide, '--nested': nested, '--phone': phone, '--motion': motion, '--axe': axe, '--labels': labels, '--open': opened }[mode];
+  const out = await run(browser, file, +w, +h);
   await browser.close();
   process.stdout.write(JSON.stringify(out) + '\n');
 })().catch((err) => { process.stderr.write(String(err && err.stack || err) + '\n'); process.exit(1); });

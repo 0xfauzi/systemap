@@ -9,7 +9,11 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
 - The list at the left gives the sequences, each with its count of steps. When more than
   one map has sequences, the list has one group for each map, in tree order. On a narrow
   screen the list is a row of names under the headline. After the list, the entry points
-  of the map with no sequence (`ne` in `atlas_data`).
+  of the map with no sequence (`ne` in `atlas_data`). The list scrolls, and a shadow at
+  its top or bottom shows that more names are there. The entry points are not in the
+  scroll: they stay on the screen under the list.
+- The headline gives the count of steps and the entry point of the sequence, also on a
+  phone. The list is under the headline at its height (`--ask-b`).
 - A sequence is a layer of its map with only the flows of its steps (`layerFlags` in
   `atlas_view`, with the ID "q:" and the index of the sequence). The label of each line
   has the numbers of its steps before the artifact (`seqLabel`), and each line of the
@@ -17,7 +21,8 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   other maps keep the layer of the Map view. A choice moves the camera to the fit of the
   map of the sequence, with the list at the left and the bar at the bottom free.
 - The bar at the bottom has the two forms (On the map, As a diagram), the step count, a dot
-  for each step, the sentence of the step and the step controls. At the start no step
+  for each step, the sentence of the step and the step controls. When the details are
+  open at the side, the bar is in the width at their left. At the start no step
   shows: the bar gives "Whole route". Next goes to the next step, and Done after the last
   step goes back to the whole route.
 - The step state. The current step is the light of the map (`lightSource` in `atlas_lit`):
@@ -68,10 +73,12 @@ HTML = (
 # From the study, with the fixed header of the atlas page (48 px over the stage) and the
 # fonts of the product.
 CSS = """
-.rail{position:fixed;left:max(24px,env(safe-area-inset-left,0px));top:280px;bottom:74px;width:292px;overflow:auto;display:none;
-flex-direction:column;gap:1px;scrollbar-width:thin;overscroll-behavior:contain;z-index:2}
+.rail{position:fixed;left:max(24px,env(safe-area-inset-left,0px));top:280px;bottom:74px;width:292px;overflow:hidden;display:none;
+flex-direction:column;gap:1px;z-index:2}
 body[data-mode="seq"] .rail{display:flex}
-.rail__list{display:flex;flex-direction:column;gap:1px}
+.rail__list{display:flex;flex-direction:column;gap:1px;flex:0 1 auto;min-height:0;overflow:auto;scrollbar-width:thin;overscroll-behavior:contain;
+background:linear-gradient(var(--map) 30%,transparent) top/100% 28px no-repeat local,linear-gradient(transparent,var(--map) 70%) bottom/100% 28px no-repeat local,
+linear-gradient(var(--line-2),transparent) top/100% 10px no-repeat scroll,linear-gradient(transparent,var(--line-2)) bottom/100% 10px no-repeat scroll}
 .rail button{display:flex;justify-content:space-between;gap:12px;align-items:baseline;text-align:left;padding:7px 10px;margin-left:-10px;
 border-radius:8px;color:var(--ink-2);transition:background .12s,color .12s;flex:none}
 .rail button:hover{background:var(--tint);color:var(--ink)}
@@ -79,7 +86,8 @@ border-radius:8px;color:var(--ink-2);transition:background .12s,color .12s;flex:
 .rail button i{font:500 10.5px/1 var(--fm);font-style:normal;color:var(--ink-3);font-variant-numeric:tabular-nums;flex:none}
 .rail__g{margin:14px 0 4px;font:500 10.5px/1 var(--fm);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
 .rail__g:first-child{margin-top:0}
-.rail__ne{margin-top:18px;color:var(--ink-3);font-size:12px;line-height:1.45}
+.rail__ne{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);flex:none;max-height:40%;overflow:auto;scrollbar-width:thin;
+color:var(--ink-3);font-size:12px;line-height:1.45}
 .rail__ne:empty{display:none}
 .rail__ne h2{margin:0 0 6px;display:flex;justify-content:space-between;gap:12px;font:500 10.5px/1.3 var(--fm);letter-spacing:.09em;
 text-transform:uppercase;color:var(--ink-3)}
@@ -111,16 +119,22 @@ transition:background .12s,color .12s,transform .12s}
 .dots2 i.now{background:var(--ink);transform:scale(1.35)}
 body[data-mode="seq"][data-form="diagram"] #canvas{visibility:hidden}
 body[data-mode="seq"][data-form="diagram"] .zoom{display:none}
+@media (min-width:721px){
+body.open[data-mode="seq"] .stepper{left:calc((100% - 380px) / 2);width:min(780px,calc(100% - 412px))}
+}
 @media (min-width:721px) and (max-width:1180px){
-body[data-mode="seq"] .rail{bottom:calc(var(--bar-h,62px) + 84px)}
+body[data-mode="seq"] .rail{top:calc(var(--ask-b,248px) + 24px);bottom:calc(var(--bar-h,62px) + 84px)}
+body.open[data-mode="seq"] .stepper{flex-wrap:wrap}body.open[data-mode="seq"] .stepper p{flex-basis:100%;order:3}
 body[data-mode="seq"] .zoom{bottom:calc(var(--bar-h,62px) + 36px)}
 }
 @media (max-width:720px){
-.rail{top:166px;bottom:auto;left:16px;right:16px;width:auto;flex-direction:row;gap:6px;overflow-x:auto;overflow-y:hidden;padding-bottom:4px}
-.rail__list{flex-direction:row;gap:6px}
+.rail{top:calc(var(--ask-b,146px) + 14px);bottom:auto;left:16px;right:16px;width:auto;flex-direction:row;gap:6px;overflow-x:auto;overflow-y:hidden;
+padding-bottom:4px;scrollbar-width:thin}
+.rail__list{flex-direction:row;gap:6px;flex:none;overflow:visible;background:none}
+body[data-mode="seq"] .ask__n{display:block;margin-top:4px}
 .rail button{margin:0;border:1px solid var(--line);background:var(--surface);white-space:nowrap}
 .rail__g{display:none}
-.rail__ne{margin:0;flex:none;max-width:260px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.rail__ne{margin:0;flex:none;max-width:260px;max-height:none;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .rail__ne ul{display:block}.rail__ne li{display:inline}.rail__ne li+li::before{content:", "}
 .stepper{flex-wrap:wrap}.stepper p{flex-basis:100%;order:3}
 body[data-mode="seq"] .zoom{display:none}
@@ -236,11 +250,31 @@ function barWrite() {
   BAR_NEXT.title = BAR_NEXT.getAttribute('aria-label') + (st && last ? '' : ' (Right arrow)');
   barHeight();
 }
-// The height of the bar for the reading line over it (`--bar-h`).
+// The height of the bar for the reading line over it (`--bar-h`), and the bottom of the
+// headline for the list under it (`--ask-b`). The page sets them again at a change of size.
 function barHeight() { if (BAR) document.documentElement.style.setProperty('--bar-h', BAR.offsetHeight + 'px'); }
+// The headline changes its text a short time after a choice (`headSync`). When its new
+// height moves the list in that time, the fit of the map or the diagram is made again.
+var ASK_BOX = document.getElementById('atlas-ask'), ASK_B = -1, FIT_AT = -Infinity;
+function askBottom() {
+  if (!ASK_BOX) return false;
+  var b = Math.round(ASK_BOX.getBoundingClientRect().bottom);
+  if (b === ASK_B) return false;
+  ASK_B = b; document.documentElement.style.setProperty('--ask-b', b + 'px');
+  return true;
+}
+function askMoved() {
+  if (!askBottom() || !seqShown() || performance.now() - FIT_AT > 1000) return;
+  if (SEQ.form === 'diagram') boardDraw(); else fitSeq();
+}
+if (window.ResizeObserver) {
+  if (BAR) new ResizeObserver(barHeight).observe(BAR);
+  if (ASK_BOX) new ResizeObserver(askMoved).observe(ASK_BOX);
+}
 // The free part of the screen in this view: under the headline or the list, over the bar,
 // and at the right of the list on a wide screen.
 function seqFree() {
+  askBottom();
   var top = HEAD_H + 16, bottom = H - 16, left = 16;
   if (shownEl(BAR)) bottom = BAR.getBoundingClientRect().top - 12;
   if (shownEl(RAIL)) {
@@ -270,7 +304,7 @@ function seqChoose(m, k, camera) {
   if (camera && SEQ.form === 'map') fitSeq();
   say(seqWords());
 }
-function fitSeq() { flyTo(frameOf(SEQ.m), FIT); SAID_MAP = SEQ.m; }
+function fitSeq() { FIT_AT = performance.now(); flyTo(frameOf(SEQ.m), FIT); SAID_MAP = SEQ.m; }
 // Go to step n: -1 is the whole route. The value stays from -1 to the last step.
 function stepTo(n) {
   var j = seqJ();

@@ -59,6 +59,7 @@ function mapFit(b, whole) {
 // wide screen or under the headline of a phone, and the bar at the bottom.
 function seqRoom() {
   if (VIEW.mode !== 'seq') return {left: 20, top: 96, bottom: 30};
+  askBottom();
   var bar = BAR ? BAR.offsetHeight + 34 : 30, rail = shownEl(RAIL) ? RAIL.getBoundingClientRect() : null;
   if (W > WIDE) return {left: rail ? rail.right + 14 : 20, top: 96, bottom: bar};
   return {left: 20, top: rail ? rail.bottom - HEAD_H + 10 : 96, bottom: bar};

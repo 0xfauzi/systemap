@@ -7436,3 +7436,15 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 417 / 482 (pass) | 16.8 / 33.3 (pass) | 49.9 / 33.3 (pass) | 1,236,352 / 1,160,233 = 0.94 (pass) | 66 (pass) |
 
 Result: PASS for each value. The page sizes of the atlas pages grew by about 26,000 bytes (the Sequences part and the diagram part of the script, and their styles). The first frame of the M11 tree is 1.16 times the canvas value, against a limit of 1.5 times. In B4 it was 0.90 times. One run is not sufficient to show if the first frame became slower. The budget does not measure the Sequences view. The canvas page has no equal measure for it.
+
+## B7: the performance budget of the atlas page, stage 3 after the review (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 3 page after the repairs of the review: a step label with no free place on its line goes beside its own line (`seqSeat` in `atlas_lines`), the bar keeps the width at the left of the details, the entry points with no sequence are below the scroll of the list, and the headline gives the entry point on a phone. The new label rule applies only to the layer of a sequence. The budget measures the Map view. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 323 / 270 (pass) | 33.3 / 16.8 (pass) | 33.4 / 33.4 (pass) | 315,781 / 252,943 = 0.80 (pass) | 77 (pass) |
+| workspace | 379 / 309 (pass) | 33.3 / 33.3 (pass) | 33.4 / 33.4 (pass) | 268,900 / 199,813 = 0.74 (pass) | 85 (pass) |
+| M11 tree | 509 / 439 (pass) | 16.8 / 33.3 (pass) | 49.9 / 33.4 (pass) | 1,236,352 / 1,163,846 = 0.94 (pass) | 78 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 3,600 bytes. The time from a pointer move to the lit paths is 77 to 85 ms, against 66 to 68 ms in B6 and a limit of 100 ms. The Map view has no change in this part of the script, so one run is not sufficient to show a cause. The budget does not measure the Sequences view.

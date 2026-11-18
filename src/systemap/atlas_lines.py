@@ -20,7 +20,10 @@ section "Map view: the rules" of docs/design/atlas.md:
   A line with no such place has no label at rest (`seatsOf`).
 - Sequences. In the layer of a sequence (`atlas_sequences`), the label of each line has the
   numbers of its steps before the artifact, each line has a label, and the busy layer rule
-  does not apply.
+  does not apply. A label with no free place on its line goes beside its own line, with no
+  other line in it or near it (`seqSeat`). Thus a label is not on the line of a different
+  step, and it does not cover its own line. Only the last choice of `seqSeat`, the middle
+  of the longest part of the line, can cover the line.
 
 The script calculates the lanes one time for each map and layer, and the places of the
 labels one time for each map, layer and quarter step of zoom, in the full drawing at rest.
@@ -94,6 +97,8 @@ function shortText(a) { return a.length > LABEL_MAX ? a.slice(0, LABEL_MAX - 2).
 // The size of a label on the screen for the map scale a: 11 px, smaller when the map is
 // small (15 units of the map).
 function labelPx(a) { return Math.min(11, 15 * a); }
+// The box b of the map in the coordinates of the screen, for the tests.
+function labelBox(b, a, ox, oy) { return [ox + a * b[0], oy + a * b[1], ox + a * b[2], oy + a * b[3]]; }
 function over(a, b) { return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]; }
 // The boxes that a label must not cover: the cards, the names of the regions and the names
 // of the containers, in the coordinates of the map.
@@ -134,6 +139,56 @@ function seat(e, fs, wall, taken, list) {
   }
   return best;
 }
+// A place beside line e for its label: the box touches the line, or it is one to NEAR_STEPS
+// label heights farther from it, at a right angle to a part of the line. Thus the label
+// never covers its line. The nearest place comes first, and at the same distance a
+// horizontal part, then the longest part. The box is on no box of `wall` and of `taken`.
+// With `strict`, no other line of `list` is nearer to the box than its own line and
+// NEAR_GAP units. Else no other line is within half a label height and NEAR_GAP units of
+// the box. Null when no such place is free.
+var NEAR_GAP = 3, NEAR_STEPS = 3;
+function near(e, fs, wall, taken, list, strict) {
+  var w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, q = e.q, parts = [];
+  for (var i = 0; i + 1 < q.length; i++) {
+    var flat = Math.abs(q[i][1] - q[i + 1][1]) < 0.01, l = segLen(q, i);
+    if (l >= (flat ? w / 2 : hh)) parts.push({i: i, flat: flat, l: l});
+  }
+  parts.sort(function (u, v) { return (v.flat - u.flat) || v.l - u.l; });
+  for (var k = 0; k <= NEAR_STEPS; k++) {
+    for (var p = 0; p < parts.length; p++) {
+      var at = nearPart(q, parts[p], k, w, hh, wall, taken, list, e, strict);
+      if (at) return at;
+    }
+  }
+  return null;
+}
+function nearPart(q, part, k, w, hh, wall, taken, list, e, strict) {
+  var a = q[part.i], b = q[part.i + 1], d = (part.flat ? hh / 2 : w / 2) + 2 + k * hh, ts = [0.5, 0.35, 0.65, 0.22, 0.78];
+  for (var n = 0; n < ts.length; n++) {
+    var cx = a[0] + (b[0] - a[0]) * ts[n], cy = a[1] + (b[1] - a[1]) * ts[n];
+    for (var side = -1; side <= 1; side += 2) {
+      var x = part.flat ? cx : cx + side * d, y = part.flat ? cy + side * d : cy, box = [x - w / 2, y - hh / 2, x + w / 2, y + hh / 2];
+      var g = (strict ? 2 + k * hh : hh / 2) + NEAR_GAP, wide = [box[0] - g, box[1] - g, box[2] + g, box[3] + g];
+      if (wall.some(function (c) { return over(box, c); }) || taken.some(function (c) { return over(box, c); })) continue;
+      if (!crossed(wide, list, e)) return {x: x, y: y, box: box};
+    }
+  }
+  return null;
+}
+// The place of the label of a line of a sequence that has no free place on its line:
+// beside its line with its own line the nearest (`near`, strict), then on its line with
+// other lines through the label but with a free part of the line at each side (`seat`),
+// then beside its line with no other line in or near the label, then the same on other
+// labels, then on the middle of its longest part.
+function seqSeat(e, fs, wall, taken, list) {
+  var at = near(e, fs, wall, taken, list, true) || seat(e, fs, wall, taken, []) || near(e, fs, wall, taken, list, false) ||
+    near(e, fs, wall, [], list, false);
+  if (at) return at;
+  var q = e.q, w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, best = 0;
+  for (var i = 1; i + 1 < q.length; i++) if (segLen(q, i) > segLen(q, best)) best = i;
+  var x = (q[best][0] + q[best + 1][0]) / 2, y = (q[best][1] + q[best + 1][1]) / 2;
+  return {x: x, y: y, box: [x - w / 2, y - hh / 2, x + w / 2, y + hh / 2]};
+}
 // The places of the labels at rest of map m in layer `id` at the map scale a: a list of
 // {e, x, y} in the coordinates of the map, and `fs`, the font size in units of the map.
 // A busy layer has no labels at rest.
@@ -146,9 +201,9 @@ function seatsOf(m, id, a) {
   if (L.seats && (L.seats.key === key || !sharp)) return L.seats;
   var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = [], wall = walls(m), out = [];
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
-    // Each line of a sequence has a label with its step numbers: with no free place, the
-    // label goes near its line, as a lit label does (`stacked` in `atlas_lit`).
-    var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seat(e, fs, wall, taken, []) || stacked(e, fs, taken, wall) : null);
+    // Each line of a sequence has a label with its step numbers: with no free place on the
+    // line, the label goes beside its own line (`near`).
+    var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) : null);
     if (!at) return;
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
   });

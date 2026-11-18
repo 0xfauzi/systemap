@@ -269,7 +269,7 @@ function drawLabels(m, id, a, ox, oy, alpha) {
     var la = alpha * (lit && lit.focus && !lit.step ? 1 - DIM : 1) * (st === 'later' ? LATER_A : 1);
     if (x < -200 || x > W + 200 || y < -20 || y > H + 20 || la <= 0.02) return;
     ctx.globalAlpha = la; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
-    if (DLOG) logged({t: 'label', f: s.e.f.i, s: s.e.s, x: x, y: y, alpha: la, step: st});
+    if (DLOG) logged({t: 'label', f: s.e.f.i, s: s.e.s, x: x, y: y, alpha: la, step: st, box: labelBox(s.box, a, ox, oy)});
     text(s.e.s, x, y, fs, C['--ink-2'], la, 500, false, 'center');
   });
 }

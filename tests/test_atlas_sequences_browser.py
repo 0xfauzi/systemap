@@ -52,6 +52,33 @@ Acceptance values, written before the first run on 2026-11-18:
 12. The page has no script error in each run. axe-core finds no serious or critical
     violation at step 2 on the map and in the diagram, in the light and the dark scheme, at
     1440 x 900 and at 390 x 844.
+
+Acceptance values of the repair after the review, written before the first run on
+2026-11-18:
+
+13. The step labels (tests/atlas_seq.js --labels). For each sequence of the map of this
+    repository, at the whole route and at each step, at 1440 x 900, 1000 x 800 and
+    390 x 844 with reduced motion: each label on the screen whose line draws is on its own
+    line (its box is 4 px or less from the line), or beside it: 64 px or less from its own
+    line, and no other line is nearer to the box than half the height of the box less 1 px.
+14. The line of the current step shows: of its length on the screen, the part that no label
+    covers is 20 px or more, or half of the length or more.
+15. The bar with the details open (tests/atlas_seq.js --open). At 1440 x 900 and at
+    1000 x 800, a click on a card of step 2 opens the details. The bar is fully at the left
+    of the details, the point at the right end of the button Next gives that button, and a
+    click on it goes to step 3.
+16. At 1000 x 800 (the middle media rule): the list and the entry points with no sequence
+    are fully on the screen and above the bar, the entry points are below the list and not
+    in its scroll, and the frame of the map is at the right of the list and above the bar.
+    At 1440 x 900 the same for the list and the entry points.
+17. The step state of a flow with two steps. In the nested fixture the top sequence gets a
+    third step with the flow of step 1. At step 1 that flow is "now" and the flow of step 2
+    is "later". At step 2 the first flow is "was" and the second is "now". At step 3 the
+    first flow is "now" and the second is "was".
+18. The arrow keys also change the step with the keyboard focus on the canvas and on a
+    button of the list. The list of the map of this repository gives "All N entry points of
+    this map have a sequence." when each entry point has a sequence. On a phone the
+    headline gives the count of steps and "starts at" and the entry point.
 """
 
 from __future__ import annotations
@@ -112,6 +139,8 @@ def nested_page(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[st
         1, {"f": -1, "a": ["Views"], "y": "The views make the page."}
     )
     data["maps"][0]["ne"] = {"t": 9, "c": 4, "x": MISSING, "mo": 2}
+    top = data["maps"][0]["sq"][0]["s"]
+    top.append({**top[0], "y": "The first flow again."})
     return _write(root / "atlas.html", cfg, tree, data), data
 
 
@@ -371,6 +400,12 @@ def test_the_phone(self_page: tuple[Path, dict[str, Any]]) -> None:
         bar = whole["seq"]["view"]["bar"]["box"]
         assert bar["top"] >= 0 and bar["bottom"] <= 844 and bar["left"] >= 0 and bar["right"] <= 390
         assert whole["scroll"] <= 390
+        first = self_page[1]["maps"][0]["sq"][0]
+        n = whole["askN"]
+        assert n["display"] != "none" and n["box"]["height"] > 0, n
+        assert n["box"]["bottom"] <= rail["top"]
+        if first.get("en"):
+            assert f"starts at {first['en']}" in n["text"]
         step = r["step"]
         assert step["seq"]["view"]["step"] == 1
         for b in step["cards"]:
@@ -393,3 +428,108 @@ def test_axe_finds_no_violation(self_page: tuple[Path, dict[str, Any]]) -> None:
     for r in runs:
         assert r["errors"] == [], r
         assert r["axe"]["violations"] == [], r
+
+
+LABEL_SIZES = [(1440, 900), (1000, 800), (390, 844)]
+
+
+@pytest.fixture(scope="module", params=LABEL_SIZES, ids=lambda v: f"{v[0]}x{v[1]}")
+def labelled(
+    request: pytest.FixtureRequest, self_page: tuple[Path, dict[str, Any]]
+) -> dict[str, Any]:
+    w, h = request.param
+    return _drive_size("--labels", self_page[0], w, h)
+
+
+def _drive_size(mode: str, page: Path, w: int, h: int) -> dict[str, Any]:
+    proc = subprocess.run(
+        [browser(), str(DRIVER), mode, str(page), str(w), str(h)],
+        capture_output=True,
+        text=True,
+        timeout=900,
+    )
+    assert proc.returncode == 0, proc.stderr
+    out = dict(json.loads(proc.stdout))
+    assert out.get("errors", []) == [], out.get("errors")
+    return out
+
+
+def test_each_step_label_is_at_its_own_line(
+    self_page: tuple[Path, dict[str, Any]], labelled: dict[str, Any]
+) -> None:
+    """Acceptance 13."""
+    count = sum(len(q["s"]) + 1 for m in self_page[1]["maps"] for q in m.get("sq") or [])
+    assert len(labelled["runs"]) == count
+    seen = 0
+    for run in labelled["runs"]:
+        for lab in run["labels"]:
+            seen += 1
+            where = (run["k"], run["step"], lab)
+            if lab["own"] <= 4:
+                continue
+            assert lab["own"] <= 64, where
+            assert lab["other"] >= lab["h"] / 2 - 1, where
+    assert seen > 0
+
+
+def test_the_line_of_the_current_step_shows(labelled: dict[str, Any]) -> None:
+    """Acceptance 14."""
+    lit = 0
+    for run in labelled["runs"]:
+        for line in run["lit"]:
+            lit += 1
+            assert line["free"] >= min(20, line["all"] / 2), (run["k"], run["step"], line)
+    assert lit > 0
+
+
+@pytest.fixture(scope="module", params=[(1440, 900), (1000, 800)], ids=["1440", "1000"])
+def opened(
+    request: pytest.FixtureRequest, self_page: tuple[Path, dict[str, Any]]
+) -> dict[str, Any]:
+    w, h = request.param
+    return {"w": w, "h": h, **_drive_size("--open", self_page[0], w, h)}
+
+
+def test_the_bar_with_the_details_open(opened: dict[str, Any]) -> None:
+    """Acceptance 15."""
+    side, bar = opened["side"], opened["bar"]
+    assert side["width"] > 0 and side["right"] <= opened["w"] + 1
+    assert bar["left"] >= 0 and bar["right"] <= side["left"]
+    assert opened["next"]["right"] <= side["left"] and opened["nextHit"] is True
+    assert opened["after"] == 2
+
+
+def test_the_list_and_the_entry_points_fit(opened: dict[str, Any]) -> None:
+    """Acceptance 16."""
+    lst, ne = opened["list"]["box"], opened["ne"]
+    bar = opened["whole"]["seq"]["view"]["bar"]["box"]
+    assert lst["height"] > 0 and lst["top"] >= 0
+    assert ne["height"] > 0 and ne["top"] >= lst["bottom"] and ne["bottom"] <= opened["h"]
+    assert ne["bottom"] <= bar["top"] or ne["right"] <= bar["left"]
+    if opened["w"] < 1181:
+        assert ne["bottom"] <= bar["top"]
+        frame, rail = opened["whole"]["frame"], opened["whole"]["seq"]["view"]["railBox"]
+        assert frame[0] >= rail["right"] and frame[1] + frame[3] <= bar["top"]
+
+
+def test_a_flow_with_two_steps(
+    nested_page: tuple[Path, dict[str, Any]], nested: dict[str, Any]
+) -> None:
+    """Acceptance 17."""
+    steps = nested_page[1]["maps"][0]["sq"][0]["s"]
+    a, b = steps[0]["f"], steps[1]["f"]
+    assert a >= 0 and b >= 0 and a != b and steps[2]["f"] == a
+    got = [(v["step"], v["states"][a], v["states"][b]) for v in nested["steps"]]
+    assert got == [(0, "now", "later"), (1, "was", "now"), (2, "now", "was")]
+
+
+def test_more_keys_and_texts(self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]) -> None:
+    """Acceptance 18."""
+    assert wide["canvasRight"]["active"] == "canvas"
+    assert wide["canvasRight"]["seq"]["view"]["step"] == wide["left"]["seq"]["view"]["step"] + 1
+    assert wide["railLeft"]["seq"]["view"]["step"] == wide["canvasRight"]["seq"]["view"]["step"] - 1
+    ne = self_page[1]["maps"][0]["ne"]
+    if ne["t"] == ne["c"]:
+        assert wide["whole"]["seq"]["view"]["ne"] == (
+            f"All {ne['t']} entry points of this map have a sequence."
+        )
