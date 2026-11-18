@@ -7313,3 +7313,27 @@ The first two trials changed when a nested map is built. This trial changes how 
 Result: FAIL in each of 9 runs. The first frame, the pan and the element count pass as before. The page painted again 4 times in each dive. The median frame of the dive is 50.0 ms, against 16.7 ms for the canvas page. Thus a frame that only moves the painted layer is also slow on this host. The host has no GPU, so the browser makes each frame of the layer on the CPU. A machine with a GPU can give a different result. That was not measured.
 
 Conclusion of G1: in 18 runs with three techniques, the zoom into a nested map is 1.67 to 4.49 times slower with SVG than with the canvas page on this host. The limit of the performance budget is 1.25 times. The map of the atlas page must not draw with SVG.
+
+## B1: the performance budget of the atlas page, stage 1 (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py`. Its docstring has the acceptance values, written before the first run. The atlas page is the stage 1 page of `docs/design/atlas.md`: the Map view at rest, on a fork of the canvas engine. The canvas page is the page of the same commit. Each value is the median of 3 runs at 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU.
+
+Run 1 (before two changes, a failure). Browser tests of the agent ran on the host at the same time as a part of this run.
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths |
+|---|---|---|---|---|---|
+| self | 353 / 248 (pass) | 33.3 / 33.3 (pass) | 33.4 / 50.0 (fail) | 313,126 / 185,865 = 0.59 (pass) | not measured |
+| workspace | 388 / 262 (pass) | 33.3 / 16.8 (pass) | 33.4 / 50.0 (fail) | 268,900 / 135,392 = 0.50 (pass) | not measured |
+| M11 tree | 478 / 384 (pass) | 33.3 / 33.4 (pass) | 33.4 / 33.4 (pass) | 1,236,352 / 1,099,535 = 0.89 (pass) | not measured |
+
+Result: FAIL for the dive of the two maps with no nested map. The record of the draw time of each frame (`systemapCanvas.record`) gave the cause: the frames of the zoom in were slow, and the frames of the zoom out were not. Two parts of the frame changed with the zoom: the places of the labels at rest were calculated again at each quarter step of zoom, and the uppercase names of the containers and the regions had a new font size in each frame, with no upper limit. The changes: while the camera moves, the labels keep the places of the last calculation, and the full drawing at rest calculates them again (as the design study does). The uppercase names have a size in half pixels, 13 px or less. After the changes, the p95 of the draw time of the dive of the self-map went from 16.0 ms to 8.8 ms. Two other changes came between the runs: the rule of how far a nested map takes the screen (`deepOf` in `atlas_draw`: the width of its frame, or 90 % of the zoom of its fit, also counts), and a lower alpha of the mark of a small card.
+
+Run 2 (after the changes, with no other browser on the host):
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths |
+|---|---|---|---|---|---|
+| self | 358 / 235 (pass) | 33.3 / 33.3 (pass) | 33.4 / 33.4 (pass) | 314,718 / 187,714 = 0.60 (pass) | not measured |
+| workspace | 346 / 260 (pass) | 33.3 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,900 / 135,649 = 0.50 (pass) | not measured |
+| M11 tree | 448 / 371 (pass) | 16.8 / 33.3 (pass) | 33.4 / 33.4 (pass) | 1,236,352 / 1,099,792 = 0.89 (pass) | not measured |
+
+Result: PASS for each measured value. The time from a pointer move onto a card to the lit paths is not measured: stage 1 has no lit paths. Stage 2 adds them, and a measurement is necessary then. The pan of the M11 tree has a p95 of 33.3 ms on the atlas page and 16.8 ms on the canvas page. That is 1.98 times, but it is in the absolute limit of 35 ms, so it passes. The size of the self-map pages changed between the runs because the map of this repository changed (the text of the component Page).

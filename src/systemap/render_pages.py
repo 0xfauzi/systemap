@@ -1,6 +1,7 @@
 """The page of each map that `render`, `refresh`, `check` and `live` make: the canvas page
 (`canvas_page`) with a small page for each nested map, or with `[render] canvas = false`
-one linked page for each map (`config_render`).
+one linked page for each map (`config_render`). With `[render] page = "atlas"`, the atlas
+page (`atlas_page`) replaces the canvas page, with the same small pages.
 
 `change_of` gives the change data of the page of a map (`page_change`). Without it, the
 pages have no change. With the canvas page, the canvas data holds the change data of
@@ -16,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable, Collection
 from typing import Any
 
-from systemap import canvas_page, change, config_render, nest, page
+from systemap import atlas_page, canvas_page, change, config_render, nest, page
 from systemap.config import Config
 
 ChangeOf = Callable[[nest.Map], dict[str, Any]]
@@ -70,4 +71,8 @@ def pages(
     if not cfg.render_canvas:
         return [(m, linked(m)) for m in tree.maps if m.id not in skip]
     changes = {m.id: change_of(m) for m in tree.maps} if change_of else None
-    return canvas_page.pages(cfg, tree, facts, changes)
+    return _ONE_PAGE[cfg.render_page](cfg, tree, facts, changes)
+
+
+# The page of all maps of the tree for each value of `[render] page` that is not "linked".
+_ONE_PAGE = {"atlas": atlas_page.pages, "canvas": canvas_page.pages}

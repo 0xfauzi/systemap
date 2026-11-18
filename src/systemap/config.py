@@ -230,6 +230,9 @@ class Config:
     require_reviews: bool = False  # [judgement] require_reviews: a missing review is a finding
     max_contradicted: int = 3  # [decisions] max_contradicted: a loop bound, not a measurement
     render_canvas: bool = True  # [render] canvas: write the canvas page (config_render)
+    # [render] page: "atlas", "canvas" or "linked" (config_render). "linked" has
+    # render_canvas false. The atlas page and the canvas page both have render_canvas true.
+    render_page: str = "canvas"
     source: str = ""
 
     @property
@@ -457,7 +460,8 @@ def load(root: Path) -> Config:
         writing = writing_profile(raw.get("writing"), where)
         decided = {**config_decisions.read(raw, where), **written_names(raw, where)}
         decided["rules_unknown"] = config_decisions.rules_unknown(raw, where)
-        decided["render_canvas"] = config_render.canvas(raw, where)
+        decided["render_page"] = config_render.page(raw, where)
+        decided["render_canvas"] = decided["render_page"] != "linked"
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
 

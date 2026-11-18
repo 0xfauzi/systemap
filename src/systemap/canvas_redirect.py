@@ -64,8 +64,11 @@ def _script(url: str) -> str:
     )
 
 
-def page(m: nest.Map) -> str:
-    """Give the small page of the nested map `m`. It goes to the top page with the map ID."""
+def page(m: nest.Map, name: str = "canvas page") -> str:
+    """Give the small page of the nested map `m`. It goes to the top page with the map ID.
+
+    `name` is the name of the top page in the text of the link: "canvas page", or "atlas
+    page" for the atlas page (`atlas_page`)."""
     url = target(m)
     shown = html.escape(m.id)
     href = html.escape(url, quote=True)
@@ -78,7 +81,7 @@ def page(m: nest.Map) -> str:
         f'<meta http-equiv="refresh" content="0;url={href}">'
         f'</head><body style="{_STYLE}">'
         f"<main><h1>{shown} system map</h1>"
-        f'<p>The map {shown} is on the <a href="{href}">canvas page</a>.</p>'
+        f'<p>The map {shown} is on the <a href="{href}">{html.escape(name)}</a>.</p>'
         "</main></body></html>\n",
         frame=page_csp.NO_FRAME,
     )
