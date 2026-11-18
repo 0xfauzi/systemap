@@ -55,6 +55,12 @@ details panel and no other views. It has the embedded font of the product
 (the lines draw one time) is not in the page. The boundary flows of the ports are not
 drawn.
 
+Two changes of the page were made after checks of the page with screenshots and before the
+first run: the box of a map has no shadow filter when its frame is more than 2 times the
+screen (with the filter, the paint of a deep zoom took more than 30 s), and a nested map is
+seen when a part of its frame is in the screen (with the rule of the study, the middle of the
+map in the screen, the map above did not go away in a deep zoom).
+
 The browser is the Chromium of Playwright, headless, 1440 x 900, device pixel ratio 1.
 
 Run from the repository root (Node and the Playwright package must be installed):

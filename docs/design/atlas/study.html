@@ -623,7 +623,7 @@ function inspector(c) {
     var go2 = h('button', 'enter'); go2.innerHTML = '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 4.5v-3h3M11.5 8.5v3h-3M8 1.5h3.5V5M5 11.5H1.5V8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
     go2.appendChild(document.createTextNode('See its ' + c.opens.parts + ' parts')); go2.addEventListener('click', function () { enter(c.opens); }); body.appendChild(go2);
   }
-  if (!m.host && c.fl.length) { var fo = h('button', 'more', 'Focus on this card'); fo.style.marginTop = '0'; fo.addEventListener('click', function () { FOCUS.id = c.id; setMode('focus'); }); body.appendChild(fo); }
+  if (!m.host && c.fl.length) { var focusBtn = h('button', 'more', 'Focus on this card'); focusBtn.style.marginTop = '0'; focusBtn.addEventListener('click', function () { FOCUS.id = c.id; setMode('focus'); }); body.appendChild(focusBtn); }
   if (c.d) {
     var d = h('p', 'side__d clip', c.d); body.appendChild(d);
     if (c.d.length > 260) { var more = h('button', 'more', 'Read all'); more.addEventListener('click', function () { var shut = d.classList.toggle('clip'); more.textContent = shut ? 'Read all' : 'Show less'; }); body.appendChild(more); }

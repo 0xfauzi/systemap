@@ -324,10 +324,13 @@ function apply() {
     var r = screenOf(m);
     m.g.setAttribute('transform', 'translate(' + r[0] + ' ' + r[1] + ') scale(' + cam.k * m.s + ')');
     m.g.classList.toggle('far', cam.k * m.s < 0.95);
+    m.g.classList.toggle('big', r[2] > 2 * W || r[3] > 2 * H);
     if (!m.host) return;
     // t is 0 when the nested map is a small picture in its card, and 1 when it has the screen.
-    var t = smooth(0.16, 0.5, Math.max(r[2] / W, r[3] / H)), cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2;
-    m.t = cx > 0 && cx < W && cy > 0 && cy < H ? t : 0;
+    var t = smooth(0.16, 0.5, Math.max(r[2] / W, r[3] / H));
+    // A map is seen when a part of its frame is in the screen. A move into a deep map does not keep
+    // the middle of each map above it in the screen.
+    m.t = r[0] < W && r[0] + r[2] > 0 && r[1] < H && r[1] + r[3] > 0 ? t : 0;
     m.g.classList.toggle('thumb', t < 0.2);
     if (m.t > 0.5 && (into === TOP || depth(m) > depth(into))) into = m;
   });

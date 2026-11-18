@@ -7223,3 +7223,79 @@ Before the change (L2a): `crossed` was 12, 43, 8, 4 and 69 for these layers.
 - With the pointer on the card Agent in System context, 14 labels show.
 
 Not measured: a map with nested maps, a map of a different repository, and the time of a frame when the pointer goes on a card of a large map. `tests/test_canvas_frames.py` passes with the change.
+
+## G1: the gate of the atlas page (2026-11-18)
+
+Script: `bench/jev/atlas_frames.py`, with the driver `atlas_frames.js` and the test page
+`atlas_frames_page.html` and `atlas_frames_page.js`. The acceptance values are in the
+docstring of the script and in "The gate" of `docs/design/atlas.md`. They were written and
+committed (commit f2b98c7) before the first run. The second rule of the dive (1.1 times the
+dive of the canvas page in the same run) was added to the specification in the same commit.
+
+- Input: the canvas data object of the M11 tree (`m11_tree`): 50 maps of 40 cards, three
+  levels below the top map. Each map shows the layer All (39 flows in each map).
+- The test page is the map renderer of the design study, with nested maps to any depth, and
+  the elements of a nested map built only near the camera. It is not product code.
+- Chromium of Playwright, headless, 1440 x 900, device pixel ratio 1, 4 times CPU slowdown.
+  The host has no GPU.
+- The dive goes from the top fit into `P0/Q1/Deep` and back out in 180 frames. The canvas
+  dive is the scenario `dive` of `canvas_frames.py` on the canvas page of the same data.
+- Three values in a cell are the median, the p95 and the largest interval in ms.
+
+Two changes of the test page were made after screenshot checks and before the first run.
+They are not trials of the building rule:
+
+- With the shadow filter of the study on the box of a map, the paint of a deep zoom did not
+  end in 30 s (a Playwright screenshot timed out). The box has no filter when its frame is
+  more than 2 times the screen.
+- With the rule of the study (the middle of the nested map is in the screen), the map above
+  did not go away in a deep zoom. A nested map is now seen when a part of its frame is in
+  the screen.
+
+### G1a: the first rule (build at 240 px, remove below 160 px, margin 0.5 of the screen)
+
+| Run | Built (ms) | First frame (ms) | Pan (ms) | Dive (ms) | Canvas dive (ms) | Dive / canvas p95 | SVG elements at the top fit / largest | Maps built at most |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 354 | 429 (pass) | 16.7 / 16.8 / 33.4 (pass) | 66.6 / 133.3 / 183.4 | 16.7 / 50.0 / 83.4 | 2.67 (fail) | 507 / 2,447 (pass) | 5 |
+| 2 | 311 | 385 (pass) | 16.7 / 16.8 / 33.4 (pass) | 66.6 / 150.0 / 216.7 | 16.7 / 50.0 / 100.1 | 3.00 (fail) | 507 / 2,447 (pass) | 5 |
+| 3 | 319 | 415 (pass) | 16.7 / 16.8 / 33.4 (pass) | 66.7 / 150.0 / 216.7 | 16.7 / 33.4 / 66.7 | 4.49 (fail) | 507 / 2,447 (pass) | 5 |
+
+Result: value 1 PASS, value 2 FAIL (the pan passes, the dive fails), value 3 PASS. The gate
+FAILS.
+
+A profile of one dive at 4 times CPU slowdown (not an acceptance value) gave 0.1 to 6 ms of
+script in each frame, and frame intervals of 33 to 167 ms. Most of the time of a frame is
+outside the script: the style, the layout and the paint of the SVG elements at a new scale.
+With only the top map built, the intervals were already 33 to 50 ms.
+
+### G1b: trial 1 of the building rule (build at 720 px, remove below 480 px, no margin)
+
+| Run | Built (ms) | First frame (ms) | Pan (ms) | Dive (ms) | Canvas dive (ms) | Dive / canvas p95 | SVG elements at the top fit / largest | Maps built at most |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 395 | 484 (pass) | 16.7 / 33.3 / 33.4 (pass) | 50.0 / 100.0 / 116.7 | 16.7 / 50.0 / 66.6 | 2.00 (fail) | 507 / 1,961 (pass) | 4 |
+| 2 | 361 | 452 (pass) | 16.7 / 16.7 / 33.4 (pass) | 50.0 / 100.0 / 133.4 | 33.3 / 50.0 / 66.7 | 2.00 (fail) | 507 / 1,961 (pass) | 4 |
+| 3 | 321 | 416 (pass) | 16.7 / 33.3 / 33.4 (pass) | 50.0 / 100.0 / 166.8 | 16.7 / 50.0 / 66.7 | 2.00 (fail) | 507 / 1,961 (pass) | 4 |
+
+Result: the dive FAILS.
+
+### G1c: trial 2 of the building rule (build at 1,200 px, remove below 900 px, no margin)
+
+| Run | Built (ms) | First frame (ms) | Pan (ms) | Dive (ms) | Canvas dive (ms) | Dive / canvas p95 | SVG elements at the top fit / largest | Maps built at most |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 455 | 549 (pass) | 16.7 / 16.7 / 33.3 (pass) | 50.0 / 100.0 / 150.0 | 16.7 / 33.4 / 66.7 | 2.99 (fail) | 507 / 1,961 (pass) | 4 |
+| 2 | 303 | 399 (pass) | 16.7 / 16.7 / 33.4 (pass) | 50.0 / 83.3 / 100.0 | 16.7 / 50.0 / 83.4 | 1.67 (fail) | 507 / 1,961 (pass) | 4 |
+| 3 | 291 | 410 (pass) | 16.7 / 16.8 / 33.4 (pass) | 50.0 / 83.4 / 116.7 | 16.7 / 33.4 / 66.8 | 2.50 (fail) | 507 / 1,961 (pass) | 4 |
+
+Result: the dive FAILS. The work stopped after this trial, as the task specified. The script
+keeps the first rule as its default.
+
+### Conclusion of G1
+
+The gate FAILS on value 2 for the dive. Stage 1 must not start. A later building rule
+reduces the p95 of the dive from 133 to 150 ms to 83 to 100 ms, but it is still 1.67 to 3.00
+times the p95 of the canvas page, and the limit is 1.1 times. The first frame (385 to 549 ms),
+the pan (p95 16.7 to 33.3 ms) and the count of SVG elements (2,447 or less) pass in each run.
+
+Not measured: a host with a GPU, other changes to the renderer (for example a raster image
+of a map during a zoom, or no transform of the maps above while a nested map has the screen),
+and the other inputs of the performance budget.

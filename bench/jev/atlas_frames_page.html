@@ -77,6 +77,8 @@ svg#map.drag{cursor:grabbing}
 .lvl.hid{visibility:hidden}
 .sys{fill:var(--surface);stroke:var(--line);stroke-width:1;filter:drop-shadow(0 10px 18px rgba(29,27,23,.06))}
 .sysname{font:500 9.5px/1 var(--mono);letter-spacing:.11em;fill:var(--ink-3)}
+/* A box that is much larger than the screen has no shadow: a filter on it takes seconds to paint. */
+.lvl.big .sys{filter:none}
 .region{fill:var(--tint)}
 .rname{font:500 9px/1 var(--mono);letter-spacing:.11em;fill:var(--ink-3)}
 .rnum{font:500 8.5px/1 var(--mono);fill:var(--ink-3)}
