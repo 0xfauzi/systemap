@@ -112,7 +112,7 @@ COMPONENTS = (
     ),
     Component(
         id="Scaffold",
-        source_review="e6e675593b83f73f92f635b385790293f6fa139320f12d17774f408f34dff34f",
+        source_review="f37fd81d2da519cc61db6272a1568ad65f6a6d0e7699ac5f3ab8d3b38246416e",
         does="Writes the initial configuration, model, contract file, output directory and workflow. On a pull request, the workflow writes the architecture summary to the job summary. For a branch of the same repository, it also writes the summary as one comment and changes that comment on each push. Prints a suggested CODEOWNERS line for the contract file and does not write CODEOWNERS. The model has regions on a grid with spaces between them. Does not replace files. Does not write systemap.toml when pyproject.toml has a [tool.systemap] table. Writes no file if a symbolic link puts a file in a location that is not in the repository. Writes test_patterns for the type-test files that the language adapter finds. If no package root is found, prints the cause and the [package_roots] table to write.",
         interface="write(root, name, package, roots, ci) -> one line per file",
         implemented_by=("systemap.scaffold",),
@@ -269,7 +269,7 @@ COMPONENTS = (
     # ---- mean: the judgement ----
     Component(
         id="Skill",
-        source_review="4aa32140f0c02dd998caf692e5e8c1e32bf79bfae955db04b46465cbd4ef800d",
+        source_review="111fa9b3ae3cbdaaf85cdd58119434e67c82b4f897edade2f318ff61023d227a",
         does="Gives the procedure for the agent: extraction, model draft, check, judgement, render and second examination. Gives completion conditions, output requirements and maintenance instructions. Stores text files and references in the package. Writes no file if a symbolic link puts a skill file in a location that is not in the selected directory.",
         interface="files() -> the skill directory; write(dir, root) -> the installed SKILL.md",
         implemented_by=("systemap.skill",),

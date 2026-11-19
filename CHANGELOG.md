@@ -9,6 +9,14 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+### Writing profile
+
+- The `asd-ste100` profile uses the ASD-STE100 Issue 9 style. It does not use the official ASD dictionary.
+  The language policy has the style rules, from public summaries of the standard, and a project word list.
+  Under this profile, an agent says that the text follows the ASD-STE100 style. It does not say that the text obeys the official standard.
+- The language policy text changed for the two profiles. The cache key of a coding-agent request contains the policy.
+  Thus `systemap journeys` does not use an answer that it recorded before this change. It asks the agent again.
+
 ### Changes that can break a script or a CI job
 
 - `render`, `refresh`, and `live` write the atlas page by default (`[render] page = "atlas"`, stage 9 of `docs/design/atlas.md`). Before, the default was the canvas page.

@@ -99,7 +99,7 @@ def test_the_template_writes_the_plain_profile_with_both_values_explained(langua
     head = text[: text.index("[writing]")]
     comment = head[head.rindex("\n\n") :]
     assert '"plain"' in comment and '"asd-ste100"' in comment
-    assert "dictionary" in comment
+    assert "word list" in comment
 
 
 def test_init_writes_a_configuration_that_gives_the_plain_profile(tmp_path: Path) -> None:
