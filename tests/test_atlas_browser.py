@@ -79,6 +79,16 @@ of this test:
     with #Gateway, the shown layer is "system", the selected tab is Neighbours, and the
     question is "Which neighbours connect to Gateway?". The top map of the fixture, which
     has no System context, shows All before the dive and after Esc.
+
+Acceptance value 22, written on 2026-11-19 for the repair of stage 10, before the first run
+of this test:
+
+22. A label at rest stays in the box of its map. For each layer tab of the top map of the
+    self-map and of its nested map Page (opened with #Page): at 1440 x 900 at the fit, and
+    at 390 x 844 at the open and after a click on Fit, the screen box of each label at rest
+    of that map (`systemapCanvas.lines`) is inside the frame of the map, with 0.5 px of
+    tolerance. After Fit on the phone, each such box is also inside the width of the
+    screen. Each of the two maps shows at least one label at rest.
 """
 
 from __future__ import annotations
@@ -544,3 +554,28 @@ def test_a_phone_shows_the_cards_and_their_names(
     }
     assert names and names <= texts
     assert kinds and kinds <= texts
+
+
+@pytest.mark.parametrize("which", ["", "Page"])
+def test_a_label_at_rest_stays_in_the_box_of_its_map(
+    which: str, self_page: tuple[Path, dict[str, Any]]
+) -> None:
+    """Acceptance 22."""
+    out = _drive("--inside", self_page[0], which)
+    assert out["errors"] == []
+    assert out["chain"] == ([which] if which else [])
+    shown = 0
+    for run in out["runs"]:
+        f = run["frame"]
+        frame = [f[0] - 0.5, f[1] - 0.5, f[0] + f[2] + 0.5, f[1] + f[3] + 0.5]
+        for label in run["labels"]:
+            if label["hide"]:
+                continue
+            b = label["box"]
+            where = (run["state"], run["layer"], label["s"], b, f)
+            assert frame[0] <= b[0] and frame[1] <= b[1], where
+            assert b[2] <= frame[2] and b[3] <= frame[3], where
+            if run["state"] == "phoneFit":
+                assert -0.5 <= b[0] and b[2] <= run["size"][0] + 0.5, where
+            shown += 1
+    assert shown > 0

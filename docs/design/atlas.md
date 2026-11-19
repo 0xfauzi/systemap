@@ -64,9 +64,10 @@ state machine, History needs commit data.
   path its own lane, 4.5 map units apart, so that N flows show as N lines.
 - **Crossings.** Each line has a casing in the ground color below it, so that a line goes
   over a different line with a small gap.
-- **Labels at rest.** A label shows at rest only when it is on its line, on no card, on no
-  name of a region, on no other label, and no other line goes through it. A horizontal
-  part of the line comes first. The label has a constant size on the screen.
+- **Labels at rest.** A label shows at rest only when it is on its line, in the box of the
+  map, on no card, on no name of a region, on no other label, and no other line goes
+  through it. A horizontal part of the line comes first. The label has a constant size on
+  the screen.
 - **Busy layers.** With many flows, the lines go light and the labels do not show at rest.
   The dot and the arrowhead stay.
 - **Pointing at a card.** The flows of the card get the color of their kind and draw one
@@ -97,6 +98,12 @@ state machine, History needs commit data.
   is not a test. The commands keep the column layout (`place.SIDES_IN_COMMANDS = False`). To
   use the rule, write the acceptance values first and measure on nested maps that N1 to N3
   did not use.
+  N4 (2026-11-19) did this, on the nested map Page of this repository and on three maps of
+  the generated M11 tree. It failed acceptance 1: on Page, the sides layout has one label
+  collision of the canvas page placer, and the column layout has none. The label is the
+  artifact of the flow from Judgement to PageData, which is the artifact of the flow of the
+  top map. The other five values passed. Thus the commands keep the column layout, and the
+  neighbours of Page are in one column. A decision of the maintainer is necessary.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced
@@ -279,7 +286,9 @@ branch `views-prototype`. No stage makes a pull request.
     atlas page), CanvasPage, CanvasDrawing and CanvasViews (the canvas page), and LinkedPage
     and LinkedViews (the linked page). Each part has 10 modules or fewer. The 10 neighbours
     are the components of the top map that have a flow with Page. The placer puts them in
-    one column, because the rule "Neighbours of a nested map" is not met. Each flow between
+    one column, because the rule "Neighbours of a nested map" is not met. After the review of
+    stage 10, N4 measured the rule on Page with the acceptance values written first, and it
+    failed (bench/jev/README.md). Each flow between
     two parts has its source records and its review digest. A flow with a neighbour has the
     artifact of the flow of the top map. `systemap check` and `systemap judgement --strict`
     give no open line.
@@ -288,6 +297,14 @@ branch `views-prototype`. No stage makes a pull request.
     (`atlas_lines`: the four sides of the map are walls for a label at rest). Two tests
     assumed a map tree with no nested map: the name of a container of actors and the
     regions of a small picture (tests/test_atlas_browser.py, acceptance 14).
+    After the review of stage 10 (2026-11-19): a test holds a label at rest in the box of
+    its map, at the fit and on a phone, on the top map and on Page
+    (tests/test_atlas_browser.py, acceptance 22). Without the four sides as walls, it fails.
+    A test drives the canvas page of the real tree with the nested map Page
+    (tests/test_canvas_reading_browser.py, acceptance 12). On that page the smallest label
+    at the fit is 8.5 px, not the 9 px of the page with no nested map, because the ports
+    make the fit smaller. The canvas page stays as it is, thus this is a decision for the
+    maintainer.
     The budget passes for each value on the finished page (B19 in `bench/jev/README.md`).
     The History view gives the components of the top map, also when the nested map Page is
     open. This document gives no rule for the history of the parts of a nested map.

@@ -402,7 +402,7 @@ requestAnimationFrame(function () { setTimeout(buildTree, 0); });
 // The screen boxes of the labels at rest of map m in the layer of the frame.
 function restLabels(m) {
   var v = view(m), s = seatsOf(m, shownLayer(m), v.a);
-  return s ? s.list.map(function (x) { return {s: x.e.s, f: x.e.f.i, x: v.ox + v.a * x.x, y: v.oy + v.a * x.y, hide: !!x.hide}; }) : [];
+  return s ? s.list.map(function (x) { return {s: x.e.s, f: x.e.f.i, x: v.ox + v.a * x.x, y: v.oy + v.a * x.y, hide: !!x.hide, box: labelBox(x.box, v.a, v.ox, v.oy)}; }) : [];
 }
 function linesState(id) {
   var m = MAPS[id], L = linesOf(m, shownLayer(m));

@@ -7773,3 +7773,22 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 341 / 385 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,223,822 / 1,253,840 = 1.02 (pass) | 50 (pass) |
 
 Result: PASS for each value. The dive of `self` now goes into a nested map with 21 cards and 59 flows. Its p95 is 33.2 ms, below the absolute limit of 35 ms and below the canvas value. In B18, with no nested map, it was 16.8 ms. The margin to the limit is small, so a measurement is necessary after a change to the nested map Page or to the drawing of the dive.
+
+## N4: the neighbours of a nested map, on nested maps that N1 to N3 did not use (2026-11-19)
+
+Script: `bench/jev/neighbour_sides_n4.py`. The review of stage 10 found that the rule "Neighbours of a nested map" of docs/design/atlas.md is still not met, and that the document gives a way forward: write the acceptance values first and measure on nested maps that N1 to N3 did not use. The acceptance values are in the docstring of the script, written before the first run. They are the values of N3 with no change, and a sixth value: no layout problem in a sides layout. The rule is the form BOX of `place_sides` (`KEPT`, SIDE_GAP 44). The inputs are the nested map Page of this repository (map/page.py at 7295d1f, not the draft of N1 to N3), and one nested map of each level of the generated M11 tree (P0, P0/Q0, P0/Q0/Deep). The full output is in `bench/jev/neighbour_sides_N4.txt`.
+
+| Input | Layout | Canvas | Zoom | Shown | Collisions | Refused | Bends | Length | Reach |
+|---|---|---|---|---|---|---|---|---|---|
+| page | column | 714 x 1022 | 0.773 | 0.773 | 0 | 0 | 148 | 26,405 | 666 |
+| page | sides | 928 x 892 | 0.886 | 0.886 | 1 | 0 | 109 | 17,337 | 312 |
+| m11 P0 | column | 2756 x 400 | 0.522 | 0.522 | 0 | 0 | 53 | 14,659 | 234 |
+| m11 P0 | sides | 2582 x 560 | 0.558 | 0.558 | 0 | 0 | 53 | 14,716 | 130 |
+
+The two other M11 maps give the same values as m11 P0: each has 40 cards, one actor and a chain of flows.
+
+1 FAIL. 2 PASS (268 / 307 bends). 3 PASS (61,485 / 70,382 length). 4 PASS (total reach 702 against 1,368). 5 PASS (the smallest ratio of `shown` is 1.069 on the M11 maps, and on Page it is 1.146). 6 PASS.
+
+Result: FAIL. The collision is the label of the flow from Judgement to PageData, "uncovered entry points, assurance levels, boundary findings". The label placer of `place.score` (the placer of the canvas page) found no seat for it: the label is 117 units wider than its longest free part of the line, and it covers the cards CLI and PageWriter. The column layout has a seat for it. The artifact is the artifact of the flow of the top map, thus stage 10 keeps it. The atlas page does not use this placer for its labels at rest: it shows a label only where it fits. But acceptance 1 is a written value, and it is not changed after the run.
+
+Decision: the commands keep the column layout (`place.SIDES_IN_COMMANDS = False`), and map/page.py does not change. The neighbours of Page stay in one column at the left of the frame, and the rule "Neighbours of a nested map" is not met. A decision of the maintainer is necessary: accept the rule with this collision, change the artifact of the flow in the top map and in Page, or keep the column.

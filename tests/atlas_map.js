@@ -24,6 +24,10 @@
 // - --motion: 1440 x 900 on a page with the nested map MAP, with and without reduced
 //   motion: the camera 60 ms after a double-click on the card of MAP and after the flight,
 //   and the smallest alpha of the lines after a change of the layer.
+// - --inside: the map MAP (the top map when MAP is empty), opened with the hash #MAP. For
+//   each layer tab, the frame of the map and the labels at rest with their screen boxes
+//   (`systemapCanvas.lines`): at 1440 x 900 at the fit, and at 390 x 844 at the open and
+//   after a click on the Fit control.
 // - --axe: axe-core (from NODE_PATH; null when it is not there) in the light and the dark
 //   scheme, at 1440 x 900 and at 390 x 844.
 // Each mode prints one JSON object. `errors` has the script errors of the page.
@@ -281,6 +285,34 @@ async function motion(browser, file, map) {
   return out;
 }
 
+// The frame and the labels at rest of the map id in each layer tab of the page.
+async function eachLayer(page, id, state) {
+  const out = [], tabs = (await page.evaluate(() => window.systemapCanvas.viewState())).tabs;
+  for (const tab of tabs) {
+    await page.evaluate((t) => window.systemapCanvas.setLayer(t), tab.id);
+    await page.waitForTimeout(700);
+    out.push(await page.evaluate(([i, s]) => ({ state: s, layer: window.systemapCanvas.viewState().layer,
+      frame: window.systemapCanvas.frame(i), labels: window.systemapCanvas.lines(i).labels, size: [innerWidth, innerHeight] }), [id, state]));
+  }
+  return out;
+}
+
+async function inside(browser, file, map) {
+  const id = map || '', hash = id ? '#' + id : '';
+  const wide = await open(browser, file, WIDE, hash);
+  const out = { errors: wide.errors, chain: await wide.page.evaluate(() => window.systemapCanvas.chain()), runs: [] };
+  out.runs.push(...await eachLayer(wide.page, id, 'fit'));
+  await wide.page.close();
+  const phone = await open(browser, file, PHONE, hash);
+  out.runs.push(...await eachLayer(phone.page, id, 'open'));
+  await phone.page.click('#atlas-zf');
+  await phone.page.waitForTimeout(1500);
+  out.runs.push(...await eachLayer(phone.page, id, 'phoneFit'));
+  out.errors = out.errors.concat(phone.errors);
+  await phone.page.close();
+  return out;
+}
+
 async function axeRun(page) {
   let source;
   try { source = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch (e) { return null; }
@@ -306,7 +338,7 @@ async function axe(browser, file) {
 (async () => {
   const [mode, file, map] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const run = { '--rest': rest, '--phone': phone, '--nested': nested, '--marks': marks, '--input': input, '--motion': motion, '--axe': axe }[mode];
+  const run = { '--rest': rest, '--phone': phone, '--nested': nested, '--marks': marks, '--input': input, '--motion': motion, '--axe': axe, '--inside': inside }[mode];
   const out = await run(browser, file, map);
   await browser.close();
   process.stdout.write(JSON.stringify(out) + '\n');
