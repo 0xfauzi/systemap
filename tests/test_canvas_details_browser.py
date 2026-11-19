@@ -319,7 +319,7 @@ def test_a_new_text_of_the_panel_keeps_the_focus_in_the_panel(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     """Acceptance 17."""
-    root = _made(tmp_path_factory.mktemp("rewrite"), "")
+    root = _made(tmp_path_factory.mktemp("rewrite"), '[render]\npage = "canvas"\n')
     found = _drive("--rewrite", str(root / "docs" / "map" / "index.html"))
     assert found["errors"] == [] and found["card"]
     after = found["after"]

@@ -323,6 +323,7 @@ jobs:
   # tests/test_atlas_parity_browser.py examines Find, the hash, the tools, the marks, the list
   # of the tree, axe-core and systemap live on the atlas page. tests/test_atlas_frames.py
   # examines the performance budget of the atlas page on the generated tree.
+  # tests/test_atlas_limits_browser.py examines the disclosure "Not in this comparison".
   canvas-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -355,7 +356,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the canvas browser tests
-        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py tests/test_atlas_point_browser.py tests/test_atlas_sequences_browser.py tests/test_atlas_states_browser.py tests/test_atlas_focus_browser.py tests/test_atlas_history_browser.py tests/test_atlas_reach.py tests/test_atlas_parity_browser.py tests/test_atlas_frames.py
+        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py tests/test_atlas_point_browser.py tests/test_atlas_sequences_browser.py tests/test_atlas_states_browser.py tests/test_atlas_focus_browser.py tests/test_atlas_history_browser.py tests/test_atlas_reach.py tests/test_atlas_parity_browser.py tests/test_atlas_limits_browser.py tests/test_atlas_frames.py
 
   plugin:
     runs-on: ubuntu-latest
