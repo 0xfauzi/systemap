@@ -1,6 +1,7 @@
 """The canvas page: all maps of a map tree on one canvas (docs/design/nested-canvas.md).
 
-This is the default output (`config_render`): `render_pages` uses `pages`, the canvas page
+`[render] page = "canvas"` selects this page (`config_render`). Before stage 9 of
+docs/design/atlas.md it was the default output. `render_pages` uses `pages`, the canvas page
 for the top map and a small page for each nested map (`canvas_redirect`). The small page
 goes to the top page with the ID of its map in the URL hash, for example
 `../index.html#Gateway`. Thus a link to a nested page still opens that map.

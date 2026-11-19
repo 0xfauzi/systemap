@@ -315,6 +315,7 @@ def test_the_study_form_has_no_room_for_the_label() -> None:
 
 
 ATLAS = '[render]\npage = "atlas"\n'
+CANVAS = '[render]\npage = "canvas"\n'
 
 
 def _tree(root: Path, setting: str = ATLAS) -> None:
@@ -472,9 +473,9 @@ def test_the_stub_of_a_part_has_the_kept_form(
     actor goes to the side with the most free room."""
     monkeypatch.setattr(place, "SIDES_IN_COMMANDS", on)
     root = test_parts._gate(tmp_path)
-    if atlas:
-        with (root / "systemap.toml").open("a", encoding="utf-8") as out:
-            out.write(ATLAS)
+    # The atlas page is the default. The canvas page gets its setting.
+    with (root / "systemap.toml").open("a", encoding="utf-8") as out:
+        out.write(ATLAS if atlas else CANVAS)
     assert test_parts.run(root, "parts", "--stub", "Gate") == 0
     stub = model_load.read(root / "map/gate.py", "map/gate.py", root)["MODEL"]
     bare = replace(

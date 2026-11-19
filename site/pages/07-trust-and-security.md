@@ -48,7 +48,7 @@ If only the repository configuration gives the program of a filter, systemap sto
 systemap also stops a filter if the repository configuration gives a `process` program and your configuration does not. The empty `process` value also stops the `clean` program of your configuration.
 For example, `git lfs install --local` writes the `git-lfs` filter only to the repository configuration.
 Then Git cannot correctly compare the files of that filter with the working tree.
-For a change that is not in a commit, the live map does not show these files as changed. The Changes view gives them in a note under NOT IN THIS COMPARISON. If a commit after the merge base changes such a file, the file is a changed file, as usual.
+For a change that is not in a commit, the live map does not show these files as changed. On the atlas page, the default, the headline gives them under "Not in this comparison". The linked page gives them in its Changes view under NOT IN THIS COMPARISON. The canvas page does not give them. If a commit after the merge base changes such a file, the file is a changed file, as usual.
 `judgement --order-by-drift` gives the full text of a component with such a file, not a diff.
 If a filter name contains `=`, Git cannot read the setting. Then the command stops with an error and starts no filter.
 A comparison with the working tree shows a new commit of a submodule as a change. It does not show a changed file in a submodule.

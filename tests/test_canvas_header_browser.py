@@ -90,7 +90,7 @@ def _layered(data: dict[str, Any]) -> dict[str, Any]:
 
 @pytest.fixture(scope="module")
 def fixture_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    root = _made(tmp_path_factory.mktemp("head"), "[render]\ncanvas = true\n")
+    root = _made(tmp_path_factory.mktemp("head"), '[render]\npage = "canvas"\n')
     return root / "docs" / "map" / "index.html"
 
 

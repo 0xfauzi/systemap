@@ -1,4 +1,4 @@
-"""The pull request comment: the summary, and a link to the Changes view if the repository sets it up.
+"""The pull request comment: the summary, and a link to the map page if the repository sets it up.
 
 `[delta] page_url` gives the URL of the map page that the repository publishes for each
 pull request, with `{number}` for the pull request number. The configuration reader
@@ -81,7 +81,7 @@ def test_the_comment_is_the_marker_the_summary_and_one_link_to_the_changes_view(
         "<!-- systemap delta -->\n"
         "SUMMARY\n"
         "\n"
-        "[Open the Changes view of the map](https://example.org/pr-42/#changes)\n"
+        "[Open the changes on the map](https://example.org/pr-42/#changes)\n"
     )
 
 
@@ -169,9 +169,7 @@ def test_with_a_page_url_delta_writes_the_summary_and_the_link(
     assert delta(repo, "--base", "HEAD~1", "--pr", "5", "--comment", str(out)) == 1
     text = out.read_text(encoding="utf-8")
     assert UPDATE in text
-    assert text.endswith(
-        "\n\n[Open the Changes view of the map](https://example.org/pr-5/#changes)\n"
-    )
+    assert text.endswith("\n\n[Open the changes on the map](https://example.org/pr-5/#changes)\n")
     assert "The map needs an update (1):" in capsys.readouterr().out
 
 
@@ -268,7 +266,7 @@ def test_an_incorrect_base_page_url_gives_the_comment_without_the_link(
     assert "#changes" not in text
     err = capsys.readouterr().err
     assert "must start with https" in err
-    assert "The comment does not have a link to the Changes view." in err
+    assert "The comment does not have a link to the changes on the map page." in err
 
 
 def fork_sets_from(repo: Path, old: str, new: str) -> None:

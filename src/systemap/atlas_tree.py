@@ -9,7 +9,11 @@ the ID of the open map, for example `#Gateway`, or the ID of a card in a map, fo
 `#Gateway/Routes`. A card fits its map and is selected when the camera stops (`goTo`), as
 after the result of a card in Find. The label of the canvas and the live region give the open map and its layer.
 
-The Changes view of the canvas page and its view link are not in this fork.
+The Changes view of the canvas page is not in this fork: the marks of a revision
+comparison are on the Map view (`atlas_marks`). The view link `#changes` of a pull request
+comment (`delta_link.CHANGES`) and a hash such as `#Gateway/changes` still open the top map
+or the map `Gateway`, with no words about a missing map (`VIEW_LINK`). A map or a card with
+the ID `changes` keeps its link.
 """
 
 from __future__ import annotations
@@ -147,11 +151,13 @@ function setHash(h) {
 // and no card, it is the deepest map that the start of the hash names (`hashMap`), or the
 // top map, and the live region tells the reader. These words also give the map, thus `tell`
 // does not write the region again when the camera stops in that map.
+var VIEW_LINK = /(^|\/)changes$/;
 function hashGoal() {
   var id = hashId(), c = hashCard(id), v;
   if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
   if (c) return goalOf(c.map, c, null);
   v = hashMap(id);
+  if (VIEW_LINK.test(id) && (id === 'changes' || v.id === id.slice(0, -8))) return goalOf(v, null, null);
   if (id) { say('No map and no card has the link #' + id + '. Open map: ' + mapName(v) + '.'); SAID_MAP = v; }
   return goalOf(v, null, null);
 }

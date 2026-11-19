@@ -32,13 +32,34 @@ goes above or below the card, at its right end or its left end, at the first sid
 card, no name, no other tag and no line in it (`tagsOf`). The labels at rest and the lit
 labels do not cover a tag. The tag has a thin edge in the ground color under its letters, not
 a box, thus it does not cut a line or a ring.
+
+The limits of the comparison. With `render --base`, the headline also has a disclosure "Not in
+this comparison" (`limits`). It gives the text of the section NOT IN THIS COMPARISON of the
+Changes view of the linked page (`page_changes.comparison_limits`) for the top map: the
+limits of the model comparison, the flow evidence, the merge base, an unknown reach, the
+files that systemap could not parse, and the paths with changes that are not known, for
+example the paths of a Git filter. It shows only in the Map view. It is a `details` element,
+thus it works with the keyboard and needs no script.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
+from typing import Any
 
-from systemap import page_canvas_ports
+from systemap import page_canvas_ports, page_changes
+
+LIMITS_CSS = r"""
+.limits{margin-top:8px;pointer-events:auto;font-size:12px;color:var(--ink-2);max-width:420px}
+.limits summary{cursor:pointer;color:var(--ink-3);font:500 10.5px/1.6 var(--fm);letter-spacing:.09em;text-transform:uppercase}
+.limits summary:hover{color:var(--ink)}
+.limits[open]>div{margin-top:6px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+max-height:40vh;overflow:auto;line-height:1.5}
+.limits p{margin:0 0 6px}.limits p:last-child{margin:0}
+.limits code{font:11px/1.4 var(--fm);overflow-wrap:anywhere}
+body:not([data-mode="map"]) .limits{display:none}
+"""
 
 _SCRIPT = r"""
 // ---- the marks: open boundary lines and changes (atlas_marks) ---------------------------
@@ -200,3 +221,14 @@ function markState(mapId) {
 """
 
 MARKS = f"var PORT_WORDS = {json.dumps(page_canvas_ports.WORDS)};\n" + _SCRIPT
+
+
+def limits(change: Mapping[str, Any] | None) -> str:
+    """Give the disclosure of the limits of the comparison for the change data `change` of the
+    top map (`change.for_page`), or no text without a revision comparison."""
+    if not change or not page_changes.has_comparison(change):
+        return ""
+    return (
+        '<details class="limits" id="atlas-limits"><summary>Not in this comparison</summary>'
+        "<div>" + page_changes.comparison_limits(dict(change)) + "</div></details>"
+    )

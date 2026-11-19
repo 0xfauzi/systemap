@@ -255,9 +255,9 @@ def sides_for(cfg: Config) -> bool:
     """Tell if the commands put the actors of a nested map at the sides of its frame.
 
     The answer is False while SIDES_IN_COMMANDS is False. When the maintainer accepts the
-    rule, only the atlas page uses it (`[render] page = "atlas"`). The canvas page and the
-    linked page keep the column layout until the atlas page is the default, because their
-    boundary flows on a phone need the actors at the left (N3 in bench/jev/README.md).
+    rule, only the atlas page uses it (`[render] page = "atlas"`, the default). The canvas
+    page and the linked page keep the column layout, because their boundary flows on a
+    phone need the actors at the left (N3 in bench/jev/README.md).
     """
     return SIDES_IN_COMMANDS and cfg.render_page == "atlas"
 

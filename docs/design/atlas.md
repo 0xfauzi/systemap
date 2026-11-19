@@ -180,8 +180,9 @@ pan and the element count passed. Thus the architecture is this:
   page and its tests stay as they are until the atlas page is the default and the
   maintainer removes the canvas page. Do not put the two looks in one module with a
   switch.
-- `[render] page` selects the page: `"atlas"`, `"canvas"` or `"linked"`. Until stage 9 the
-  default stays `"canvas"`. `[render] canvas` keeps its meaning.
+- `[render] page` selects the page: `"atlas"`, `"canvas"` or `"linked"`. From stage 9 the
+  default is `"atlas"` (2026-11-19). `[render] canvas` keeps its meaning: `canvas = false`
+  gives the linked pages, and `canvas = true` gives the default page.
 - The page data is the canvas data object (`canvas_data.build`) with additions: the
   relation sentence of each flow, and the history. Do not make a second copy of the map
   data in the page.
@@ -245,6 +246,24 @@ branch `views-prototype`. No stage makes a pull request.
    (`scripts/screenshots.py`), the website, the guide page "Read the map", the reference,
    the changelog, the skill references in the three skill directories, and the map of this
    repository.
+   Done (2026-11-19). The URL hash `#changes` of a pull request comment opens the top map
+   of the atlas page, because the atlas page has no Changes view (`atlas_tree`). The
+   landing page of the website shows the five views of the atlas page, and its Changes tab
+   is removed. The skill has the new reference `references/views.md` for the views and the
+   state machines.
+   After the review of stage 9 (2026-11-19): with a revision comparison, the headline ends
+   with the disclosure "Not in this comparison" (`atlas_marks.limits`). It gives the limits
+   of the comparison of the linked page (`page_changes.comparison_limits`), for example the
+   paths of a Git filter and an unknown reach. This is not a comparison view: it shows only
+   in the Map view, under the counts. The text of the product (the pull request link, the
+   first lines of `systemap live`, the help of `--base`) names the changes on the map page,
+   and it names the Changes view only for the canvas page and the linked page.
+   After the second review of stage 9 (2026-11-19): the headline is the first part of `main`,
+   before the canvas (`atlas_header.headline`), so that the order of the keyboard focus agrees
+   with the order on the screen. Tests make the disclosure with `render --base` and with the
+   render of `systemap live` (tests/test_atlas_limits.py), and drive it in a browser
+   (tests/test_atlas_limits_browser.py). axe-core runs on the committed self-map
+   (tests/test_atlas_parity_browser.py, acceptance 21).
 10. **The nested map of Page** in the map of this repository
     (`docs/design/atlas/tools/page_model.py.txt` is a draft), and the final checks.
 

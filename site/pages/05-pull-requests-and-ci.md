@@ -91,10 +91,10 @@ These changes can change the result of a CI job after you install 2.0.0:
 
 [CHANGELOG.md](../../CHANGELOG.md) gives each change and its steps.
 
-## The Changes view
+## The changes on the map page
 
 `systemap render --base REF` writes a page with a revision comparison.
-A link that ends in `#changes` opens the Changes view. [Read the map](reading-the-map.html#changes) tells what it shows.
+The atlas page shows the changes on the Map view. On the canvas page, a link that ends in `#changes` opens the Changes view. [Read the map](reading-the-map.html#changes) tells what the marks show.
 
 Do not commit this page into the output directory, because `systemap render --check` finds it stale.
 Publish the page of each pull request at a different place, or use [the live map](live-map.html) on your computer.
@@ -141,7 +141,7 @@ The `comment` job posts the summary as one comment, and changes the same comment
 It runs only for a pull request from a branch of the same repository. [Trust and security](trust-and-security.html#the-ci-comment-job) tells why.
 For a pull request from a fork, read the summary in the job summary of the `delta` job.
 
-## The link to the Changes view
+## The link to the changes
 
 If your repository publishes the map page of each pull request, set its URL in `systemap.toml`:
 
@@ -151,11 +151,13 @@ page_url = "https://example.org/pr-{number}/"
 ```
 
 The [reference](reference.html#what-can-you-configure) gives the rules for the URL.
-Then the comment also has a link to the Changes view of the page, and `--comment FILE` must have `--pr N`:
+Then the comment also has a link to the changes on the page, and `--comment FILE` must have `--pr N`:
 
 ```text
-[Open the Changes view of the map](https://example.org/pr-7/#changes)
+[Open the changes on the map](https://example.org/pr-7/#changes)
 ```
+
+On the atlas page, the default, the link opens the top map with the change marks. On the canvas page, the link opens the Changes view.
 
 systemap does not publish the page.
 

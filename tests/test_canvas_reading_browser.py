@@ -218,7 +218,7 @@ def test_a_tree_with_no_port_has_no_portal_bands(self_page: Path, tmp_path: Path
     assert frame[1] >= path[1] + path[3]
     assert frame[1] + frame[3] <= help_plate[1]
     assert frame[0] >= 0 and frame[0] + frame[2] <= own["width"]
-    nested = _made(tmp_path, "") / "docs" / "map" / "index.html"
+    nested = _made(tmp_path, '[render]\npage = "canvas"\n') / "docs" / "map" / "index.html"
     other = _drive("--bands", nested)
     assert other["errors"] == [] and other["ports"] is True
     assert other["gutters"]["top"] == 155 and other["gutters"]["bottom"] == 75
@@ -245,5 +245,5 @@ def test_the_page_opens_with_system_context(self_page: Path, tmp_path: Path) -> 
     assert flow["layer"] != "system"
     assert (flow["after"]["layer"], flow["after"]["mode"]) == (flow["layer"], "map")
     assert flow["after"]["pressed"] == [flow["layer"]]
-    nested = _made(tmp_path, "") / "docs" / "map" / "index.html"
+    nested = _made(tmp_path, '[render]\npage = "canvas"\n') / "docs" / "map" / "index.html"
     _opens_with(_drive("--first", nested))

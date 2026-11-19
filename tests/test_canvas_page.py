@@ -1,10 +1,11 @@
-"""The canvas page, the default output, and the setting `[render] canvas` (`canvas_page`,
-`canvas_redirect`, `config_render`).
+"""The canvas page, the setting `[render] page = "canvas"` and the setting `[render] canvas`
+(`canvas_page`, `canvas_redirect`, `config_render`).
 
 Acceptance values (acceptance 1, 2 and 7 to 10 are for step 5 of
 docs/design/nested-canvas.md, written before the first run):
 
-1. Without a `[render]` table, or with `canvas = true`, `render` writes the canvas page at
+1. With `page = "canvas"` (before stage 9 of docs/design/atlas.md: without a `[render]`
+   table, or with `canvas = true`), `render` writes the canvas page at
    the top page, and a small page at the page of each nested map. The small page goes to
    the top page with the map ID in the hash. `render --check` and `check` then agree with
    the files.
@@ -98,11 +99,11 @@ def _loaded(root: Path) -> tuple[config.Config, nest.Tree, dict[str, Any]]:
     return cfg, nest.load(cfg), facts_file.read_facts(cfg.facts_path, cfg.root)
 
 
-def test_without_the_setting_render_writes_the_canvas_page(
+def test_with_page_canvas_render_writes_the_canvas_page(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance 1 and 2: the default is the canvas page, with no notice line."""
-    root = _made(tmp_path, "")
+    """Acceptance 1 and 2: `page = "canvas"` gives the canvas page, with no notice line."""
+    root = _made(tmp_path, '[render]\npage = "canvas"\n')
     assert config_render.NOTICE not in capsys.readouterr().err
     cfg, tree, facts = _loaded(root)
     assert cfg.render_canvas
@@ -152,7 +153,7 @@ def test_the_notice_line_keeps_the_exit_code(
 
 @pytest.fixture(scope="module")
 def canvas_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _made(tmp_path_factory.mktemp("canvas"), "[render]\ncanvas = true\n")
+    return _made(tmp_path_factory.mktemp("canvas"), '[render]\npage = "canvas"\n')
 
 
 def test_with_the_setting_render_writes_the_canvas_page(canvas_root: Path) -> None:
@@ -256,7 +257,7 @@ def _differs(out: str) -> list[str]:
 
 def test_check_finds_a_changed_page(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Acceptance 9."""
-    root = _made(tmp_path, "")
+    root = _made(tmp_path, '[render]\npage = "canvas"\n')
     for rel in ("index.html", "Gateway/index.html"):
         path = root / "docs" / "map" / rel
         good = path.read_bytes()

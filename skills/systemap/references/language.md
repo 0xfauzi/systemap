@@ -247,8 +247,13 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | barycenter | The weighted mean position used by the layout procedure (category 7). |
 | benchmark | A recorded comparison of program or model results under specified conditions (category 7). |
 | camera | The transform that positions and scales the map within its viewport. |
-| canvas page | The page that draws all maps of a map tree on one canvas element. |
-| redirect page | The small page of a nested map that opens the canvas page at that map with the URL hash. |
+| atlas page | The default page: it draws all maps of a map tree on one canvas element, with the calm look of `docs/design/atlas.md`, and it has the views Map, Sequences, States, Focus, and History. |
+| canvas page | The earlier page that draws all maps of a map tree on one canvas element. `[render] page = "canvas"` selects it. |
+| redirect page | The small page of a nested map that opens the top page (the atlas page or the canvas page) at that map with the URL hash. |
+| reading line | On the atlas page, the line of text at the bottom of the map that gives one sentence about the item under the pointer or with the keyboard focus. |
+| lane | On the atlas page, one of the parallel lines that the page gives to the paths that share a gap. |
+| reach | In the Focus view, the count of the cards on a path of flows from the card in the middle. |
+| state machine | The states of one item and the transitions between them, each with its cause (`StateMachine`). |
 | linked page | The page of one map, with links to the pages of its parent map and its nested maps. `[render] canvas = false` selects it for one release. |
 | release | A published version of systemap with a version number. |
 | claim | An authored statement about source behavior or a map relationship. |
@@ -287,7 +292,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | drag | A pointer movement while a mouse button or a finger stays down. |
 | double-click | Two clicks of a mouse button at one pointer position in a short time. |
 | tap | One short touch of a finger on a touch screen. |
-| preview | A temporary map view that shows a flow before selection. In the canvas page, the small view of a nested map in the card that opens it. |
+| preview | A temporary map view that shows a flow before selection. In the canvas page, the small view of a nested map in the card that opens it. The atlas page calls it the small picture. |
 | portal | In the canvas page, a label at the screen edge for a neighbour of the open map that is not on the screen. |
 | ring | In the canvas page, a line at the screen edge for the frame of an open map that is larger than the screen. |
 | level of detail | The quantity of card information that the screen size of a card selects. |
@@ -319,7 +324,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | Ink | The named theme with dark surfaces and an amber selection color (category 17). |
 | Paper | The named theme with light surfaces, an ink selection color, and a yellow highlighter fill (category 17). |
 | amber | The yellow-orange color of the selection in the Ink theme (category 17). |
-| vermilion | The red-orange color that shows a source change in the Changes view (category 17). |
+| vermilion | The red-orange color that shows a source change: the change marks of the atlas page and the Changes view of the canvas page (category 17). |
 | highlighter fill | The yellow fill under the selected card and flow path in the Paper theme (category 17). |
 | device theme | The Paper or Ink theme that the page selects from the light or dark setting of the computer. |
 | CIEDE2000 | The formula that calculates the difference between two colors (category 7). |

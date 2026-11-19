@@ -67,7 +67,7 @@ def _find(*args: str) -> dict[str, Any]:
 
 @pytest.fixture(scope="module")
 def canvas(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    root = _made(tmp_path_factory.mktemp("find"), "[render]\ncanvas = true\n")
+    root = _made(tmp_path_factory.mktemp("find"), '[render]\npage = "canvas"\n')
     return root / "docs" / "map" / "index.html"
 
 

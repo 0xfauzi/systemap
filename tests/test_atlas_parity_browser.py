@@ -121,6 +121,31 @@ run of its test:
 18. The hint of the field of Find is "Find a card, flow, sequence or action". On a phone of
     390 x 844, after the fonts load, its width in the font of the hint is 8 px or more less
     than the width of the field between its padding.
+
+Acceptance value written on 2026-11-19 in stage 9 (the atlas page is the default), before
+the first run of its test:
+
+19. The view link of a pull request comment. A load of the nested fixture with #changes
+    opens the top map, and a load with #Gateway/changes opens Gateway. Neither load writes
+    "No map and no card has the link" in the live region, and neither has a script error.
+
+Acceptance value written on 2026-11-19 after the review of stage 9, before the first run of
+its test:
+
+20. A card with the ID `changes` keeps its link. In the nested fixture with the card Log of
+    the top map and the card Routes of Gateway renamed to `changes`, #changes selects the
+    card `changes` of the top map, and #Gateway/changes selects the card `changes` of
+    Gateway. #Auth/changes opens the top map and writes "No map and no card has the link
+    #Auth/changes" in the live region, because Auth is a card and not a map. No load has a
+    script error.
+Acceptance value written on 2026-11-19 after the second review of stage 9, before the first
+run of its test:
+
+21. axe-core on the committed self-map. docs/map/index.html is the atlas page from stage 9,
+    and the website publishes it. axe-core finds no violation (of any impact) on that file in
+    the light and the dark scheme, at 1440 x 900 and 390 x 844: at rest, with Find open, with
+    the keyboard sheet open, with the Tools menu open on the phone, and with #CLI (the card CLI
+    selected, with its details open). That is 18 runs. No run has a script error.
 """
 
 from __future__ import annotations
@@ -137,9 +162,13 @@ from typing import Any
 import pytest
 import test_canvas_changes as changes_fixture
 import test_canvas_ports as ports_fixture
+from conftest import write_tree
 from test_canvas_access import no_axe
 from test_canvas_browser import browser
 from test_canvas_page import _made
+from test_nest_join import CONFIG as NEST_CONFIG
+from test_nest_join import NESTED, TOP
+from test_nest_join import SOURCE as NEST_SOURCE
 
 from systemap import (
     atlas_data,
@@ -152,6 +181,7 @@ from systemap import (
     page_csp,
     serve,
 )
+from systemap.cli import main
 from systemap.config import ConfigError
 
 ROOT = Path(__file__).resolve().parent
@@ -189,11 +219,9 @@ def _nested_page() -> Path:
 @functools.cache
 def _ports_pages() -> tuple[Path, Path]:
     out = Path(tempfile.mkdtemp(prefix="atlas-ports-"))
-    # The configuration of the fixture has a [render] table: the setting goes into it.
-    page = 'page = "atlas"\n'
-    opened = ports_fixture.made(out / "open", extra=page) / "docs/map/index.html"
+    opened = ports_fixture.made(out / "open", page="atlas") / "docs/map/index.html"
     closed = (
-        ports_fixture.made(out / "closed", extra=page + ports_fixture.POLICY)
+        ports_fixture.made(out / "closed", extra=ports_fixture.POLICY, page="atlas")
         / "docs/map/index.html"
     )
     return opened, closed
@@ -363,6 +391,45 @@ def test_the_url_hash_of_a_map_and_of_a_card() -> None:
     assert out["out"]["current"] == "" and out["out"]["hash"] == ""
 
 
+def test_the_view_link_of_a_pull_request_comment() -> None:
+    """Acceptance 19."""
+    out = _drive("--hash", str(_nested_page()), "Gateway", "Routes")
+    assert out["errors"] == [], out
+    assert out["view"]["current"] == "", out["view"]
+    assert out["mapView"]["current"] == "Gateway", out["mapView"]
+    for run in (out["view"], out["mapView"]):
+        assert "No map and no card has the link" not in run["say"], run
+
+
+@functools.cache
+def _ids_page() -> Path:
+    """The nested fixture with a card `changes` in the top map and in Gateway."""
+    root = Path(tempfile.mkdtemp(prefix="atlas-ids-")) / "repo"
+    files = {
+        "systemap.toml": NEST_CONFIG + ATLAS,
+        "map/model.py": TOP.replace('"Log"', '"changes"').replace('id="Log"', 'id="changes"'),
+        "map/gateway.py": NESTED.replace('"Routes"', '"changes"').replace(
+            'id="Routes"', 'id="changes"'
+        ),
+        **NEST_SOURCE,
+    }
+    write_tree(root, files)
+    for command in ("place", "extract", "render"):
+        assert main(["--root", str(root), command]) == 0
+    return root / "docs" / "map" / "index.html"
+
+
+def test_a_card_with_the_id_changes_keeps_its_link() -> None:
+    """Acceptance 20."""
+    out = _drive("--ids", str(_ids_page()), "#changes,#Gateway/changes,#Auth/changes")
+    assert out["errors"] == [], out
+    top, inner, card = (out["runs"][h] for h in ("#changes", "#Gateway/changes", "#Auth/changes"))
+    _selected(top, "", "changes")
+    _selected(inner, "Gateway", "changes")
+    assert card["current"] == "", card
+    assert "No map and no card has the link #Auth/changes" in card["say"], card
+
+
 def _same_camera(a: dict[str, Any], b: dict[str, Any]) -> bool:
     """True when the cameras `a` and `b` have a zoom within 1 percent and the same screen
     position within 2 px."""
@@ -510,6 +577,17 @@ def test_the_text_list_of_the_map_tree() -> None:
 def test_axe_finds_no_violation_with_the_parity_parts() -> None:
     """Acceptance 10."""
     out = _drive("--axe", str(_nested_page()), "Gateway")
+    if out["runs"] is None:
+        no_axe("the axe-core test needs axe-core on NODE_PATH")
+    assert len(out["runs"]) == 2 * (4 + 5)
+    for run in out["runs"]:
+        assert run["errors"] == [], run
+        assert run["axe"]["violations"] == [], run
+
+
+def test_axe_finds_no_violation_on_the_committed_self_map() -> None:
+    """Acceptance 21."""
+    out = _drive("--axe", str(REPO / "docs" / "map" / "index.html"), "CLI")
     if out["runs"] is None:
         no_axe("the axe-core test needs axe-core on NODE_PATH")
     assert len(out["runs"]) == 2 * (4 + 5)

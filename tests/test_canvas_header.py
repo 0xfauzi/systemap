@@ -54,7 +54,7 @@ def linked_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="module")
 def canvas_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _made(tmp_path_factory.mktemp("header"), "[render]\ncanvas = true\n")
+    return _made(tmp_path_factory.mktemp("header"), '[render]\npage = "canvas"\n')
 
 
 def _data(root: Path) -> dict[str, Any]:

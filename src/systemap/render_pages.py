@@ -1,10 +1,10 @@
-"""The page of each map that `render`, `refresh`, `check` and `live` make: the canvas page
-(`canvas_page`) with a small page for each nested map, or with `[render] canvas = false`
-one linked page for each map (`config_render`). With `[render] page = "atlas"`, the atlas
-page (`atlas_page`) replaces the canvas page, with the same small pages.
+"""The page of each map that `render`, `refresh`, `check` and `live` make: the atlas page
+(`atlas_page`, the default) with a small page for each nested map, or with
+`[render] page = "canvas"` the canvas page (`canvas_page`) with the same small pages, or
+with `[render] canvas = false` one linked page for each map (`config_render`).
 
 `change_of` gives the change data of the page of a map (`page_change`). Without it, the
-pages have no change. With the canvas page, the canvas data holds the change data of
+pages have no change. With the atlas or the canvas page, the page data holds the change data of
 each map. `skip` gives the IDs of maps that get no linked page (`check` gives the maps
 with model contradictions).
 
@@ -46,7 +46,7 @@ def page_change(
 
 
 def notice(cfg: Config) -> list[str]:
-    """Give the notice line of the linked pages, or no line for the canvas page."""
+    """Give the notice line of the linked pages, or no line for the atlas or canvas page."""
     return [] if cfg.render_canvas else [config_render.NOTICE]
 
 

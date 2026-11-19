@@ -36,7 +36,8 @@
 <button type="button" role="tab" class="tab tab--data" id="tab-map" aria-controls="view-map" aria-selected="false" tabindex="-1">Map</button>
 <button type="button" role="tab" class="tab tab--k" id="tab-sequence" aria-controls="view-sequence" aria-selected="true">Sequences</button>
 <button type="button" role="tab" class="tab tab--control" id="tab-states" aria-controls="view-states" aria-selected="false" tabindex="-1">States</button>
-<button type="button" role="tab" class="tab tab--change" id="tab-changes" aria-controls="view-changes" aria-selected="false" tabindex="-1">Changes</button>
+<button type="button" role="tab" class="tab tab--judge" id="tab-focus" aria-controls="view-focus" aria-selected="false" tabindex="-1">Focus</button>
+<button type="button" role="tab" class="tab tab--change" id="tab-history" aria-controls="view-history" aria-selected="false" tabindex="-1">History</button>
 </div>
 <figure class="view" role="tabpanel" id="view-map" aria-labelledby="tab-map" hidden>
 <a href="map/"><picture>
@@ -44,9 +45,9 @@
 <source srcset="screenshots/view-map-phone-dark.webp" media="(max-width: 640px) and (prefers-color-scheme: dark)" data-scheme="dark" data-width="(max-width: 640px)" width="780" height="1520">
 <source srcset="screenshots/view-map-light.webp" media="(prefers-color-scheme: light)" data-scheme="light">
 <source srcset="screenshots/view-map-dark.webp" media="(prefers-color-scheme: dark)" data-scheme="dark">
-<img src="screenshots/view-map-dark.webp" width="1600" height="900" loading="lazy" alt="The Map view of the systemap map, at the System context layer. The actors are at the left, and each flow line between an actor and a component has a label.">
+<img src="screenshots/view-map-dark.webp" width="1600" height="900" loading="lazy" alt="The Map view of the systemap map, at the System context layer. The actors are at the left, and the thin lines of their flows go to the components in five regions.">
 </picture></a>
-<figcaption><span class="q">What are the parts, and how do they connect?</span> Each layer shows the flows that answer one question.</figcaption>
+<figcaption><span class="q">What are the parts, and how do they connect?</span> Each layer shows the flows that answer one question. Point at a card to light its flows.</figcaption>
 </figure>
 <figure class="view" role="tabpanel" id="view-sequence" aria-labelledby="tab-sequence">
 <a href="map/"><picture>
@@ -54,7 +55,7 @@
 <source srcset="screenshots/view-sequence-phone-dark.webp" media="(max-width: 640px) and (prefers-color-scheme: dark)" data-scheme="dark" data-width="(max-width: 640px)" width="780" height="1520">
 <source srcset="screenshots/view-sequence-light.webp" media="(prefers-color-scheme: light)" data-scheme="light">
 <source srcset="screenshots/view-sequence-dark.webp" media="(prefers-color-scheme: dark)" data-scheme="dark">
-<img src="screenshots/view-sequence-dark.webp" width="1600" height="900" alt="The Sequences view of the systemap map. The five steps of the sequence Read the change history are a sequence diagram, with one column for each part and a number at each step.">
+<img src="screenshots/view-sequence-dark.webp" width="1600" height="900" alt="The Sequences view of the systemap map. The sequence Read the change history is a diagram with one column for each part and one row for each step. Step 2 of 5 has its color, step 1 is dark, and the later steps are faint.">
 </picture></a>
 <figcaption><span class="q">Which steps make one operation?</span> See a sequence as a diagram, or on the map one step at a time.</figcaption>
 </figure>
@@ -64,19 +65,29 @@
 <source srcset="screenshots/view-states-phone-dark.webp" media="(max-width: 640px) and (prefers-color-scheme: dark)" data-scheme="dark" data-width="(max-width: 640px)" width="780" height="1520">
 <source srcset="screenshots/view-states-light.webp" media="(prefers-color-scheme: light)" data-scheme="light">
 <source srcset="screenshots/view-states-dark.webp" media="(prefers-color-scheme: dark)" data-scheme="dark">
-<img src="screenshots/view-states-dark.webp" width="1600" height="900" loading="lazy" alt="The States view of the systemap map. The state machine Source review of a component has the states missing, current and stale, and an arrow with its cause for each transition.">
+<img src="screenshots/view-states-dark.webp" width="1600" height="900" loading="lazy" alt="The States view of the systemap map. The state machine Source review of a component has the states missing, current and stale, and a label with its cause for each transition.">
 </picture></a>
 <figcaption><span class="q">Which states can an item have?</span> Each transition shows its cause.</figcaption>
 </figure>
-<figure class="view" role="tabpanel" id="view-changes" aria-labelledby="tab-changes" hidden>
-<a href="guide/pull-requests-and-ci.html"><picture>
-<source srcset="screenshots/view-changes-phone-light.webp" media="(max-width: 640px) and (prefers-color-scheme: light)" data-scheme="light" data-width="(max-width: 640px)" width="780" height="1520">
-<source srcset="screenshots/view-changes-phone-dark.webp" media="(max-width: 640px) and (prefers-color-scheme: dark)" data-scheme="dark" data-width="(max-width: 640px)" width="780" height="1520">
-<source srcset="screenshots/view-changes-light.webp" media="(prefers-color-scheme: light)" data-scheme="light">
-<source srcset="screenshots/view-changes-dark.webp" media="(prefers-color-scheme: dark)" data-scheme="dark">
-<img src="screenshots/view-changes-dark.webp" width="1600" height="900" loading="lazy" alt="The Changes view of commit 0254afb against d8ac070. Model, Page and Schematic have the tag CHANGED, and the bar under the header gives one changed component.">
+<figure class="view" role="tabpanel" id="view-focus" aria-labelledby="tab-focus" hidden>
+<a href="map/"><picture>
+<source srcset="screenshots/view-focus-phone-light.webp" media="(max-width: 640px) and (prefers-color-scheme: light)" data-scheme="light" data-width="(max-width: 640px)" width="780" height="1520">
+<source srcset="screenshots/view-focus-phone-dark.webp" media="(max-width: 640px) and (prefers-color-scheme: dark)" data-scheme="dark" data-width="(max-width: 640px)" width="780" height="1520">
+<source srcset="screenshots/view-focus-light.webp" media="(prefers-color-scheme: light)" data-scheme="light">
+<source srcset="screenshots/view-focus-dark.webp" media="(prefers-color-scheme: dark)" data-scheme="dark">
+<img src="screenshots/view-focus-dark.webp" width="1600" height="900" loading="lazy" alt="The Focus view of the systemap map. Model is in the middle. The cards that give to Model are at the left and the cards that Model gives to are at the right, two steps deep.">
 </picture></a>
-<figcaption><span class="q">What did this change touch?</span> The parts with changed code, for commit 0254afb.</figcaption>
+<figcaption><span class="q">What does a change here reach?</span> One card in the middle, with the cards before it and after it.</figcaption>
+</figure>
+<figure class="view" role="tabpanel" id="view-history" aria-labelledby="tab-history" hidden>
+<a href="map/"><picture>
+<source srcset="screenshots/view-history-phone-light.webp" media="(max-width: 640px) and (prefers-color-scheme: light)" data-scheme="light" data-width="(max-width: 640px)" width="780" height="1520">
+<source srcset="screenshots/view-history-phone-dark.webp" media="(max-width: 640px) and (prefers-color-scheme: dark)" data-scheme="dark" data-width="(max-width: 640px)" width="780" height="1520">
+<source srcset="screenshots/view-history-light.webp" media="(prefers-color-scheme: light)" data-scheme="light">
+<source srcset="screenshots/view-history-dark.webp" media="(prefers-color-scheme: dark)" data-scheme="dark">
+<img src="screenshots/view-history-dark.webp" width="1600" height="900" loading="lazy" alt="The History view of the systemap map. One row for each component and one column for each of 12 equal parts of the time. A darker cell has more changed lines, and a dot marks a new source module.">
+</picture></a>
+<figcaption><span class="q">Where did the system change, and when?</span> The changed source files of each component, from the Git log.</figcaption>
 </figure>
 </div>
 </div>

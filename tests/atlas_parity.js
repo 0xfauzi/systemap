@@ -251,6 +251,13 @@ async function hashMode(browser, file, map, card) {
   out.card = await o.page.evaluate(hs);
   out.card.box = await o.page.evaluate(([m, c]) => window.systemapCanvas.box(m, c), [map, card]);
   out.errors = out.errors.concat(o.errors);
+  // The view link of a pull request comment (stage 9): no words about a missing map.
+  o = await open(ctx, file, '#changes');
+  out.view = await o.page.evaluate(hs);
+  out.errors = out.errors.concat(o.errors);
+  o = await open(ctx, file, '#' + map + '/changes');
+  out.mapView = await o.page.evaluate(hs);
+  out.errors = out.errors.concat(o.errors);
   o = await open(ctx, file, '#NoSuchMap/Nothing');
   out.none = await o.page.evaluate(hs);
   // A change of the hash in a loaded page moves the camera, and the top map clears the hash.
@@ -422,6 +429,21 @@ const cstate = () => ({ cam: window.systemapCanvas.camera(), hash: location.hash
   frame: window.systemapCanvas.frame(window.systemapCanvas.current()),
   ask: (() => { const r = document.getElementById('atlas-ask').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })() });
 async function settle(page) { await page.waitForTimeout(1500); return page.evaluate(cstate); }
+// Each hash of `hashes` (a comma list) in a new page: the state after the camera stops and the
+// words of the live region.
+async function idsMode(browser, file, hashes) {
+  const ctx = await browser.newContext({ ...WIDE, colorScheme: 'light' });
+  const out = { runs: {}, errors: [] };
+  for (const h of hashes.split(',')) {
+    const o = await open(ctx, file, h);
+    const run = await settle(o.page);
+    run.say = await o.page.evaluate(() => document.getElementById('atlas-said').textContent);
+    out.runs[h] = run;
+    out.errors = out.errors.concat(o.errors);
+  }
+  await ctx.close();
+  return out;
+}
 async function cardHashMode(browser, nested, self) {
   const out = { runs: [] };
   for (const [size, base] of [['wide', WIDE], ['phone', PHONE]]) {
@@ -478,7 +500,7 @@ async function phoneMarksMode(browser, ports, changes) {
 
 (async () => {
   const [mode, file, ...rest] = process.argv.slice(2);
-  const run = { '--tools': toolsMode, '--find': findMode, '--other': otherMode, '--hash': hashMode, '--marks': marksMode, '--tree': treeMode, '--axe': axeMode, '--live': liveMode, '--cardhash': cardHashMode, '--phonemarks': phoneMarksMode }[mode];
+  const run = { '--tools': toolsMode, '--find': findMode, '--other': otherMode, '--hash': hashMode, '--marks': marksMode, '--tree': treeMode, '--axe': axeMode, '--live': liveMode, '--cardhash': cardHashMode, '--phonemarks': phoneMarksMode, '--ids': idsMode }[mode];
   if (!run) throw new Error('unknown mode ' + mode);
   const browser = await chromium.launch();
   try { process.stdout.write(JSON.stringify(await run(browser, file, ...rest))); } finally { await browser.close(); }

@@ -361,7 +361,7 @@ def comment_page_url(cfg: Config, sha: str) -> tuple[str, list[str]]:
     except DeltaError as exc:
         return "", [
             str(exc),
-            "The comment does not have a link to the Changes view. "
+            "The comment does not have a link to the changes on the map page. "
             "After the merge of a correct value, the comment has the link.",
         ]
 

@@ -66,6 +66,7 @@ from systemap import (
     atlas_find,
     atlas_focus,
     atlas_history,
+    atlas_marks,
     atlas_script,
     atlas_sequences,
     atlas_states,
@@ -87,6 +88,7 @@ CODE = atlas_script.SCRIPT + "".join(
         atlas_history.CSS,
         atlas_tools.CSS,
         atlas_find.CSS,
+        atlas_marks.LIMITS_CSS,
     )
 )
 
@@ -228,6 +230,20 @@ MARKS: tuple[tuple[str, str, str, float, str], ...] = (
     ("view button", "ink-3", "map", TEXT, "border-radius:7px;color:var(--ink-3)"),
     ("note and key", "ink-3", "map", TEXT, "font-size:11.5px;color:var(--ink-3)"),
     ("reading line", "ink-2", "surface", TEXT, ".say span{color:var(--ink-2)"),
+    (
+        "disclosure of the limits of a comparison",
+        "ink-3",
+        "map",
+        TEXT,
+        ".limits summary{cursor:pointer;color:var(--ink-3)",
+    ),
+    (
+        "text of the limits of a comparison",
+        "ink-2",
+        "surface",
+        TEXT,
+        "color:var(--ink-2);max-width:420px",
+    ),
     ("tool of the header", "ink-3", "surface", TEXT, "border-radius:8px;color:var(--ink-3)"),
     ("Find button", "ink-3", "map", TEXT, "background:var(--map);color:var(--ink-3)"),
     ("tool of the phone menu", "ink-2", "surface", TEXT, "padding:0 10px;color:var(--ink-2)"),

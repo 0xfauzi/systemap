@@ -9,7 +9,7 @@ Run the command in the repository. Then open the URL in a browser:
 ```text
 $ systemap live
 map: The live map is at http://127.0.0.1:8765/. Use Ctrl-C to stop the server.
-map: The Changes view compares the working tree with main at the merge base 5e0837b.
+map: The page compares the working tree with main at the merge base 5e0837b.
 map: The command renders version 1.
 map: Version 1 is on the page (0.1 s). Map updates: 0. Changed components: CommandLine, OrderFiles, Orders.
 ```
@@ -21,7 +21,7 @@ In Claude Code, the plugin [starts this command](coding-agents.html#the-live-map
 ## Options
 
 - `--port N`: the server port. The default is 8765. `0` selects an available port.
-- `--base REF`: the base of the Changes view.
+- `--base REF`: the base of the revision comparison. The atlas page shows the changes as marks on the Map view. The canvas page shows them in its Changes view.
 - `--no-watch`: do not scan the files. Render the page again only after `POST /refresh`.
 - `--json`: write one JSON object on a line for each event.
 
@@ -53,7 +53,7 @@ If the first version fails, the page gives the error.
 ## The reload that keeps your view
 
 When a newer version is on the server, the page loads again.
-The canvas page keeps only the URL hash: the open map and the selected card.
+The atlas page and the canvas page keep only the URL hash: the open map and the selected card.
 It does not keep the view, the layer, or the sequence.
 
 With `[render] canvas = false`, a script of the linked page keeps your view in the session storage of the browser.

@@ -3,9 +3,10 @@
 
 Acceptance values, written before the first run on 2026-11-18:
 
-1. Without `[render] page`, the page is "canvas" and `render_canvas` is true. "atlas" gives
-   the atlas page with `render_canvas` true. "linked" and `canvas = false` give the linked
-   pages with `render_canvas` false.
+1. Without `[render] page`, the page is "atlas" and `render_canvas` is true (changed in
+   stage 9, when the atlas page became the default; before stage 9 it was "canvas").
+   `canvas = true` also gives "atlas". "canvas" gives the canvas page with `render_canvas`
+   true. "linked" and `canvas = false` give the linked pages with `render_canvas` false.
 2. An unknown value of `[render] page` is a configuration error that names the three
    values. `canvas = false` with `page = "atlas"` is a configuration error.
 3. With `page = "atlas"`, `render` writes the atlas page at the top page and the small page
@@ -17,12 +18,20 @@ Acceptance values, written before the first run on 2026-11-18:
 5. The page data is the canvas data object with the relation sentence `y` of each flow
    that has a sentence. The canvas data of the canvas page has no `y`.
 6. The atlas page of the map of this repository has 1.5 times the size of the canvas page
-   or less (the size limit of the performance budget).
+   or less (the size limit of the performance budget). Changed on 2026-11-19 after the
+   review of stage 9, before the first run: the atlas page has the history data of the
+   committed page file (`history_data.stored`), as the default render writes it, and that
+   history data is present.
 7. The page has the parts for a screen reader: the label and the help text of the canvas,
    the list of the tree and the live region in `main`, and the tablist of the layers.
 8. Written on 2026-11-19 after the review of stage 8, before the first run of its test: the
    keyboard sheet has a row for each key of the States, Focus and History views (the arrow
    keys, Home, End and Esc) that names those views, and a row for Space.
+9. Written on 2026-11-19 after the review of stage 9, before the first run of its test: with
+   a revision comparison, the headline of the atlas page ends with the disclosure "Not in
+   this comparison". It has the text of the limits of the linked page
+   (`page_changes.comparison_limits`), for example the filtered paths. Without a comparison,
+   the page has no such disclosure and no style for it.
 """
 
 from __future__ import annotations
@@ -42,6 +51,7 @@ from systemap import (
     atlas_data,
     atlas_focus,
     atlas_history,
+    atlas_marks,
     atlas_page,
     atlas_states,
     atlas_tools,
@@ -50,7 +60,9 @@ from systemap import (
     config,
     config_render,
     facts_file,
+    history_data,
     nest,
+    page_changes,
     page_csp,
 )
 from systemap.cli import main
@@ -67,12 +79,13 @@ def _config(tmp_path: Path, setting: str) -> config.Config:
 @pytest.mark.parametrize(
     ("setting", "page", "canvas"),
     [
-        ("", "canvas", True),
+        ("", "atlas", True),
         ('[render]\npage = "atlas"\n', "atlas", True),
         ('[render]\npage = "canvas"\n', "canvas", True),
         ('[render]\npage = "linked"\n', "linked", False),
         ("[render]\ncanvas = false\n", "linked", False),
-        ("[render]\ncanvas = true\n", "canvas", True),
+        ("[render]\ncanvas = true\n", "atlas", True),
+        ('[render]\ncanvas = true\npage = "canvas"\n', "canvas", True),
         ('[render]\ncanvas = true\npage = "atlas"\n', "atlas", True),
         ('[render]\ncanvas = false\npage = "linked"\n', "linked", False),
     ],
@@ -189,7 +202,10 @@ def test_the_page_is_in_the_size_limit_of_the_budget() -> None:
     cfg, tree, facts = _repo()
     theme = canvas_page.tree_theme(cfg, tree)
     canvas = canvas_page.build(theme, canvas_data.build(cfg, tree, facts))
-    atlas = atlas_page.build(theme, atlas_data.build(cfg, tree, facts))
+    history = history_data.stored(cfg, tree)
+    assert history is not None and history.get("commits")
+    atlas = atlas_page.build(theme, atlas_data.build(cfg, tree, facts), history)
+    assert 'id="atlas-history"' in atlas
     assert len(atlas.encode()) <= 1.5 * len(canvas.encode())
     found = DATA.search(atlas)
     assert found is not None
@@ -242,3 +258,25 @@ def test_the_keyboard_sheet_has_the_keys_of_each_view(part: str, table: str) -> 
     assert "e.key === ' '" in part and "Space" in rows
     for key in keys:
         assert any(view in rows[_SHEET_NAME[key]] for view in ("States", "Focus", "History"))
+
+
+def test_the_headline_gives_the_limits_of_a_comparison() -> None:
+    """Acceptance 9."""
+    cfg, tree, facts = _repo()
+    theme = canvas_page.tree_theme(cfg, tree)
+    data = atlas_data.build(cfg, tree, facts)
+    change = {
+        "comparison_requested": True,
+        "reach_known": False,
+        "filtered_paths": ["pkg/locked.py"],
+    }
+    found = atlas_marks.limits(change)
+    page = atlas_page.build(theme, data, limits=found)
+    assert "<summary>Not in this comparison</summary>" in found
+    assert found in page and atlas_marks.LIMITS_CSS in page
+    assert page_changes.comparison_limits(change) in found
+    assert "<code>pkg/locked.py</code>" in found
+    assert "Effects on other modules are unknown." in found
+    assert atlas_marks.limits({}) == atlas_marks.limits(None) == ""
+    plain = atlas_page.build(theme, data)
+    assert 'id="atlas-limits"' not in plain and atlas_marks.LIMITS_CSS not in plain

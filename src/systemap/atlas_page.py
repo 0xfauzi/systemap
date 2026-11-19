@@ -1,6 +1,6 @@
 """The atlas page: all maps of a map tree on one canvas, with the look of docs/design/atlas.md.
 
-`[render] page = "atlas"` selects this page (`config_render`). `render_pages` then uses
+This is the default output (`[render] page = "atlas"`, `config_render`). `render_pages` uses
 `pages`: the atlas page for the top map and a small page for each nested map
 (`canvas_redirect`). The small page goes to the top page with the ID of its map in the URL
 hash, as for the canvas page.
@@ -27,6 +27,9 @@ cards and the board of the Focus view (`atlas_focus`), and the board of the Hist
 The Find dialog (`atlas_find`) and the keyboard sheet (`atlas_tools`) come after `main`.
 They are hidden until the reader opens them.
 
+With a revision comparison, the headline ends with the limits of the comparison
+(`atlas_marks.limits`).
+
 The history data (`history_data`) is in its own script element of the type
 application/json (`atlas-history`), after the page data. The output check reads it from
 the page file (`history_data.stored`), so that the check does not read Git.
@@ -46,6 +49,7 @@ from systemap import (
     atlas_focus,
     atlas_header,
     atlas_history,
+    atlas_marks,
     atlas_sequences,
     atlas_states,
     atlas_tools,
@@ -141,7 +145,8 @@ def pages(
     (`history_data`)."""
     still = judgement_json.open_boundary(tree, facts, cfg)
     data = atlas_data.build(cfg, tree, facts, open_lines=still, changes=changes)
-    top = build(canvas_page.tree_theme(cfg, tree), data, history)
+    first = (changes or {}).get(tree.top.id)
+    top = build(canvas_page.tree_theme(cfg, tree), data, history, atlas_marks.limits(first))
     return [(m, canvas_redirect.page(m, NAME) if m.id else top) for m in tree.maps]
 
 
@@ -154,11 +159,15 @@ def _history_element(history: Mapping[str, Any] | None) -> str:
 
 
 def build(
-    t: dict[str, Any], data: Mapping[str, Any], history: Mapping[str, Any] | None = None
+    t: dict[str, Any],
+    data: Mapping[str, Any],
+    history: Mapping[str, Any] | None = None,
+    limits: str = "",
 ) -> str:
     """Give the atlas page of the page data `data`. The theme `t` gives the schemes that
     the scheme script of the head knows (`page.head_start`). `history` (`history_data`)
-    adds the History view."""
+    adds the History view. `limits` (`atlas_marks.limits`) adds the limits of a revision
+    comparison to the headline."""
     name = str(data.get("name", ""))
     body = canvas_data.text(data).replace("<", "\\u003c")
     past = _history_element(history)
@@ -177,6 +186,7 @@ def build(
         + atlas_history.CSS
         + atlas_tools.CSS
         + atlas_find.CSS
+        + (atlas_marks.LIMITS_CSS if limits else "")
         + '</style></head><body data-mode="map">'
         + atlas_header.header(
             name,
@@ -186,6 +196,7 @@ def build(
             bool(history),
         )
         + "<main>"
+        + atlas_header.headline(limits)
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + f'<p id="canvas-help" class="sr-only">{HELP}</p>'

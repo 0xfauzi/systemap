@@ -230,7 +230,7 @@ class Config:
     require_reviews: bool = False  # [judgement] require_reviews: a missing review is a finding
     max_contradicted: int = 3  # [decisions] max_contradicted: a loop bound, not a measurement
     render_canvas: bool = True  # [render] canvas: write the canvas page (config_render)
-    render_page: str = "canvas"  # [render] page: "atlas", "canvas" or "linked" (config_render)
+    render_page: str = "atlas"  # [render] page: "atlas", "canvas" or "linked" (config_render)
     render_history: bool = True  # [render] history: the History view of the atlas page
     render_history_days: int = 0  # [render] history_days: 0 for all commits
     source: str = ""

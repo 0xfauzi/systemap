@@ -399,8 +399,8 @@ def self_map_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The linked page of the self-map, written into a temporary folder.
 
     The committed page docs/map/index.html is the canvas page from step 5 of
-    docs/design/nested-canvas.md. The tests of the linked page script use this page in
-    its place. Acceptance: the page has the bytes that `systemap render` gives for the
+    docs/design/nested-canvas.md, and the atlas page from stage 9 of docs/design/atlas.md.
+    The tests of the linked page script use this page in its place. Acceptance: the page has the bytes that `systemap render` gives for the
     top map of this repository with `[render] canvas = false` and the committed facts.
     Before step 5, these bytes were equal to the bytes of the committed page.
     """

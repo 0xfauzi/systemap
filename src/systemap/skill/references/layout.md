@@ -79,7 +79,7 @@ Without `--map`, `systemap place` and `systemap check` examine every nested map.
 The nested-map check rejects differences in source coverage.
 Nested findings have a map prefix, for example `Gateway: `.
 
-`refresh` writes the canvas page `docs/map/index.html` with all maps of the tree.
+`refresh` writes the atlas page `docs/map/index.html` with all maps of the tree.
 `docs/map/Gateway/index.html` is a redirect page to `docs/map/index.html#Gateway`.
 The URL hash identifies the map, so earlier links stay correct.
 `figure --map Gateway` makes its figure.

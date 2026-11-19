@@ -291,6 +291,7 @@ color:var(--ink-2);font-size:14px;font-weight:500;transition:background-color .1
 .tab--data{--tab:var(--k-data)}
 .tab--k{--tab:var(--brand)}
 .tab--control{--tab:var(--k-control)}
+.tab--judge{--tab:var(--k-custom-1)}
 .tab--change{--tab:var(--change)}
 .tab:hover{background:var(--raised);color:var(--ink)}
 .tab[aria-selected="true"]{background:var(--raised);border-color:var(--line-2);color:var(--ink);

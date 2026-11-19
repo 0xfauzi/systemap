@@ -85,11 +85,22 @@ def header(
     )
 
 
-def overlay() -> str:
-    """Give the headline, the zoom control, the key and the note."""
+def headline(limits: str = "") -> str:
+    """Give the headline. `limits` is the disclosure of the limits of a revision comparison
+    (`atlas_marks.limits`), at the end of the headline. The page puts the headline first in
+    `main`, before the canvas, so that the order of the keyboard focus is the order on the
+    screen: the controls of the headline come before the cards and the lines."""
     return (
         '<div class="ask" id="atlas-ask"><div class="ask__k" id="atlas-ask-k"></div>'
-        '<h1 class="ask__q" id="atlas-ask-q"></h1><div class="ask__n" id="atlas-ask-n"></div></div>'
+        '<h1 class="ask__q" id="atlas-ask-q"></h1><div class="ask__n" id="atlas-ask-n"></div>'
+        + limits
+        + "</div>"
+    )
+
+
+def overlay() -> str:
+    """Give the zoom control, the key and the note."""
+    return (
         '<div class="zoom" role="group" aria-label="Zoom">'
         '<button type="button" id="atlas-zo" aria-label="Zoom out" title="Zoom out">−</button>'
         '<span id="atlas-zv">100%</span>'

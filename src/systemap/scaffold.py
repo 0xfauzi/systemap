@@ -78,7 +78,7 @@ profile = "plain"
 
 # The URL of the map page that CI publishes for each pull request.
 # The pull request number replaces {{number}}.
-# With this value, the summary comment of CI also has a link to the Changes view of that page.
+# With this value, the summary comment of CI also has a link to the changes on that page.
 # [delta]
 # page_url = "https://example.org/pr-{{number}}/"
 

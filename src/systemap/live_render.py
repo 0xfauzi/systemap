@@ -58,8 +58,8 @@ def render_tree(root: Path, base: str, cache: fact_cache.FactCache | None = None
     """Render the pages and the figure of the working tree. Write no file.
 
     The facts come from the source files and the models from the model files. With a
-    base, the Changes view and the map update lines compare the working tree with the
-    merge base of the base and HEAD. `systemap delta` uses the same comparison of the
+    base, the revision comparison of the page and the map update lines compare the working
+    tree with the merge base of the base and HEAD. `systemap delta` uses the same comparison of the
     facts for all maps. With a cache, the extraction uses the kept facts of each file
     with the same text.
     """

@@ -883,10 +883,11 @@ Coverage counts the parent component one time.</p>
 A nested finding has its map id, as in <code>Gateway: map layout: clean ...</code>.</p>
 </li>
 <li>
-<p><code>refresh</code> and <code>render</code> write the canvas page <code>docs/map/index.html</code>.
-The canvas page draws all maps of the tree.
+<p><code>refresh</code> and <code>render</code> write the atlas page <code>docs/map/index.html</code>.
+The atlas page draws all maps of the tree.
 Each nested map also gets a redirect page, for example <code>docs/map/Gateway/index.html</code>.
-The redirect page opens the canvas page at that map, with the URL hash <code>#Gateway</code>.
+The redirect page opens the top page at that map, with the URL hash <code>#Gateway</code>.
+With <code>[render] page = &quot;canvas&quot;</code>, the commands write the canvas page and the same redirect pages.
 Thus a link to <code>Gateway/index.html</code> stays correct.
 With <code>[render] canvas = false</code>, the commands write one linked page for each map, with links between them.</p>
 </li>
@@ -1396,36 +1397,52 @@ The error gives the flow or the component. <code>systemap describe</code> also e
 <p>Writes the page from the facts and model.
 Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
 Thus they do not tell you to use <code>systemap extract</code> when <code>extract</code> cannot operate.</p>
-<p>The command writes the canvas page. This is the default from step 5 of <code>docs/design/nested-canvas.md</code>.
-The canvas page draws all maps of the tree on one <code>&lt;canvas&gt;</code> element.
-A card that opens a map shows a preview of that map. When the camera zooms in, the preview grows into the map.
-The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
-A click on a card selects it, and a double-click on a card goes into the card.
+<p>The command writes the atlas page (<code>docs/design/atlas.md</code>). This is the default from stage 9 of that document.
+The atlas page draws all maps of the tree on one <code>&lt;canvas&gt;</code> element.
+At rest, the lines of the flows are thin and have one neutral color. A label shows at rest only where it covers no card, no name and no other line.
+A card that opens a map has a small picture of that map. The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
+When the camera zooms in, the small picture grows into the map, and the map above fades.
+Point at a card or a line to light its flows in the colors of their kinds. The line at the bottom of the map then gives one sentence about it.
+A click, a tap or Enter selects a card and opens its details at the side. On a phone, the details are a sheet at the bottom.
+A double-click on a card, or Shift Enter, goes into the map of that card.
+Esc closes the details or goes out one level, F fits the current map, <code>+</code> and <code>-</code> zoom the camera, and the arrow keys move the map.
+The header has the views and the tools. The views are Map, Sequences, States, Focus, and History. A view shows only when the map has data for it.
+The Map view has the layers as tabs and a headline with the question of the layer and the counts.
+The Sequences view shows one sequence on the map or as a diagram, one step at a time. The left and right arrow keys change the step.
+The States view shows one state machine. The Focus view puts one card in the middle, with the cards that give to it at the left and the cards that it gives to at the right.
+The History view shows where the source files of each component changed, and when (<code>[render] history</code>).
+The headline gives the path of the open maps. A click on a part of the path moves the camera to that map.
+The URL hash holds the ID of the open map, for example <code>index.html#Gateway/Routes</code>. The hash of a card opens its map and selects the card.
+A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</code> opens <code>index.html#Gateway/Routes</code>.
+Without a script, the redirect page goes to the map, and it shows a link to the top page.
+The page uses the system setting for reduced motion. Then no line draws and no value fades.
+The tools are Find (Ctrl+K, Cmd+K, or /), the theme control (Device, Light, and Dark), the Reduce motion button, and the Keyboard keys (the <code>?</code> key). On a narrow screen, these tools are in one Tools menu.
+The details give the selected card: its description, its assurance level and freshness, its flows with their evidence, its source modules and source records, and its sequences. The rules of the map stay available.
+In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
+Thus such an answer changes the page. After you record it, run <code>systemap refresh</code>. If you do not, <code>check</code> and <code>render --check</code> report the page as stale.
+The page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the page cannot show in a frame of a different page.
+The page data is in the element <code>script#atlas-data</code>, and the history data is in <code>script#atlas-history</code>. The page has no <code>window.systemapWorkspace</code> object.</p>
+<p>With <code>[render] page = &quot;canvas&quot;</code>, the command writes the canvas page (<code>docs/design/nested-canvas.md</code>). This was the default from step 5 of that document to stage 9 of <code>docs/design/atlas.md</code>.
+The canvas page also draws all maps of the tree on one <code>&lt;canvas&gt;</code> element, with the same camera, the same keys, and the same redirect pages.
+On the canvas page, a click on a card selects it, and a double-click on a card goes into the card.
 On a touch screen, a tap selects a card, and a second tap on the card goes into it.
-Esc goes out one level, F fits the current map, <code>+</code> and <code>-</code> zoom the camera, and the arrow keys move the map.
 The F key does not show the map in full screen, as on the linked page.
 The header has the views Map, Sequences, and Changes, the layers, and Find (Ctrl+K, Cmd+K, or /).
-The path of the open maps is at the top left of the canvas. A click on a part of the path moves the camera to that map.
+The path of the open maps is at the top left of the canvas.
 When the frame of an open map is larger than the screen, a ring stays at the screen edge.
 When a neighbour of the open map is not on the screen, a portal at the screen edge gives it. A click on the portal moves the camera to the neighbour.
-The URL hash holds the ID of the open map, for example <code>index.html#Gateway/Routes</code>.
-A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</code> opens <code>index.html#Gateway/Routes</code>.
-Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
-The page uses the system setting for reduced motion. Then each camera move occurs at one time.
 The header also has the theme button, the Reduce motion button, the Keyboard keys (the <code>?</code> key), and the source button. On a narrow screen, these buttons are in one Tools menu.
 The Details panel (the D key) gives the selected card: its kind and text, its <code>note</code> text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
-In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
-Thus such an answer changes the canvas page. After you record it, run <code>systemap refresh</code>. If you do not, <code>check</code> and <code>render --check</code> report the page as stale.
-The canvas page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the canvas page cannot show in a frame of a different page.
-The page data is in the element <code>script#canvas-data</code>. The page has no <code>window.systemapWorkspace</code> object.
-With <code>?hud</code> after the page address, the page shows the frames in each second and the time of each frame.</p>
+The canvas page also has the dotted ring of each open boundary finding.
+The page data of the canvas page is in the element <code>script#canvas-data</code>.
+With <code>?hud</code> after the page address, the atlas page and the canvas page show the frames in each second and the time of each frame.</p>
 <p>With <code>[render] canvas = false</code>, the command writes the linked page of each map, as before step 5.
 Then <code>render</code>, <code>refresh</code>, and <code>live</code> write this line on stderr. The exit code does not change.</p>
-<pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the canvas page.
+<pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the atlas page.
 </code></pre>
 <p>The linked pages stay for one release. A later release removes them.
-The canvas page does not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the canvas page stale.
-A change of the <code>note</code> text makes the canvas page stale.</p>
+The atlas page and the canvas page do not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the page stale.
+A change of the <code>note</code> text makes the page stale.</p>
 <ul>
 <li>
 <p><code>--check</code> exits 1 if the page is stale.
@@ -1434,11 +1451,14 @@ Thus a page that <code>render --base REF</code> wrote is stale for <code>render 
 </li>
 <li>
 <p><code>--base REF</code> adds a change map relative to that revision.
-The page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
-The canvas page and the linked page both obey this link.
+On the atlas page, each card with a change has a ring and a tag in the change color, and each removed flow has a dashed line in that color.
+The headline gives the count of the changed cards. The atlas page has no Changes view.
+Under the counts, the disclosure &quot;Not in this comparison&quot; gives the limits of the comparison, as the linked page gives them under NOT IN THIS COMPARISON.
+On the atlas page, <code>#changes</code> opens the top map, and <code>#Gateway/changes</code> opens the map <code>Gateway</code>.
+On the canvas page and the linked page, the page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
 On the canvas page, <code>#Gateway/changes</code> opens the Changes view at the map <code>Gateway</code>.
 A map or a card with the ID <code>changes</code> keeps its link.
-The Changes panel lists the map changes: the components, flows, sequences, and rules
+On the linked page, the Changes panel lists the map changes: the components, flows, sequences, and rules
 that the change added, removed, or changed in the model.
 The list compares the committed model at the merge base with the model on disk.
 A new digest for the same cited module or symbol is not a flow change.
@@ -1992,7 +2012,8 @@ A removed item, an actor, and a sequence have no level.
 Each part gives a maximum of 5 rows, and then the count of the other rows.
 The summary is one line if these conditions are true: the contract and the map did not change, no rule has the result <code>fail</code>, and no delta line has a necessary action.
 If the model at the merge base does not load, the contract and the map are <code>unknown</code>, with the cause.</p>
-<p>With <code>[delta] page_url</code>, the comment also has a link to the Changes view of the page for pull request <code>N</code>.
+<p>With <code>[delta] page_url</code>, the comment also has a link to the changes on the page for pull request <code>N</code>.
+On the atlas page, the link opens the top map with the change marks. On the canvas page, it opens the Changes view.
 Then <code>--pr N</code> is necessary.</p>
 <p>The first comment line is <code>&lt;!-- systemap delta --&gt;</code>. CI finds the comment with it and changes that comment.
 The comment does not change the delta lines or the exit code.
@@ -2541,10 +2562,11 @@ If the command cannot write the pages of a version, the command gives the error,
 After a good version, the command removes the pages of the maps that the version does not have.</p>
 <ul>
 <li>
-<p><code>--base REF</code> sets the base of the Changes view.
+<p><code>--base REF</code> sets the base of the revision comparison.
 The default is the first of <code>origin/HEAD</code>, <code>origin/main</code>, <code>main</code>, <code>origin/master</code>, and <code>master</code>
 that has a merge base with HEAD. If no ref has one, the page has no revision comparison.
-The Changes view compares the working tree with that merge base.
+The page compares the working tree with that merge base.
+The atlas page shows the changes as marks on the Map view. The canvas page and the linked page show them in the Changes view.
 The comparison includes the commits since the merge base, the edits that are not in a commit,
 and the untracked files that Git does not ignore.</p>
 </li>
@@ -2781,7 +2803,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[delta]</code></td>
 <td>none</td>
-<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, the comment of <code>systemap delta --comment FILE --pr N</code> also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
+<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, the comment of <code>systemap delta --comment FILE --pr N</code> also has a link to the changes on that page. Without it, the comment has the architecture summary and no link. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
 </tr>
 <tr>
 <td><code>[writing]</code></td>
@@ -2795,8 +2817,8 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[render]</code></td>
-<td><code>canvas = true</code></td>
-<td><code>render</code>, <code>refresh</code>, and <code>live</code> write the canvas page: all maps of the tree on one canvas (<code>docs/design/nested-canvas.md</code>). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. <code>canvas = true</code> has no effect. <code>canvas = false</code> makes the commands write the linked pages, with no new feature, for one release. Then <code>render</code>, <code>refresh</code>, and <code>live</code> write one line on stderr about the next release. A later release removes the linked pages and this key. <code>check</code> and <code>render --check</code> compare the pages of the current value. <code>page = &quot;atlas&quot;</code> writes the atlas page in place of the canvas page (<code>docs/design/atlas.md</code>). The atlas page is a prototype. It shows the Map view, the Sequences view, the States view, the Focus view and the History view. <code>history = true</code> (the default) gives the History view of the atlas page: the commits of HEAD, read with Git, with the root commit and the boundary commits of a shallow clone left out. <code>history = false</code> removes it, and the commands then do not read the Git log. <code>history_days = N</code> (a positive integer) uses only the commits of the N days before the last commit. Without it, the view has all commits. The end of the time is the time of the last commit, not the time of the clock. With <code>history_days</code>, Git gives the changes of only the commits in that time, and <code>--since-as-filter</code> needs Git 2.37 or later. A merge commit is not used. <code>render</code>, <code>refresh</code>, and <code>live</code> keep the log in <code>.systemap/history.json</code>. After a change of HEAD, they read only the new commits. A change of <code>history_days</code> or of the boundary of a shallow clone makes them read the full log again. When Git cannot read the commits, the page has no History view, and <code>render</code> and <code>refresh</code> write one notice line on stderr with the same exit code. They also write one notice line when no commit is used, for example in a clone with <code>--depth 1</code>, which has only a boundary commit, and when no commit changed a source file of a component. <code>check</code> and <code>render --check</code> use the history data of the page file and do not read Git. Thus a new commit does not make the page stale. The history data of the page has the value of <code>history_days</code>. When that value is not the value of the configuration, the page is stale. A different depth of a shallow clone does not make the page stale. <code>refresh</code> writes the page only when an output is stale, so it can keep an earlier history. <code>render</code> writes the history of the current commits. <code>page = &quot;canvas&quot;</code> is the default, and <code>page = &quot;linked&quot;</code> is the same as <code>canvas = false</code>. A <code>canvas</code> value that does not agree with <code>page</code> gives a configuration error. A different value or key gives a configuration error.</td>
+<td><code>page = &quot;atlas&quot;</code></td>
+<td><code>render</code>, <code>refresh</code>, and <code>live</code> write the atlas page: all maps of the tree on one canvas (<code>docs/design/atlas.md</code>). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. The atlas page shows the Map view, the Sequences view, the States view, the Focus view and the History view. <code>page = &quot;atlas&quot;</code> is the default from stage 9 of <code>docs/design/atlas.md</code>. <code>page = &quot;canvas&quot;</code> writes the canvas page (<code>docs/design/nested-canvas.md</code>) in place of the atlas page, with the same redirect pages. <code>page = &quot;linked&quot;</code> and <code>canvas = false</code> make the commands write the linked pages, with no new feature, for one release. Then <code>render</code>, <code>refresh</code>, and <code>live</code> write one line on stderr about the next release. A later release removes the linked pages and the key <code>canvas</code>. <code>canvas = true</code> has no effect: it gives the default page. <code>check</code> and <code>render --check</code> compare the pages of the current value. <code>history = true</code> (the default) gives the History view of the atlas page: the commits of HEAD, read with Git, with the root commit and the boundary commits of a shallow clone left out. <code>history = false</code> removes it, and the commands then do not read the Git log. <code>history_days = N</code> (a positive integer) uses only the commits of the N days before the last commit. Without it, the view has all commits. The end of the time is the time of the last commit, not the time of the clock. With <code>history_days</code>, Git gives the changes of only the commits in that time, and <code>--since-as-filter</code> needs Git 2.37 or later. A merge commit is not used. <code>render</code>, <code>refresh</code>, and <code>live</code> keep the log in <code>.systemap/history.json</code>. After a change of HEAD, they read only the new commits. A change of <code>history_days</code> or of the boundary of a shallow clone makes them read the full log again. When Git cannot read the commits, the page has no History view, and <code>render</code> and <code>refresh</code> write one notice line on stderr with the same exit code. They also write one notice line when no commit is used, for example in a clone with <code>--depth 1</code>, which has only a boundary commit, and when no commit changed a source file of a component. <code>check</code> and <code>render --check</code> use the history data of the page file and do not read Git. Thus a new commit does not make the page stale. The history data of the page has the value of <code>history_days</code>. When that value is not the value of the configuration, the page is stale. A different depth of a shallow clone does not make the page stale. <code>refresh</code> writes the page only when an output is stale, so it can keep an earlier history. <code>render</code> writes the history of the current commits. <code>page = &quot;linked&quot;</code> is the same as <code>canvas = false</code>. A <code>canvas</code> value that does not agree with <code>page</code> gives a configuration error. A different value or key gives a configuration error.</td>
 </tr>
 <tr>
 <td><code>[[figures]]</code></td>

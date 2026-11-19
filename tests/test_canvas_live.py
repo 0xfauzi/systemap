@@ -42,7 +42,7 @@ FAILED = "The model cannot load: a test error."
 
 def test_live_reloads_the_canvas_page_and_keeps_the_hash(tmp_path: Path) -> None:
     """Acceptance 1 to 5."""
-    root = _made(tmp_path / "repo", "")
+    root = _made(tmp_path / "repo", '[render]\npage = "canvas"\n')
     flag = tmp_path / "fail"
 
     def render() -> serve.Rendered:

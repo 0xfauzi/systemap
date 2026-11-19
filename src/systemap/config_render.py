@@ -1,18 +1,16 @@
 """The `[render]` table of the configuration: the settings of the page output.
 
-`render` and `refresh` write the canvas page (docs/design/nested-canvas.md) at the top
-page, and a small page that goes to it at the page of each nested map. This is the
-default, and `canvas = true` gives the same output.
+`page` selects the page (docs/design/atlas.md): "atlas" (`atlas_page`), "canvas"
+(`canvas_page`, docs/design/nested-canvas.md) or "linked". The default is "atlas". The
+atlas page and the canvas page are one page at the top page, with a small page that goes
+to it at the page of each nested map.
 
 `canvas = false` makes the commands write the linked pages, one page for each map, with
-no change from the earlier releases. This setting is for one release only. The linked
-pages get no new function. `render`, `refresh` and `live` then give the notice line
-`NOTICE` (`render_pages.notice`), and the exit code does not change.
-
-`page` selects the page (docs/design/atlas.md): "atlas" (`atlas_page`), "canvas" or
-"linked". The default is "canvas". `page = "linked"` is the same as `canvas = false`. A
-table with the two keys must give the same page with each key. Thus `canvas = false` with
-`page = "atlas"` is a configuration error.
+no change from the earlier releases. `page = "linked"` is the same as `canvas = false`.
+The linked pages get no new function. `render`, `refresh` and `live` then give the notice
+line `NOTICE` (`render_pages.notice`), and the exit code does not change. `canvas = true`
+gives the default page. A table with the two keys must give the same page with each key.
+Thus `canvas = false` with `page = "atlas"` is a configuration error.
 
 `history` (true or false, default true) gives the History view of the atlas page
 (`history_data`). With false, the commands do not read the Git log. `history_days` (a
@@ -32,7 +30,7 @@ PAGES = ("atlas", "canvas", "linked")
 
 NOTICE = (
     "notice: [render] canvas = false writes the linked pages. The next release removes "
-    "the linked pages. Remove the setting to write the canvas page."
+    "the linked pages. Remove the setting to write the atlas page."
 )
 
 
@@ -53,12 +51,12 @@ def canvas(raw: dict[str, Any], where: str) -> bool:
 def page(raw: dict[str, Any], where: str) -> str:
     """Read `[render] page`: "atlas", "canvas" or "linked".
 
-    Without the key, `canvas = false` gives "linked", and else the page is "canvas"."""
+    Without the key, `canvas = false` gives "linked", and else the page is "atlas"."""
     shown = canvas(raw, where)
     table = raw.get("render", {})
     value = table.get("page")
     if value is None:
-        return "canvas" if shown else "linked"
+        return "atlas" if shown else "linked"
     if value not in PAGES:
         names = ", ".join(f'"{name}"' for name in PAGES)
         raise ValueError(f"{where}: render.page must be one of {names}, not {value!r}")

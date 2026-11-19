@@ -659,7 +659,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
 
     The command reads committed trees and uses the model on disk. If the map needs an
     update, the exit code is 1. `--comment` writes the pull request summary
-    (`pr_summary`), with a link to the Changes view if the base commit sets `page_url`.
+    (`pr_summary`), with a link to the changes on the map page if the base commit sets `page_url`.
     """
     p = _project(args)
     _require_roots(p)
@@ -1228,8 +1228,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Write the pull request comment to FILE. The comment gives the changes to the "
             "contract and the map, the rule results, and the assurance level of each item. "
             "If [delta] page_url is set at the base commit, the comment also has a link to "
-            "the Changes view. If that value is not correct, the comment has no link, and "
-            "a warning gives the cause."
+            "the changes on the map page. If that value is not correct, the comment has no "
+            "link, and a warning gives the cause."
         ),
     )
     s.add_argument(

@@ -159,7 +159,7 @@ def test_axe_core_finds_no_issue_with_a_board(
 
 def test_a_page_with_no_state_machine_hides_the_view(tmp_path: Path) -> None:
     """Acceptance 8."""
-    nested = _made(tmp_path, "") / "docs" / "map" / "index.html"
+    nested = _made(tmp_path, '[render]\npage = "canvas"\n') / "docs" / "map" / "index.html"
     out = _drive("--none", nested)
     assert out["errors"] == [] and out["hidden"] is True
     assert out["state"]["board"]["machine"] is None

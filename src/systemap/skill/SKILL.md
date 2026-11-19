@@ -61,7 +61,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    Otherwise, use `systemap suggest`. Examine the proposed assignments against source.
    Read the repository's own documentation: its README, AGENTS.md, CLAUDE.md, docs/.
    Read `references/schema.md`, `references/example.md`, `references/layout.md`, and `references/pitfalls.md`.
-   Also read `references/layers.md` and `references/journeys-and-invariants.md`.
+   Also read `references/layers.md`, `references/journeys-and-invariants.md`, and `references/views.md`.
 
    Write components and flows without `x` and `y`. Run `systemap place`.
    The command searches region orders and compares route collisions, refusals, bends, and length.
@@ -228,11 +228,11 @@ Do not put code or test counts on map components. Keep relationships on flows. D
 ## References
 
 - `references/language.md`: the writing profiles, the common rules, the ASD-STE100 rules, the glossary, and the language acceptance procedure. Read it before every text change.
-- `references/schema.md`: dataclasses, fields, and structural checks. Read it before the draft.
-- `references/example.md`: a complete small model and configuration. Read it with the schema.
+- `references/schema.md` and `references/example.md`: dataclasses, fields, structural checks, and a complete small model and configuration. Read them before the draft.
 - `references/layout.md`: automatic positions, pinned positions, routes, and descriptions. Read it before placement.
 - `references/layers.md`: derived layers, standard kinds, and model-calling systems. Read it before flow assignments.
 - `references/journeys-and-invariants.md`: source support for sequences and invariants. Read it before the draft and source review.
+- `references/views.md`: the views of the page, the data that each view needs, and state machines. Read it before the draft.
 - `references/second-pass.md`: full source examination and completion conditions. Read it at step 6.
 - `references/pitfalls.md`: known assignment and tool errors. Read it before the draft.
 - `references/decisions.md`: decision requests, verdicts, and citations. Read it at step 6.

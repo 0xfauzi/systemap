@@ -253,7 +253,7 @@ def test_the_landing_page_shows_recorded_output(fixture_site: dict[str, str]) ->
     assert "unmapped:</span> systemap.notify" in landing
     assert "The map needs an update (2):</span>" in landing
     assert "next to the change" not in landing and "  fix:" not in landing
-    for name in ("map", "sequence", "changes"):
+    for name in ("map", "sequence", "states", "focus", "history"):
         for scheme in ("dark", "light"):
             assert f"screenshots/view-{name}-{scheme}.webp" in landing
             assert f"screenshots/view-{name}-phone-{scheme}.webp" in landing

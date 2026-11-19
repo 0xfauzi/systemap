@@ -116,7 +116,7 @@ def test_a_tree_without_sequences_has_the_same_bytes(
 ) -> None:
     """Acceptance 2."""
     files = {
-        "systemap.toml": CONFIG + "[render]\ncanvas = true\n",
+        "systemap.toml": CONFIG + '[render]\npage = "canvas"\n',
         "map/model.py": TOP,
         "map/gateway.py": NESTED,
         **SOURCE,
