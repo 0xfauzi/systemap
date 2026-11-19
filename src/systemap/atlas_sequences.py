@@ -497,7 +497,7 @@ body[data-mode="seq"][data-form="diagram"] .board{display:block}
 .board .qrow{cursor:pointer;outline:none}
 .board .qrow rect{fill:transparent}
 .board .qrow:hover rect{fill:var(--tint)}
-.board .qrow:focus-visible rect{fill:var(--tint);stroke:var(--brand);stroke-width:2}
+.board .qrow:focus-visible rect{fill:var(--tint);stroke:var(--focus);stroke-width:2}
 .qlife{stroke:var(--line-2);stroke-width:1}
 .board .fnode rect{fill:var(--card);stroke:var(--line-2);stroke-width:1}
 .board .fnode text{font:600 13px/1 var(--fs);fill:var(--ink);text-anchor:middle}

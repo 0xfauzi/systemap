@@ -24,7 +24,14 @@ The words. The list of the tree gives the words of each marked card and of each 
 marks, the reading line gives the words of a pointed card, and the live region gives the
 words of a map when the camera goes into it. The values of each card are constant, thus
 the part makes them one time, and a frame only reads them. A frame draws a mark only for a
-card that the frame draws, and only when the card is 6 px high or more on the screen.
+card that the frame draws, and only when the card is 6 px high or more on the screen. A map
+that shows as a small picture in its card has no marks (`drawMap` in `atlas_draw`).
+
+The place of a tag. A tag obeys the rule of the labels at rest (docs/design/atlas.md): it
+goes above or below the card, at its right end or its left end, at the first side with no
+card, no name, no other tag and no line in it (`tagsOf`). The labels at rest and the lit
+labels do not cover a tag. The tag has a thin edge in the ground color under its letters, not
+a box, thus it does not cut a line or a ring.
 """
 
 from __future__ import annotations
@@ -68,27 +75,77 @@ function markOf(c) {
   c._mk = tags.length ? {ring: ring, tag: tags.join(' · '), port: !!c._pm} : null;
   return c._mk;
 }
-// The marks of the cards `cards` of map m, at the scale `a`, after the cards.
+// The size of the tag of card c at the map scale a: the font size and the width, in px.
+function tagSize(c, a) {
+  var k = markOf(c), fs = q(Math.min(Math.max(8.5 * Math.min(a, 1.6), 7), CAPS_MAX));
+  return {fs: fs, tw: (unitWidth(k.tag.toUpperCase(), 500, true) + 0.09 * k.tag.length) * fs};
+}
+// The sides of a tag, in their order: above the right end of the card, above its left end,
+// below its right end and below its left end. [x, y]: 1 is right or below, -1 is left or above.
+var TAG_SIDES = [[1, -1], [-1, -1], [1, 1], [-1, 1]];
+// The tag of card c at the side `side`, for the card box x, y, w, h on the screen: the point
+// of the text and its box on the screen.
+function tagAt(c, side, x, y, w, h, a) {
+  var z = tagSize(c, a), tx = side[0] > 0 ? x + w - 2 : x + 2, ty = side[1] < 0 ? y - 7 : y + h + 7 + z.fs;
+  var left = side[0] > 0 ? tx - z.tw - 3 : tx - 3;
+  return {x: tx, y: ty, fs: z.fs, box: [left, ty - z.fs, left + z.tw + 6, ty + 2]};
+}
+// The sides of the tags of map m in layer `id` at the map scale a, and their boxes in the
+// coordinates of the map. A tag obeys the rule of the labels at rest: the first side that is on
+// no card, on no name, on no other tag and with no line through it. With no such side, the first
+// side on no card, no name and no other tag, else the first side. The labels at rest and the lit
+// labels do not cover these boxes (`seatsOf` and `litSeats`). The places are calculated again for
+// a new step of zoom, in the full drawing at rest.
+function tagsOf(m, id, a) {
+  var L = linesOf(m, id), step = Math.floor(Math.log2(a) * 4), key = step + '|' + TEXTS;
+  if (L._tags && (L._tags.key === key || !sharp)) return L._tags;
+  var s = Math.pow(2, step / 4), wall = walls(m), taken = [], side = Object.create(null);
+  function boxOf(c, i) {
+    var b = c.b, t = tagAt(c, TAG_SIDES[i], s * b[0], s * b[1], s * b[2], s * b[3], s);
+    return t.box.map(function (v) { return v / s; });
+  }
+  m.cards.forEach(function (c, n) {
+    if (!markOf(c)) return;
+    var pick = -1, open = -1;
+    for (var i = 0; i < TAG_SIDES.length && pick < 0; i++) {
+      var box = boxOf(c, i);
+      if (wall.some(function (o, j) { return j !== n && over(box, o); }) || taken.some(function (o) { return over(box, o); })) continue;
+      if (open < 0) open = i;
+      if (!crossed(box, L.list, null)) pick = i;
+    }
+    side[c.id] = pick >= 0 ? pick : Math.max(open, 0);
+    taken.push(boxOf(c, side[c.id]));
+  });
+  L._tags = {key: key, side: side, boxes: taken};
+  return L._tags;
+}
+// The marks of the cards `cards` of map m, at the scale `a`, after the cards. A map that
+// shows as a small picture in its card has no marks: its card has the tag CHANGED INSIDE.
 function drawMarks(m, cards, a, ox, oy, alpha) {
   if (alpha <= 0.02) return;
-  var lit = litOf(m);
+  var lit = litOf(m), tags = tagsOf(m, shownLayer(m), a);
   ctx.lineJoin = 'round';
   for (var i = 0; i < cards.length; i++) {
     var c = cards[i], k = markOf(c);
     if (!k) continue;
     var b = c.b, x = ox + a * b[0], y = oy + a * b[1], w = a * b[2], h = a * b[3];
-    if (h < 6 || x > W || y > H || x + w < 0 || y + h < -20) continue;
+    if (h < 6 || x > W || y > H + 20 || x + w < 0 || y + h < -20) continue;
     var al = alpha * backCard(lit, c), r = cardCorner(c, w, h);
     if (k.ring) {
       ctx.globalAlpha = al; ctx.strokeStyle = C[k.ring.c]; ctx.lineWidth = k.ring.w; ctx.setLineDash(k.ring.d || []);
       ctx.beginPath(); rr(ctx, x - 3, y - 3, w + 6, h + 6, r + 3); ctx.stroke(); ctx.setLineDash([]);
     }
-    var u = Math.min(h / c.b[3], 1.6), fs = q(Math.max(8.5 * u, 7)), tw = (unitWidth(k.tag.toUpperCase(), 500, true) + 0.09 * k.tag.length) * fs;
-    var tx = x + w - 2, ty = y - 6;
-    ctx.globalAlpha = al; ctx.fillStyle = C['--map'];
-    ctx.fillRect(tx - tw - 4, ty - fs - 1, tw + 8, fs + 5);
-    caps(k.tag, tx, ty, fs, k.port ? C['--ink-2'] : C['--change'], al, 0.09, 'right');
-    logged({t: 'mark', id: c.id, map: m.id, tag: k.tag, port: k.port, size: fs, alpha: al, b: [x, y, w, h],
+    var side = TAG_SIDES[tags.side[c.id] || 0], t = tagAt(c, side, x, y, w, h, a), align = side[0] > 0 ? 'right' : 'left';
+    // A thin edge in the ground color under the letters, as a label at rest has. It covers
+    // only the letters, not a box.
+    if (t.fs >= textMin()) {
+      try {
+        spaced(ctx, t.fs * 0.09); ctx.font = font(500, t.fs, true); ctx.textAlign = align;
+        ctx.globalAlpha = al; ctx.strokeStyle = C['--map']; ctx.lineWidth = 3; ctx.strokeText(k.tag.toUpperCase(), t.x, t.y);
+      } finally { spaced(ctx, 0); }
+    }
+    caps(k.tag, t.x, t.y, t.fs, k.port ? C['--ink-2'] : C['--change'], al, 0.09, align);
+    logged({t: 'mark', id: c.id, map: m.id, tag: k.tag, port: k.port, size: t.fs, alpha: al, b: [x, y, w, h], box: t.box, side: side,
       ring: k.ring ? {color: C[k.ring.c], w: k.ring.w, dash: !!k.ring.d} : null});
   }
 }

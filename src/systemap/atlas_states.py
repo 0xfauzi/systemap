@@ -91,7 +91,7 @@ body[data-mode="states"] .sboard{display:block}
 .snode .gap{font-size:0}
 .snode .sy{font:400 10.5px/1 var(--fm);fill:var(--ink-3);text-anchor:middle}
 .snode:hover rect,.snode.lit rect{stroke:var(--ink);stroke-width:1.6}
-.snode:focus-visible rect{stroke:var(--brand);stroke-width:2.4}
+.snode:focus-visible rect{stroke:var(--focus);stroke-width:2.4}
 .sstart{fill:var(--ink-3)}
 .sstart-l{fill:none;stroke:var(--ink-3);stroke-width:1.3}
 .tedge{outline:none;transition:opacity .2s}
@@ -104,8 +104,8 @@ stroke-linejoin:round;pointer-events:none}
 .tedge.lit path.wire{stroke:var(--ink);stroke-width:2.2}
 .tedge.lit polygon{fill:var(--ink)}
 .tedge.lit text{fill:var(--ink)}
-.tedge.kf path.wire{stroke:var(--brand);stroke-width:2.6}
-.tedge.kf polygon{fill:var(--brand)}
+.tedge.kf path.wire{stroke:var(--focus);stroke-width:2.6}
+.tedge.kf polygon{fill:var(--focus)}
 .sfocus .tedge:not(.lit),.sfocus .snode:not(.lit){opacity:.38}
 @media (min-width:1181px){body[data-mode="states"] .ask{max-width:290px}}
 @media (max-width:720px){.snode .sy{font-size:12px}body[data-mode="states"] .ask__n{display:block;margin-top:4px}}

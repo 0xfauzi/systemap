@@ -148,7 +148,7 @@ These are not in the study. They are necessary.
   Met in stage 8 (2026-11-19). The atlas page has no Changes view, because this document
   adds no comparison view: the change marks are on the Map view (`atlas_marks`). On a
   phone the tools are in one Tools menu (`atlas_tools`). The contrast test
-  (tests/test_atlas_contrast.py) gives five quiet marks below the floor of 3.0, for example
+  (tests/test_atlas_contrast.py) gives eight quiet marks below the floor of 3.0, for example
   the wire of a line at rest. They are decisions for the maintainer.
 - **Text.** All text for a reader obeys the language policy of the repository.
 - **Measurement.** Follow `AGENTS.md`: write the acceptance value in the docstring before

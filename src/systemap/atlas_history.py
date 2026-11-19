@@ -55,15 +55,15 @@ body[data-mode="history"] .hboard{display:block}
 .hcell{cursor:pointer;outline:none}
 .hcell rect{fill:var(--ink);transition:stroke .12s}
 .hcell.none rect,.hcell .hbase{fill:var(--tint)}
-.hcell:hover rect,.hcell.lit rect{stroke:var(--brand);stroke-width:2}
-.hcell:focus-visible rect{stroke:var(--brand);stroke-width:2.6}
+.hcell:hover rect,.hcell.lit rect{stroke:var(--focus);stroke-width:2}
+.hcell:focus-visible rect{stroke:var(--focus);stroke-width:2.6}
 .hborn{fill:var(--brand);pointer-events:none}
 .hbar{fill:var(--line-2)}
 .hrow{cursor:pointer;outline:none}
 .hrow text{font:500 11.5px/1 var(--fs);fill:var(--ink-2);text-anchor:end}
 .hrow rect{fill:transparent}
 .hrow:hover text,.hrow.lit text{fill:var(--ink)}
-.hrow:focus-visible rect{stroke:var(--brand);stroke-width:2}
+.hrow:focus-visible rect{stroke:var(--focus);stroke-width:2}
 .hsum{font:400 10.5px/1 var(--fm);fill:var(--ink-3);font-variant-numeric:tabular-nums}
 .haxis{font:400 10px/1 var(--fm);fill:var(--ink-3);text-anchor:middle}
 @media (min-width:1181px){body[data-mode="history"] .ask{max-width:290px}}

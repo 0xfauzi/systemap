@@ -89,7 +89,7 @@ body[data-mode="focus"] .fboard{display:block}
 .fcard.mid rect{stroke:var(--ink);stroke-width:1.6}
 .fcard.mid text{font-size:16px}
 .fcard:hover rect,.fcard.lit rect{stroke:var(--ink)}
-.fcard:focus-visible rect{stroke:var(--brand);stroke-width:2.4}
+.fcard:focus-visible rect{stroke:var(--focus);stroke-width:2.4}
 .fcol{font:500 9.5px/1 var(--fm);letter-spacing:.1em;text-transform:uppercase;fill:var(--ink-3);text-anchor:middle}
 .fmore{font:400 11px/1 var(--fs);fill:var(--ink-3);text-anchor:middle}
 .fedge{outline:none;transition:opacity .2s}
@@ -99,7 +99,7 @@ body[data-mode="focus"] .fboard{display:block}
 .fedge path.hit{fill:none;stroke:transparent;stroke-width:12;cursor:pointer;pointer-events:stroke}
 .fedge.lit path.wire{stroke:var(--k,var(--ink));stroke-opacity:1;stroke-width:2}
 .fedge.lit polygon{fill:var(--k,var(--ink))}
-.fedge.kf path.wire{stroke:var(--brand);stroke-width:2.6}
+.fedge.kf path.wire{stroke:var(--focus);stroke-width:2.6}
 .ffocus .fedge:not(.lit){opacity:.38}
 .side__body .fgo{margin-top:0}
 @media (min-width:1181px){body[data-mode="focus"] .ask{max-width:290px}}

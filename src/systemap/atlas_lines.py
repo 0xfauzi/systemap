@@ -214,7 +214,8 @@ function seatsOf(m, id, a) {
   // While the camera moves, the labels keep their places: a new calculation costs more than
   // a frame. The full drawing at rest calculates the places of the new zoom.
   if (L.seats && (L.seats.key === key || !sharp)) return L.seats;
-  var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = [], wall = walls(m), out = [], later = [];
+  // The tags of the marks come first: a label does not cover a tag (`tagsOf` in `atlas_marks`).
+  var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = tagsOf(m, id, a).boxes.slice(), wall = walls(m), out = [], later = [];
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
     // A line of a sequence with no free place on the line: the label goes beside its own
     // line (`seqSeat`), or it shows only at its step (`stepSeat`).

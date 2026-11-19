@@ -20,6 +20,9 @@ Acceptance values, written before the first run on 2026-11-18:
    or less (the size limit of the performance budget).
 7. The page has the parts for a screen reader: the label and the help text of the canvas,
    the list of the tree and the live region in `main`, and the tablist of the layers.
+8. Written on 2026-11-19 after the review of stage 8, before the first run of its test: the
+   keyboard sheet has a row for each key of the States, Focus and History views (the arrow
+   keys, Home, End and Esc) that names those views, and a row for Space.
 """
 
 from __future__ import annotations
@@ -37,7 +40,11 @@ from test_nest_join import CONFIG, SOURCE
 
 from systemap import (
     atlas_data,
+    atlas_focus,
+    atlas_history,
     atlas_page,
+    atlas_states,
+    atlas_tools,
     canvas_data,
     canvas_page,
     config,
@@ -203,3 +210,35 @@ def test_the_page_has_the_parts_for_a_screen_reader(atlas_root: Path) -> None:
     assert '<p id="atlas-said" class="sr-only" aria-live="polite"></p>' in main_part
     assert '<h1 class="ask__q" id="atlas-ask-q"></h1>' in main_part
     assert 'role="tablist" aria-label="Layers"' in top
+
+
+# The names of the keys in the keyboard sheet (`atlas_tools.KEYS`).
+_SHEET_NAME = {
+    "ArrowLeft": "← ↑ → ↓",
+    "ArrowRight": "← ↑ → ↓",
+    "ArrowUp": "← ↑ → ↓",
+    "ArrowDown": "← ↑ → ↓",
+    "Home": "Home",
+    "End": "End",
+    "Escape": "Esc",
+}
+
+
+@pytest.mark.parametrize(
+    ("part", "table"),
+    [
+        (atlas_states.STATES, "SM_KEYS"),
+        (atlas_focus.FOCUS, "FC_KEYS"),
+        (atlas_history.HISTORY, "HS_KEYS"),
+    ],
+)
+def test_the_keyboard_sheet_has_the_keys_of_each_view(part: str, table: str) -> None:
+    """Acceptance 8."""
+    found = re.search(r"var " + table + r" = \{([^}]*)\}", part)
+    assert found, table
+    keys = re.findall(r"(\w+):", found.group(1))
+    rows = {key: text for key, text in atlas_tools.KEYS}
+    assert keys and all(_SHEET_NAME[key] in rows for key in keys), (table, keys)
+    assert "e.key === ' '" in part and "Space" in rows
+    for key in keys:
+        assert any(view in rows[_SHEET_NAME[key]] for view in ("States", "Focus", "History"))

@@ -175,7 +175,7 @@ function drawFocus() {
   if (isFlow(x)) {
     var e = lineOf(x.map, x.i), v = view(x.map);
     if (!e) return;
-    ctx.strokeStyle = C['--brand']; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.strokeStyle = C['--focus']; ctx.lineWidth = 2; ctx.lineJoin = 'round';
     [-1, 1].forEach(function (side) {
       ctx.beginPath(); cutLine(ctx, e.d.map(function (p, i) { return offsetPoint(e.d, i, side * 5 / v.a); }), v.ox, v.oy, v.a); ctx.stroke();
     });

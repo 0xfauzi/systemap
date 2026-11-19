@@ -20,7 +20,7 @@ white-space:nowrap}
 min-height:44px;max-width:calc(100% - 24px);padding:12px 16px;overflow:hidden;
 text-overflow:ellipsis;white-space:nowrap;font:600 14px/20px var(--fs);color:var(--ink);
 background:var(--surface);border:1px solid var(--line-2);border-radius:8px;
-outline:2px solid var(--brand);outline-offset:2px;text-decoration:none}
+outline:2px solid var(--focus);outline-offset:2px;text-decoration:none}
 """
 
 HTML = (

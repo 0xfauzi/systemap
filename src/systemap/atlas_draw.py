@@ -363,7 +363,9 @@ function drawMap(m, alpha, open) {
       return;
     }
   }
-  if (full) { drawLayer(whole, ox, oy, mw, mh, own); drawMarks(m, cards, a, ox, oy, own); STATS.cards += cards.length; return; }
+  // A map that shows as a small picture in its card has no marks (`atlas_marks`).
+  var markA = own * smooth(0.3, 0.8, open);
+  if (full) { drawLayer(whole, ox, oy, mw, mh, own); drawMarks(m, cards, a, ox, oy, markA); STATS.cards += cards.length; return; }
   OPEN = open >= 0.5;
   if (own > 0.01) {
     var flowA = own * SWAP_A * smooth(0.1, 0.25, open);
@@ -385,7 +387,7 @@ function drawMap(m, alpha, open) {
       if (hasText(h)) texts.push([c, x, y, w, h, qv]);
     }
     flushCards(ctx);
-    drawMarks(m, cards, a, ox, oy, own);
+    drawMarks(m, cards, a, ox, oy, markA);
     drawSelected(m, a, ox, oy, own);
     if (open > 0.3 && !L.dense) drawLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open));
     if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open), false);

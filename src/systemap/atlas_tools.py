@@ -35,11 +35,38 @@ from systemap.page_icons import icon
 KEYS: tuple[tuple[str, str], ...] = (
     ("Ctrl K", "Find a card, a flow, a sequence or an action"),
     ("Tab", "Move the keyboard focus through the cards and the lines of the map"),
-    ("Enter", "Select the focused card, or keep the focused line lit"),
+    (
+        "Enter",
+        "Select the focused card, or keep the focused line lit. In the other views, do the "
+        "same as a click on the focused item",
+    ),
+    (
+        "Space",
+        "In the Sequences diagram and in the States, Focus and History views, do the same as a "
+        "click on the focused item",
+    ),
     ("Shift Enter", "Go into the map of the focused card"),
-    ("Esc", "Close the details, or go out one level"),
-    ("← ↑ → ↓", "Move the map"),
+    (
+        "Esc",
+        "Close the details, or go out one level. In the States, Focus and History views, "
+        "remove the light",
+    ),
+    (
+        "← ↑ → ↓",
+        "In the Map view, move the map. In the States, Focus and History views, move the "
+        "keyboard focus to a different item",
+    ),
     ("← →", "In the Sequences view, go to the previous step or the next step"),
+    (
+        "Home",
+        "In the States view, go to the first item. In the Focus view, go to the middle card. "
+        "In the History view, go to the name of the row",
+    ),
+    (
+        "End",
+        "In the States view, go to the last item. In the History view, go to the last cell of "
+        "the row",
+    ),
     ("+ -", "Zoom in or out"),
     ("F", "Fit the current map"),
     ("?", "Show the keyboard keys"),

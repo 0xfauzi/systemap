@@ -15,9 +15,11 @@ docs/design/atlas.md:
   and the key do not show.
 - `--fs` and `--fm` give the two fonts to the renderer script (`atlas_scene`).
 - `--change` is the color of the change marks (`atlas_marks`). `--focus` is the color of
-  the focus ring: the brand color of the study in the dark scheme, and a darker tone of it
-  in the light scheme, so that the ring has a contrast of 3 or more on the ground
-  (tests/test_atlas_contrast.py).
+  the focus rings, of the keyboard focus lines and of the lit cell of the History view: the
+  brand color of the study in the dark scheme, and a darker tone of it in the light scheme,
+  so that these marks have a contrast of 3 or more on the ground
+  (tests/test_atlas_contrast.py). `--brand` is only for the mark of the brand and for the
+  dot of a new module in the History view.
 """
 
 from __future__ import annotations

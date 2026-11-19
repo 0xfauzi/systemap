@@ -8,10 +8,13 @@
 //   Tools menu at 390 x 844 on a touch screen.
 // - --find CARD FLOW: Ctrl K, / and the Find button, the rows for the name of CARD, Enter on
 //   the first row, the result of the flow with the artifact FLOW, a sequence and a step when
-//   the page has one, and Find from the Tools menu of a phone.
+//   the page has one, each chosen with the arrow keys and Enter, the / key in a text field,
+//   and Find from the Tools menu of a phone.
+// - --other CARD FLOW: Find at the top map for the card CARD and the flow FLOW of a different
+//   map (the group Other maps), with the keyboard.
 // - --hash MAP CARD: loads with #MAP, with #MAP/CARD and with a hash that names nothing.
 // - --marks MAP: the marks and their words at the top map and at the fit of MAP, in the light
-//   and the dark scheme.
+//   and the dark scheme, and the things that each tag covers (`over`).
 // - --tree: the text list of the map tree, and a click on the link of a card.
 // - --axe [MAP]: axe-core (from NODE_PATH; null when it is not there) in the light and the
 //   dark scheme, at 1440 x 900 and 390 x 844: at rest, with Find open, with the keyboard sheet
@@ -107,6 +110,48 @@ async function toolsMode(browser, file) {
   return out;
 }
 
+// Open Find with Ctrl K, type `text`, move with the down arrow key to row n of the group g of
+// the dialog, and press Enter. Give the row, or null when the dialog has no such row.
+async function pickKey(page, text, g, n) {
+  await page.focus('#canvas');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type(text);
+  await page.waitForTimeout(100);
+  for (let i = 0; i < 80; i++) {
+    const at = await page.evaluate(() => {
+      const o = document.querySelector('#pal-list [aria-selected="true"]');
+      const grp = o && o.closest('[role="group"]');
+      if (!grp) return null;
+      return { g: grp.querySelector('.pal__g').textContent, n: Array.from(grp.querySelectorAll('[role="option"]')).indexOf(o), t: o.querySelector('.pal__t').textContent };
+    });
+    if (at && at.g === g && at.n === n) { await page.keyboard.press('Enter'); return at; }
+    await page.keyboard.press('ArrowDown');
+  }
+  await page.keyboard.press('Escape');
+  return null;
+}
+
+// Find from the top map for a card and a flow of a different map: the group Other maps.
+async function otherMode(browser, file, card, flow) {
+  const ctx = await browser.newContext({ ...WIDE, colorScheme: 'light' });
+  const { page, errors } = await open(ctx, file);
+  const out = { errors };
+  out.cardRows = await page.evaluate((t) => window.systemapCanvas.find.rank(t), card);
+  out.cardKey = await pickKey(page, card, 'Other maps', 0);
+  await page.waitForTimeout(1500);
+  out.card = await page.evaluate(fstate);
+  out.card.chain = await page.evaluate(() => window.systemapCanvas.chain());
+  await page.evaluate(() => window.systemapCanvas.find.run('top map', 'Actions', 0));
+  await page.waitForTimeout(1200);
+  out.before = await page.evaluate(() => window.systemapCanvas.current());
+  out.flowRows = await page.evaluate((t) => window.systemapCanvas.find.rank(t), flow);
+  out.flowKey = await pickKey(page, flow, 'Other maps', 0);
+  await page.waitForTimeout(1500);
+  out.flow = await page.evaluate(fstate);
+  await ctx.close();
+  return out;
+}
+
 const fstate = () => ({ side: window.systemapCanvas.side(), lit: window.systemapCanvas.lit(), say: document.getElementById('atlas-said').textContent,
   current: window.systemapCanvas.current(), hash: location.hash, mode: window.systemapCanvas.viewState ? document.body.getAttribute('data-mode') : null,
   find: window.systemapCanvas.tools().find, active: document.activeElement && document.activeElement.id, seq: window.systemapCanvas.seq().view });
@@ -136,26 +181,38 @@ async function findMode(browser, file, card, flow) {
   await page.waitForTimeout(1200);
   out.card = await page.evaluate(fstate);
   out.flowRows = await page.evaluate((t) => window.systemapCanvas.find.rank(t), flow);
-  await page.evaluate((t) => { const g = window.systemapCanvas.find.rank(t).filter((x) => x.g === 'Flows')[0]; if (g) window.systemapCanvas.find.run(t, 'Flows', 0); }, flow);
+  out.flowKey = await pickKey(page, flow, 'Flows', 0);
   await page.waitForTimeout(1200);
   out.flow = await page.evaluate(fstate);
   out.other = await page.evaluate(() => window.systemapCanvas.find.rank('a').filter((g) => g.g === 'Other maps').map((g) => g.rows.length));
   const seqs = await page.evaluate(() => window.systemapCanvas.find.rank('').filter((g) => g.g === 'Sequences').map((g) => g.rows.map((r) => r.t))[0] || []);
   out.sequences = seqs;
   if (seqs.length) {
-    await page.evaluate((t) => window.systemapCanvas.find.run(t, 'Sequences', 0), seqs[0]);
+    out.sequenceKey = await pickKey(page, seqs[0], 'Sequences', 0);
     await page.waitForTimeout(600);
     out.sequence = await page.evaluate(fstate);
     const step = await page.evaluate((t) => { const g = window.systemapCanvas.find.rank(t).filter((x) => x.g === 'Steps')[0]; return g ? g.rows.length : 0; }, seqs[0]);
     if (step > 1) {
-      await page.evaluate((t) => window.systemapCanvas.find.run(t, 'Steps', 1), seqs[0]);
+      out.stepKey = await pickKey(page, seqs[0], 'Steps', 1);
       await page.waitForTimeout(600);
       out.step = await page.evaluate(fstate);
     }
   }
-  await page.evaluate(() => window.systemapCanvas.find.run('top map', 'Actions', 0));
+  out.topKey = await pickKey(page, 'top map', 'Actions', 0);
   await page.waitForTimeout(800);
   out.top = await page.evaluate(fstate);
+  // The / key in a text field types the character and does not open Find. In the field of
+  // Find, / is a character of the text.
+  await page.evaluate(() => { const i = document.createElement('input'); i.id = 'probe-input'; i.setAttribute('aria-label', 'Probe'); document.body.appendChild(i); i.focus(); });
+  await page.keyboard.press('/');
+  out.typed = { find: (await tools(page)).find, value: await page.inputValue('#probe-input') };
+  await page.evaluate(() => document.getElementById('probe-input').remove());
+  await page.focus('#canvas');
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('a/b');
+  out.typed.field = await page.inputValue('#pal-input');
+  out.typed.open = (await tools(page)).find;
+  await page.keyboard.press('Escape');
   out.errors = errors;
   await ctx.close();
   const pctx = await browser.newContext({ ...PHONE, colorScheme: 'dark' });
@@ -200,8 +257,11 @@ async function marksMode(browser, file, map) {
     const ctx = await browser.newContext({ ...WIDE, colorScheme: scheme });
     const { page, errors } = await open(ctx, file);
     const run = { scheme, errors };
-    const one = async () => ({ drawn: (await page.evaluate(() => window.systemapCanvas.drawn())).marks.filter((m) => m.t === 'mark' || m.t === 'changed line'),
-      head: await page.textContent('#atlas-ask-n'), say: await page.textContent('#atlas-said'), current: await page.evaluate(() => window.systemapCanvas.current()) });
+    const one = async () => {
+      const all = (await page.evaluate(() => window.systemapCanvas.drawn())).marks;
+      return { drawn: all.filter((m) => m.t === 'mark' || m.t === 'changed line'), over: overlaps(all),
+        head: await page.textContent('#atlas-ask-n'), say: await page.textContent('#atlas-said'), current: await page.evaluate(() => window.systemapCanvas.current()) };
+    };
     run.top = await one();
     run.topState = await page.evaluate(() => window.systemapCanvas.marks(''));
     run.tokens = await page.evaluate(() => ({ change: getComputedStyle(document.documentElement).getPropertyValue('--change').trim(), ink2: getComputedStyle(document.documentElement).getPropertyValue('--ink-2').trim() }));
@@ -224,6 +284,27 @@ async function marksMode(browser, file, map) {
     out.runs.push(run);
     await ctx.close();
   }
+  return out;
+}
+
+// The things that the tag of each mark covers: a label, a different tag, a different card of
+// its map, or a line. Each box is [x0, y0, x1, y1] on the screen.
+function overlaps(all) {
+  const hit = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+  const seg = (p, q, b) => Math.min(p[0], q[0]) < b[2] && Math.max(p[0], q[0]) > b[0] && Math.min(p[1], q[1]) < b[3] && Math.max(p[1], q[1]) > b[1];
+  const marks = all.filter((m) => m.t === 'mark');
+  const out = [];
+  marks.forEach((m) => {
+    const b = m.box;
+    all.forEach((o) => {
+      if ((o.t === 'label' || o.t === 'litLabel') && hit(b, o.box)) out.push([m.id, 'label', o.s]);
+      if (o.t === 'mark' && o !== m && hit(b, o.box)) out.push([m.id, 'tag', o.id]);
+      if (o.t === 'card' && o.map === m.map && o.id !== m.id && o.shape > 0 && hit(b, [o.b[0], o.b[1], o.b[0] + o.b[2], o.b[1] + o.b[3]])) out.push([m.id, 'card', o.id]);
+      if ((o.t === 'line' || o.t === 'changed line' || o.t === 'lit') && o.p) {
+        for (let i = 0; i + 1 < o.p.length; i++) if (seg(o.p[i], o.p[i + 1], b)) { out.push([m.id, 'line', o.f]); break; }
+      }
+    });
+  });
   return out;
 }
 
@@ -324,7 +405,7 @@ async function liveMode(browser, url, hash, flag) {
 
 (async () => {
   const [mode, file, ...rest] = process.argv.slice(2);
-  const run = { '--tools': toolsMode, '--find': findMode, '--hash': hashMode, '--marks': marksMode, '--tree': treeMode, '--axe': axeMode, '--live': liveMode }[mode];
+  const run = { '--tools': toolsMode, '--find': findMode, '--other': otherMode, '--hash': hashMode, '--marks': marksMode, '--tree': treeMode, '--axe': axeMode, '--live': liveMode }[mode];
   if (!run) throw new Error('unknown mode ' + mode);
   const browser = await chromium.launch();
   try { process.stdout.write(JSON.stringify(await run(browser, file, ...rest))); } finally { await browser.close(); }

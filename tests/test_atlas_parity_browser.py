@@ -60,19 +60,47 @@ Acceptance values, written on 2026-11-19 before the first run of these tests:
     1440 x 900 and 390 x 844: at rest, with Find open, with the keyboard sheet open, with
     the Tools menu open on the phone, and in the nested map Gateway.
 
-Notes after the first run, with no change to a value: a nested map opens on its Neighbours
-layer, which can hide a lost flow. Thus the test of acceptance 8 examines the lost lines in
-the layer All. The axe-core runs bypass the page policy, because the policy refuses the
-script of axe-core.
 11. `systemap live` with `[render] page = "atlas"`: each load opens 1 event connection to
     `/events`. A new version loads the page 1 time, the hash stays #Gateway/Routes and the
     map Gateway is open. A version that the command cannot render shows the notice "The map
     is not updated:" with the first line of the error. 0 policy violations, 0 script errors
     and 0 requests outside the origin of the server.
+
+The record of stage 8 is one commit, and it does not show the time at which acceptance 11 was
+written. Before the review of stage 8 it was after the notes below, thus a reader cannot know
+that it was written before the first run of its test. It has its place in the list now, and
+its value is not changed.
+
+Notes after the first run, with no change to a value: a nested map opens on its Neighbours
+layer, which can hide a lost flow. Thus the test of acceptance 8 examines the lost lines in
+the layer All. The axe-core runs bypass the page policy, because the policy refuses the
+script of axe-core.
+
+Acceptance values written on 2026-11-19 after the review of stage 8, before the first run of
+their tests:
+
+12. Find with the keyboard. The rows of a flow, a sequence, a step and the action "Go to
+    the top map" are chosen with the down arrow key and Enter in the dialog, and each gives
+    the result of acceptance 5. The / key in a text field of the page types "/" and does
+    not open Find. In the field of Find, "a/b" is the text of the field and the dialog stays
+    open.
+13. Find for a different map. At the top map of the nested fixture, the text "Routes" gives
+    the card Routes in the group "Other maps" with the hint "in Gateway". Enter on that row
+    moves the camera into Gateway, selects Routes and writes the hash #Gateway/Routes. The
+    first row of "Other maps" for the artifact of a flow of Gateway keeps that flow lit in
+    Gateway.
+14. The tags of the marks. At the top map and in P0/Q0/Deep (its first layer and the layer
+    All), in the light and the dark scheme, no tag covers a label, a different tag, a
+    different card of its map or a line. At the top map, each drawn mark is a mark of the top
+    map: a map that shows as a small picture has no marks.
+15. The tag TESTS. When the change data gives only changed tests for D1 in P0/Q0/Deep, D1 has
+    the tag "tests" and a solid ring of 1.2 px in --change, and the list of the tree gives
+    "Change: only tests changed.".
 """
 
 from __future__ import annotations
 
+import copy
 import functools
 import json
 import subprocess
@@ -164,6 +192,31 @@ def _changes_pages() -> tuple[Path, Path]:
     return compared, plain
 
 
+@functools.cache
+def _tests_page() -> Path:
+    """The page of the changes fixture, with only changed tests for D1 in P0/Q0/Deep.
+
+    The fixture has no test files. Thus the change data of the map is changed as the change
+    detector gives it for a component with changed tests and no changed source module."""
+    out = Path(tempfile.mkdtemp(prefix="atlas-tests-"))
+    root = out / "repo"
+    rev = changes_fixture.committed(root)
+    changes_fixture.source_change(root)
+    cfg, tree, facts, changes = changes_fixture.changed(root, rev)
+    deep = copy.deepcopy(changes)
+    record = deep[changes_fixture.DEEP]["per_component"]["D1"]
+    record["modules"] = []
+    record["surface"]["tests_added"] = ["test_more"]
+    page_file = out / "tests.html"
+    page_file.write_text(
+        atlas_page.build(
+            canvas_page.tree_theme(cfg, tree), atlas_data.build(cfg, tree, facts, changes=deep)
+        ),
+        encoding="utf-8",
+    )
+    return page_file
+
+
 def test_the_theme_control_reduce_motion_and_the_keyboard_sheet() -> None:
     """Acceptance 1 to 4."""
     out = _drive("--tools", str(_self_page()))
@@ -206,7 +259,7 @@ def _check_sheet_and_phone(out: dict[str, Any]) -> None:
 
 
 def test_find_goes_to_a_card_a_flow_a_sequence_and_a_step() -> None:
-    """Acceptance 5."""
+    """Acceptance 5 and 12."""
     out = _drive("--find", str(_self_page()), "Judgement", "verdict")
     assert out["errors"] == [] and out["phone"]["errors"] == [], out
     assert out["ctrl"]["find"] and out["ctrl"]["active"] == "pal-input"
@@ -227,8 +280,44 @@ def test_find_goes_to_a_card_a_flow_a_sequence_and_a_step() -> None:
     assert out["sequence"]["mode"] == "seq" and out["sequence"]["seq"]["step"] == -1
     assert out["step"]["seq"]["step"] == 1
     assert out["top"]["mode"] == "map" and out["top"]["current"] == ""
+    # Acceptance 12: the rows above are chosen with the keyboard.
+    assert out["flowKey"] == {"g": "Flows", "n": 0, "t": "verdict"}
+    assert out["sequenceKey"]["g"] == "Sequences" and out["stepKey"]["g"] == "Steps"
+    assert out["topKey"]["t"] == "Go to the top map"
+    typed = out["typed"]
+    assert not typed["find"] and typed["value"] == "/"
+    assert typed["open"] and typed["field"] == "a/b"
     assert out["phone"]["tools"]["find"] and out["phone"]["active"] == "pal-input"
     assert out["phone"]["back"] == "atlas-tools-open"
+
+
+def _gateway_flow(page_file: Path) -> str:
+    data = json.loads(
+        page_file.read_text(encoding="utf-8")
+        .split('<script type="application/json" id="atlas-data">')[1]
+        .split("</script>")[0]
+    )
+    gateway = [m for m in data["maps"] if m["id"] == "Gateway"][0]
+    return str(gateway["flows"][0]["a"])
+
+
+def test_find_goes_to_a_card_and_a_flow_of_a_different_map() -> None:
+    """Acceptance 13."""
+    page_file = _nested_page()
+    flow = _gateway_flow(page_file)
+    out = _drive("--other", str(page_file), "Routes", flow)
+    assert out["errors"] == [], out
+    other = [g for g in out["cardRows"] if g["g"] == "Other maps"][0]["rows"][0]
+    assert other["t"] == "Routes" and other["hint"] == "in Gateway"
+    assert out["cardKey"]["t"] == "Routes"
+    card = out["card"]
+    assert card["current"] == "Gateway" and card["hash"] == "#Gateway/Routes"
+    assert card["side"]["sel"] == {"map": "Gateway", "id": "Routes"}
+    assert out["before"] == ""
+    rows = [g for g in out["flowRows"] if g["g"] == "Other maps"][0]["rows"]
+    assert rows[0]["t"] == flow and rows[0]["hint"] == "in Gateway"
+    assert out["flow"]["current"] == "Gateway" and out["flow"]["lit"]["pin"] is not None
+    assert out["flow"]["lit"]["map"] == "Gateway"
 
 
 def test_the_url_hash_of_a_map_and_of_a_card() -> None:
@@ -271,7 +360,7 @@ def test_the_marks_of_the_open_boundary_lines() -> None:
 
 
 def test_the_marks_of_the_changes_of_a_revision_comparison() -> None:
-    """Acceptance 8."""
+    """Acceptance 8 and 14."""
     compared, plain = _changes_pages()
     nested = "P0/Q0/Deep"
     out = _drive("--marks", str(compared), nested)
@@ -289,11 +378,27 @@ def test_the_marks_of_the_changes_of_a_revision_comparison() -> None:
         assert run["state"]["lost"] and all(m["color"] == change for m in lost)
         assert "changed card" in run["top"]["head"] and " since " in run["top"]["head"]
         assert "Change: changed source." in run["tree"] and "Changed inside:" in run["tree"]
+        # Acceptance 14.
+        for where in ("top", "nested", "nestedAll"):
+            assert run[where]["over"] == [], (run["scheme"], where, run[where]["over"])
+        assert all(m["map"] == "" for m in run["top"]["drawn"] if m["t"] == "mark")
     out = _drive("--marks", str(plain), nested)
     for run in out["runs"]:
         assert run["errors"] == [], run
         assert not [m for m in run["top"]["drawn"] + run["nested"]["drawn"] if m["t"] == "mark"]
         assert "since" not in run["top"]["head"]
+
+
+def test_the_tag_of_a_card_with_only_changed_tests() -> None:
+    """Acceptance 15."""
+    out = _drive("--marks", str(_tests_page()), changes_fixture.DEEP)
+    for run in out["runs"]:
+        assert run["errors"] == [], run
+        d1 = _mark(run, "nested", "D1")
+        assert d1["tag"] == "tests" and d1["ring"]["w"] == 1.2 and not d1["ring"]["dash"]
+        assert d1["ring"]["color"] == run["tokens"]["change"]
+        assert "Change: only tests changed." in run["tree"]
+        assert run["nested"]["over"] == [], run["nested"]["over"]
 
 
 def test_the_text_list_of_the_map_tree() -> None:

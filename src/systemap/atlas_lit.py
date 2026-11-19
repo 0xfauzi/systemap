@@ -135,7 +135,7 @@ function litSeats(m, id, a, lit) {
   var step = Math.floor(Math.log2(a) * 4), key = lit.key + '|' + step + '|' + TEXTS;
   if (lit.seats && (lit.seats.key === key || !sharp)) return lit.seats;
   var L = linesOf(m, id), rest = L.dense ? null : seatsOf(m, id, a), low = Math.pow(2, step / 4), fs = labelPx(low) / low;
-  var list = L.list.filter(function (e) { return lit.flows[e.f.i]; }), wall = walls(m), taken = [], out = [], done = Object.create(null);
+  var list = L.list.filter(function (e) { return lit.flows[e.f.i]; }), wall = walls(m), taken = tagsOf(m, id, a).boxes.slice(), out = [], done = Object.create(null);
   if (rest) {
     fs = rest.fs;
     rest.list.forEach(function (s) { if (lit.flows[s.e.f.i]) { done[s.e.f.i] = true; out.push(s); taken.push(s.box); } });
