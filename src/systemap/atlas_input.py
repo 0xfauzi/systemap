@@ -343,7 +343,7 @@ function button(id, f) { var b = document.getElementById(id); if (b) b.addEventL
 button('atlas-zo', function () { fly(zoomed(0.8), 200); });
 button('atlas-zi', function () { fly(zoomed(1.25), 200); });
 button('atlas-zf', function () { fitCurrent(true); });
-window.addEventListener('hashchange', function () { flyGoal(hashGoal()); });
+window.addEventListener('hashchange', function () { goTo(hashGoal()); });
 function measure() {
   var r = cv.getBoundingClientRect();
   W = Math.max(1, r.width); H = Math.max(1, r.height);
@@ -390,7 +390,10 @@ if (document.fonts && document.fonts.load) {
 
 // ---- start ----------------------------------------------------------------------------
 measure(); readColors();
-var start = hashGoal(), first = fitBox(start.box, start.pad);
+// A hash of a card selects the card when the first camera stops (`goTo`, `settled`).
+var start = hashGoal();
+if (start.card) AFTER = start.card;
+var first = fitBox(start.box, start.pad);
 if (start.box.m) ASK_EL.classList.toggle('beside', !!first.beside);
 cam = {x: first.x, y: first.y, k: first.k};
 CHAIN = focusChain(); headSync(false);

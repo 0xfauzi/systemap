@@ -12,7 +12,8 @@ docs/design/atlas.md:
 - The canvas fills the window under the header. The parts that do not zoom (the header,
   the headline, the zoom control, the key and the note) are HTML over the canvas.
 - On a screen of 720 px or less, the headline is smaller and has no counts, and the note
-  and the key do not show.
+  and the key do not show. The counts of the marks (`atlas_marks`) stay: the open boundary
+  lines and the changed cards.
 - `--fs` and `--fm` give the two fonts to the renderer script (`atlas_scene`).
 - `--change` is the color of the change marks (`atlas_marks`). `--focus` is the color of
   the focus rings, of the keyboard focus lines and of the lit cell of the History view: the
@@ -99,6 +100,7 @@ color:var(--ink-3);font:500 11px/1 var(--fm);font-variant-numeric:tabular-nums;z
 @media (max-width:720px){
 .bar{gap:12px}.brand span,.note,.key{display:none}
 .ask{top:62px}.ask__q{font-size:19px}.ask__n{display:none}
+.ask__n:has(.ask__m){display:block;margin-top:4px}.ask__n:has(.ask__m) .ask__c,.ask__d{display:none}
 .views button{padding:0 7px}
 .tabs{position:fixed;top:48px;left:0;right:0;height:38px;box-sizing:border-box;background:var(--surface);border-bottom:1px solid var(--line);
 padding:0 max(5px,env(safe-area-inset-left,0px))}

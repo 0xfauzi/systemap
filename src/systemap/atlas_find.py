@@ -16,9 +16,9 @@ The results come from the page data (`DATA.maps`) when the dialog opens:
 - Actions: fit the current map, and go to the top map.
 - Other maps: the cards and the flows of the other maps, with the hint "in <map ID>".
 
-The result of a card shows the Map view, writes the URL hash of the card, moves the camera
-to the card and, when the camera stops, selects it (`act` in `atlas_details`). A card that
-opens a map moves the camera into that map. The result of a flow shows a layer with that
+The result of a card shows the Map view, writes the URL hash of the card, fits the map of
+the card and, when the camera stops, selects the card (`goTo` in `atlas_tree`). A load with
+that hash gives the same view. A card that opens a map moves the camera into that map. The result of a flow shows a layer with that
 flow, moves the camera to its two cards and keeps its line lit (`pin` in `atlas_lit`). The
 result of a sequence or a step shows the Sequences view at that sequence or step. The live
 region gives the result when the camera stops.
@@ -34,7 +34,10 @@ import json
 
 from systemap import page_canvas_find, page_icons, page_palette
 
-HTML = page_palette.html()
+# The hint of the field names the cards, the flows and the sequences, the words of the
+# keyboard sheet (`atlas_tools.KEYS`). It is short, so that a phone of 390 px shows it all.
+PLACEHOLDER = "Find a card, flow or sequence"
+HTML = page_palette.html(PLACEHOLDER)
 
 # The dialog CSS of the map page and the base text of the dialog. The Close button shows
 # its word, so its visible text is its name. On a touch screen and on a narrow screen, the
@@ -55,9 +58,7 @@ _GLYPHS = ("map", "route", "fit", "zoom-out")
 _HEAD = r"""
 // ---- the Find dialog (atlas_find) -------------------------------------------------------
 var FIND = null;
-// The functions of the renderer that the dialog calls. The list part of the dialog has its
-// own functions with the names act and open.
-function findCard(c) { act(c, false); }
+// The list part of the dialog has its own functions with the names act and open.
 function findViews() { return VIEW_BTNS.map(function (b) { return b.getAttribute('data-mode'); }); }
 (function(){
   function byId(id){ return document.getElementById(id); }
@@ -104,13 +105,15 @@ _BODY = r"""  // The line of a flow kind. Its color is set with the style object
   function goCard(m, c){
     if(!placed(m, 'the card ' + c.id)){ return; }
     mapView();
-    setHash(hashOf(cardId(c)));
-    flyGoal(goalOf(m, c, null));
+    // The result of the card of a neighbour goes out to its card in the map above (`upCard`).
+    var to = c.child ? c : upCard(c) || c, g = goalOf(to.map, to, null);
+    setHash(hashOf(cardId(to)));
+    goTo(g);
     land(function(){
       if(c.child){ SAID_MAP = c.child; say(openWords(c.child)); return; }
-      findCard(c);
-      SAID_MAP = c.map;
-      say('Selected: card ' + c.id + '. Map: ' + mapName(m) + '.');
+      if(SEL !== to){ select(to, {keep: W > WIDE}); }
+      SAID_MAP = to.map;
+      say('Selected: card ' + to.id + '. Map: ' + mapName(to.map) + '.');
     });
   }
   // A layer of map m that shows flow f: the current layer, the layer of the flow, or All.

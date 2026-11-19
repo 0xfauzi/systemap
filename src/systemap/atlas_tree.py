@@ -5,8 +5,9 @@ label of the canvas.
 tree part of the canvas page (`page_canvas_tree`). The page keeps a text list of the map
 tree for a screen reader (`buildTree`): the maps, the cards in reading order and the flows.
 Each link of the list moves the camera to its item. The URL hash holds the camera target:
-the ID of the open map, for example `#Gateway/Routes`, or the ID of a card in a map. The
-label of the canvas and the live region give the open map and its layer.
+the ID of the open map, for example `#Gateway`, or the ID of a card in a map, for example
+`#Gateway/Routes`. A card fits its map and is selected when the camera stops (`goTo`), as
+after the result of a card in Find. The label of the canvas and the live region give the open map and its layer.
 
 The Changes view of the canvas page and its view link are not in this fork.
 """
@@ -117,16 +118,25 @@ function union(a, b) {
   return [x, y, Math.max(a[0] + a[2], b[0] + b[2]) - x, Math.max(a[1] + a[3], b[1] + b[3]) - y];
 }
 // The camera goal of a map, a card or a flow: a world box and the margin of its fit. A
-// card that opens a map has the goal of that map.
+// card that opens a map has the goal of that map. A card that opens no map has the fit of
+// its map, and `card` is the card to select when the camera stops there (`goTo`). A deep
+// zoom into the card does not occur, because an atlas card shows only its name.
 function goalOf(m, c, f) {
   if (f) {
     var s = m.byId[f.s], t = m.byId[f.t];
     return s && t ? {box: union(worldBox(s), worldBox(t)), pad: 0.2} : {box: frameOf(m), pad: FIT};
   }
-  if (c && !c.child) return {box: worldBox(c), pad: 0.2};
+  if (c && !c.child) return {box: frameOf(c.map), pad: FIT, card: c};
   return {box: frameOf(c ? c.child : m), pad: FIT};
 }
 function flyGoal(g) { flyTo(g.box, g.pad); }
+// Move the camera to the goal g. When g has a card, the camera fits the map of the card with
+// the space of the details, and the card is selected when the camera stops (`afterFlight`),
+// as after the result of a card in Find.
+function goTo(g) {
+  if (g.card) { select(null, {keep: true}); AFTER = g.card; AFTER_KEY = false; }
+  flyGoal(g);
+}
 // The ID that the URL hash gives, or '' when the hash is not a correct URI part.
 function hashId() { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ''; } }
 // Write the hash `h` with no new history entry. An empty `h` removes the hash.
@@ -170,7 +180,7 @@ if (TREE_EL) {
     var f = a.hasAttribute('data-f') ? m.flows[+a.getAttribute('data-f')] : null, href = a.getAttribute('href');
     e.preventDefault();
     setHash(href === '#' ? '' : href);
-    flyGoal(goalOf(m, c, f));
+    goTo(goalOf(m, c, f));
   });
 }
 // The words for the focused item, after the words of a new map.

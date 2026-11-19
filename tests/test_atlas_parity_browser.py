@@ -60,21 +60,21 @@ Acceptance values, written on 2026-11-19 before the first run of these tests:
     1440 x 900 and 390 x 844: at rest, with Find open, with the keyboard sheet open, with
     the Tools menu open on the phone, and in the nested map Gateway.
 
+Notes after the first run, with no change to a value: a nested map opens on its Neighbours
+layer, which can hide a lost flow. Thus the test of acceptance 8 examines the lost lines in
+the layer All. The axe-core runs bypass the page policy, because the policy refuses the
+script of axe-core.
 11. `systemap live` with `[render] page = "atlas"`: each load opens 1 event connection to
     `/events`. A new version loads the page 1 time, the hash stays #Gateway/Routes and the
     map Gateway is open. A version that the command cannot render shows the notice "The map
     is not updated:" with the first line of the error. 0 policy violations, 0 script errors
     and 0 requests outside the origin of the server.
 
-The record of stage 8 is one commit, and it does not show the time at which acceptance 11 was
-written. Before the review of stage 8 it was after the notes below, thus a reader cannot know
-that it was written before the first run of its test. It has its place in the list now, and
-its value is not changed.
-
-Notes after the first run, with no change to a value: a nested map opens on its Neighbours
-layer, which can hide a lost flow. Thus the test of acceptance 8 examines the lost lines in
-the layer All. The axe-core runs bypass the page policy, because the policy refuses the
-script of axe-core.
+Acceptance 11 is after the notes of the first run, in the order of the first commit of stage
+8. That commit is the only record, and it does not show when acceptance 11 was written. Thus
+acceptance 11 can have been written after the first run of the tests, and it is not a value
+that was fixed before a run. The repair after the first review moved it up, and the repair
+after the second review put it back in this order.
 
 Acceptance values written on 2026-11-19 after the review of stage 8, before the first run of
 their tests:
@@ -96,6 +96,24 @@ their tests:
 15. The tag TESTS. When the change data gives only changed tests for D1 in P0/Q0/Deep, D1 has
     the tag "tests" and a solid ring of 1.2 px in --change, and the list of the tree gives
     "Change: only tests changed.".
+
+Acceptance values written on 2026-11-19 after the second review of stage 8, before the first
+run of their tests:
+
+16. The URL hash of a card. At 1440 x 900 and at 390 x 844, in the light and the dark scheme,
+    a load with #Gateway/Routes selects Routes and opens its details with the heading
+    Routes. At 1440 x 900 the camera is the fit of Gateway with the space of the details: its
+    zoom is within 1 percent of the zoom after the result of Find for Routes from the top
+    map, its position is within 2 screen px of that camera, and the frame of Gateway is on the
+    screen below the headline and at the left of the details. In the map of this repository,
+    Find for Judgement and then a reload with the hash that Find wrote give the same
+    selection and a camera within 1 percent of zoom and 2 screen px, at both sizes. A change
+    of the hash to #Gateway/Routes in a page at the top map, and Enter on the link of Routes
+    in the list of the tree, each select Routes.
+17. The marks on a phone. At 390 x 844, in Gateway of the fixture with two open boundary
+    lines, the headline shows the text "2 open boundary lines" in a box of 1 px or more
+    high, and the count of the parts does not show. At the top map of the tree with a
+    revision comparison, the headline shows the count of the changed cards.
 """
 
 from __future__ import annotations
@@ -332,6 +350,61 @@ def test_the_url_hash_of_a_map_and_of_a_card() -> None:
     assert out["none"]["current"] == "" and "No map and no card has the link" in out["none"]["say"]
     assert out["changed"]["current"] == "Gateway"
     assert out["out"]["current"] == "" and out["out"]["hash"] == ""
+
+
+def _same_camera(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """True when the cameras `a` and `b` have a zoom within 1 percent and the same screen
+    position within 2 px."""
+    k = float(a["k"])
+    return (
+        abs(k / float(b["k"]) - 1) <= 0.01
+        and abs(a["x"] - b["x"]) * k <= 2
+        and abs(a["y"] - b["y"]) * k <= 2
+    )
+
+
+def _selected(state: dict[str, Any], map_id: str, card: str) -> None:
+    side = state["side"]
+    assert side["on"] and not side["hidden"], state
+    assert side["sel"] == {"map": map_id, "id": card}, state
+    assert state["heading"] == card, state
+
+
+def test_the_url_hash_of_a_card_selects_the_card_at_the_fit_of_its_map() -> None:
+    """Acceptance 16."""
+    out = _drive("--cardhash", str(_nested_page()), str(_self_page()))
+    assert len(out["runs"]) == 4
+    for run in out["runs"]:
+        assert run["errors"] == [], run
+        for key in ("load", "find", "changed", "tree"):
+            _selected(run[key], "Gateway", "Routes")
+            assert run[key]["hash"] == "#Gateway/Routes", (key, run[key])
+        _selected(run["selfFind"], "", "Judgement")
+        _selected(run["selfLoad"], "", "Judgement")
+        assert run["selfLoad"]["hash"] == run["selfFind"]["hash"] == "#Judgement"
+        assert _same_camera(run["selfLoad"]["cam"], run["selfFind"]["cam"]), run
+        if run["size"] != "wide":
+            continue
+        assert _same_camera(run["load"]["cam"], run["find"]["cam"]), run
+        x, y, w, h = run["load"]["frame"]
+        ask = run["load"]["ask"]
+        assert x >= 0 and x + w <= run["load"]["side"]["box"][0], run["load"]
+        assert y >= ask[1] + ask[3] and y + h <= 900, run["load"]
+
+
+def test_the_counts_of_the_marks_show_on_a_phone() -> None:
+    """Acceptance 17."""
+    opened, _closed = _ports_pages()
+    compared, _plain = _changes_pages()
+    out = _drive("--phonemarks", str(opened), str(compared))
+    assert out["errors"] == [], out
+    ports = {p["cls"]: p for p in out["ports"]}
+    assert "2 open boundary lines" in ports["ask__m"]["text"]
+    assert ports["ask__m"]["shown"] and ports["ask__m"]["h"] >= 1
+    assert "part" in ports["ask__c"]["text"] and not ports["ask__c"]["shown"]
+    changes = {p["cls"]: p for p in out["changes"]}
+    assert "changed card" in changes["ask__m"]["text"]
+    assert changes["ask__m"]["shown"] and changes["ask__m"]["h"] >= 1
 
 
 def _mark(run: dict[str, Any], where: str, cid: str) -> dict[str, Any]:

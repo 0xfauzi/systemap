@@ -19,6 +19,12 @@
 // - --axe [MAP]: axe-core (from NODE_PATH; null when it is not there) in the light and the
 //   dark scheme, at 1440 x 900 and 390 x 844: at rest, with Find open, with the keyboard sheet
 //   open, with the Tools menu open (phone), and at #MAP when MAP is given.
+// - --cardhash NESTED SELF: the URL hash of a card at 1440 x 900 and 390 x 844, in the light
+//   and the dark scheme: a load with #Gateway/Routes of the page NESTED, Find for Routes from
+//   its top map, Find for Judgement in the page SELF and a reload with the hash that Find
+//   wrote, a change of the hash, and Enter on the link of Routes in the tree list.
+// - --phonemarks PORTS CHANGES: the counts of the headline at 390 x 844, in Gateway of the
+//   page PORTS and at the top map of the page CHANGES.
 // - --live URL HASH FLAG: the page of `systemap live` at URL with HASH. A new version, then a
 //   version that the command cannot render (after the file FLAG is written).
 // Each mode prints one JSON object. `errors` has the script errors of the page.
@@ -403,9 +409,68 @@ async function liveMode(browser, url, hash, flag) {
   return out;
 }
 
+const cstate = () => ({ cam: window.systemapCanvas.camera(), hash: location.hash, current: window.systemapCanvas.current(),
+  side: window.systemapCanvas.side(), heading: document.getElementById('atlas-side-h').textContent,
+  frame: window.systemapCanvas.frame(window.systemapCanvas.current()),
+  ask: (() => { const r = document.getElementById('atlas-ask').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })() });
+async function settle(page) { await page.waitForTimeout(1500); return page.evaluate(cstate); }
+async function cardHashMode(browser, nested, self) {
+  const out = { runs: [] };
+  for (const [size, base] of [['wide', WIDE], ['phone', PHONE]]) {
+    for (const scheme of ['light', 'dark']) {
+      const ctx = await browser.newContext({ ...base, colorScheme: scheme });
+      const run = { size, scheme, errors: [] };
+      let o = await open(ctx, nested, '#Gateway/Routes');
+      run.load = await settle(o.page);
+      run.errors = run.errors.concat(o.errors);
+      o = await open(ctx, nested);
+      await o.page.evaluate(() => window.systemapCanvas.find.run('Routes', 'Other maps', 0));
+      run.find = await settle(o.page);
+      await o.page.evaluate(() => window.systemapCanvas.find.run('top map', 'Actions', 0));
+      await o.page.waitForTimeout(1200);
+      await o.page.evaluate(() => { location.hash = '#Gateway/Routes'; });
+      run.changed = await settle(o.page);
+      run.errors = run.errors.concat(o.errors);
+      o = await open(ctx, nested);
+      await o.page.waitForTimeout(400);
+      const link = await o.page.evaluate(() => { const a = Array.from(document.querySelectorAll('#atlas-tree a[data-c]')).find((x) => x.textContent === 'Routes'); return a ? '[data-m="' + a.getAttribute('data-m') + '"][data-c="' + a.getAttribute('data-c') + '"]' : null; });
+      if (link) { await o.page.focus('#atlas-tree a' + link); await o.page.keyboard.press('Enter'); run.tree = await settle(o.page); }
+      run.errors = run.errors.concat(o.errors);
+      o = await open(ctx, self);
+      await o.page.evaluate(() => window.systemapCanvas.find.run('Judgement', 'Components', 0));
+      run.selfFind = await settle(o.page);
+      await o.page.reload();
+      await ready(o.page);
+      run.selfLoad = await settle(o.page);
+      run.errors = run.errors.concat(o.errors);
+      out.runs.push(run);
+      await ctx.close();
+    }
+  }
+  return out;
+}
+
+async function phoneMarksMode(browser, ports, changes) {
+  const ctx = await browser.newContext({ ...PHONE, colorScheme: 'light' });
+  const head = () => Array.from(document.querySelectorAll('#atlas-ask-n > span')).map((e) => {
+    const r = e.getBoundingClientRect();
+    return { cls: e.className, text: e.textContent, h: r.height, shown: e.getClientRects().length > 0 };
+  });
+  const out = { errors: [] };
+  let o = await open(ctx, ports, '#Gateway');
+  await o.page.waitForTimeout(800);
+  out.ports = await o.page.evaluate(head);
+  out.errors = out.errors.concat(o.errors);
+  o = await open(ctx, changes);
+  out.changes = await o.page.evaluate(head);
+  out.errors = out.errors.concat(o.errors);
+  await ctx.close();
+  return out;
+}
+
 (async () => {
   const [mode, file, ...rest] = process.argv.slice(2);
-  const run = { '--tools': toolsMode, '--find': findMode, '--other': otherMode, '--hash': hashMode, '--marks': marksMode, '--tree': treeMode, '--axe': axeMode, '--live': liveMode }[mode];
+  const run = { '--tools': toolsMode, '--find': findMode, '--other': otherMode, '--hash': hashMode, '--marks': marksMode, '--tree': treeMode, '--axe': axeMode, '--live': liveMode, '--cardhash': cardHashMode, '--phonemarks': phoneMarksMode }[mode];
   if (!run) throw new Error('unknown mode ' + mode);
   const browser = await chromium.launch();
   try { process.stdout.write(JSON.stringify(await run(browser, file, ...rest))); } finally { await browser.close(); }
