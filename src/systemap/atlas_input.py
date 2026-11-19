@@ -27,6 +27,8 @@
   End and Esc are the keys of the view (`smKey`), and the map keys do not operate.
 - The Focus view (`atlas_focus`). The canvas draws only the ground, the arrow keys, Home and
   Esc are the keys of the view (`fcKey`), and the map keys do not operate.
+- The History view (`atlas_history`). The canvas draws only the ground, the arrow keys,
+  Home, End and Esc are the keys of the view (`hsKey`), and the map keys do not operate.
 - Frames. As on the canvas page: an input event asks for one frame. While the camera
   moves, the canvas has half of the device resolution. STILL_MS after the last move, the
   script draws one frame at full resolution (`atlas_image`). A change of the light draws one
@@ -166,7 +168,7 @@ function draw() {
   // The diagram form of a sequence (`atlas_sequences`) and the board of the States view
   // (`atlas_states`) and of the Focus view (`atlas_focus`) cover the map: only the ground
   // draws.
-  if (!boardOn() && VIEW.mode !== 'states' && VIEW.mode !== 'focus') { drawMap(TOP, 1, 1); drawFocus(); }
+  if (!boardOn() && VIEW.mode !== 'states' && VIEW.mode !== 'focus' && VIEW.mode !== 'history') { drawMap(TOP, 1, 1); drawFocus(); }
   speakLater();
   if (!sharp && !LIGHT_MOVE) makeImages(began);
   if (HUD) drawHud(began, !sharp);
@@ -311,11 +313,14 @@ window.addEventListener('keydown', function (e) {
   var stepKey = VIEW.mode === 'seq' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight');
   // In the Focus view the arrow keys and Home move the keyboard focus through the cards, and
   // Esc removes the light (`fcKey`).
-  var smK = (VIEW.mode === 'states' && e.key in SM_KEYS) || (VIEW.mode === 'focus' && e.key in FC_KEYS);
+  // In the History view the arrow keys, Home and End move the keyboard focus through the
+  // names and the cells, and Esc removes the kept reading line (`hsKey`).
+  var smK = (VIEW.mode === 'states' && e.key in SM_KEYS) || (VIEW.mode === 'focus' && e.key in FC_KEYS) || (VIEW.mode === 'history' && e.key in HS_KEYS);
   if (e.ctrlKey || e.metaKey || e.altKey || ownKeys(e, !!PAGE_KEYS[e.key] || stepKey || smK)) return;
   if (stepKey) { e.preventDefault(); seqKey(e); return; }
   if (VIEW.mode === 'states') { if (smK && smKey(e)) e.preventDefault(); return; }
   if (VIEW.mode === 'focus') { if (smK && fcKey(e)) e.preventDefault(); return; }
+  if (VIEW.mode === 'history') { if (smK && hsKey(e)) e.preventDefault(); return; }
   var step = 80 / cam.k, keys = {
     Escape: escapeKey, f: function () { fitCurrent(); }, F: function () { fitCurrent(); },
     '+': function () { fly(zoomed(1.6), 260); },
@@ -362,6 +367,7 @@ window.addEventListener('resize', function () {
   if (boardOn()) boardDraw();
   if (smOn()) smDraw();
   if (fcOn()) fcDraw();
+  if (hsOn()) hsDraw();
   request();
 });
 new MutationObserver(function () { readColors(); request(); })
@@ -462,6 +468,8 @@ window.systemapCanvas = {
   // The Focus view (`atlas_focus`).
   focus: fcState,
   focusOn: function (mapId, id) { var m = MAPS[mapId]; if (m && m.byId[id] && fcDegree(m)[id]) fcChoose(m, id); return !!(m && m.byId[id] && fcDegree(m)[id]); },
+  // The History view (`atlas_history`).
+  history: hsState,
   setLayer: setLayer,
   // The lines of a map in the layer of the frame: the count, the busy layer values, the
   // labels at rest (screen points) and the laned points of each line (`atlas_lines`).

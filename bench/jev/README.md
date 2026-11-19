@@ -7528,3 +7528,17 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 416 / 387 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,236,234 / 1,213,107 = 0.98 (pass) | 58 (pass) |
 
 Result: PASS for each value. The atlas pages grew by about 1,950 bytes against B12, from the script of the repair. An earlier run of the same state ran at the same time as a test run on the host. Its values also passed, but they are not a record, because the host was not free.
+
+## B14: the performance budget of the atlas page, stage 6 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the acceptance values. One change of the input, written in the docstring before the run: the atlas page of `self` has the history data of the commits of this clone (`history_data.of_tree`), as `render` writes it with `[render] page = "atlas"`. The clone is shallow: 234 commits from 12 Oct to 19 Nov, 15 components with a change. The history element of the page has about 3,900 bytes. The atlas page is the stage 6 page: it adds the History view (`atlas_history`) and the button History in the header. The map draws as in stage 5. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 308 / 277 (pass) | 16.8 / 16.7 (pass) | 33.4 / 33.3 (pass) | 318,307 / 321,785 = 1.01 (pass) | 62 (pass) |
+| workspace | 278 / 275 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,782 / 261,882 = 0.97 (pass) | 61 (pass) |
+| M11 tree | 451 / 387 (pass) | 16.8 / 16.8 (pass) | 33.4 / 16.8 (pass) | 1,236,234 / 1,225,915 = 0.99 (pass) | 53 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 12,800 bytes against B13 for the inputs with no history, from the script, the style and the help text of the History view. The self pages are also larger because the claims of Page and ChangeDetector in the model of this repository have new sentences.
+
+The axe-core test of the History view (`test_axe_finds_no_violation` in `tests/test_atlas_history_browser.py`) ran on this host with axe-core on NODE_PATH: no violation at 1440 x 900 and at 390 x 844, in the light and the dark scheme, with the keyboard focus on a cell.

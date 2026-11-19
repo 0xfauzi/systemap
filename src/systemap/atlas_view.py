@@ -139,6 +139,7 @@ function viewLabel() {
   if (seqShown()) return ' Sequence: ' + seqJ().n + '.';
   if (smOn()) return ' State machine: ' + smX().n + '.';
   if (fcOn()) return ' Focus: ' + FC.id + '.';
+  if (hsOn()) return ' History.';
   return VIEW.layer === 'all' ? '' : ' Layer: ' + layerName(currentMap(), layerOf(currentMap())) + '.';
 }
 
@@ -214,14 +215,14 @@ function writeKey(m, id) {
 // Write the headline, the tabs and the key of the current map when they change. `soft`
 // fades the headline out and in (a change of the layer or of the map).
 function headSync(soft) {
-  var seq = seqShown(), sm = smOn(), fc = fcOn(), m = seq ? SEQ.m : sm ? SM.m : fc ? FC.m : currentMap(), id = layerOf(m);
+  var seq = seqShown(), sm = smOn(), fc = fcOn(), hs = hsOn(), m = seq ? SEQ.m : sm ? SM.m : fc ? FC.m : hs ? TOP : currentMap(), id = layerOf(m);
   var key = m.oi + '|' + id + '|' + VIEW.mode + (sm ? '|' + SM.k : '') + (fc ? '|' + FC.id : '');
   if (key === SYNCED) return;
   var first = !SYNCED;
   SYNCED = key;
   writeTabs(m, id); writeKey(m, id);
   function words() {
-    var h = seq ? seqHead() : sm ? smHead() : fc ? fcHead() : {k: layerName(m, id), q: layerQuestion(m, id), n: countWords(m, id)};
+    var h = seq ? seqHead() : sm ? smHead() : fc ? fcHead() : hs ? hsHead() : {k: layerName(m, id), q: layerQuestion(m, id), n: countWords(m, id)};
     ASK_K.replaceChildren.apply(ASK_K, (m.owner ? pathButtons(m, fc ? fcPathGo : null).concat([el('span', {'aria-hidden': 'true'}, '·')]) : []).concat([el('span', null, h.k)]));
     ASK_Q.textContent = h.q;
     ASK_N.textContent = h.n;

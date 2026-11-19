@@ -38,7 +38,10 @@ that is measured passes for each input.
 
 The inputs:
 
-- `self`: the map of this repository (`config.load` of the repository root).
+- `self`: the map of this repository (`config.load` of the repository root). From stage 6
+  (written on 2026-11-19 before the first run with it): the atlas page of `self` has the
+  history data of the commits of this clone (`history_data.of_tree`), as `render` writes
+  it with `[render] page = "atlas"`. The other inputs have no history.
 - `workspace`: the model of tests/fixture_workspace.py, with the positions of the placer
   (`place.compute` with all cards), as in the design study.
 - `M11 tree`: the real canvas data of the generated tree with 50 maps (`m11_tree` of
@@ -69,6 +72,28 @@ FIRST_LIMIT = 1500.0
 FRAME_FACTOR = 1.25
 FRAME_LIMIT = 35.0
 SIZE_FACTOR = 1.5
+
+
+def _self_history() -> dict[str, Any] | None:
+    """The history data of this clone for the atlas page of `self`."""
+    import dataclasses  # noqa: PLC0415
+
+    from systemap import config, facts_file, history_data, nest  # noqa: PLC0415
+
+    cfg = dataclasses.replace(config.load(ROOT), render_page="atlas")
+    tree = nest.load(cfg)
+    data, lines = history_data.of_tree(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    if lines:
+        raise RuntimeError("\n".join(lines))
+    return data
+
+
+def _no_history() -> dict[str, Any] | None:
+    return None
+
+
+# The history data of each input that has one.
+_HISTORY = {"self": _self_history}
 
 
 def _self_data() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -135,7 +160,10 @@ def write_pages(name: str, out: Path) -> tuple[Path, Path]:
     slug = name.replace(" ", "-").lower()
     canvas, atlas = out / f"{slug}-canvas.html", out / f"{slug}-atlas.html"
     canvas.write_text(canvas_page.build(theme, cdata), encoding="utf-8")
-    atlas.write_text(atlas_page.build(theme, adata), encoding="utf-8")
+    atlas.write_text(
+        atlas_page.build(theme, adata, _HISTORY.get(name, _no_history)()),
+        encoding="utf-8",
+    )
     return canvas, atlas
 
 

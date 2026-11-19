@@ -288,7 +288,8 @@ def cmd_render(args: argparse.Namespace) -> int:
         return STALE
     if not _model_ok(p):
         return STALE
-    warn(*render_pages.notice(p.cfg))
+    history, lines = render_pages.history(p.cfg, p.tree, facts, stored=args.check)
+    warn(*render_pages.notice(p.cfg), *lines)
     code = OK
     change_of = None
     if args.base:
@@ -297,7 +298,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         # One gh request for all maps. The data gives the title of each change map.
         pr = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
         change_of = render_pages.page_change(p.cfg, facts, args.base, args.head, source, pr)
-    for m, html in render_pages.pages(p.cfg, p.tree, facts, change_of):
+    for m, html in render_pages.pages(p.cfg, p.tree, facts, change_of, history=history):
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             code = max(code, _checked_page(p, out, html))
@@ -539,7 +540,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
     """Write the page of each map and each configured figure. Give the written paths."""
     written: list[str] = []
-    for m, html in render_pages.pages(p.cfg, p.tree, fresh):
+    history, lines = render_pages.history(p.cfg, p.tree, fresh)
+    warn(*lines)
+    for m, html in render_pages.pages(p.cfg, p.tree, fresh, history=history):
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         file_write.write_atomic(p.cfg.root, out, html)
         written.append(p.cfg.rel(out))

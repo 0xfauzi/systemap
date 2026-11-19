@@ -352,7 +352,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the canvas browser tests
-        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py tests/test_atlas_point_browser.py tests/test_atlas_sequences_browser.py tests/test_atlas_states_browser.py tests/test_atlas_focus_browser.py tests/test_atlas_reach.py
+        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py tests/test_atlas_point_browser.py tests/test_atlas_sequences_browser.py tests/test_atlas_states_browser.py tests/test_atlas_focus_browser.py tests/test_atlas_history_browser.py tests/test_atlas_reach.py
 
   plugin:
     runs-on: ubuntu-latest

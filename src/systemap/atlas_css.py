@@ -93,8 +93,9 @@ color:var(--ink-3);font:500 11px/1 var(--fm);font-variant-numeric:tabular-nums;z
 @media (max-width:720px){
 .bar{gap:12px}.brand span,.note,.key{display:none}
 .ask{top:62px}.ask__q{font-size:19px}.ask__n{display:none}
-.views button{padding:0 8px}
+.views button{padding:0 7px}
 }
+@media (max-width:400px){.views button{padding:0 6px;font-size:12.5px}}
 @media (pointer:coarse){.zoom button{width:44px;height:44px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 :root[data-reduce-motion="true"] *{transition:none!important;animation:none!important}

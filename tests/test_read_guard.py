@@ -67,6 +67,7 @@ ALLOWED: dict[tuple[str, str, str], str] = {
     ("repo_files.py", "_child", "os.open"): "the confined walk: a folder without a link",
     # The Git shallow file that `git rev-parse --git-path shallow` names: Git metadata.
     ("history.py", "shallow_note", "path.read_text"): "Git metadata, not a repository file",
+    ("history_data.py", "_state", "path.read_bytes"): "Git metadata, not a repository file",
     # Model files.
     ("jev_cli.py", "_record_journey", "read_text"): MODEL,
     ("judgement_evidence.py", "model_digest", "read_bytes"): MODEL,

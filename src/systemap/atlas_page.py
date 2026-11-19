@@ -20,13 +20,18 @@ the reading line come after the canvas (`atlas_details`), so that Tab goes from 
 item of the canvas to the details. The canvas, its help text, the details, the reading
 line, the list, the live region and the headline are in one `main` element. The list of the
 sequences, the step bar and the sequence diagram (`atlas_sequences`), and the list of the
-state machines and the board of the States view (`atlas_states`), and the list of the
-cards and the board of the Focus view (`atlas_focus`), come after the help text of the
-canvas.
+state machines and the board of the States view (`atlas_states`), the list of the
+cards and the board of the Focus view (`atlas_focus`), and the board of the History view
+(`atlas_history`), come after the help text of the canvas.
+
+The history data (`history_data`) is in its own script element of the type
+application/json (`atlas-history`), after the page data. The output check reads it from
+the page file (`history_data.stored`), so that the check does not read Git.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -36,6 +41,7 @@ from systemap import (
     atlas_details,
     atlas_focus,
     atlas_header,
+    atlas_history,
     atlas_sequences,
     atlas_states,
     atlas_tree,
@@ -72,7 +78,11 @@ HELP = (
     "In the Focus view, Tab moves the keyboard focus through the cards and the lines. "
     "The up and down arrow keys go to the card above or below. "
     "The left and right arrow keys go to the adjacent column. Home goes to the card in the middle. "
-    "Enter on a card puts that card in the middle."
+    "Enter on a card puts that card in the middle. "
+    "In the History view, Tab goes to the cells. "
+    "The arrow keys move the keyboard focus through the names and the cells. "
+    "Home goes to the name of the row and End to the last cell. "
+    "Enter on a cell keeps its reading line. Enter on a name shows that card on the map."
 )
 
 _SCRIPT = page.compact(SCRIPT)
@@ -118,20 +128,34 @@ def pages(
     tree: nest.Tree,
     facts: dict[str, Any],
     changes: Mapping[str, Mapping[str, Any]] | None = None,
+    history: Mapping[str, Any] | None = None,
 ) -> list[tuple[nest.Map, str]]:
     """Give each map of the tree with its page: the atlas page for the top map, and the
-    small page that goes to it for each nested map."""
+    small page that goes to it for each nested map. `history` is the history data
+    (`history_data`)."""
     still = judgement_json.open_boundary(tree, facts, cfg)
     data = atlas_data.build(cfg, tree, facts, open_lines=still, changes=changes)
-    top = build(canvas_page.tree_theme(cfg, tree), data)
+    top = build(canvas_page.tree_theme(cfg, tree), data, history)
     return [(m, canvas_redirect.page(m, NAME) if m.id else top) for m in tree.maps]
 
 
-def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
+def _history_element(history: Mapping[str, Any] | None) -> str:
+    """The script element of the history data, or no text without history data."""
+    if not history:
+        return ""
+    text = json.dumps(history, separators=(",", ":"), ensure_ascii=False).replace("<", "\\u003c")
+    return f'<script type="application/json" id="atlas-history">{text}</script>'
+
+
+def build(
+    t: dict[str, Any], data: Mapping[str, Any], history: Mapping[str, Any] | None = None
+) -> str:
     """Give the atlas page of the page data `data`. The theme `t` gives the schemes that
-    the scheme script of the head knows (`page.head_start`)."""
+    the scheme script of the head knows (`page.head_start`). `history` (`history_data`)
+    adds the History view."""
     name = str(data.get("name", ""))
     body = canvas_data.text(data).replace("<", "\\u003c")
+    past = _history_element(history)
     out = (
         page.head_start(f"{name} system map", t)
         + "<style>"
@@ -144,12 +168,14 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + atlas_sequences.BOARD_CSS
         + atlas_states.CSS
         + atlas_focus.CSS
+        + atlas_history.CSS
         + "</style></head><body>"
         + atlas_header.header(
             name,
             any(m.get("sq") for m in data.get("maps", [])),
             any(m.get("sm") for m in data.get("maps", [])),
             _has_focus(data.get("maps", [])),
+            bool(history),
         )
         + "<main>"
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
@@ -159,13 +185,16 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
         + atlas_sequences.HTML
         + atlas_states.HTML
         + atlas_focus.HTML
+        + atlas_history.HTML
         + atlas_details.HTML
         + atlas_header.overlay()
         + atlas_tree.HTML
         + "</main>"
         + '<script type="application/json" id="atlas-data">'
         + body
-        + "</script>\n<script>"
+        + "</script>"
+        + past
+        + "\n<script>"
         + _SCRIPT
         + "</script></body></html>\n"
     )

@@ -14,6 +14,11 @@ pages get no new function. `render`, `refresh` and `live` then give the notice l
 table with the two keys must give the same page with each key. Thus `canvas = false` with
 `page = "atlas"` is a configuration error.
 
+`history` (true or false, default true) gives the History view of the atlas page
+(`history_data`). With false, the commands do not read the Git log. `history_days` (a
+positive integer) limits the history to the days before the last commit. Without the key,
+the history has all commits.
+
 A ValueError gives the configuration error. The configuration reader changes it to a
 ConfigError.
 """
@@ -22,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-KEYS = frozenset({"canvas", "page"})
+KEYS = frozenset({"canvas", "page", "history", "history_days"})
 PAGES = ("atlas", "canvas", "linked")
 
 NOTICE = (
@@ -63,3 +68,32 @@ def page(raw: dict[str, Any], where: str) -> str:
             f'render.page = "{value}". Remove render.canvas.'
         )
     return str(value)
+
+
+def history(raw: dict[str, Any], where: str) -> tuple[bool, int]:
+    """Read `[render] history` and `[render] history_days`. Give (true, 0) without them."""
+    table = raw.get("render", {})
+    on = table.get("history", True)
+    if not isinstance(on, bool):
+        raise ValueError(f"{where}: render.history must be true or false")
+    days = table.get("history_days", 0)
+    if (
+        isinstance(days, bool)
+        or not isinstance(days, int)
+        or days < 0
+        or ("history_days" in table and days == 0)
+    ):
+        raise ValueError(f"{where}: render.history_days must be a positive integer")
+    return on, days
+
+
+def read(raw: dict[str, Any], where: str) -> dict[str, Any]:
+    """Give the Config values of the `[render]` table."""
+    shown = page(raw, where)
+    on, days = history(raw, where)
+    return {
+        "render_page": shown,
+        "render_canvas": shown != "linked",
+        "render_history": on,
+        "render_history_days": days,
+    }

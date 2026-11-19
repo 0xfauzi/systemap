@@ -614,7 +614,9 @@ def stale(
     # maps, so one such map stops the compare of the canvas page.
     broken = {m.id for m in tree.maps if model_problems(m.model, m.meaning)}
     if not (broken and cfg.render_canvas):
-        for m, html in render_pages.pages(cfg, tree, stored, skip=broken):
+        # The history of the atlas page comes from the page file (`history_data`).
+        history, _ = render_pages.history(cfg, tree, stored, stored=True)
+        for m, html in render_pages.pages(cfg, tree, stored, skip=broken, history=history):
             out += _stale_file(cfg, m.page_path(cfg), html)
     return out + figure_problems(cfg, tree, stored, cfg.figures)
 

@@ -70,9 +70,13 @@ def render_tree(root: Path, base: str, cache: fact_cache.FactCache | None = None
     # One source comparison for all maps: it does not use the model of a map.
     source = change.source_change(cfg, base, facts, change.WORKING_TREE, cache) if base else None
     compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
+    # The live page has the history of the commits (`history_data`). It gives no notice.
+    history, _ = render_pages.history(cfg, tree, facts)
     files = {
         out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): html
-        for m, html in render_pages.pages(cfg, tree, facts, lambda m: compared[m.id])
+        for m, html in render_pages.pages(
+            cfg, tree, facts, lambda m: compared[m.id], history=history
+        )
     }
     top = compared[tree.top.id]
     files[FIGURE] = _figure(cfg, tree, facts, (base, source), top)
