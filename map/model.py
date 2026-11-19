@@ -90,7 +90,7 @@ COMPONENTS = (
     # ---- operate: the commands, the configuration, what init writes ----
     Component(
         id="CLI",
-        source_review="a9a15fa06cf74697d9d5a3b68398eeb562f79c5071683c6f66ecd226c8a44977",
+        source_review="68233c31007bc201f4c976b4444df00bb5c533e06e5060702b0fbe0463cb43b9",
         does='Gives commands to make, examine, render and update the map. Map check errors give a nonzero exit code. A second-opinion error can leave the map check report without errors. systemap live serves the page of the working tree on the loopback address and makes it again after each change. It writes the pages only in its directory and removes the pages of removed maps. The page servers do not supply a file that a symbolic link puts in a location that is not in the served directory. They refuse a POST request and a GET request for /events from a page of a different web site. systemap extract, refresh, render and figure --out hold the write lock .systemap/write.lock. If a different command holds that lock, they stop with exit code 1 and write no file. With --map ID, check, judgement, rules, place, describe, journeys, review and decisions pending and status read only the model files of that map, of its parent maps and of its nested maps, and report only that map. Such a run does not examine the pages or the entry coverage. refresh, extract and decisions submit refuse --map. render, refresh and live write the canvas page, and a small page that goes to the canvas page for each nested map. With [render] canvas = false, they write the linked pages and give one notice line. With [render] page = "atlas", render, refresh and live read the Git log for the History view. When Git cannot read the commits, or a shallow clone has only boundary commits, render and refresh give one notice line. check and render --check use the history data of the page file and do not read the Git log. systemap parts --stub CARD writes a stub of a new nested map with positions. It writes no file if the stub has a check problem or if the file exists.',
         interface="main(argv) -> exit code: 0 current, 1 failed or stale, 2 unusable",
         implemented_by=(
@@ -251,10 +251,15 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="131b49ca421b932bfa07650c86d148a2397315e748beccffebea3ca67600326f",
+        source_review="3a0423d1aa0f3c0e699d9567c94ccb1a3f93408c6bc3ece6fb74ad2a1fbf77b7",
         does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. Holds the lock of the model file from the read to the end of the write. With --all, keeps only pinned positions.",
         interface="compute(model) -> Placement; write(path, label, placement, expected, load)",
-        implemented_by=("systemap.place", "systemap.place_source"),
+        implemented_by=(
+            "systemap.place",
+            "systemap.place_layout",
+            "systemap.place_order",
+            "systemap.place_source",
+        ),
         entry="compute",
         region="operate",
         x=350,
@@ -274,7 +279,7 @@ COMPONENTS = (
     ),
     Component(
         id="Model",
-        source_review="3ad22903a5225c4204f07cdc5cf90f3f75a0a69113f9c1a39bc333ad7d50c8d4",
+        source_review="9b3888279ce8887c36f1b94841564dc3420339c430b136fb2dc8ee763c27298f",
         does="Gives the schema for containers, regions, components, flows, invariants, import rules and meaning tables. Gives the schema for state machines: the states of one item of a component, each with its source symbol, and the transitions with their causes. Finds a state machine that names an unknown component, state, flow or sequence. Gives the contract of each map: its invariants and import rules, each with a reason. Gives a finding for a rule without a reason. Does model checks. Sets flow evidence states and source review digests. A flow review digest contains the flow claim and the digests of the cited modules. Loads child maps when a component card opens a map. With a map ID, loads only that map, its parent maps and its nested maps, and does not read the files of other maps. A card that opens a map must have an ID that is one path segment. Replaces a model file through a temporary file. If a replacement fails, restores the previous files. Holds the lock <model file>.lock of each model file during the write, so that two processes can write two different model files at the same time. Gives the file name of a nested map: the map ID in lower case, with _ in place of each /, and .py. Gives the files of the part plan and of the result files in map/parts. Refuses a stem of a nested map that is reserved, that is the same as a different stem, or whose prefix is the start of a different stem. To find the modules that the module claims of a component cover, it uses a sorted list of the module names. It keeps this list for each of the last 4 module lists that it examined.",
         interface="Model(canvas, containers, regions, components, flows, flow_kinds, invariants, import_rules) and Meaning(plain, layers, relations, journeys, verbs, machines), exported by map/model.py as MODEL and MEANING; Contract(invariants, import_rules), exported by map/contract.py as CONTRACT",
         implemented_by=(
@@ -305,7 +310,7 @@ COMPONENTS = (
     # ---- draw: one generator for every picture ----
     Component(
         id="Router",
-        source_review="aa86532b8cfe9acc373debd30e953d17965dbaeae382e3334d30812d48b6e2c4",
+        source_review="0c249cfbaabd1f2e69af47fbfa5725285428515e250c785edc8db19e98379375",
         does="Calculates flow paths through spaces between component cards. Finds paths outside unrelated cards and regions. Calculates label positions and gives errors for route or label collisions. A label position with fewer paths of other flows through it has priority.",
         interface="route_all(edges, cards, actors, blocks, regions, region_of, canvas) -> routes; place_labels(routes, widths, height, obstacles, canvas) -> seated labels",
         implemented_by=(
@@ -321,7 +326,7 @@ COMPONENTS = (
     ),
     Component(
         id="Schematic",
-        source_review="710f10786dad53315d1b6ec1ca320ad44e4a8455893d2d0cebb85b2388be10b5",
+        source_review="fee1e53aeeca6dbfe0e522e86927809e4e4145915a892f729abe4f2ba984cab4",
         does="Makes the SVG diagram. Uses card symbols for component kinds and line colors for flow kinds. Shows connected components, selected sequence steps and the change marks of a revision comparison. Gives the script that changes the layer, the map position and the zoom. When the zoom is less than 100 percent, makes the map labels larger. Rejects a theme value that contains a mark that can change the HTML or the CSS. Rejects a theme key that is not a safe name and a card symbol that is not available. The inspector gives the assurance level and the freshness of each component, flow and invariant.",
         interface="render(model, meaning, theme, facts) -> (svg, detail JSON)",
         implemented_by=(
@@ -505,7 +510,7 @@ COMPONENTS = (
     ),
     Component(
         id="Describe",
-        source_review="20ae55a0d2e78bd39a4f53ce9466f4f2980563a190ace8baaae16b07b43ba03f",
+        source_review="f86ffcbc7a1b879e08af7d4a6d2a77c17014094096774eaa3402c3b922c290e9",
         does="Gives diagram measurements as text: cards per region, path bends and lengths, label positions and layer contents. Gives information for examination. Does not control rules.",
         interface="run(model, meaning, theme, facts) -> lines; describe returns 1 when the program cannot render the model",
         implemented_by=("systemap.describe",),
