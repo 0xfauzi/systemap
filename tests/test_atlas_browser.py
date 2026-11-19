@@ -387,13 +387,18 @@ def test_cards_containers_and_regions_have_the_rules(marks_run: dict[str, Any]) 
                 assert any(
                     b[0] <= t["box"][0] and t["box"][2] <= b[2] and _over(t["box"], b) for t in tags
                 ), c
-        actors = {m["n"] for m in _kind(one, "actors")}
+        # The name of a container of actors draws only on the top map. A nested map that
+        # shows as a small picture in its card, or that is open, draws no such name.
+        actors = {m["n"] for m in _kind(one, "actors") if m["map"] == ""}
         assert actors and not actors & {m["n"] for m in _kind(one, "box")}
         assert all(any(t["s"] == n.upper() for t in texts) for n in actors)
-        regions = [_box(m["b"]) for m in _kind(one, "region")]
-        for i, a in enumerate(regions):
-            for b in regions[i + 1 :]:
-                assert not _over([a[0] - 0.5, a[1] - 0.5, a[2] + 0.5, a[3] + 0.5], b), (a, b)
+        # Adjacent regions of one map do not touch. The regions of a small picture of a
+        # nested map are inside a region of the map above.
+        for mid in {m["map"] for m in _kind(one, "region")}:
+            regions = [_box(m["b"]) for m in _kind(one, "region") if m["map"] == mid]
+            for i, a in enumerate(regions):
+                for b in regions[i + 1 :]:
+                    assert not _over([a[0] - 0.5, a[1] - 0.5, a[2] + 0.5, a[3] + 0.5], b), (a, b)
 
 
 def _crosses(p: list[float], q: list[float], box: list[float]) -> bool:

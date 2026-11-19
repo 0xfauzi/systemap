@@ -7761,3 +7761,15 @@ The hint of the field of Find is now "Find a card, flow, sequence or action". At
 Each of the 12 frames of the new `tour.gif` was compared with the same frame of the committed `tour.gif` (count of pixels with a difference of more than 40 in gray). Frame 6 ("card"): 1143 pixels, in the details panel (the evidence text of the flow "loaded map" changed). Frame 12 ("compare"): 1148 pixels, the disclosure under the headline. Each other frame: 0 pixels. `dark.png`, `light.png`, `phone.png`, `sequence.png` and the WebP images of the Map, Sequences, States and Focus views are byte-identical to the committed files. The four History images are different, because they show the Git log. They were not committed again.
 
 Result: PASS. The new `tour.gif` (1224921 bytes, 1200 px wide) replaces the committed one. The earlier statement that the images did not change was false: frames 6 and 12 were old.
+
+## B19: the performance budget of the atlas page, stage 10 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the acceptance values. Before the run, the docstring got one note: the map of this repository has the nested map Page, thus the `dive` of `self` zooms into Page. The full output is in `bench/jev/atlas_budget_B19.txt`. The page is the finished page of stage 10, with the nested map Page and the labels at rest in the box of their map. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 250 / 269 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.2 (pass) | 364,104 / 415,069 = 1.14 (pass) | 54 (pass) |
+| workspace | 247 / 250 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 268,782 / 302,219 = 1.12 (pass) | 56 (pass) |
+| M11 tree | 341 / 385 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,223,822 / 1,253,840 = 1.02 (pass) | 50 (pass) |
+
+Result: PASS for each value. The dive of `self` now goes into a nested map with 21 cards and 59 flows. Its p95 is 33.2 ms, below the absolute limit of 35 ms and below the canvas value. In B18, with no nested map, it was 16.8 ms. The margin to the limit is small, so a measurement is necessary after a change to the nested map Page or to the drawing of the dive.

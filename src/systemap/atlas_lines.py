@@ -16,10 +16,10 @@ section "Map view: the rules" of docs/design/atlas.md:
   more on the map (tests/test_atlas_contrast.py). With more than DENSE flows, no label shows
   at rest.
 - Labels at rest. A label shows at rest only when it is on its line, on no card, on no name
-  of a region or of a container, on no other label, and no other line of the layer goes
-  through it. A horizontal part of the line comes first, then the longest part. The label
-  has a constant size on the screen (`labelPx`). The short lines get their places first.
-  A line with no such place has no label at rest (`seatsOf`).
+  of a region or of a container, on no other label, in the box of the map, and no other line
+  of the layer goes through it. A horizontal part of the line comes first, then the longest
+  part. The label has a constant size on the screen (`labelPx`). The short lines get their
+  places first. A line with no such place has no label at rest (`seatsOf`).
 - Sequences. In the layer of a sequence (`atlas_sequences`), the label of each line has the
   numbers of its steps before the artifact, and the busy layer rule does not apply. A label
   with no free place on its line goes beside its own line and touches it, with no other
@@ -112,6 +112,10 @@ function walls(m) {
   var out = m.cards.map(function (c) { return [c.b[0] - 3, c.b[1] - 3, c.b[0] + c.b[2] + 3, c.b[1] + c.b[3] + 3]; });
   m.regions.forEach(function (r) { out.push([r.b[0], r.b[1] + 6, r.b[0] + 40 + r.n.length * 6.6, r.b[1] + 28]); });
   m.boxes.forEach(function (b) { out.push([b.b[0] + 12, b.b[1] + 16, b.b[0] + 230, b.b[1] + 38]); });
+  // The four sides of the map: a label at rest stays in the map, so that the fit and the
+  // phone view, which use the frame of the map, show the full label.
+  var w = m.size[0], h = m.size[1], far = 1e6;
+  out.push([-far, -far, 0, far], [-far, -far, far, 0], [w, -far, far, far], [-far, h, far, far]);
   m._walls = out;
   return out;
 }

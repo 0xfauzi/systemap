@@ -161,14 +161,14 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels, open) {
   });
   var ra = alpha * smooth(0.1, 0.25, open);
   m.regions.forEach(function (r) {
-    logged({t: 'region', n: r.n, a: ra, b: [ox + a * (r.b[0] + 3), oy + a * (r.b[1] + 3), a * (r.b[2] - 6), a * (r.b[3] - 6)]});
+    logged({t: 'region', n: r.n, map: m.id, a: ra, b: [ox + a * (r.b[0] + 3), oy + a * (r.b[1] + 3), a * (r.b[2] - 6), a * (r.b[3] - 6)]});
     tint.rect(C['--tint'], ra, ox + a * (r.b[0] + 3), oy + a * (r.b[1] + 3), a * (r.b[2] - 6), a * (r.b[3] - 6), 12 * a);
   });
   fills.flush(g); lines.flush(g); tint.flush(g);
   if (!labels) return;
   m.boxes.forEach(function (b) {
     var kind = boxKind(m, b), x = ox + a * b.b[0], y = oy + a * b.b[1];
-    if (kind === 'actors') { logged({t: 'actors', n: b.n}); if (m === TOP) caps(b.n, ox + a * b._at[0], oy + a * b._at[1], 9.5 * a, C['--ink-3'], alpha, 0.11); return; }
+    if (kind === 'actors') { logged({t: 'actors', n: b.n, map: m.id}); if (m === TOP) caps(b.n, ox + a * b._at[0], oy + a * b._at[1], 9.5 * a, C['--ink-3'], alpha, 0.11); return; }
     if (kind !== 'box') return;
     var fs = 9.5 * a, nw = (unitWidth(b.n.toUpperCase(), 500, true) + 0.11 * b.n.length) * q(Math.min(fs, CAPS_MAX));
     caps(b.n, x + 20 * a, y + 30 * a, fs, C['--ink-3'], alpha, 0.11);

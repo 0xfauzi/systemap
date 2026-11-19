@@ -3,7 +3,7 @@ labels at the fit (`labelSize` in `page_canvas_draw`), the caption (`page_canvas
 and the route in the Details panel (`seqRoute` in `page_canvas_sequences`).
 
 The test drives real canvas pages in the Chromium of Playwright (tests/canvas_reading.js):
-the self-map of this repository, which has no nested map, and the fixture of
+the top map of the self-map of this repository, with no nested map, and the fixture of
 tests/test_canvas_page.py, which has the nested map Gateway. The test skips when Node or
 the Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is "required" (the
 CI job canvas-browser). Then it fails.
@@ -57,6 +57,7 @@ Acceptance values, written before the first run on 2026-11-15:
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import subprocess
 from pathlib import Path
@@ -86,7 +87,13 @@ def _drive(mode: str, page: Path) -> dict[str, Any]:
 @pytest.fixture(scope="module")
 def self_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     cfg = config.load(REPO)
-    tree = nest.load(cfg)
+    # From stage 10 of docs/design/atlas.md, the card Page of the self-map opens the nested
+    # map Page. These acceptance values are for a map with no nested map, thus the page
+    # uses only the top map, and the card Page opens no map.
+    top = nest.load(cfg).top
+    cards = tuple(dataclasses.replace(c, map=None) for c in top.model.components)
+    flat = dataclasses.replace(top, model=dataclasses.replace(top.model, components=cards))
+    tree = nest.Tree(maps=(flat,))
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     out = tmp_path_factory.mktemp("reading") / "index.html"
     data = canvas_data.build(cfg, tree, facts)

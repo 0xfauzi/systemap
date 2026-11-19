@@ -54,6 +54,10 @@ of each run that a record of `bench/jev/README.md` gives is kept beside this scr
 `bench/jev/atlas_budget_<record>.txt`, so that a reader can compare the record with the
 output. The acceptance values do not change.
 
+From stage 10 (written on 2026-11-19 before the run of B19): the map of this repository has
+the nested map Page. Thus the `dive` of `self` zooms into Page, not into the middle card of
+the top map. The acceptance values do not change.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

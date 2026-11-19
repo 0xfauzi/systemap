@@ -670,6 +670,7 @@ Only a run without `--map` gives the result for completion.
 A second nested level uses an id such as `Gateway/Routes`.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
+From 2026-11-19, the self-map has one nested map, Page (`map/page.py`), because the component Page has more than ten modules.
 The fixture in [`tests/test_nested.py`](../tests/test_nested.py) has five top-level
 components. Two open nested maps.
 The fixture in [`tests/three_levels.py`](../tests/three_levels.py) has 11 maps with its default sizes: the top map and 10 nested maps on three levels below it.

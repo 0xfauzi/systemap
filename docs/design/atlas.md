@@ -274,6 +274,23 @@ branch `views-prototype`. No stage makes a pull request.
    that only the frame "compare" uses the page with the disclosure.
 10. **The nested map of Page** in the map of this repository
     (`docs/design/atlas/tools/page_model.py.txt` is a draft), and the final checks.
+    Done (2026-11-19). `map/page.py` is the nested map of Page. It has 11 parts: PageWriter,
+    PageData and PageAssets (shared parts), AtlasPage, AtlasDrawing and AtlasViews (the
+    atlas page), CanvasPage, CanvasDrawing and CanvasViews (the canvas page), and LinkedPage
+    and LinkedViews (the linked page). Each part has 10 modules or fewer. The 10 neighbours
+    are the components of the top map that have a flow with Page. The placer puts them in
+    one column, because the rule "Neighbours of a nested map" is not met. Each flow between
+    two parts has its source records and its review digest. A flow with a neighbour has the
+    artifact of the flow of the top map. `systemap check` and `systemap judgement --strict`
+    give no open line.
+    The walk through the page in a browser found two faults, and both are repaired. A label
+    at rest could go out of the box of its map, and then the phone view cut it
+    (`atlas_lines`: the four sides of the map are walls for a label at rest). Two tests
+    assumed a map tree with no nested map: the name of a container of actors and the
+    regions of a small picture (tests/test_atlas_browser.py, acceptance 14).
+    The budget passes for each value on the finished page (B19 in `bench/jev/README.md`).
+    The History view gives the components of the top map, also when the nested map Page is
+    open. This document gives no rule for the history of the parts of a nested map.
 
 ## What is not decided
 
