@@ -145,6 +145,11 @@ These are not in the study. They are necessary.
 - **Parity.** Find, the URL hash of a card or a map, the theme control (device, light,
   dark), the Reduce motion control, the keyboard help, the live page (`systemap live`),
   the boundary finding marks, and the changed cards with `--base` all work.
+  Met in stage 8 (2026-11-19). The atlas page has no Changes view, because this document
+  adds no comparison view: the change marks are on the Map view (`atlas_marks`). On a
+  phone the tools are in one Tools menu (`atlas_tools`). The contrast test
+  (tests/test_atlas_contrast.py) gives five quiet marks below the floor of 3.0, for example
+  the wire of a line at rest. They are decisions for the maintainer.
 - **Text.** All text for a reader obeys the language policy of the repository.
 - **Measurement.** Follow `AGENTS.md`: write the acceptance value in the docstring before
   a run, and record each result in `bench/jev/README.md`, including a failure.

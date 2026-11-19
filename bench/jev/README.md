@@ -7685,3 +7685,17 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 387 / 334 (pass) | 16.7 / 16.7 (pass) | 33.3 / 16.8 (pass) | 1,223,822 / 1,214,014 = 0.99 (pass) | 51 (pass) |
 
 Result: PASS for each value.
+
+## B18: the performance budget of the atlas page, stage 8 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the acceptance values. The full output is in `bench/jev/atlas_budget_B18.txt`. The page is the page of stage 8: the tools of the header (Find, the theme control, the keyboard sheet), the Find dialog and the marks of the open boundary lines and of the changes. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 272 / 252 (pass) | 16.7 / 16.8 (pass) | 33.3 / 16.8 (pass) | 319,516 / 360,214 = 1.13 (pass) | 58 (pass) |
+| workspace | 252 / 241 (pass) | 16.8 / 16.7 (pass) | 33.3 / 16.8 (pass) | 268,782 / 299,010 = 1.11 (pass) | 56 (pass) |
+| M11 tree | 337 / 376 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,223,822 / 1,250,631 = 1.02 (pass) | 51 (pass) |
+
+Result: PASS for each value. The atlas page of `self` grew by about 37,000 bytes against B17, mostly for the Find dialog and its styles.
+
+The test of the budget in the suite: `tests/test_atlas_frames.py`. Its acceptance values are in its docstring, written before its first run. It measures the M11 tree with the code and the limits of `atlas_budget.py`, two attempts of three for each timed value. First run, on 2026-11-19 before the run of B18: 5 of 5 tests passed, in 69 s. The test does not print the measured values, thus this record has no numbers for that run.

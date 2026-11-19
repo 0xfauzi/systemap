@@ -476,6 +476,13 @@ window.systemapCanvas = {
   // The History view (`atlas_history`).
   history: hsState,
   setLayer: setLayer,
+  // The parity parts: the tools of the header (`atlas_tools`), Find (`atlas_find`) and the
+  // marks of a map (`atlas_marks`).
+  tools: toolsState,
+  theme: themeSet,
+  get find() { return FIND; },
+  marks: markState,
+  hash: function () { return location.hash; },
   // The lines of a map in the layer of the frame: the count, the busy layer values, the
   // labels at rest (screen points) and the laned points of each line (`atlas_lines`).
   lines: linesState,

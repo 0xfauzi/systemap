@@ -14,6 +14,10 @@ docs/design/atlas.md:
 - On a screen of 720 px or less, the headline is smaller and has no counts, and the note
   and the key do not show.
 - `--fs` and `--fm` give the two fonts to the renderer script (`atlas_scene`).
+- `--change` is the color of the change marks (`atlas_marks`). `--focus` is the color of
+  the focus ring: the brand color of the study in the dark scheme, and a darker tone of it
+  in the light scheme, so that the ring has a contrast of 3 or more on the ground
+  (tests/test_atlas_contrast.py).
 """
 
 from __future__ import annotations
@@ -22,14 +26,14 @@ LIGHT = (
     "--bg:#F1EFEC;--map:#F4F2EF;--surface:#FCFAF7;--card:#FFFEFC;--line:#E2DFDA;--line-2:#CFCBC5;"
     "--ink:#1D1B17;--ink-2:#524F4A;--ink-3:#716C65;--wire:#A9A49C;--tint:rgba(29,27,23,.028);"
     "--data:#0B6B58;--control:#B4483F;--judge:#7A5C00;--context:#4F5BD5;--tool:#96600A;"
-    "--brand:#F2B33D;--halo:rgba(242,179,61,.38);--shade:rgba(29,27,23,.06);"
+    "--brand:#F2B33D;--halo:rgba(242,179,61,.38);--shade:rgba(29,27,23,.06);--change:#9C2F86;--focus:#8A5A00;"
     "--shadow:0 1px 0 rgba(29,27,23,.04),0 12px 32px -18px rgba(29,27,23,.28);color-scheme:light"
 )
 DARK = (
     "--bg:#0F0E0C;--map:#12110F;--surface:#161411;--card:#1C1A17;--line:#27241F;--line-2:#3A362F;"
     "--ink:#F1EDE4;--ink-2:#BEB8AC;--ink-3:#8F887B;--wire:#5E5A52;--tint:rgba(241,237,228,.035);"
     "--data:#3CC4A6;--control:#E0776B;--judge:#D6B24A;--context:#9AA4FF;--tool:#E0A44A;"
-    "--brand:#FCB442;--halo:rgba(252,180,66,.32);--shade:rgba(0,0,0,.35);"
+    "--brand:#FCB442;--halo:rgba(252,180,66,.32);--shade:rgba(0,0,0,.35);--change:#E27BD0;--focus:#FCB442;"
     "--shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -18px rgba(0,0,0,.8);color-scheme:dark"
 )
 
@@ -46,7 +50,7 @@ CSS = (
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--map);color:var(--ink);font:13px/1.45 var(--fs);-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .bar{position:fixed;left:0;right:0;top:0;z-index:2;display:flex;align-items:stretch;gap:20px;height:48px;
 box-sizing:border-box;background:var(--surface);border-bottom:1px solid var(--line);
@@ -68,7 +72,7 @@ padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(
 #canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;cursor:grab}
 #canvas.over{cursor:pointer}
 #canvas.drag{cursor:grabbing}
-#canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--brand)}
+#canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--focus)}
 #still{position:fixed;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 #still[hidden]{display:none}
 .ask{position:fixed;top:70px;left:max(24px,env(safe-area-inset-left,0px));right:24px;pointer-events:none;max-width:560px;z-index:1}

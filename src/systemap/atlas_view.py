@@ -231,7 +231,7 @@ function headSync(soft) {
     var h = seq ? seqHead() : sm ? smHead() : fc ? fcHead() : hs ? hsHead() : {k: layerName(m, id), q: layerQuestion(m, id), n: countWords(m, id)};
     ASK_K.replaceChildren.apply(ASK_K, (m.owner ? pathButtons(m, fc ? fcPathGo : null).concat([el('span', {'aria-hidden': 'true'}, '·')]) : []).concat([el('span', null, h.k)]));
     ASK_Q.textContent = h.q;
-    ASK_N.textContent = h.n;
+    ASK_N.textContent = h.n + (seq || sm || fc || hs ? '' : markHead(m));
     ASK.classList.remove('swap');
   }
   clearTimeout(ASK_TIMER);

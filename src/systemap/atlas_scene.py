@@ -138,7 +138,7 @@ ORDER.forEach(function (m) { KMAX = Math.max(KMAX, 64 / m.T.s); });
 // without a token has the color --ink-2.
 var C = {}, FONT_UI = 'sans-serif', FONT_MONO = 'monospace', EPOCH = 0;
 var TOKENS = ['--map', '--bg', '--surface', '--card', '--line', '--line-2', '--ink', '--ink-2', '--ink-3', '--wire',
-  '--tint', '--brand', '--halo', '--shade', '--data', '--control', '--judge', '--context', '--tool'];
+  '--tint', '--brand', '--halo', '--shade', '--data', '--control', '--judge', '--context', '--tool', '--change'];
 var KIND = {data: '--data', control: '--control', judge: '--judge', context: '--context', tool: '--tool'};
 function kindColor(k) { return C[KIND[k] || '--ink-2']; }
 function readColors() {

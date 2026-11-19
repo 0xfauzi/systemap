@@ -6,8 +6,8 @@ the question of the layer, the counts, the key and the readout of the zoom. The 
 has the empty elements and the fixed words only. It has no style attribute and no inline
 event handler (docs/design/atlas.md, "Requirements of the product page").
 
-- The header: the name of the project, the views, the tabs of the layers and the Reduce
-  motion button (`atlas_details`). The views are Map, Sequences, States, Focus and History.
+- The header: the name of the project, the views, the tabs of the layers and the tools
+  (`atlas_tools`): Find, the theme control, Reduce motion and the keyboard keys. The views are Map, Sequences, States, Focus and History.
   A view shows only when the map has data for it: Sequences needs a sequence in a map of
   the tree, States needs a state machine in a map of the tree, Focus needs a flow between
   two cards of a map of the tree, and History needs history data (`history_data`).
@@ -21,7 +21,7 @@ event handler (docs/design/atlas.md, "Requirements of the product page").
 
 from __future__ import annotations
 
-from systemap import page
+from systemap import atlas_tools
 from systemap.page import esc
 
 _MARK = (
@@ -81,9 +81,7 @@ def header(
         '<div class="views" role="group" aria-label="Views">'
         '<button type="button" data-mode="map" aria-pressed="true">Map</button>' + more + "</div>"
         '<nav class="tabs" id="atlas-tabs" role="tablist" aria-label="Layers"></nav>'
-        '<div class="bar__end">'
-        + page.tool("atlas-motion", "Reduce motion", "motion", ' aria-pressed="false"')
-        + "</div></header>"
+        '<div class="bar__end">' + atlas_tools.html() + "</div></header>"
     )
 
 

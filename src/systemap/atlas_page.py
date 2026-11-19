@@ -24,6 +24,9 @@ state machines and the board of the States view (`atlas_states`), the list of th
 cards and the board of the Focus view (`atlas_focus`), and the board of the History view
 (`atlas_history`), come after the help text of the canvas.
 
+The Find dialog (`atlas_find`) and the keyboard sheet (`atlas_tools`) come after `main`.
+They are hidden until the reader opens them.
+
 The history data (`history_data`) is in its own script element of the type
 application/json (`atlas-history`), after the page data. The output check reads it from
 the page file (`history_data.stored`), so that the check does not read Git.
@@ -39,11 +42,13 @@ from systemap import (
     atlas_css,
     atlas_data,
     atlas_details,
+    atlas_find,
     atlas_focus,
     atlas_header,
     atlas_history,
     atlas_sequences,
     atlas_states,
+    atlas_tools,
     atlas_tree,
     canvas_data,
     canvas_page,
@@ -82,7 +87,8 @@ HELP = (
     "In the History view, Tab goes to the cells. "
     "The arrow keys move the keyboard focus through the names and the cells. "
     "Home goes to the name of the row and End to the last cell. "
-    "Enter on a cell keeps its reading line. Enter on a name shows that card on the map."
+    "Enter on a cell keeps its reading line. Enter on a name shows that card on the map. "
+    "Ctrl K, Cmd K or the / key opens Find. The ? key opens the list of the keyboard keys."
 )
 
 _SCRIPT = page.compact(SCRIPT)
@@ -169,6 +175,8 @@ def build(
         + atlas_states.CSS
         + atlas_focus.CSS
         + atlas_history.CSS
+        + atlas_tools.CSS
+        + atlas_find.CSS
         + '</style></head><body data-mode="map">'
         + atlas_header.header(
             name,
@@ -190,6 +198,8 @@ def build(
         + atlas_header.overlay()
         + atlas_tree.HTML
         + "</main>"
+        + atlas_find.HTML
+        + atlas_tools.SHEET
         + '<script type="application/json" id="atlas-data">'
         + body
         + "</script>"

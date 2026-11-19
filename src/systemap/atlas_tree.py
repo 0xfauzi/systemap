@@ -78,8 +78,9 @@ function factsText(c) {
   else out.push(n ? (n === 1 ? 'Module: ' : 'Modules: ') + c.m.join(', ') + '.' : 'No module.');
   out.push('Flows in: ' + c.ins.length + '. Flows out: ' + c.outs.length + '.');
   if (c.as) out.push('Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.');
-  if (c.child) out.push('Opens a map of ' + sizeText(c.child) + '.');
-  return out.join(' ');
+  if (c.child) out.push('Opens a map of ' + sizeText(c.child) + '.', mapMarkWords(c.child));
+  out.push(markWords(c));
+  return out.filter(Boolean).join(' ');
 }
 // A link of the list: `at` gives the data attributes of its map and its card or flow.
 function treeLink(hash, at, text) {
@@ -106,7 +107,7 @@ function buildTree() {
     keep = ['data-m', 'data-c', 'data-f'].map(function (n) { return a.hasAttribute(n) ? '[' + n + '="' + a.getAttribute(n) + '"]' : ''; }).join('');
   }
   TREE_EL.replaceChildren(el('ul', null, el('li', null, treeLink('', {'data-m': 0}, 'Map: ' + mapName(TOP)),
-    ' ' + sizeText(TOP) + '.', mapLists(TOP))));
+    ' ' + sizeText(TOP) + '.', mapMarkWords(TOP) ? ' ' + mapMarkWords(TOP) : null, mapLists(TOP))));
   var back = keep && TREE_EL.querySelector('a' + keep);
   if (back) back.focus({preventScroll: true});
   TREE_MS = performance.now() - t0;
@@ -185,7 +186,7 @@ function tell(m) {
   SAID_MAP = m;
 }
 // The words of an open map: its path, its count of cards, and the words of the view.
-function openWords(m) { return 'Open map: ' + mapName(m) + '. ' + counted(m.cards.length, 'card') + '. ' + layerWords(m); }
+function openWords(m) { var k = mapMarkWords(m); return 'Open map: ' + mapName(m) + '. ' + counted(m.cards.length, 'card') + '. ' + layerWords(m) + (k ? ' ' + k : ''); }
 // The label of the canvas: the path, the level, and the layer when it is not All
 // (`viewLabel` in `atlas_view`).
 function relabel(m) {

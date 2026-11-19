@@ -363,7 +363,7 @@ function drawMap(m, alpha, open) {
       return;
     }
   }
-  if (full) { drawLayer(whole, ox, oy, mw, mh, own); STATS.cards += cards.length; return; }
+  if (full) { drawLayer(whole, ox, oy, mw, mh, own); drawMarks(m, cards, a, ox, oy, own); STATS.cards += cards.length; return; }
   OPEN = open >= 0.5;
   if (own > 0.01) {
     var flowA = own * SWAP_A * smooth(0.1, 0.25, open);
@@ -371,7 +371,9 @@ function drawMap(m, alpha, open) {
     var fl = layerFlags(m, id).flow, list = [];
     m.flowIndex.query(x0, y0, x1, y1, []).forEach(function (f) { if (fl[f.i]) list.push(f); });
     var byFlow = L._by || (L._by = (function () { var o = []; L.list.forEach(function (e) { o[e.f.i] = e; }); return o; })());
-    drawLines(ctx, m, list.map(function (f) { return byFlow[f.i]; }).filter(Boolean), L, a, ox, oy, flowA);
+    var lines = list.map(function (f) { return byFlow[f.i]; }).filter(Boolean);
+    drawLines(ctx, m, lines, L, a, ox, oy, flowA);
+    drawMarkLines(m, lines, a, ox, oy, flowA);
     drawLit(m, L, a, ox, oy, flowA);
     if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open), true);
     var texts = [];
@@ -383,6 +385,7 @@ function drawMap(m, alpha, open) {
       if (hasText(h)) texts.push([c, x, y, w, h, qv]);
     }
     flushCards(ctx);
+    drawMarks(m, cards, a, ox, oy, own);
     drawSelected(m, a, ox, oy, own);
     if (open > 0.3 && !L.dense) drawLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open));
     if (open > 0.3) drawLitLabels(m, id, a, ox, oy, flowA * smooth(0.3, 0.8, open), false);
