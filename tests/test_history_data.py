@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -310,3 +311,196 @@ def test_the_parse_of_the_log() -> None:
     a, b = history_data.parse(text)
     assert a == history_data.Commit("aaa", 10, False, (("x.py", 4), ("y.py", 0)), ("x.py",))
     assert b == history_data.Commit("bbb", 5, True, (), ())
+
+
+# Acceptance values of the repair of stage 6, written before the first run on 2026-11-19:
+#
+# 9. A clone with --depth 1 has only a boundary commit. `of_tree` gives no data and the one
+#    notice line SHALLOW. `render` and `refresh` give that line on stderr, exit with 0, and
+#    write a page with no History view.
+# 10. A merge commit is not used: the count of commits and the cells do not have it.
+# 11. After `render`, a change of `history_days` makes `check` and `render --check` find a
+#     stale page. After a new `render`, the page is current again.
+# 12. With no Git repository, `refresh` also gives the one notice line.
+# 13. The cache: `git fetch --deepen` with the same HEAD changes the boundary list, and the
+#     next read reads the full log again, with the new commits. A new commit of HEAD reads
+#     only the new commits (`OLD..HEAD`).
+# 14. With `history_days`, the log has only the commits of the window, and the cache keeps
+#     only them. The data is the same as the data of the full log with the same days.
+
+
+class _Calls:
+    """Keep the arguments of each Git command of `history_data`."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.args: list[tuple[str, ...]] = []
+        real = git_command.run
+
+        def run(cwd: Path, *args: str, **kw: Any) -> Any:
+            self.args.append(args)
+            return real(cwd, *args, **kw)
+
+        monkeypatch.setattr(git_command, "run", run)
+
+    def logs(self) -> list[tuple[str, ...]]:
+        return [a for a in self.args if a[0] == "log"]
+
+
+def _clone(project: Path, to: Path, depth: int) -> Path:
+    _git(to.parent, "clone", "-q", "--depth", str(depth), f"file://{project}", str(to))
+    return to
+
+
+def _history_notes(err: str) -> list[str]:
+    return [line for line in err.splitlines() if "History" in line]
+
+
+def test_a_clone_of_depth_1_gives_the_shallow_notice(
+    project: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 9."""
+    clone = _clone(project, tmp_path / "one", 1)
+    assert main(["--root", str(clone), "extract"]) == 0
+    log = history_data.read_log(clone)
+    assert log.shallow is True
+    assert [c.root for c in log.commits] == [True]
+    assert _of(clone) == (None, [history_data.SHALLOW])
+    capsys.readouterr()
+    assert main(["--root", str(clone), "render"]) == 0
+    assert _history_notes(capsys.readouterr().err) == [history_data.SHALLOW]
+    page = (clone / "docs" / "map" / "index.html").read_text(encoding="utf-8")
+    assert 'id="atlas-history"' not in page
+    (page_file := clone / "docs" / "map" / "index.html").unlink()
+    assert main(["--root", str(clone), "refresh"]) == 0
+    assert _history_notes(capsys.readouterr().err) == [history_data.SHALLOW]
+    assert 'id="atlas-history"' not in page_file.read_text(encoding="utf-8")
+
+
+def test_only_a_root_commit_gives_the_root_notice(tmp_path: Path) -> None:
+    root = tmp_path / "r"
+    write_tree(
+        root,
+        {
+            "systemap.toml": CONFIG + '[render]\npage = "atlas"\n',
+            "map/model.py": TOP,
+            "map/gateway.py": NESTED,
+            **SOURCE,
+        },
+    )
+    for command in ("place", "extract"):
+        assert main(["--root", str(root), command]) == 0
+    _git(root, "init", "-q", "-b", "main")
+    _commit(root, {}, T0)
+    assert _of(root) == (None, [history_data.ROOT_ONLY])
+    _commit(root, {"README.md": "Words.\n"}, T0 + DAY)
+    assert _of(root) == (None, [history_data.NO_CHANGE])
+
+
+def test_a_merge_commit_is_not_used(project: Path) -> None:
+    """Acceptance 10."""
+    _git(project, "checkout", "-q", "-b", "side")
+    _commit(project, {"pkg/auth.py": "def token() -> str:\n    return 'side'\n"}, T0 + 13 * DAY)
+    _git(project, "checkout", "-q", "main")
+    _commit(project, {"pkg/store.py": "def get() -> str:\n    return 'main'\n"}, T0 + 14 * DAY)
+    _git(project, "merge", "-q", "--no-ff", "-m", "join", "side", at=T0 + 24 * DAY)
+    log = history_data.read_log(project)
+    assert len(log.commits) == 7  # the root, the four commits of _project and two; no merge
+    data, _ = _of(project)
+    assert data is not None
+    assert data["commits"] == 6
+    # The time ends at the last commit that is not a merge (T0 + 14 days), not at the merge.
+    end = datetime.fromtimestamp(T0 + 14 * DAY, UTC)
+    assert data["to"] == f"{end.day} {end:%b}"
+    assert sum(x[0] for x in data["cells"]["Auth"]) == 2  # T0 and the side commit
+    assert sum(x[0] for x in data["cells"]["Store"]) == 2
+
+
+def test_a_change_of_history_days_makes_the_page_stale(project: Path) -> None:
+    """Acceptance 11."""
+    assert main(["--root", str(project), "render"]) == 0
+    assert main(["--root", str(project), "check"]) == 0
+    assert main(["--root", str(project), "render", "--check"]) == 0
+    (project / "systemap.toml").write_text(
+        CONFIG + '[render]\npage = "atlas"\nhistory_days = 2\n', encoding="utf-8"
+    )
+    assert main(["--root", str(project), "render", "--check"]) != 0
+    assert main(["--root", str(project), "check"]) != 0
+    assert main(["--root", str(project), "render"]) == 0
+    stored = history_data.stored(config.load(project), nest.load(config.load(project)))
+    assert stored is not None
+    assert (stored["days"], stored["commits"]) == (2, 2)
+    assert main(["--root", str(project), "render", "--check"]) == 0
+    assert main(["--root", str(project), "check"]) == 0
+
+
+def test_without_git_refresh_gives_the_notice(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Acceptance 12."""
+    root = tmp_path / "n"
+    write_tree(
+        root,
+        {
+            "systemap.toml": CONFIG + '[render]\npage = "atlas"\n',
+            "map/model.py": TOP,
+            "map/gateway.py": NESTED,
+            **SOURCE,
+        },
+    )
+    assert main(["--root", str(root), "place"]) == 0
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+    capsys.readouterr()
+    assert main(["--root", str(root), "refresh"]) == 0
+    notes = _history_notes(capsys.readouterr().err)
+    assert len(notes) == 1
+    assert notes[0].startswith("notice: The page has no History view, because Git cannot read")
+    page = (root / "docs" / "map" / "index.html").read_text(encoding="utf-8")
+    assert 'id="atlas-history"' not in page
+
+
+def test_the_cache_and_a_deeper_clone(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Acceptance 13."""
+    clone = _clone(project, tmp_path / "two", 2)
+    calls = _Calls(monkeypatch)
+    first = history_data.read_log(clone)
+    assert [c.root for c in first.commits] == [False, True]
+    assert len(calls.logs()) == 1
+    assert history_data.read_log(clone) == first
+    assert len(calls.logs()) == 1
+    _git(clone, "fetch", "-q", "--deepen=2")
+    deeper = history_data.read_log(clone)
+    assert deeper.head == first.head
+    assert len(calls.logs()) == 2
+    assert calls.logs()[-1][-2] == first.head  # a full read of HEAD
+    assert [c.root for c in deeper.commits] == [False, False, False, True]
+    _commit(clone, {"pkg/log.py": "X = 1\n"}, T0 + 13 * DAY)
+    newer = history_data.read_log(clone)
+    assert calls.logs()[-1][-2] == f"{first.head}..{newer.head}"
+    assert newer.commits[1:] == deeper.commits
+    assert len(newer.commits) == 5
+
+
+def test_history_days_reads_only_the_window(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Acceptance 14: the last used commit is at T0 + 12 days."""
+    full = history_data.read_log(project)
+    own = history_data.owners(
+        nest.load(config.load(project)).top.model,
+        facts_file.read_facts(config.load(project).facts_path, project),
+    )
+    (project / ".systemap" / "history.json").unlink()
+    calls = _Calls(monkeypatch)
+    log = history_data.read_log(project, 2)
+    assert [c.time for c in log.commits] == [T0 + 12 * DAY, T0 + 11 * DAY]
+    assert log.first == T0
+    assert any(a.startswith("--since-as-filter=@") for a in calls.logs()[-1])
+    assert history_data.build(log, own, 2) == history_data.build(full, own, 2)
+    _commit(project, {"pkg/store.py": "def get() -> str:\n    return 'z'\n"}, T0 + 13 * DAY)
+    newer = history_data.read_log(project, 2)
+    assert [c.time for c in newer.commits] == [T0 + 13 * DAY, T0 + 12 * DAY, T0 + 11 * DAY]
+    assert calls.logs()[-1][-2].endswith(f"..{newer.head}")  # only the new commit
+    count = len(calls.logs())
+    wider = history_data.read_log(project, 13)  # a different key: a full read
+    assert len(calls.logs()) == count + 2  # the times, and then the changes
+    assert [c.time for c in wider.commits][-2:] == [T0 + DAY, T0]

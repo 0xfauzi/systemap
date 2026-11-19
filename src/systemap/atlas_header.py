@@ -11,6 +11,9 @@ event handler (docs/design/atlas.md, "Requirements of the product page").
   A view shows only when the map has data for it: Sequences needs a sequence in a map of
   the tree, States needs a state machine in a map of the tree, Focus needs a flow between
   two cards of a map of the tree, and History needs history data (`history_data`).
+  On a screen of 720 px or less, the five views fill the header. Thus the tabs of the layers
+  are a strip under the header (`atlas_css`), and the headline of the Map view is under the
+  strip. The fit of a map on a phone keeps the strip free (`tabStrip` in `atlas_input`).
 - The headline (`atlas-ask`): type on the ground, beside the map or above it.
 - The zoom control: zoom out, the readout of the scale, zoom in, and Fit.
 - The key of the kinds of lines, and a note with the inputs of the map.

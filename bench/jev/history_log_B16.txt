@@ -1,0 +1,11 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+repository: 5000 commits in 2.0 s
+full: 0.836 s (runs 0.906, 0.829, 0.836)
+same: 0.025 s (runs 0.033, 0.025, 0.016)
+next: 0.051 s (runs 0.046, 0.051, 0.059)
+days: 0.266 s (runs 0.298, 0.266, 0.250), 721 commits
+cache: 677090 bytes after full, 97686 bytes after days
+same <= 0.2 s: pass
+next <= 0.5 s: pass
+next <= 10 % of full: pass
+days < 50 % of full: pass

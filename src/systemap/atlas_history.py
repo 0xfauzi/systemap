@@ -9,9 +9,11 @@ its own element of the page (`atlas-history`, `atlas_page`):
   (`atlas_header`).
 - One row for each component of the top map with a change, in the order of the cards of the
   page data, and one column for each equal part of the time. The opacity of a cell is
-  0.1 + 0.82 times the square root of the changed lines of the cell divided by the changed
-  lines of the largest cell, as in the study. Thus a cell with a change and no changed line
-  (a binary file) still shows. A cell with no change is a faint tint. A dot marks a cell with
+  the square root of the changed lines of the cell divided by the changed lines of the
+  largest cell, as the specification gives it. The study adds 0.1 and multiplies by 0.82;
+  the specification applies. Each cell has a faint tint below it. Thus a cell with a change
+  and no changed line (a binary file) has the tint and no ink, as a cell with no change. Its
+  reading line and its name for a screen reader give its file changes. A dot marks a cell with
   a new source module. Bars at the top give the changed lines of each column. The count at
   the right of a row is its count of file changes.
 - The headline gives "History", the question "Where did the system change, and when?", the
@@ -52,7 +54,7 @@ overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;z-index:1}
 body[data-mode="history"] .hboard{display:block}
 .hcell{cursor:pointer;outline:none}
 .hcell rect{fill:var(--ink);transition:stroke .12s}
-.hcell.none rect{fill:var(--tint)}
+.hcell.none rect,.hcell .hbase{fill:var(--tint)}
 .hcell:hover rect,.hcell.lit rect{stroke:var(--brand);stroke-width:2}
 .hcell:focus-visible rect{stroke:var(--brand);stroke-width:2.6}
 .hborn{fill:var(--brand);pointer-events:none}
@@ -141,8 +143,11 @@ function hsDraw() {
     items.push(row);
     cells.forEach(function (x, i) {
       var cg = sv('g', {'class': 'hcell' + (x[0] ? '' : ' none'), tabindex: '-1', role: 'button', 'aria-pressed': 'false', 'data-item': 'c' + ri + ':' + i}, HWORLD);
-      var r = sv('rect', {x: LAB + i * CW + 2, y: y + 2, width: CW - 4, height: CH - 4, rx: phone ? 3 : 4}, cg);
-      if (x[0]) r.setAttribute('fill-opacity', (0.1 + 0.82 * Math.sqrt(x[1] / max)).toFixed(2));
+      var box = {x: LAB + i * CW + 2, y: y + 2, width: CW - 4, height: CH - 4, rx: phone ? 3 : 4};
+      // The tint is under each cell, so that a cell with few lines keeps its place.
+      if (x[0]) sv('rect', Object.assign({'class': 'hbase'}, box), cg);
+      var r = sv('rect', box, cg);
+      if (x[0]) r.setAttribute('fill-opacity', Math.sqrt(x[1] / max).toFixed(2));
       if (x[2].length) sv('circle', {cx: LAB + i * CW + CW - (phone ? 7 : 9), cy: y + 8, r: 3, 'class': 'hborn'}, cg);
       var it = {kind: 'c', id: c.id, card: c, i: ri, j: i, cell: x, g: cg};
       cg.setAttribute('aria-label', hsLabel(it));
@@ -243,7 +248,7 @@ function hsState() {
     axis: HWORLD ? Array.prototype.map.call(HWORLD.querySelectorAll('.haxis'), function (t) { return t.textContent; }) : [],
     sums: HWORLD ? Array.prototype.map.call(HWORLD.querySelectorAll('.hsum'), function (t) { return t.textContent; }) : [],
     items: HS.items.map(function (o) {
-      var r = o.g.querySelector('rect'), t = o.g.querySelector('text');
+      var r = o.g.querySelector('rect:last-of-type'), t = o.g.querySelector('text');
       return {kind: o.kind, id: o.id, i: o.i, j: o.j, key: o.g.getAttribute('data-item'), label: o.g.getAttribute('aria-label'), lit: o.g.classList.contains('lit'),
         cls: o.g.getAttribute('class'), tab: o.g.tabIndex, opacity: r.getAttribute('fill-opacity'), dot: !!o.g.querySelector('.hborn'), rect: box(r),
         text: t ? {text: t.textContent, px: parseFloat(getComputedStyle(t).fontSize) * HS.scale} : null};

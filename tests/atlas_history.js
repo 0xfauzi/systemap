@@ -8,9 +8,11 @@
 //   cell, a second click, a click and a click on the ground. The keys from the stop of
 //   Tab of the board: the right arrow key, the down arrow key, End, Home, the up arrow key,
 //   the right arrow key and Enter, Esc, and F. Then Home and Enter on the name of the row.
-//   Then the screen size 1000 x 800 with the History view.
-// - --phone: 390 x 844 with a touch screen, in the light and the dark scheme. The view, and
-//   a tap on the first cell with a change of the row of the test.
+//   Then the screen size 1000 x 800 with the History view. After the click on History, the
+//   transition of a cell before, during and after a press of Reduce motion (`motion`).
+// - --phone: 390 x 844 with a touch screen, in the light and the dark scheme. The layer tabs
+//   and the headline of the Map view, the History view, and a tap on the first cell with a
+//   change of the row of the test.
 // - --axe: axe-core in the History view with the keyboard focus on a cell, in the light and
 //   the dark scheme, at 1440 x 900 and at 390 x 844 (null when axe-core is not on NODE_PATH).
 // - --none: 1440 x 900, a page with no history data.
@@ -59,6 +61,13 @@ async function wide(browser, file, id) {
   await page.click('#atlas-head [data-mode="history"]');
   await page.waitForTimeout(600);
   out.shown = await state(page);
+  // The transition of a cell, with and without the Reduce motion button.
+  const motion = () => page.evaluate(() => getComputedStyle(document.querySelector('#atlas-hworld .hcell:not(.none) rect:last-of-type')).transitionDuration);
+  out.motion = { normal: await motion() };
+  await page.click('#atlas-motion');
+  out.motion.reduced = await motion();
+  await page.click('#atlas-motion');
+  out.motion.back = await motion();
   const c = await cellMid(page, id);
   out.cell = c.key;
   await page.mouse.move(c.at[0], c.at[1]);
@@ -113,9 +122,14 @@ async function phone(browser, file, id) {
   const out = { errors: [] };
   for (const scheme of ['light', 'dark']) {
     const { page, errors } = await open(browser, file, { ...PHONE, colorScheme: scheme });
+    const mapView = await page.evaluate(() => {
+      const r = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect().toJSON() : null; };
+      const tabs = Array.from(document.querySelectorAll('#atlas-tabs [role="tab"]')).map((t) => t.getBoundingClientRect().toJSON());
+      return { tabs, strip: r('#atlas-tabs'), views: r('#atlas-head .views'), ask: r('#atlas-ask'), scroll: document.documentElement.scrollWidth };
+    });
     await page.tap('#atlas-head [data-mode="history"]');
     await page.waitForTimeout(700);
-    const run = { shown: await state(page) };
+    const run = { mapView, shown: await state(page) };
     const c = await cellMid(page, id);
     await page.touchscreen.tap(c.at[0], c.at[1]);
     await page.waitForTimeout(300);

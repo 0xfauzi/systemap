@@ -301,7 +301,7 @@ DETAILS = r"""
   function module(m, j) {
     var x = m.md[j], file = fileOf(m, x);
     return el('details', null, el('summary', null, x.i), el('p', null, file ? el('code', null, file) : 'Source path not recorded'),
-      el('p', null, 'Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n ? x.n[1] : 0) + '.'),
+      el('p', null, 'Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n && x.n[1] || 0) + '.'),
       el('p', null, 'Imports: ', list((x.im || []).map(function (y) { return nameOf(m, y); })), '.'),
       el('p', null, 'Imported by: ', list(importers(m, j)), '.'),
       el('p', null, 'External imports: ', list(x.ex || []), '.'),

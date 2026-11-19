@@ -49,6 +49,11 @@ The inputs:
 
 The browser is the Chromium of Playwright, headless, 1440 x 900, device pixel ratio 1.
 
+From the repair of stage 6 (written on 2026-11-19 before the run of B15): the full output
+of each run that a record of `bench/jev/README.md` gives is kept beside this script in
+`bench/jev/atlas_budget_<record>.txt`, so that a reader can compare the record with the
+output. The acceptance values do not change.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

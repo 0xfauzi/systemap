@@ -7542,3 +7542,30 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 Result: PASS for each value. The atlas pages grew by about 12,800 bytes against B13 for the inputs with no history, from the script, the style and the help text of the History view. The self pages are also larger because the claims of Page and ChangeDetector in the model of this repository have new sentences.
 
 The axe-core test of the History view (`test_axe_finds_no_violation` in `tests/test_atlas_history_browser.py`) ran on this host with axe-core on NODE_PATH: no violation at 1440 x 900 and at 390 x 844, in the light and the dark scheme, with the keyboard focus on a cell.
+
+## B15: the performance budget of the atlas page, repair of stage 6 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the acceptance values. One change of the method, written in the docstring before the run: the full output of the run is kept in `bench/jev/atlas_budget_B15.txt`. B14 has no stored output, so a reader cannot compare B14 with its run. B14 also gives 234 commits, and the clone had 235 commits that are not merges and not boundary commits after the stage 6 commit. That is expected, because each commit adds one.
+
+The atlas page is the page of the repair: the opacity of a History cell is the square root of the changed lines of the cell divided by the largest cell (the rule of docs/design/atlas.md), each changed cell has a tint below it, the layer tabs are a strip under the header on a screen of 720 px or less, the body has `data-mode="map"` from the start, and the history data has `days`. The self page has the history of this clone (235 used commits). At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 276 / 268 (pass) | 16.8 / 16.8 (pass) | 33.3 / 33.3 (pass) | 318,486 / 322,517 = 1.01 (pass) | 62 (pass) |
+| workspace | 286 / 265 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,782 / 262,393 = 0.98 (pass) | 61 (pass) |
+| M11 tree | 415 / 402 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,223,822 / 1,214,014 = 0.99 (pass) | 53 (pass) |
+
+Result: PASS for each value. The M11 tree pages are about 12,000 bytes smaller than in B14. A probable cause is the change of the module records of the details data (`md`): a record has only one count when no test imports the module (`canvas_details._counts`). This run does not measure the parts of the page, so that cause is not confirmed. The same change keeps acceptance 10 of `tests/test_canvas_details.py` (44,000 bytes or less), which the stage 6 commit made fail with 44,097 bytes.
+
+## B16: the time of the Git log read of the History view (2026-11-19)
+
+Script: `bench/jev/history_log.py`. The acceptance values are in its docstring, written before the run. The output is in `bench/jev/history_log_B16.txt`. The input is a synthetic repository of 5,000 commits, one each hour, made with `git fast-import`. It is not a real large repository: a measurement on a real large repository is still necessary. Median of 3 runs on this host:
+
+| Value | Time | Limit | Result |
+|---|---|---|---|
+| `full`: no cache file | 0.836 s | none (reference) | |
+| `same`: the cache of the same HEAD | 0.025 s | 0.2 s or less | pass |
+| `next`: one new commit, the read of `OLD..HEAD` only | 0.051 s | 0.5 s or less, and 10 % of `full` or less (0.084 s) | pass |
+| `days`: no cache file, `history_days = 30` (721 commits) | 0.266 s | less than 50 % of `full` (0.418 s) | pass |
+
+The cache file has 677,090 bytes after `full` and 97,686 bytes after `days`. Result: PASS. Before the repair, each new commit made a full read of the log (the value `full`), and `history_days` did not limit the read.

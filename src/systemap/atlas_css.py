@@ -94,6 +94,9 @@ color:var(--ink-3);font:500 11px/1 var(--fm);font-variant-numeric:tabular-nums;z
 .bar{gap:12px}.brand span,.note,.key{display:none}
 .ask{top:62px}.ask__q{font-size:19px}.ask__n{display:none}
 .views button{padding:0 7px}
+.tabs{position:fixed;top:48px;left:0;right:0;height:38px;box-sizing:border-box;background:var(--surface);border-bottom:1px solid var(--line);
+padding:0 max(5px,env(safe-area-inset-left,0px))}
+body[data-mode="map"] .ask{top:100px}
 }
 @media (max-width:400px){.views button{padding:0 6px;font-size:12.5px}}
 @media (pointer:coarse){.zoom button{width:44px;height:44px}}

@@ -91,7 +91,9 @@ def _same_module(m: dict[str, Any], j: int, w: dict[str, Any]) -> None:
     assert [_name(m, y) for y in x.get("im", [])] == w["imports"]
     assert _importers(m, j) == sorted(w["imported_by"])
     assert x.get("ex", []) == w["external"]
-    assert x.get("n", [0, 0]) == [len(w["public_names"]), len(w["tests"])]
+    # A module with no test gives only the count of its public names.
+    assert [*x.get("n", []), 0, 0][:2] == [len(w["public_names"]), len(w["tests"])]
+    assert len(x.get("n", [])) == (2 if w["tests"] else 1 if w["public_names"] else 0)
 
 
 def _same_card(m: dict[str, Any], got: dict[str, Any], want: dict[str, Any]) -> int:

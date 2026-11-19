@@ -64,11 +64,16 @@ function mapFit(b, whole) {
 // The room of the fit in the Sequences view (`atlas_sequences`): the list at the left of a
 // wide screen or under the headline of a phone, and the bar at the bottom.
 function seqRoom() {
-  if (VIEW.mode !== 'seq') return {left: 20, top: 96, bottom: 30};
+  if (VIEW.mode !== 'seq') return {left: 20, top: 96 + tabStrip(), bottom: 30};
   askBottom();
   var bar = BAR ? BAR.offsetHeight + 34 : 30, rail = shownEl(RAIL) ? RAIL.getBoundingClientRect() : null;
   if (W > WIDE) return {left: rail ? rail.right + 14 : 20, top: 96, bottom: bar};
   return {left: 20, top: rail ? rail.bottom - HEAD_H + 10 : 96, bottom: bar};
+}
+// On a phone the layer tabs are a strip under the header (`atlas_css`): give its height.
+function tabStrip() {
+  var t = W > WIDE ? null : document.getElementById('atlas-tabs');
+  return t && getComputedStyle(t).position === 'fixed' ? t.offsetHeight : 0;
 }
 function fitBox(b, pad, whole) {
   if (b.m) return mapFit(b, whole);

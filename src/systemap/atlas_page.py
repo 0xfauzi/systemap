@@ -169,7 +169,7 @@ def build(
         + atlas_states.CSS
         + atlas_focus.CSS
         + atlas_history.CSS
-        + "</style></head><body>"
+        + '</style></head><body data-mode="map">'
         + atlas_header.header(
             name,
             any(m.get("sq") for m in data.get("maps", [])),

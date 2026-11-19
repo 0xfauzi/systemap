@@ -17,7 +17,8 @@ and the rules of `page._rules`). This module adds no facts.
   (the modules that import it), `ex` (the external imports) and `uk` (the facts that the
   extractor could not read). An import is the index of a module in `md`, or the module ID
   when that module is not in `md`. `n` gives two counts: the public names, and the tests
-  that import the module. A module with no public name and no test has no `n`.
+  that import the module. When no test imports the module, `n` gives only the first count.
+  A module with no public name and no test has no `n`.
 - `fr`: the file rule of the map, if two or more modules follow it: a prefix and a suffix.
   The file of a module without `f` is the prefix, the module ID with "/" for each ".", and
   the suffix. A module that the rule does not give has `f`, also an empty `f`.
@@ -69,7 +70,7 @@ def _unknown(problem: Any) -> str:
 def _counts(mod: dict[str, Any]) -> list[int]:
     """Give the count of public names and the count of tests of a module, or no counts."""
     counts = [len(mod["public_names"]), len(mod["tests"])]
-    return counts if any(counts) else []
+    return counts if counts[1] else counts[:1] if counts[0] else []
 
 
 def _rules(m: nest.Map, claims: list[assurance.Claim]) -> dict[str, Any]:

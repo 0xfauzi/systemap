@@ -16,7 +16,8 @@ Acceptance values, written before the first run on 2026-11-19:
    not in it".
 2. The board has one row for each component with a change, in the order of the cards of
    the page data, with a name and 12 cells. The opacity of a cell with a change is
-   0.1 + 0.82 * sqrt(lines / largest lines), to 0.01. A cell with no change has the class
+   sqrt(lines / largest lines), to 0.01, as docs/design/atlas.md gives it (changed from the
+   rule of the study in the repair of the stage, before its run). A cell with no change has the class
    "none". A cell with a new module has a dot. The bars have heights in the ratio of the
    changed lines of each column, and the highest bar is 46 map units high. The count at the
    right of a row is its count of file changes.
@@ -40,6 +41,12 @@ Acceptance values, written before the first run on 2026-11-19:
 9. The page has no script error in each run. axe-core finds no violation in the History
    view with a focused cell, in the light and the dark scheme, at 1440 x 900 and at
    390 x 844.
+10. With reduced motion, a cell has no transition (Reduce motion button). The live region of
+   a screen reader gives the count of commits and, for a shallow clone, "The clone is
+   shallow. Earlier commits are not in it."
+11. On a phone of 390 x 844 px, the Map view shows the layer tabs in a strip under the
+   header: each of the first two tabs is 40 px wide or more and in the screen, the strip
+   does not cover the views, and the headline is under the strip.
 """
 
 from __future__ import annotations
@@ -137,8 +144,18 @@ def _cell_ok(o: dict[str, Any], x: list[Any], top: int) -> None:
         assert "none" in o["cls"]
         return
     assert "none" not in o["cls"]
-    want = 0.1 + 0.82 * math.sqrt(x[1] / top)
+    want = math.sqrt(x[1] / top)
     assert float(o["opacity"]) == pytest.approx(want, abs=0.006)
+
+
+def test_reduced_motion_and_the_words_for_a_screen_reader(wide: dict[str, Any]) -> None:
+    """Acceptance 10."""
+    assert wide["motion"]["normal"] == "0.12s"
+    assert wide["motion"]["reduced"] == "0s"
+    assert wide["motion"]["back"] == "0.12s"
+    said = wide["shown"]["said"]
+    assert said.startswith("History. 4 commits from 1 Jan to 13 Jan.")
+    assert said.endswith(" The clone is shallow. Earlier commits are not in it.")
 
 
 def test_the_rows_and_the_cells(wide: dict[str, Any], pages: dict[str, Any]) -> None:
@@ -247,6 +264,16 @@ def test_the_phone(pages: dict[str, Any]) -> None:
         assert min(names) >= 7
         tap = out[scheme]["tapped"]
         assert tap["say"]["on"] and ROW in tap["say"]["text"]
+        # Acceptance 11: the layer tabs of the Map view.
+        m = out[scheme]["mapView"]
+        assert m["scroll"] == 390
+        assert len(m["tabs"]) >= 2
+        for tab in m["tabs"][:2]:
+            assert tab["width"] >= 40 and tab["x"] >= 0 and tab["x"] + tab["width"] <= 390
+        assert (
+            m["strip"]["width"] == 390 and m["strip"]["y"] >= m["views"]["y"] + m["views"]["height"]
+        )
+        assert m["ask"]["y"] >= m["strip"]["y"] + m["strip"]["height"]
 
 
 def test_no_history_gives_no_view(pages: dict[str, Any]) -> None:
