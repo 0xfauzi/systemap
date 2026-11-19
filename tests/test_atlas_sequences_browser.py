@@ -230,7 +230,12 @@ def test_the_list_the_headline_and_the_bar(
     """Acceptance 1."""
     sq = _top_sq(self_page[1])
     whole = wide["whole"]
-    assert whole["pressed"] == [["Map", "false"], ["Sequences", "true"], ["States", "false"]]
+    assert whole["pressed"] == [
+        ["Map", "false"],
+        ["Sequences", "true"],
+        ["States", "false"],
+        ["Focus", "false"],
+    ]
     rail = whole["seq"]["view"]["rail"]
     assert len(rail) == len(sq)
     for item, q in zip(rail, sq, strict=True):
@@ -368,7 +373,12 @@ def test_the_map_view_comes_back(
 ) -> None:
     """Acceptance 7."""
     back = wide["map"]
-    assert back["pressed"] == [["Map", "true"], ["Sequences", "false"], ["States", "false"]]
+    assert back["pressed"] == [
+        ["Map", "true"],
+        ["Sequences", "false"],
+        ["States", "false"],
+        ["Focus", "false"],
+    ]
     assert back["view"]["mode"] == "map" and back["tabs"] != "none"
     assert back["seq"]["view"]["railBox"]["width"] == 0
     assert {m["f"] for m in _drawn(back, "line")} == {

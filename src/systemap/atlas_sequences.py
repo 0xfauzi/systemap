@@ -421,13 +421,14 @@ function setForm(form) {
 
 // ---- the views -----------------------------------------------------------------------------
 var VIEW_BTNS = Array.prototype.slice.call(document.querySelectorAll('#atlas-head [data-mode]'));
-// Show the view `mode`: 'map', 'seq' or 'states' (`atlas_states`). The selection, the pin
-// and the pointed item go.
+// Show the view `mode`: 'map', 'seq', 'states' (`atlas_states`) or 'focus' (`atlas_focus`).
+// The selection, the pin and the pointed item go.
 function setMode(mode) {
-  if (mode === VIEW.mode || (mode === 'seq' && !SEQ_MAPS.length) || (mode === 'states' && !SM_MAPS.length)) return false;
+  if (mode === VIEW.mode || (mode === 'seq' && !SEQ_MAPS.length) || (mode === 'states' && !SM_MAPS.length) || (mode === 'focus' && !FC_MAPS.length)) return false;
   var from = viewNow();
   select(null, {keep: true});
   if (VIEW.mode === 'states') smHide();
+  if (VIEW.mode === 'focus') fcHide();
   HOT = {c: null, f: null, from: ''}; PIN = null; FOCUS = null;
   VIEW.mode = mode; document.body.setAttribute('data-mode', mode);
   VIEW_BTNS.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-mode') === mode)); });
@@ -440,12 +441,16 @@ function setMode(mode) {
   } else if (mode === 'states') {
     cv.tabIndex = -1;
     smShow();
+  } else if (mode === 'focus') {
+    var from2 = FC_FROM;
+    FC_FROM = null;
+    fcShow(from2);
   } else {
     cv.tabIndex = 0;
     fitCurrent();
     say('Map view. ' + layerWords(currentMap()));
   }
-  if (mode !== 'states') speak();
+  if (mode !== 'states' && mode !== 'focus') speak();
   lightMoved(); seqChanged(from);
   return true;
 }

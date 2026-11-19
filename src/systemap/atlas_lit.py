@@ -286,7 +286,7 @@ function sayItem() {
 // only when its item changes.
 function speak() {
   // The States view writes the reading line itself (`smSay` in `atlas_states`).
-  if (!SAY || VIEW.mode === 'states') return;
+  if (!SAY || VIEW.mode === 'states' || VIEW.mode === 'focus') return;
   var x = sayItem(), hot = !!x && (x === HOT.c || x === HOT.f), from = hot ? HOT.from : '';
   var key = x ? (isFlow(x) ? 'f' : 'c') + x.map.oi + ':' + x.i + from + shownLayer(x.map) : '';
   if (x && x === SEL && !isFlow(x)) key = '';

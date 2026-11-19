@@ -7500,3 +7500,17 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 Result: PASS for each value. The atlas pages grew by about 4,000 bytes against B10.
 
 The axe-core test of the States view (`test_axe_finds_no_violation` in `tests/test_atlas_states_browser.py`) ran on this host with axe-core on NODE_PATH: no violation at 1440 x 900 and at 390 x 844, in the light and the dark scheme. In the B10 run that test did not run, because axe-core was not on NODE_PATH.
+
+## B12: the performance budget of the atlas page, stage 5 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 5 page: it adds the Focus view (`atlas_focus`), the button Focus in the header, and the button "Focus on this card" in the details. The map draws as in stage 4. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 302 / 281 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 317,195 / 301,781 = 0.95 (pass) | 73 (pass) |
+| workspace | 333 / 299 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,864 / 247,124 = 0.92 (pass) | 62 (pass) |
+| M11 tree | 496 / 456 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 1,236,316 / 1,211,157 = 0.98 (pass) | 66 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 20,000 bytes against B11, mostly from the script of the Focus view.
+
+The axe-core test of the Focus view (`test_axe_finds_no_violation` in `tests/test_atlas_focus_browser.py`) ran on this host with axe-core on NODE_PATH: no violation at 1440 x 900 and at 390 x 844, in the light and the dark scheme, with the keyboard focus on the middle card.

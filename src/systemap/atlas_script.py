@@ -5,8 +5,7 @@ The atlas page (`atlas_page`) has one script element with `SCRIPT`. It joins the
 part (`atlas_draw`), the lit part (`atlas_lit`), the image part (`atlas_image`), the tree
 part (`atlas_tree`), the keyboard part (`atlas_keys`), the details part (`atlas_details`),
 the Sequences part and its diagram part (`atlas_sequences`), the States part
-(`atlas_states`) and the input part
-(`atlas_input`). The parts are a fork of the
+(`atlas_states`), the Focus part (`atlas_focus`) and the input part (`atlas_input`). The parts are a fork of the
 renderer of the canvas page (`page_canvas`) with the look of docs/design/atlas.md. The page
 policy (`page_csp`) gets the digest of the element.
 """
@@ -15,6 +14,7 @@ from __future__ import annotations
 
 from systemap.atlas_details import DETAILS
 from systemap.atlas_draw import DRAW
+from systemap.atlas_focus import FOCUS
 from systemap.atlas_image import IMAGE
 from systemap.atlas_input import INPUT
 from systemap.atlas_keys import KEYS
@@ -40,6 +40,7 @@ SCRIPT = (
     + SEQ
     + BOARD
     + STATES
+    + FOCUS
     + INPUT
     + "})();\n"
 )

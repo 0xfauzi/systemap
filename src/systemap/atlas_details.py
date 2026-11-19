@@ -18,7 +18,8 @@ rules are the section "Map view: the rules" of docs/design/atlas.md:
   of the flows in other layers, with a button that shows all layers.
 - Each flow row lights its flow on the map (`point` in `atlas_lit`). A click on a row
   selects the card at its other end. A neighbour of a nested map goes out to its card.
-- A card that opens a map has a button that goes into that map.
+- A card that opens a map has a button that goes into that map. A card with a flow has the
+  button "Focus on this card", which shows the card in the Focus view (`atlas_focus`).
 - Esc and the Close button close the details. The keyboard focus goes back to the card.
 
 The script writes the details with DOM functions (`el` in `atlas_tree`), not with HTML
@@ -333,6 +334,12 @@ function enterButton(c) {
   icon.append(path);
   return el('button', {type: 'button', 'class': 'enter', 'data-go': ''}, icon, 'See its ' + counted(partsOf(c), 'part'));
 }
+// The button that shows the card in the Focus view (`atlas_focus`), for a card with a flow
+// that is not a neighbour of a nested map.
+function focusButton(c) {
+  if (upCard(c) || !fcDegree(c.map)[c.id]) return null;
+  return el('button', {type: 'button', 'class': 'more fgo', 'data-focus': ''}, 'Focus on this card');
+}
 // Write the details of the selected card when the card or the layer changes.
 function sideSync() {
   var c = SEL;
@@ -346,7 +353,7 @@ function sideSync() {
   var st = document.getElementById('atlas-side-s');
   st.replaceChildren.apply(st, c.as ? [el('i', {'class': c.as[0] === 'unknown' ? 'no' : null}), levelWords(c)] : []);
   var body = document.createDocumentFragment();
-  addChild(body, [c.child ? enterButton(c) : null, c.d ? about(c.d) : null, c.nt ? el('p', {'class': 'side__d'}, el('b', null, 'Note.'), ' ' + c.nt) : null,
+  addChild(body, [c.child ? enterButton(c) : null, focusButton(c), c.d ? about(c.d) : null, c.nt ? el('p', {'class': 'side__d'}, el('b', null, 'Note.'), ' ' + c.nt) : null,
     flowLists(c), sequencesOf(c), modules(c), records(c), rules(c)]);
   if (SIDE.contains(document.activeElement) && SIDE_B.contains(document.activeElement)) document.getElementById('atlas-side-h').focus({preventScroll: true});
   SIDE_B.replaceChildren(body);
@@ -369,6 +376,7 @@ if (SIDE) {
     if (!b || !c) return;
     if (f) { var o = c.map.byId[f.s === c.id ? f.t : f.s]; if (o) { point(null, null, ''); act(o, false); } }
     else if (b.hasAttribute('data-go') && c.child) dive(c);
+    else if (b.hasAttribute('data-focus')) fcEnter(c);
     else if (b.hasAttribute('data-all')) setLayer('all');
     else if (b.hasAttribute('data-more')) {
       var d = b.previousElementSibling, shut = d.classList.toggle('clip');
