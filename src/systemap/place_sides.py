@@ -23,16 +23,15 @@ column at the left of the frame. This rule moves each actor to a side of the fra
 
 A map that does not have this shape keeps the column layout.
 
-The commands use this rule with the form BOX (`KEPT`) when `[render] page = "atlas"`:
-`systemap place`, `systemap describe` and `systemap parts --stub` then give nested=True
-for each map that is not the top map (`place.sides_for`). The canvas page and the linked
-page keep the column layout. `place.compute(model, nested="study")` gives the form STUDY
-for the measurements. N1 (BOX, SIDE_GAP 48) and N2 (STUDY) failed two of their five
-acceptance values. A review found two errors in these values: the zoom did not have the
-limit of the fit of the page, and the reach had to be strictly less where the column is
-already at the nearest side. N3 (BOX, SIDE_GAP 44) has the two values with these errors
-corrected, and it passed. The records in `bench/jev/README.md` give the values. A map
-that has positions keeps them until `systemap place --all` runs.
+The commands do not use this rule. `place.compute(model, nested=True)` gives the form BOX
+(`KEPT`), and `place.compute(model, nested="study")` gives the form STUDY, for the
+measurements. N1 (BOX, SIDE_GAP 48) and N2 (STUDY) failed two of their five acceptance
+values. N3 (BOX, SIDE_GAP 44) passed with two acceptance values that were changed after
+the results of N1 and N2 were known. Only the maintainer can accept those values. Until
+then, `place.sides_for` gives False, and `systemap place`, `systemap describe` and
+`systemap parts --stub` keep the column layout. The records in `bench/jev/README.md` give
+the values. When the rule is on, a map that has positions keeps them until
+`systemap place --all` runs.
 """
 
 from __future__ import annotations

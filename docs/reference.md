@@ -1098,20 +1098,23 @@ Barycenter sweeps through flows select component order within regions.
 With six or fewer regions, the search tries every order.
 For more regions, it uses a greedy start and pairwise swaps.
 
-In a nested map on the atlas page, the actors go to the four sides of the frame of the map.
+In a nested map, the actors stay in their container, in one column at the left of the frame, as in a top map.
+
+The placer also has a rule that puts the actors of a nested map at the four sides of the frame.
+The commands do not use this rule now.
 Each actor goes to the side that is nearest to the mean center of the parts that it has flows with.
 Along that side, the actor is near that center.
 An actor with no flow to a part goes to the side with the most free room.
 The size of a side gives the count of actors that fit along it. When a side has too many actors, the actor with the smallest added distance goes to a different side.
 The container of the actors becomes a box around the frame and the actors, with room for its label above them.
-When the four sides do not have room for all the actors, the actors stay in one column at the left of the frame, as in a top map.
-`systemap place`, `systemap describe` and `systemap parts --stub` use this rule for each map that is not the top map, but only with `[render] page = "atlas"`.
-With the canvas page or the linked page, the actors of a nested map stay in one column at the left of the frame. On a phone, the canvas page can not draw the boundary flow of an actor at the bottom side of a tall nested map.
-A map that already has positions keeps them. Use `systemap place --all` to put the actors of a nested map at the sides.
+When the four sides do not have room for all the actors, the actors stay in one column at the left of the frame.
 
 The records N1, N2 and N3 in `bench/jev/README.md` give the measurements of the rule.
-N1 and N2 failed two acceptance values. A review found two errors in these values: the zoom had no limit, but the page limits the fit to a screen scale of 1.6, and the distance to the parts had to be less on each map, also where the column was already at the nearest side.
-N3 corrected these two values and passed. The maintainer can refuse the corrected values.
+N1 and N2 failed two of their five acceptance values.
+N3 changed these two values after the results of N1 and N2 were known, and then passed.
+Only the maintainer can accept the changed values.
+If the maintainer accepts them, `systemap place`, `systemap describe` and `systemap parts --stub` will use the rule for each map that is not the top map, but only with `[render] page = "atlas"`.
+Then a map that already has positions keeps them, and `systemap place --all` puts the actors of a nested map at the sides.
 
 A bend estimate scores each candidate.
 The router renders the best twelve estimates and the model's listed order.

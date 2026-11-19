@@ -8,8 +8,8 @@ it uses free slots inside the existing boxes.
 The modules `place_layout` (the fresh layout) and `place_order` (the region order) hold
 the parts. This module fills free slots when positions stay, and gives the result lines.
 `place_sides` has the rule that puts the actors of a nested map at the sides of its
-frame. `compute(model, nested=True)` uses it. The commands give nested=True for each map
-that is not the top map when `[render] page = "atlas"` (`sides_for`).
+frame. `compute(model, nested=True)` uses it. The commands do not use it: `sides_for`
+gives False until the maintainer accepts the acceptance values of N3 (bench/jev/README.md).
 """
 
 from __future__ import annotations
@@ -225,8 +225,8 @@ def compute(
     keeps all existing component positions. With nested, a fresh layout puts the actors
     of a nested map at the sides of its frame (`place_sides`): True gives the form of the
     commands (`place_sides.KEPT`), and "box" or "study" gives the form of that name. The
-    commands give nested=True for each map that is not the top map when `sides_for` is
-    true.
+    commands give nested=True for each map that is not the top map only when `sides_for`
+    is true.
     """
     keep = kept_by(model, all_cards)
     if len(keep) == len(model.components):
@@ -245,13 +245,21 @@ def compute(
     return replace(laid, all_cards=all_cards)
 
 
+# The commands do not use the side rule. N1 and N2 failed their acceptance values, and N3
+# changed two of the values after the results were known (bench/jev/README.md). Only the
+# maintainer can accept the values of N3. Until then, this value stays False.
+SIDES_IN_COMMANDS = False
+
+
 def sides_for(cfg: Config) -> bool:
-    """Tell if the commands put the actors of a nested map at the sides of its frame. Only
-    the atlas page uses that layout (`[render] page = "atlas"`). The canvas page and the
+    """Tell if the commands put the actors of a nested map at the sides of its frame.
+
+    The answer is False while SIDES_IN_COMMANDS is False. When the maintainer accepts the
+    rule, only the atlas page uses it (`[render] page = "atlas"`). The canvas page and the
     linked page keep the column layout until the atlas page is the default, because their
     boundary flows on a phone need the actors at the left (N3 in bench/jev/README.md).
     """
-    return cfg.render_page == "atlas"
+    return SIDES_IN_COMMANDS and cfg.render_page == "atlas"
 
 
 def head(placement: Placement) -> str:

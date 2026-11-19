@@ -52,8 +52,8 @@ because an actor at that side with a gap of 44 or more has a reach that is equal
 more than the reach of the column. The review of N1 found this. N2 does not change
 acceptance 4 for this reason. A different acceptance 4 is a decision for the maintainer.
 
-N3: the form BOX with SIDE_GAP 44, with acceptance 4 and 5 corrected, added on 2026-11-20
-after a second review. The review found two errors in the acceptance values of N1 and N2:
+N3: the form BOX with SIDE_GAP 44, with acceptance 4 and 5 corrected, added on 2026-11-19
+after a second review (the first copy of this text gave the wrong date 2026-11-20). The review found two errors in the acceptance values of N1 and N2:
 
 - `zoom` has no upper limit, but the page limits the fit to a screen scale of 1.6
   (`fitK` in src/systemap/atlas_input.py). On each small fixture the zoom of the column
@@ -68,7 +68,9 @@ of N1. `shown` is the smaller of `zoom` and 1.6: the zoom that the page shows.
 Acceptance values of N3, written before the run of N3 with `--acceptance n3`. They are not
 a blind test: the values of N1, N2 and run 5 were known, and a scratch calculation in the
 same session gave the values of these forms before this text. The maintainer can refuse
-them. The rule is kept in the commands only if all of them hold:
+them. The rule is kept in the commands only if all of them hold and the maintainer accepts
+them. A third review found that the commands must not use the rule before the maintainer
+accepts these values, thus `place.SIDES_IN_COMMANDS` is False:
 
 1. to 3. The values 1, 2 and 3 of N1, with no change.
 4. On each input with an actor, `reach` of `sides` is not more than that of `column`, and

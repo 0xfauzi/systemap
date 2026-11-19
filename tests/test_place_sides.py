@@ -1,9 +1,11 @@
 """The placer rule for a nested map: the actors at the four sides of the frame.
 
-`place.compute(model, nested=True)` uses the rule. The measurement N3 passed
-(bench/jev/README.md). The commands give nested=True for each map that is not the top map
-when `[render] page = "atlas"`. These tests examine the rule, and that the default of
-`place.compute` and of the commands stays the column layout.
+`place.compute(model, nested=True)` uses the rule. The commands do not use it while
+`place.SIDES_IN_COMMANDS` is False: N3 passed only with acceptance values that were changed
+after the results were known, and only the maintainer can accept them (bench/jev/README.md).
+When the value is True, the commands give nested=True for each map that is not the top map
+when `[render] page = "atlas"`. These tests examine the rule, the commands with the value
+True, and that the default of `place.compute` and of the commands stays the column layout.
 
 Acceptance values, written before the tests:
 
@@ -37,8 +39,8 @@ tests ran:
     no layout problems, and the frame is higher than with the form BOX, because the actor
     container keeps no room for its label.
 
-Acceptance values 13 to 17, written on 2026-11-20 for the second repair of stage 7, before
-these tests ran:
+Acceptance values 13 to 17, written on 2026-11-19 for the second repair of stage 7, before
+these tests ran (the first copy gave the wrong date 2026-11-20):
 
 13. With `[render] page = "atlas"`, `systemap place` writes the nested maps of the fixture
     with the actors at the sides of the frame, and the top map with no change from
@@ -52,6 +54,18 @@ these tests ran:
 16. `place._covered` gives no box without nested, and no box for a map that does not have
     the shape of a nested map. Thus the fill of each other map does not change.
 17. With nested=True, the form is `place_sides.KEPT`, the form BOX.
+
+Acceptance values 18 and 19, written on 2026-11-19 for the third repair of stage 7, before
+these tests ran. Acceptance 13 is now for the commands with `place.SIDES_IN_COMMANDS` set to
+True:
+
+18. With `place.SIDES_IN_COMMANDS` False (the value in the repository), `systemap place`,
+    `systemap describe` and `systemap parts --stub` give the column layout also with
+    `[render] page = "atlas"`, and `systemap place --all` keeps the column layout.
+19. With `place.SIDES_IN_COMMANDS` True and `[render] page = "atlas"`, a nested map that
+    already has the positions of the column layout keeps them after `systemap place`.
+    After `systemap place --all`, its actors are at the sides of the frame, and the
+    layout is the layout of `place.compute` with all_cards and nested.
 """
 
 from __future__ import annotations
@@ -312,6 +326,13 @@ def _loaded(root: Path) -> dict[str, Model]:
     return {m.id: m.model for m in nest.load(config.load(root)).maps}
 
 
+@pytest.fixture
+def sides_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Turn the side rule on in the commands, as when the maintainer accepts N3."""
+    monkeypatch.setattr(place, "SIDES_IN_COMMANDS", True)
+
+
+@pytest.mark.usefixtures("sides_on")
 def test_the_commands_put_the_actors_at_the_sides(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -341,11 +362,11 @@ def test_the_commands_put_the_actors_at_the_sides(
     assert _loaded(tmp_path) == after
 
 
-@pytest.mark.parametrize("setting", ["", '[render]\npage = "canvas"\n'])
-def test_the_commands_keep_the_column_for_the_other_pages(
+@pytest.mark.parametrize("setting", ["", '[render]\npage = "canvas"\n', ATLAS])
+def test_the_commands_keep_the_column(
     tmp_path: Path, setting: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance 13, without the atlas page."""
+    """Acceptance 13, without the atlas page, and acceptance 18, with the rule off."""
     _tree(tmp_path, setting)
     before = _loaded(tmp_path)
     assert main(["--root", str(tmp_path), "extract"]) == 0
@@ -358,6 +379,32 @@ def test_the_commands_keep_the_column_for_the_other_pages(
         assert after[mid] == _laid(before[mid], nested=False)
         w, h = after[mid].canvas
         assert f"{mid}: canvas {w} x {h}:" in described
+    assert main(["--root", str(tmp_path), "place", "--all"]) == 0
+    assert _loaded(tmp_path) == after
+
+
+def test_a_map_with_positions_keeps_them_until_place_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Acceptance 19. The first place has the rule off, and writes the column layout."""
+    _tree(tmp_path)
+    before = _loaded(tmp_path)
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    assert main(["--root", str(tmp_path), "place"]) == 0
+    column = _loaded(tmp_path)
+    for mid in ("Gateway", "Style"):
+        assert column[mid] == _laid(before[mid], nested=False)
+    monkeypatch.setattr(place, "SIDES_IN_COMMANDS", True)
+    assert main(["--root", str(tmp_path), "place"]) == 0
+    assert _loaded(tmp_path) == column
+    assert main(["--root", str(tmp_path), "place", "--all"]) == 0
+    moved = _loaded(tmp_path)
+    for mid in ("Gateway", "Style"):
+        assert moved[mid] == _laid(column[mid], nested=True)
+        frame = _frame(moved[mid])
+        for c in moved[mid].components:
+            if c.kind == "actor":
+                _side(c.box, frame)
 
 
 def test_an_actor_with_no_flow_goes_to_the_most_free_room() -> None:
@@ -417,10 +464,13 @@ def test_nested_gives_the_kept_form() -> None:
     )
 
 
-@pytest.mark.parametrize("atlas", [True, False])
-def test_the_stub_of_a_part_has_the_kept_form(tmp_path: Path, atlas: bool) -> None:
-    """Acceptance 13, for `systemap parts --stub`. The stub has no flow, thus its actor goes
-    to the side with the most free room."""
+@pytest.mark.parametrize(("atlas", "on"), [(True, True), (False, True), (True, False)])
+def test_the_stub_of_a_part_has_the_kept_form(
+    tmp_path: Path, atlas: bool, on: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Acceptance 13 and 18, for `systemap parts --stub`. The stub has no flow, thus its
+    actor goes to the side with the most free room."""
+    monkeypatch.setattr(place, "SIDES_IN_COMMANDS", on)
     root = test_parts._gate(tmp_path)
     if atlas:
         with (root / "systemap.toml").open("a", encoding="utf-8") as out:
@@ -437,6 +487,6 @@ def test_the_stub_of_a_part_has_the_kept_form(tmp_path: Path, atlas: bool) -> No
     sides = place.apply(bare, place.compute(bare, nested=True))
     column = place.apply(bare, place.compute(bare))
     assert sides != column
-    assert stub == (sides if atlas else column)
-    if atlas:
+    assert stub == (sides if atlas and on else column)
+    if atlas and on:
         _side(stub.component("App").box, _frame(stub))

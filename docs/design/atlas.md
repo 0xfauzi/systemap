@@ -91,6 +91,12 @@ state machine, History needs commit data.
 - **Neighbours of a nested map.** They sit around the frame of the nested map, each near
   the parts that it has flows with, not in one column. A neighbour is a card of the map
   above: selecting it goes out to that card.
+  Not met (2026-11-19). The rule `place_sides` was measured three times (N1, N2 and N3 in
+  bench/jev/README.md). N1 and N2 failed acceptance 4 and 5 on the small fixtures. N3 passed,
+  but its acceptance values were written after the results of N1 and N2 were known, thus it
+  is not a test. The commands keep the column layout (`place.SIDES_IN_COMMANDS = False`). To
+  use the rule, write the acceptance values first and measure on nested maps that N1 to N3
+  did not use.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced
