@@ -264,6 +264,14 @@ branch `views-prototype`. No stage makes a pull request.
    render of `systemap live` (tests/test_atlas_limits.py), and drive it in a browser
    (tests/test_atlas_limits_browser.py). axe-core runs on the committed self-map
    (tests/test_atlas_parity_browser.py, acceptance 21).
+   After the third review of stage 9 (2026-11-19): `scripts/screenshots.py` ran again, and
+   `docs/screenshots/tour.gif` is new. Frame 12 ("compare") is the only frame that shows the
+   disclosure "Not in this comparison", under the counts of the headline. Frame 6 ("card")
+   also changed: the evidence text of the flow "loaded map" is current. The other files of
+   the run are identical to the committed files, except the History images of the landing
+   page, which show the Git log and change at each commit. They stay as they are. No test
+   finds a committed image that is older than the page. A test holds the script to the claim
+   that only the frame "compare" uses the page with the disclosure.
 10. **The nested map of Page** in the map of this repository
     (`docs/design/atlas/tools/page_model.py.txt` is a draft), and the final checks.
 

@@ -10,7 +10,9 @@ It makes the WebP images of the five views on the landing page (site/index.html)
 at 1600 by 900 pixels and for a phone at 390 by 760 pixels with 2 device pixels.
 The views are Map, Sequences, States, Focus and History.
 The change marks of `render --base` compare the commit CHANGE_HEAD with its parent
-CHANGE_BASE. The last tour frame shows them.
+CHANGE_BASE. The last tour frame shows them, and under the headline it shows the
+disclosure "Not in this comparison" of the comparison. The other frames do not show it.
+A change to the page makes the committed images old. Run the script again after it.
 Each frame shows a view, a layer, a card, or a sequence step.
 ffmpeg puts the frames together in a 30-second GIF, with a 4 MiB size limit.
 Examine the images before use in the README.

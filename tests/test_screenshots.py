@@ -148,3 +148,15 @@ def test_the_readme_names_every_image_absolutely() -> None:
     raw = "https://raw.githubusercontent.com/0xfauzi/systemap/main/"
     for url in re.findall(rf'(?:src|srcset)="({re.escape(raw)}[^"]+)"', readme):
         assert (ROOT / url[len(raw) :]).is_file(), url
+
+
+def test_only_the_compare_frame_uses_the_page_with_the_disclosure() -> None:
+    """The stage record of stage 9 says that only the last tour frame shows the
+    disclosure "Not in this comparison". The script must agree with that claim."""
+    script = load_script()
+    assert [name for name, _ in script.TOUR if "compare" in name] == ["compare"]
+    assert script.TOUR[-1][0] == "compare"
+    compared = script.render(ROOT, compare=True)
+    plain = script.render(ROOT)
+    assert 'id="atlas-limits"' in compared
+    assert 'id="atlas-limits"' not in plain

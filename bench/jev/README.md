@@ -7753,3 +7753,11 @@ The 39 rows below their floor (light / dark), each with a partner at full alpha 
 Result: PASS for acceptance values 3 to 5 after the change of the busy layer. The rows below their floor are decisions for the maintainer.
 
 The hint of the field of Find is now "Find a card, flow, sequence or action". At 390 x 844 in Chromium, after the fonts load, it is 243.95 px wide at 14 px, in a field with 262 px for it (acceptance 18 of tests/test_atlas_parity_browser.py). At 15 px it was 261.38 px.
+
+## The tour images after the third review of stage 9 (2026-11-19)
+
+`uv run python scripts/screenshots.py --chrome /usr/bin/google-chrome --ffmpeg /usr/bin/ffmpeg --no-sandbox` ran on Linux, at 0d32459. Acceptance value: the last tour frame ("compare") shows the disclosure "Not in this comparison". It is not a measurement of a limit.
+
+Each of the 12 frames of the new `tour.gif` was compared with the same frame of the committed `tour.gif` (count of pixels with a difference of more than 40 in gray). Frame 6 ("card"): 1143 pixels, in the details panel (the evidence text of the flow "loaded map" changed). Frame 12 ("compare"): 1148 pixels, the disclosure under the headline. Each other frame: 0 pixels. `dark.png`, `light.png`, `phone.png`, `sequence.png` and the WebP images of the Map, Sequences, States and Focus views are byte-identical to the committed files. The four History images are different, because they show the Git log. They were not committed again.
+
+Result: PASS. The new `tour.gif` (1224921 bytes, 1200 px wide) replaces the committed one. The earlier statement that the images did not change was false: frames 6 and 12 were old.
