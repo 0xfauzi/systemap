@@ -1100,8 +1100,8 @@ For more regions, it uses a greedy start and pairwise swaps.
 
 In a nested map, the actors stay in their container, in one column, as in a top map.
 A rule that puts each actor at the side of the frame that is nearest to its parts was measured on the nested maps of the test fixtures and on a draft nested map.
-It failed two of its five acceptance values, thus the command does not use it.
-The record N1 in `bench/jev/README.md` gives the values.
+It failed two of its five acceptance values in two forms: with a labelled box for the actors, and with no box, as in the design study. Thus the command does not use it.
+The records N1 and N2 in `bench/jev/README.md` give the values.
 
 A bend estimate scores each candidate.
 The router renders the best twelve estimates and the model's listed order.

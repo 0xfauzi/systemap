@@ -4,9 +4,11 @@
 section "Map view: the rules" of docs/design/atlas.md. The parts that do not zoom are HTML
 (`atlas_header`). This part writes them with DOM functions, not with HTML text.
 
-The layer. `VIEW.layer` is a layer ID or "all". A map that does not have the layer shows
-All (`layerOf`). The page opens with System context when that layer is the first layer of
-the top map, and with All in the other cases (`canvas_header.first_layer`). A change of
+The layer. `VIEW.layer` is a layer ID, "all", or "open" before the reader selects a layer.
+A map that does not have the layer shows All (`layerOf`). With "open", each map shows its
+opening layer (`openLayer`): System context when that layer is the first layer of the map,
+and All in the other cases. Thus the page opens the top map as `canvas_header.first_layer`
+gives, and a nested map opens with its neighbours, as in the study. A change of
 the layer fades the lines out in SWAP_MS / 2 and the lines of the new layer in, in
 SWAP_MS / 2 (`swapAlpha`). A card with no flow in the layer is quiet: it keeps a faint
 outline (`quietOf`). Its change fades in VIEW_MS. With reduced motion, no value fades.
@@ -25,11 +27,12 @@ from __future__ import annotations
 
 VIEW_PART = r"""
 // ---- the layer ---------------------------------------------------------------------
-var SWAP_A = 1, VIEW = {mode: 'map', layer: 'all', epoch: 0, swap: null}, VIEW_MS = 160, SWAP_MS = 300, VIEW_STEP = 1, VIEW_LAST = 0, VIEW_FADING = false;
+var SWAP_A = 1, VIEW = {mode: 'map', layer: 'open', epoch: 0, swap: null}, VIEW_MS = 160, SWAP_MS = 300, VIEW_STEP = 1, VIEW_LAST = 0, VIEW_FADING = false;
 var HEAD_EL = document.getElementById('atlas-head'), HEAD_H = 0;
 var LAYER_OF = Object.create(null);
 ORDER.forEach(function (m) { (m.layers || []).forEach(function (l) { if (!LAYER_OF[l.id]) LAYER_OF[l.id] = l; }); });
-if (TOP.layers && TOP.layers[0] && TOP.layers[0].id === 'system') VIEW.layer = 'system';
+// The layer of map m before the reader selects a layer.
+function openLayer(m) { return m.layers && m.layers[0] && m.layers[0].id === 'system' ? 'system' : 'all'; }
 // A sequence of a map is a layer of that map with the ID "q:" and its index
 // (`atlas_sequences`).
 function isSeqLayer(id) { return id.slice(0, 2) === 'q:'; }
@@ -41,6 +44,7 @@ function hasLayer(m, id) {
 // map of the sequence shows the sequence, and the other maps keep the layer of the Map view.
 function layerOf(m, id) {
   if (!id) { if (VIEW.mode === 'seq' && SEQ.m === m) return 'q:' + SEQ.k; id = VIEW.layer; }
+  if (id === 'open') return openLayer(m);
   return hasLayer(m, id) ? id : 'all';
 }
 // The layer of map m in the state `st` of the view (`viewNow` in `atlas_sequences`).
@@ -109,6 +113,8 @@ function viewTouch() { request(); }
 // Set the layer. An unknown layer keeps the current one. Give true for a change.
 function setLayer(id) {
   if (!(id === 'all' || LAYER_OF[id]) || id === VIEW.layer) return false;
+  // The reader selects the layer that the map shows: the layer stays for the other maps.
+  if (VIEW.layer === 'open' && id === layerOf(currentMap())) { VIEW.layer = id; return false; }
   VIEW.swap = reduced() ? null : {from: viewNow(), t0: performance.now()};
   VIEW.layer = id; VIEW.epoch++;
   headSync(true);
@@ -140,7 +146,7 @@ function viewLabel() {
   if (smOn()) return ' State machine: ' + smX().n + '.';
   if (fcOn()) return ' Focus: ' + FC.id + '.';
   if (hsOn()) return ' History.';
-  return VIEW.layer === 'all' ? '' : ' Layer: ' + layerName(currentMap(), layerOf(currentMap())) + '.';
+  return layerOf(currentMap()) === 'all' ? '' : ' Layer: ' + layerName(currentMap(), layerOf(currentMap())) + '.';
 }
 
 // ---- the headline, the tabs, the key and the zoom readout -------------------------------
@@ -250,7 +256,7 @@ function ownKeys(e, pageKey) {
 }
 function viewState() {
   var m = currentMap();
-  return {mode: VIEW.mode, layer: VIEW.layer, shown: layerOf(m), epoch: VIEW.epoch, head: HEAD_H, fading: VIEW_FADING,
+  return {mode: VIEW.mode, layer: VIEW.layer === 'open' ? layerOf(m) : VIEW.layer, shown: layerOf(m), epoch: VIEW.epoch, head: HEAD_H, fading: VIEW_FADING,
     kicker: ASK_K.textContent, question: ASK_Q.textContent, counts: ASK_N.textContent, beside: ASK.classList.contains('beside'),
     tabs: Array.prototype.map.call(TABS.querySelectorAll('[role="tab"]'), function (b) { return {id: b.getAttribute('data-layer'), text: b.textContent, on: b.getAttribute('aria-selected') === 'true'}; }),
     key: KEY.textContent, zoom: ZOOM_V ? ZOOM_V.textContent : ''};

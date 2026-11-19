@@ -70,6 +70,15 @@ first run of these tests:
     is 0 when the nested map has the screen. On a phone, at the open and after Fit, each
     card of the top map has its shape and its name. At the open, the names of the regions
     and the containers and the kind tags show.
+
+Acceptance value 21, written on 2026-11-19 for the repair of stage 7, before the first run
+of this test:
+
+21. Before the reader selects a layer, a nested map shows its first layer System context
+    with the name Neighbours, as in the study: after the double-click and after a load
+    with #Gateway, the shown layer is "system", the selected tab is Neighbours, and the
+    question is "Which neighbours connect to Gateway?". The top map of the fixture, which
+    has no System context, shows All before the dive and after Esc.
 """
 
 from __future__ import annotations
@@ -293,6 +302,15 @@ def test_a_nested_map_opens_and_closes(nested_run: dict[str, Any]) -> None:
     assert out["out"]["chain"] == []
     assert out["hashed"]["chain"] == ["Gateway"]
     assert out["back"] == []
+
+
+def test_a_nested_map_opens_with_its_neighbours(nested_run: dict[str, Any]) -> None:
+    """Acceptance 21."""
+    for view in (nested_run["inside"]["view"], nested_run["hashed"]["view"]):
+        assert view["shown"] == "system"
+        assert [t["id"] for t in view["tabs"] if t["on"]] == ["system"]
+        assert view["question"] == "Which neighbours connect to Gateway?"
+    assert nested_run["out"]["view"]["shown"] == "all"
 
 
 def test_axe_finds_no_serious_violation(

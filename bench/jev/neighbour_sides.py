@@ -34,8 +34,27 @@ all of them hold:
 The fixtures are small. The draft map Page is the only input of the size of a real
 nested map. A result on these inputs does not show the effect on all nested maps.
 
+N2: the form of the study, added on 2026-11-19 after a review of N1. The `sides` layout
+of N1 is the form BOX of `place_sides`: the actor container is a box with the room for its
+label above the actors, CONTAINER_PAD inside its edge, and 48 units from the frame to an
+actor. The study (docs/design/atlas/tools/sides.py.txt) has no actor box: the frame and
+the actors start 28 units from the edge of the map, and an actor is 70 units from the
+frame. N1 thus did not measure the form of the study. With `--form study`, the `sides`
+layout is the form STUDY of `place_sides`: no room for a label, 28 units from the edge of
+the map to the cards, and 70 units from the frame to an actor. The choice of the sides,
+the move on a full side and the spread along a side are the rules of `place_sides`, not
+the slightly different rules of the study script.
+
+Acceptance values of N2, written before the first run of N2: the five values of N1, with
+no change, so that N2 and N1 have the same test. Known before the run: acceptance 4 can
+not pass on an input where the column is already at the nearest side of the parts,
+because an actor at that side with a gap of 44 or more has a reach that is equal to or
+more than the reach of the column. The review of N1 found this. N2 does not change
+acceptance 4 for this reason. A different acceptance 4 is a decision for the maintainer.
+
 Run from the repository root:
-    uv run python bench/jev/neighbour_sides.py
+    uv run python bench/jev/neighbour_sides.py               (N1, the form BOX)
+    uv run python bench/jev/neighbour_sides.py --form study  (N2, the form STUDY)
 """
 
 from __future__ import annotations
@@ -103,7 +122,7 @@ def _reach(model: Model) -> float | None:
     return sum(out) / len(out) if out else None
 
 
-def measure(model: Model, nested: bool) -> dict[str, Any]:
+def measure(model: Model, nested: bool | str) -> dict[str, Any]:
     """Give the values of one fresh layout."""
     placement = place.compute(model, all_cards=True, nested=nested)
     laid = place.apply(model, placement)
@@ -157,10 +176,14 @@ def _verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[str]:
     ]
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
+    form = argv[1] if argv[:1] == ["--form"] and len(argv) == 2 else "box"
+    if form not in ("box", "study") or (argv and argv[:1] != ["--form"]):
+        print("Usage: neighbour_sides.py [--form box|study]", file=sys.stderr)
+        return 2
     results: dict[str, dict[str, dict[str, Any]]] = {}
     for name, model in inputs().items():
-        results[name] = {"column": measure(model, False), "sides": measure(model, True)}
+        results[name] = {"column": measure(model, False), "sides": measure(model, form)}
     print(
         "| input | layout | canvas | area | zoom | collisions | refused | bends | length | reach |"
     )
@@ -179,4 +202,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

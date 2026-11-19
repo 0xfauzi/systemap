@@ -209,14 +209,15 @@ def _references(model: Model) -> None:
 
 
 def compute(
-    model: Model, all_cards: bool = False, keep_order: bool = False, nested: bool = False
+    model: Model, all_cards: bool = False, keep_order: bool = False, nested: bool | str = False
 ) -> Placement:
     """This function calculates a fresh layout if no position stays the same. otherwise, it
     fills free slots.
 
     The all_cards option keeps only positioned components with pinned=True. The default
     keeps all existing component positions. With nested, a fresh layout puts the actors
-    of a nested map at the sides of its frame (`place_sides`).
+    of a nested map at the sides of its frame (`place_sides`): True or "box" gives the
+    labelled actor box of stage 7, and "study" gives the form of the design study.
     """
     keep = kept_by(model, all_cards)
     if len(keep) == len(model.components):

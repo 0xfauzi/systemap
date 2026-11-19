@@ -12,8 +12,10 @@ and the rules of `page._rules`). This module adds no facts.
 - `ir`: the import rules in model order, if any. Each has `id`, `k` (the kind), `s` and
   `t` (the source and the destination components, if any), `iv` (the number of the
   invariant that the rule examines, if any) and `as`.
-- `md`: the modules of the cards of the map, in the order of the cards and their claims,
-  if any. Each module has `i` (the module ID), `f` (the file), `im` (the imports), `ib`
+- `md`: the modules of the cards of the map, if any. The modules with the most
+  references in `im`, `ib` and `mo` go first, so that their indexes are short. With equal
+  counts, the order of the cards and their claims stays. Each module has `i` (the module
+  ID), `f` (the file), `im` (the imports), `ib`
   (the modules that import it), `ex` (the external imports) and `uk` (the facts that the
   extractor could not read). An import is the index of a module in `md`, or the module ID
   when that module is not in `md`. `n` gives two counts: the public names, and the tests
@@ -129,17 +131,11 @@ def _importers(
     return {"ib": [index.get(x, x) for x in mod["imported_by"]], "ia": 1}
 
 
-def _modules(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Give the table of the modules (`md`, and `fr` for the file rule) and the source
-    records of each card."""
-    index: dict[str, int] = {}
-    table: list[dict[str, Any]] = []
-    for record in sources.values():
-        for mod in record["modules"]:
-            if mod["id"] not in index:
-                index[mod["id"]] = len(table)
-                table.append(mod)
-    rule = _file_rule(table)
+def _encode(
+    sources: dict[str, Any], table: list[dict[str, Any]], rule: tuple[str, str] | None
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Give `md` and `sr` for the modules of `table`, in the order of `table`."""
+    index = {mod["id"]: j for j, mod in enumerate(table)}
     md = [
         {
             "i": mod["id"],
@@ -165,6 +161,38 @@ def _modules(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
             )
         )
     }
+    return md, sr
+
+
+def _references(md: list[dict[str, Any]], sr: dict[str, Any]) -> Counter[int]:
+    """Give the count of the references to each index of `md` in `im`, `ib` and `mo`."""
+    found: Counter[int] = Counter()
+    lists = [
+        *(x.get("im", []) + x.get("ib", []) for x in md),
+        *(r.get("mo", []) for r in sr.values()),
+    ]
+    for refs in lists:
+        found.update(j for j in refs if isinstance(j, int))
+    return found
+
+
+def _modules(sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Give the table of the modules (`md`, and `fr` for the file rule) and the source
+    records of each card.
+
+    The table first has the order of the cards and their claims. Then the modules with
+    the most references go first, so that the most frequent indexes are short. With
+    equal counts, the first order stays.
+    """
+    seen: dict[str, dict[str, Any]] = {}
+    for record in sources.values():
+        for mod in record["modules"]:
+            seen.setdefault(mod["id"], mod)
+    first = list(seen.values())
+    rule = _file_rule(first)
+    found = _references(*_encode(sources, first, rule))
+    table = [first[j] for j in sorted(range(len(first)), key=lambda j: (-found[j], j))]
+    md, sr = _encode(sources, table, rule)
     return _some(md=md, fr=list(rule) if rule else None), sr
 
 

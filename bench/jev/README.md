@@ -7585,6 +7585,8 @@ Four runs, all on 2026-11-19, with the same acceptance values:
 
 In runs 1 and 2, the frame moved to make room for the left column and the top row, but the positions of the actors along the sides were calculated from the frame before the move. Thus the actors were not near their parts. The code now moves the wanted centres with the frame.
 
+Runs 1 and 2 can not be run again. Their code had the error and is not in the repository, and their output was not kept. Their values are only the values that the agent wrote at the time. Runs 3 and 4 can be run again: a review got the output of run 3 again byte for byte, and the values of run 4 again with SIDE_GAP 70 (71 / 82 bends, 16,063 length).
+
 Run 3, the values of the draft map Page and the inputs that failed (reach is the mean distance from an actor to the mean centre of its parts, in map units):
 
 | Input | Layout | Canvas | Zoom | Bends | Length | Reach |
@@ -7605,6 +7607,36 @@ No input has a refused route or a label collision in either layout, and no sides
 Result: FAIL. Acceptance 4 fails on 5 of the 14 inputs: when the column is already at the side of the nearest parts, the sides layout puts the actor at the same side, 4 map units farther (SIDE_GAP 48 against the 44 units of the column layout). Acceptance 5 fails on 4 inputs: in a map of two or three parts, an actor at the bottom or at the top makes the map taller, and the zoom of the fit is 65 to 71 percent of the column layout. On the draft map Page, the only input of the size of a real nested map, the sides layout is better in each value: the zoom is 1.42 times larger, the paths are 25 percent shorter and have 5 bends less, and the actors are 46 percent nearer to their parts.
 
 Decision: the rule is not kept in the commands. `systemap place`, `systemap describe` and `systemap parts --stub` keep the column layout. The rule stays in `place_sides.py` and `place.compute(model, nested=True)`, so that this script can run again. A change of the rule, or of the acceptance values, is a decision for the maintainer, and it needs a new measurement.
+
+Two facts that a review of N1 found, for the decision of the maintainer:
+
+- The rule of N1 is not the form of the study. The study script (`docs/design/atlas/tools/sides.py.txt`) has no actor box: it keeps only the frame, and the actors are directly around it. The rule of N1 (the form BOX of `place_sides`) keeps the actor container as a box around the frame and the actors, with the room for its label above them (`container_top`) and CONTAINER_PAD inside its edge. Thus each frame moves down by the room of the label, and each map of N1 is taller than the same map in the form of the study. For example, on levels p0_q0_deep the only actor stays at the left, but the canvas grows from 476 x 308 to 500 x 380, and the zoom goes down to 81 percent. This added height makes the zoom of acceptance 5 lower on each input. N2 below measures the form of the study.
+- Acceptance 4 can not pass on an input where the column is already at the nearest side of the parts. Run 5 below shows this.
+
+Run 5, 2026-11-19, after the review: the form BOX with SIDE_GAP 44, the gap of the column layout. The acceptance values did not change. 1 PASS, 2 PASS (71 / 82), 3 PASS (14,815 / 18,810), 4 FAIL, 5 FAIL. The reach is equal (234 against 234) on nested Gateway and on the four levels inputs `*_deep`: the actor is at the same place relative to its parts as in the column. Thus acceptance 4 fails because it asks for a reach that is strictly less on each input. This failure comes from the words of acceptance 4, not from an error in the rule. The output of run 5 was not kept in a file. To get it again, set `place_sides.FORMS["box"]` to the form BOX with `gap=44` and run the script.
+
+## N2: the form of the study for the neighbours of a nested map (2026-11-19)
+
+Script: `bench/jev/neighbour_sides.py --form study`. The acceptance values are the five values of N1, with no change. The docstring gives them and the form, written before the run. The form STUDY of `place_sides` has no room for the label of the actor container, 28 units from the edge of the map to the cards, and 70 units from the frame to an actor, as the study script has. The choice of the sides, the move on a full side and the spread along a side are the rules of `place_sides`. The full output is in `bench/jev/neighbour_sides_N2.txt`.
+
+| Input | Layout | Canvas | Zoom | Bends | Length | Reach |
+|---|---|---|---|---|---|---|
+| draft Page | column | 904 x 1142 | 0.692 | 62 | 15,628 | 677 |
+| draft Page | study | 1154 x 800 | 0.988 | 57 | 12,243 | 385 |
+| nested Style | column | 476 x 308 | 2.565 | 2 | 206 | 235 |
+| nested Style | study | 506 x 446 | 1.771 | 0 | 256 | 209 |
+| levels p0 | column | 476 x 400 | 1.975 | 4 | 448 | 234 |
+| levels p0 | study | 286 x 538 | 1.468 | 4 | 554 | 202 |
+| nested Gateway | column | 476 x 400 | 1.975 | 2 | 376 | 234 |
+| nested Gateway | study | 506 x 424 | 1.863 | 2 | 428 | 260 |
+| levels p0_q0_deep | column | 476 x 308 | 2.565 | 0 | 120 | 234 |
+| levels p0_q0_deep | study | 506 x 332 | 2.380 | 0 | 146 | 260 |
+
+1 PASS. 2 PASS (71 / 82 bends). 3 PASS (16,063 / 18,810 length). 4 FAIL. 5 FAIL. No input has a refused route or a label collision, and no layout of the form of the study has a layout problem.
+
+Result: FAIL. Without the room for the label, the small maps are less tall than in N1: levels p0_q0_deep is 506 x 332 (N1: 500 x 380), with 93 percent of the zoom of the column. But acceptance 5 still fails on 4 inputs (nested Style and join Gateway 69 percent, levels p0 and p1 74 percent): an actor at the top or the bottom adds a row to a map of two or three parts. Acceptance 4 fails on 9 inputs, because an actor 70 units from the frame is farther from its parts than the column at 44 units, when the column is already at the nearest side. On the draft map Page the form of the study is better than the column in each value, as in N1.
+
+Decision: the rule is not kept. The commands keep the column layout. Thus the product page does not meet the rule "Neighbours of a nested map" of docs/design/atlas.md: the neighbours of a nested map are in one column at the left of the frame. A decision of the maintainer is necessary: keep the column, use the rule only for a map of the size of Page, or accept different acceptance values for a new measurement.
 
 ## B17: the performance budget of the atlas page, stage 7 (2026-11-19)
 

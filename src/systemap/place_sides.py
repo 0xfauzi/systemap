@@ -15,16 +15,20 @@ column at the left of the frame. This rule moves each actor to a side of the fra
   together have less room than the actors need, the column layout stays.
 - Along its side, each actor is near the position of its centre. Two actors on one side
   have ACTOR_GAP or more between them, and all of them stay along the frame.
-- The frame is SIDE_GAP from each actor. The actor container becomes a box around the
-  frame and the actors, so that each actor stays in its container.
+- The actor container becomes a box around the frame and the actors, so that each actor
+  stays in its container. The form (`Form`) gives the space between the frame and an
+  actor, the space inside the edge of that box, and whether the box keeps the room for
+  its label above the actors. BOX keeps that room. STUDY does not, as the design study
+  (docs/design/atlas/tools/sides.py.txt), where the actors have no box.
 
 A map that does not have this shape keeps the column layout.
 
-The commands do not use this rule. `place.compute(model, nested=True)` uses it, and only
-the measurement N1 (`bench/jev/neighbour_sides.py`) calls it with nested=True. N1 failed
-two of its five acceptance values on the nested maps of the test fixtures (the mean
-distance to the parts and the zoom of the fit), thus `systemap place` keeps the column
-layout. The record in `bench/jev/README.md` gives the values.
+The commands do not use this rule. `place.compute(model, nested=True)` (the form BOX) and
+`place.compute(model, nested="study")` use it, and only the measurements N1 and N2
+(`bench/jev/neighbour_sides.py`) call them. N1 (BOX) and N2 (STUDY) failed two of their
+five acceptance values on the nested maps of the test fixtures (the mean distance to the
+parts and the zoom of the fit), thus `systemap place` keeps the column layout. The records
+in `bench/jev/README.md` give the values.
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ from systemap.place_layout import CANVAS_MARGIN, CONTAINER_PAD, Placement, conta
 from systemap.place_layout import container_width as _container_width
 
 SIDES = ("left", "right", "top", "bottom")
-# The space between the frame and an actor, and between two actors on one side.
+# The space between the frame and an actor in the form BOX, and between two actors on one side.
 SIDE_GAP = 48
 ACTOR_GAP = 26
 ACTOR_H = CARD_H["actor"]
@@ -210,6 +214,27 @@ def _shift(box: Box, dx: int, dy: int) -> tuple[int, int, int, int]:
 
 
 @dataclass(frozen=True)
+class Form:
+    """This record gives the form of the rule: the space between the frame and an actor,
+    the space from the edge of the actor container to the actors, and whether the actor
+    container keeps the room for its label above the actors.
+    """
+
+    gap: int
+    pad: int
+    labelled: bool
+
+
+# BOX is the form of stage 7: the actor container is a labelled box around the frame and
+# the actors. STUDY is the form of docs/design/atlas/tools/sides.py.txt: no room for a
+# label, 70 units from the frame to an actor, and 28 units from the edge of the map to
+# the cards (CANVAS_MARGIN and 12).
+BOX = Form(gap=SIDE_GAP, pad=CONTAINER_PAD, labelled=True)
+STUDY = Form(gap=70, pad=28 - CANVAS_MARGIN, labelled=False)
+FORMS = {"box": BOX, "study": STUDY}
+
+
+@dataclass(frozen=True)
 class _Frame:
     """This record gives the new place of the frame and the lines of the four sides."""
 
@@ -219,33 +244,36 @@ class _Frame:
     h: int
     left: int
     top: int
+    gap: int
 
     def seat(self, side: str, v: int) -> tuple[int, int]:
         """Give the top left corner of an actor at position v along a side."""
         if side == "left":
             return (self.left, v)
         if side == "right":
-            return (self.x + self.w + SIDE_GAP, v)
+            return (self.x + self.w + self.gap, v)
         if side == "top":
             return (v, self.top)
-        return (v, self.y + self.h + SIDE_GAP)
+        return (v, self.y + self.h + self.gap)
 
 
-def _frame(ring: Container, frame: Box, sides: dict[str, list[str]]) -> tuple[_Frame, int]:
+def _frame(
+    ring: Container, frame: Box, sides: dict[str, list[str]], form: Form
+) -> tuple[_Frame, int]:
     """Give the new place of the frame inside the actor container, and the smallest width
-    of that container for its label.
+    of that container (for its label in the labelled form).
     """
     _x0, _y0, w, h = frame
-    left = CANVAS_MARGIN + CONTAINER_PAD
-    inner_w = int(w) + sum(CARD_W + SIDE_GAP for s in ("left", "right") if sides[s])
-    ring_w = _container_width(ring.label, ring.sub, inner_w)
-    top = CANVAS_MARGIN + container_top(ring.sub, ring_w)
-    fx = left + (CARD_W + SIDE_GAP if sides["left"] else 0)
-    fy = top + (ACTOR_H + SIDE_GAP if sides["top"] else 0)
-    return _Frame(fx, fy, int(w), int(h), left, top), ring_w
+    left = CANVAS_MARGIN + form.pad
+    inner_w = int(w) + sum(CARD_W + form.gap for s in ("left", "right") if sides[s])
+    ring_w = _container_width(ring.label, ring.sub, inner_w) if form.labelled else 0
+    top = CANVAS_MARGIN + (container_top(ring.sub, ring_w) if form.labelled else form.pad)
+    fx = left + (CARD_W + form.gap if sides["left"] else 0)
+    fy = top + (ACTOR_H + form.gap if sides["top"] else 0)
+    return _Frame(fx, fy, int(w), int(h), left, top, form.gap), ring_w
 
 
-def around(model: Model, laid: Placement) -> Placement:
+def around(model: Model, laid: Placement, form: Form = BOX) -> Placement:
     """Move the actors of a nested map to the sides of its frame. Give the placement
     unchanged when the map does not have that shape or the sides have too little room.
     """
@@ -260,7 +288,7 @@ def around(model: Model, laid: Placement) -> Placement:
     if sides is None:
         return laid
     ring = next(b for b in model.containers if b.id == ring_id)
-    f, ring_w = _frame(ring, frame, sides)
+    f, ring_w = _frame(ring, frame, sides, form)
     dx, dy = int(f.x - frame[0]), int(f.y - frame[1])
     pos = {cid: (x + dx, y + dy) for cid, (x, y) in laid.positions.items()}
     moved: Box = (f.x, f.y, f.w, f.h)
@@ -268,8 +296,8 @@ def around(model: Model, laid: Placement) -> Placement:
     for side in SIDES:
         for cid, v in _along(side, sides[side], shifted_wants, moved).items():
             pos[cid] = f.seat(side, int(round(v)))
-    right = max([f.x + f.w] + [pos[a][0] + CARD_W for a in actors]) + CONTAINER_PAD
-    bottom = max([f.y + f.h] + [pos[a][1] + ACTOR_H for a in actors]) + CONTAINER_PAD
+    right = max([f.x + f.w] + [pos[a][0] + CARD_W for a in actors]) + form.pad
+    bottom = max([f.y + f.h] + [pos[a][1] + ACTOR_H for a in actors]) + form.pad
     ring_box = (
         CANVAS_MARGIN,
         CANVAS_MARGIN,

@@ -136,7 +136,15 @@ The frame time after this pass has only the runs of `tests/test_canvas_frames.py
   by more than 0.25 between two recorded frames in 2 of 3 runs of
   `tests/test_canvas_details_browser.py`. With the delay, it passed in 4 of 4 runs.
 - The limit of the size test of the panel is 44,000 bytes (before: 41,000).
-  On 2026-11-19 this sum failed because the map of this repository had more modules (241, before: 218), with no change to the panel. The test now has two limits: the code of the panel 25,000 bytes or less (24,689 at c28ebd5), and the data 85 bytes or less for each module record (84.5 at c28ebd5).
+  On 2026-11-19 this sum was 44,134 bytes (24,573 of code and 19,561 of data, with 241 module
+  records), and the test failed. Before stage 7 of the atlas page it was 43,947 bytes with
+  238 records. The three modules that stage 7 added to the placer (`place_layout`,
+  `place_order`, `place_sides`) made the sum go over the limit. The limit did not change.
+  The table of modules (`canvas_details._modules`) now gives the short indexes to the
+  modules with the most references, and the sum is 43,491 bytes. The list "Imported by" in
+  the panel has the order of the table, thus that order changed. The data grows with
+  each module of this repository. Thus a new module can make the test fail again with no
+  change to the panel. A different form of the limit is a decision for the maintainer.
 
 Not done: the list of rules, the source records, the panel of a flow and the panel of a map
 have the new type and spacing, but their structure did not change.

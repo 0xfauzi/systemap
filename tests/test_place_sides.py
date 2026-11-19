@@ -17,17 +17,39 @@ Acceptance values, written before the tests:
 6. When a side has more actors than room, one actor goes to a different side. When the
    four sides have too little room, the result is None.
 7. A new actor in a map with the actors at the sides does not go into the frame.
+
+Acceptance values 8 to 12, written on 2026-11-19 for the repair of stage 7, before these
+tests ran:
+
+8. On a full side, the actor that moves is the actor with the smallest added distance,
+   and it goes to its nearest side with free room. When that side is full, it goes to the
+   next nearest side with free room.
+9. Along its side, the centre of each actor of the nested fixtures is the mean centre of
+   the parts that it has flows with, within 1 unit, when that centre is along the frame.
+10. An actor goes to the top side or the right side when that side is the nearest to the
+    mean centre of its parts, and `seat` puts it SIDE_GAP above or at the right of the frame.
+11. The fill of free slots of `place` with the boxes of the other containers
+    (`place._covered`) gives the same positions as the fill without them, on maps with the
+    column layout: the nested fixtures, the top map of the fixture, and the map of this
+    repository, each with one card that has no position.
+12. With nested="study", each actor is 70 units from one side of the frame, the layout has
+    no layout problems, and the frame is higher than with the form BOX, because the actor
+    container keeps no room for its label.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
+import pytest
 import test_nested
 
-from systemap import place, place_sides
+from systemap import config, nest, place, place_sides
 from systemap.model import CARD_W, Container, Model
+
+REPO = Path(__file__).resolve().parent.parent
 
 
 def model_of(source: str) -> Model:
@@ -49,10 +71,13 @@ def _frame(model: Model) -> tuple[int, int, int, int]:
     return next(b.box for b in model.containers if b.id == found[0])
 
 
-def _side(box: tuple[int, int, int, int], frame: tuple[int, int, int, int]) -> str:
+def _side(
+    box: tuple[int, int, int, int],
+    frame: tuple[int, int, int, int],
+    gap: int = place_sides.SIDE_GAP,
+) -> str:
     x, y, w, h = box
     fx, fy, fw, fh = frame
-    gap = place_sides.SIDE_GAP
     sides = {
         "left": x + w + gap == fx,
         "right": x == fx + fw + gap,
@@ -142,3 +167,114 @@ def test_a_new_actor_does_not_go_into_the_frame() -> None:
     x, y, w, h = placed.component("Extra").box
     fx, fy, fw, fh = frame
     assert x + w <= fx or x >= fx + fw or y + h <= fy or y >= fy + fh
+
+
+def test_the_actor_with_the_smallest_added_distance_moves() -> None:
+    """Acceptance 8. The left side of a frame 140 high has room for two actors, and the
+    top and the bottom have room for three. A, B and C are nearest to the left. C is as
+    near to the bottom as to the left, B is 20 units farther from the top, and A is 65
+    units farther from the top and the bottom."""
+    frame = (300, 300, 600, 140)
+    wanted: dict[str, tuple[float, float] | None] = {
+        "A": (305.0, 370.0),
+        "B": (310.0, 330.0),
+        "C": (320.0, 420.0),
+    }
+    sides = place_sides.assign_sides(["A", "B", "C"], wanted, frame)
+    assert sides == {"left": ["A", "B"], "right": [], "top": [], "bottom": ["C"]}
+    # With the bottom full, C would add 100 units at the top, and B adds 20: B moves.
+    low = {k: (x, 438.0) for k, x in (("D", 400.0), ("E", 600.0), ("F", 800.0))}
+    wanted.update(low)
+    sides = place_sides.assign_sides([*wanted], wanted, frame)
+    assert sides == {"left": ["A", "C"], "right": [], "top": ["B"], "bottom": ["D", "E", "F"]}
+
+
+def _centre(box: tuple[int, int, int, int]) -> tuple[float, float]:
+    return (box[0] + box[2] / 2, box[1] + box[3] / 2)
+
+
+def test_an_actor_is_near_the_mean_centre_of_its_parts() -> None:
+    """Acceptance 9."""
+    checked = 0
+    for source in (test_nested.GATEWAY, test_nested.STYLE):
+        laid = _laid(model_of(source), nested=True)
+        fx, fy, fw, fh = _frame(laid)
+        actors = [c.id for c in laid.components if c.kind == "actor"]
+        centre = {c.id: _centre(c.box) for c in laid.components}
+        wanted = place_sides._wanted(laid, actors, centre)
+        for a in actors:
+            want = wanted[a]
+            assert want is not None
+            vertical = _side(laid.component(a).box, (fx, fy, fw, fh)) in ("left", "right")
+            axis, lo, hi = (1, fy, fy + fh) if vertical else (0, fx, fx + fw)
+            if lo <= want[axis] <= hi:
+                assert abs(centre[a][axis] - want[axis]) <= 1, (a, centre[a], want)
+                checked += 1
+    assert checked >= 4
+
+
+def test_an_actor_goes_to_the_top_or_the_right() -> None:
+    """Acceptance 10."""
+    frame = (300, 300, 600, 400)
+    wanted: dict[str, tuple[float, float] | None] = {"T": (600.0, 310.0), "R": (880.0, 500.0)}
+    sides = place_sides.assign_sides(["T", "R"], wanted, frame)
+    assert sides == {"left": [], "right": ["R"], "top": ["T"], "bottom": []}
+    gap = place_sides.SIDE_GAP
+    f = place_sides._Frame(x=300, y=300, w=600, h=400, left=16, top=16, gap=gap)
+    assert f.seat("right", 480) == (300 + 600 + gap, 480)
+    assert f.seat("top", 525) == (525, 16)
+    assert f.seat("bottom", 525) == (525, 300 + 400 + gap)
+
+
+def _column_maps() -> list[Model]:
+    out = [
+        place.apply(m, place.compute(m, all_cards=True))
+        for m in map(model_of, (test_nested.GATEWAY, test_nested.STYLE, test_nested.TOP))
+    ]
+    return [*out, nest.load(config.load(REPO)).top.model]
+
+
+def _fill(model: Model) -> place.Placement | str:
+    """Give the placement of the fill, or the error when the boxes have no free slot."""
+    try:
+        return place.compute(model)
+    except place.PlaceError as err:
+        return str(err)
+
+
+@pytest.mark.parametrize("k", range(4))
+def test_the_cover_term_keeps_the_column_fill(k: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Acceptance 11. Each map loses the position of its last actor and of its last part.
+    The fill with `_covered` and the fill without it give the same placement, or the same
+    error when the box has no free slot."""
+    model = _column_maps()[k]
+    placed = 0
+    for kind_is_actor in (True, False):
+        card = [c for c in model.components if (c.kind == "actor") == kind_is_actor][-1]
+        free = replace(card, x=None, y=None)
+        lost = replace(
+            model, components=tuple(free if c.id == card.id else c for c in model.components)
+        )
+        with_cover = _fill(lost)
+        monkeypatch.setattr(place, "_covered", lambda _m, _h: [])
+        without = _fill(lost)
+        monkeypatch.undo()
+        assert with_cover == without
+        if not isinstance(with_cover, str):
+            assert place.apply(lost, with_cover).layout_problems() == []
+            placed += 1
+    assert placed >= 1
+
+
+def test_the_study_form_has_no_room_for_the_label() -> None:
+    """Acceptance 12."""
+    for source in (test_nested.GATEWAY, test_nested.STYLE):
+        model = model_of(source)
+        study = place.apply(model, place.compute(model, all_cards=True, nested="study"))
+        box = _laid(model, nested=True)
+        assert study.layout_problems() == []
+        frame = _frame(study)
+        for c in study.components:
+            if c.kind == "actor":
+                _side(c.box, frame, place_sides.STUDY.gap)
+        assert frame[1] < _frame(box)[1]
