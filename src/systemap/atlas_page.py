@@ -78,14 +78,39 @@ HELP = (
 _SCRIPT = page.compact(SCRIPT)
 
 
-def _has_flow(m: Mapping[str, Any]) -> bool:
-    """True when the map data `m` has a flow between two different cards of the map. Then
-    the Focus view has a card to show (`atlas_focus`)."""
-    ids = {c.get("id") for c in m.get("cards", [])}
+def _has_flow(m: Mapping[str, Any], neighbours: frozenset[str] = frozenset()) -> bool:
+    """True when the map data `m` has a flow between two different parts of the map. A part
+    is a card that is not in `neighbours`. Then the Focus view has a card to show
+    (`atlas_focus`)."""
+    ids = {c.get("id") for c in m.get("cards", [])} - neighbours
     return any(
         f.get("s") != f.get("t") and f.get("s") in ids and f.get("t") in ids
         for f in m.get("flows", [])
     )
+
+
+def _neighbours(maps: list[Mapping[str, Any]]) -> list[frozenset[str]]:
+    """The neighbours of each map of the page data: the actors of a nested map that are cards
+    of the map above (`upCard` in `atlas_lit`)."""
+    above: dict[int, Mapping[str, Any]] = {}
+    for m in maps:
+        for c in m.get("cards", []):
+            if isinstance(c.get("o"), int):
+                above.setdefault(c["o"], m)
+    out = []
+    for i, m in enumerate(maps):
+        up = {c.get("id") for c in above[i].get("cards", [])} if i in above else set()
+        out.append(
+            frozenset(
+                c["id"] for c in m.get("cards", []) if c.get("k") == "actor" and c.get("id") in up
+            )
+        )
+    return out
+
+
+def _has_focus(maps: list[Mapping[str, Any]]) -> bool:
+    """True when a map of the page data has the Focus view (`_has_flow`)."""
+    return any(_has_flow(m, n) for m, n in zip(maps, _neighbours(maps), strict=True))
 
 
 def pages(
@@ -124,7 +149,7 @@ def build(t: dict[str, Any], data: Mapping[str, Any]) -> str:
             name,
             any(m.get("sq") for m in data.get("maps", [])),
             any(m.get("sm") for m in data.get("maps", [])),
-            any(_has_flow(m) for m in data.get("maps", [])),
+            _has_focus(data.get("maps", [])),
         )
         + "<main>"
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '

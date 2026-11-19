@@ -13,7 +13,8 @@ outline (`quietOf`). Its change fades in VIEW_MS. With reduced motion, no value 
 
 The headline is type on the ground: the path of the current map, the name of the layer,
 the question of the layer and the counts. In a nested map, each part of the path is a
-button that goes to that map, and the layer System context has the name Neighbours. The
+button that goes to that map (in the Focus view, only a map with that view: `fcPathGo`),
+and the layer System context has the name Neighbours. The
 tabs give the layers of the current map that have flows, Structure, and All, each with its
 count of flows. The arrow keys, Home and End move the keyboard focus between the tabs.
 The key at the bottom right gives the kinds of the lines of the current map in its layer.
@@ -154,15 +155,17 @@ function countWords(m, id) {
   m.cards.forEach(function (c) { if (lf.used[c.id]) { if (c.k === 'actor') actors++; else comps++; } });
   return (actors ? counted(actors, m.owner ? 'neighbour' : 'actor') + ' · ' : '') + counted(comps, m.owner ? 'part' : 'component') + ' · ' + counted(lf.n, 'flow');
 }
-function pathButtons(m) {
+// The path of map m in the headline. Each part above m is a button that goes to that map.
+// `go` (optional) gives the action of the button for a map, or null: then the part is text.
+function pathButtons(m, go) {
   var chain = [];
   for (var x = m; x; x = x.owner ? x.owner.map : null) chain.unshift(x);
   var out = [];
   chain.forEach(function (x, i) {
     var name = x.owner ? x.owner.id : (DATA.name || 'map');
     if (i === chain.length - 1) { out.push(el('b', null, name)); return; }
-    var b = el('button', {type: 'button', title: 'Go to this map'}, name);
-    b.addEventListener('click', function () { flyTo(frameOf(x), FIT); });
+    var act = go ? go(x) : function () { flyTo(frameOf(x), FIT); }, b;
+    if (act) { b = el('button', {type: 'button', title: 'Go to this map'}, name); b.addEventListener('click', act); } else b = el('span', null, name);
     out.push(b, el('span', {'aria-hidden': 'true'}, '/'));
   });
   return out;
@@ -219,7 +222,7 @@ function headSync(soft) {
   writeTabs(m, id); writeKey(m, id);
   function words() {
     var h = seq ? seqHead() : sm ? smHead() : fc ? fcHead() : {k: layerName(m, id), q: layerQuestion(m, id), n: countWords(m, id)};
-    ASK_K.replaceChildren.apply(ASK_K, (m.owner ? pathButtons(m).concat([el('span', {'aria-hidden': 'true'}, '·')]) : []).concat([el('span', null, h.k)]));
+    ASK_K.replaceChildren.apply(ASK_K, (m.owner ? pathButtons(m, fc ? fcPathGo : null).concat([el('span', {'aria-hidden': 'true'}, '·')]) : []).concat([el('span', null, h.k)]));
     ASK_Q.textContent = h.q;
     ASK_N.textContent = h.n;
     ASK.classList.remove('swap');

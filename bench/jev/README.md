@@ -7514,3 +7514,17 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 Result: PASS for each value. The atlas pages grew by about 20,000 bytes against B11, mostly from the script of the Focus view.
 
 The axe-core test of the Focus view (`test_axe_finds_no_violation` in `tests/test_atlas_focus_browser.py`) ran on this host with axe-core on NODE_PATH: no violation at 1440 x 900 and at 390 x 844, in the light and the dark scheme, with the keyboard focus on the middle card.
+
+Note added on 2026-11-19 after a review: the canvas page sizes in this table do not agree with the commit of stage 5. The run was before the last change of the shared keyboard sheet CSS (`page_motion.KEYS_CSS`), which removed one comment line. At that commit, `write_pages` of `bench/jev/atlas_budget.py` gives 317,113 bytes (self), 268,782 bytes (workspace) and 1,236,234 bytes (M11 tree) for the canvas page, 82 bytes less for each. The atlas sizes agree. The ratios do not change. B13 has a new run.
+
+## B13: the performance budget of the atlas page, stage 5 repair (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 5 page after the repair of the review: the Focus view of a nested map uses only its parts, a part of the path is a button only for a map with the Focus view, the list moves its current button into view, the board ends above the reading line, and the button of the details gives the keyboard focus to the middle card. The model of this repository has one more sentence in the claim of Page, so the self pages are larger. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 300 / 254 (pass) | 16.8 / 16.7 (pass) | 33.4 / 33.3 (pass) | 317,224 / 303,842 = 0.96 (pass) | 64 (pass) |
+| workspace | 291 / 262 (pass) | 16.7 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,782 / 249,074 = 0.93 (pass) | 59 (pass) |
+| M11 tree | 416 / 387 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,236,234 / 1,213,107 = 0.98 (pass) | 58 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 1,950 bytes against B12, from the script of the repair. An earlier run of the same state ran at the same time as a test run on the host. Its values also passed, but they are not a record, because the host was not free.

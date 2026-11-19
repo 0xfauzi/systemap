@@ -4,8 +4,17 @@
 rules are the section "The other views: the rules" of docs/design/atlas.md, and the study
 (docs/design/atlas/study-script.html, `drawFocus`, `reach` and `rail`):
 
-- The view shows only when a map of the tree has a flow between two of its cards. Then the
+- The view shows only when a map of the tree has a flow between two of its parts. Then the
   header has the button Focus (`atlas_header`).
+- The parts of a map are its cards, but not the neighbours of a nested map (`upCard` in
+  `atlas_lit`). A neighbour is a card of the map above. The view of a nested map uses only
+  the parts and the flows between two parts: the list, the board, the counts and the
+  reach. It does not follow the flows of the map above. Thus a nested map with flows only
+  to its neighbours has no Focus view, and the button Focus then shows the map above. The
+  counts of a nested map count parts, for example "a change here can reach 1 of 1 part".
+- The headline of a nested map gives the path. A part of the path is a button only when
+  that map has the Focus view: the button focuses on the card of that map with the most
+  flows. Each other part of the path is text.
 - One card is in the middle of the board. The cards that give to it are at its left, and
   the cards that it gives to are at its right, two steps deep: one column for each step.
   A card at two steps has no fill. A line connects two cards in adjacent columns for each
@@ -25,13 +34,19 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   headline. The current card has aria-current "true".
 - Selecting a card of the board or of the list focuses on it. The view opens on the card
   with the most flows, or on the card of the details: the details of a card with a flow
-  have the button "Focus on this card" (`atlas_details`).
+  have the button "Focus on this card" (`atlas_details`). After that button and after a
+  part of the path, the keyboard focus is on the middle card. The current button of the
+  list moves into view (with no smooth scroll when the motion is reduced).
 - On a screen of 1180 px or less the view shows one step at each side.
 - Pointing at a card or a line, or the keyboard focus on it, lights it and the lines and
   the cards that touch it. The other lines go back. The reading line (`atlas-say`) gives
   the card, its short name and its place, or the two cards of a line with the artifacts
   and the relation sentence of the model. A click or a tap on a line keeps its light. A
   click on the ground, a second click on the same line and Esc remove it.
+- The reading line does not cover the board. On a screen of 720 px or less the board is
+  at the top of its part of the screen. While the reading line gives a kept line or the
+  item of the keyboard focus, the board ends above the reading line and it scrolls
+  (`fcFit`).
 - The keyboard. Each card and each line is a button: Tab goes through the cards and then
   through the lines. The up and down arrow keys go to the card above and below in the same
   column. The left and right arrow keys go to the nearest card in the adjacent column.
@@ -120,11 +135,16 @@ FOCUS = (
     REACH
     + r"""
 // ---- the Focus view ----------------------------------------------------------------------
-// The flows of map m between two different cards of m.
+// True for a part of map m: a card of m that is not a neighbour of a nested map.
+function fcPart(m, id) { var c = m.byId[id]; return !!c && !upCard(c); }
+// The flows of map m between two different parts of m.
 function fcFlows(m) {
-  if (!m._ff) m._ff = m.flows.filter(function (f) { return f.s !== f.t && m.byId[f.s] && m.byId[f.t]; });
+  if (!m._ff) m._ff = m.flows.filter(function (f) { return f.s !== f.t && fcPart(m, f.s) && fcPart(m, f.t); });
   return m._ff;
 }
+// The count of the parts of map m, and the word for a part.
+function fcParts(m) { return m.cards.filter(function (c) { return !upCard(c); }).length; }
+function fcNoun(m) { return m.owner ? 'part' : 'card'; }
 // The count of flows of each card of map m.
 function fcDegree(m) {
   if (m._fd) return m._fd;
@@ -153,17 +173,18 @@ function fcReach(c) {
 }
 function fcCounts(c) {
   var r = fcReach(c);
-  return {from: atSteps(r.up, 1).length, to: atSteps(r.dn, 1).length, reach: Object.keys(r.dn).length, of: c.map.cards.length - 1};
+  return {from: atSteps(r.up, 1).length, to: atSteps(r.dn, 1).length, reach: Object.keys(r.dn).length, of: fcParts(c.map) - 1};
 }
 function fcHead() {
   var c = fcCard(), n = fcCounts(c);
   return {k: 'Focus', q: 'What does ' + c.id + ' use, and what uses ' + c.id + '?',
-    n: 'receives from ' + n.from + ' · gives to ' + n.to + ' · a change here can reach ' + n.reach + ' of ' + counted(n.of, 'card')};
+    n: 'receives from ' + n.from + ' · gives to ' + n.to + ' · a change here can reach ' + n.reach + ' of ' + counted(n.of, fcNoun(c.map))};
 }
 function fcWords() {
   var c = fcCard(), n = fcCounts(c);
-  return 'Focus on ' + c.id + '. It receives from ' + counted(n.from, 'card') + ' and gives to ' + counted(n.to, 'card') +
-    '. A change here can reach ' + n.reach + ' of ' + counted(n.of, 'card') + '. Map: ' + mapName(c.map) + '.';
+  var w = fcNoun(c.map);
+  return 'Focus on ' + c.id + '. It receives from ' + counted(n.from, w) + ' and gives to ' + counted(n.to, w) +
+    '. A change here can reach ' + n.reach + ' of ' + counted(n.of, w) + '. Map: ' + mapName(c.map) + '.';
 }
 
 // ---- the list ----------------------------------------------------------------------------
@@ -182,30 +203,50 @@ function fcRailWrite() {
 function fcRailSync() {
   if (!FRAIL_LIST) return;
   fcRailWrite();
+  var cur = null;
   Array.prototype.forEach.call(FRAIL_LIST.querySelectorAll('button'), function (b) {
-    b.setAttribute('aria-current', b.getAttribute('data-card') === FC.id ? 'true' : 'false');
+    var on = b.getAttribute('data-card') === FC.id;
+    b.setAttribute('aria-current', on ? 'true' : 'false');
+    if (on) cur = b;
+  });
+  if (cur) fcRailShow(cur);
+}
+// Move the button b of the list into view. The list scrolls down on a wide screen, and the
+// row of the list scrolls to the side on a narrow screen.
+function fcRailShow(b) {
+  [FRAIL_LIST, FRAIL].forEach(function (box) {
+    var o = box.getBoundingClientRect(), r = b.getBoundingClientRect(), dx = 0, dy = 0;
+    if (box.scrollHeight > box.clientHeight + 1) dy = r.top < o.top ? r.top - o.top - 8 : r.bottom > o.bottom ? r.bottom - o.bottom + 8 : 0;
+    if (box.scrollWidth > box.clientWidth + 1) dx = r.left < o.left ? r.left - o.left - 8 : r.right > o.right ? r.right - o.right + 8 : 0;
+    if (dx || dy) box.scrollBy({left: dx, top: dy, behavior: reduced() ? 'auto' : 'smooth'});
   });
 }
 // Focus on card `id` of map m. `keyed` gives the keyboard focus to the new middle card.
 function fcChoose(m, id, keyed) {
-  if (!m.byId[id]) return;
+  if (!fcPart(m, id)) return;
   FC.m = m; FC.id = id; FC.hot = null; FC.pin = null;
   fcRailSync(); headSync(true); fcDraw(keyed); fcSay();
   say(fcWords());
 }
 // Show the view (`setMode` in `atlas_sequences`): the card of the details (`fcEnter`), else
 // the card on show in the current map, else the card with the most flows of the current
-// map, else of the first map with flows.
+// map, else of the map on show before, else of the first map with flows. The card of the
+// details gets the keyboard focus.
 function fcShow(c) {
   var m = c ? c.map : currentMap();
   if (FC_MAPS.indexOf(m) < 0) m = FC.m || FC_MAPS[0];
-  var id = c ? c.id : FC.m === m && FC.id ? FC.id : fcRanked(m)[0].id;
+  var id = c && c.map === m ? c.id : FC.m === m && FC.id ? FC.id : fcRanked(m)[0].id;
   cv.tabIndex = -1; SAID_KEY = '';
-  fcChoose(m, id);
+  fcChoose(m, id, !!c);
 }
 // The button "Focus on this card" of the details.
 function fcEnter(c) {
-  if (VIEW.mode === 'focus') fcChoose(c.map, c.id); else { FC_FROM = c; setMode('focus'); }
+  if (VIEW.mode === 'focus') fcChoose(c.map, c.id, true); else { FC_FROM = c; setMode('focus'); }
+}
+// The action of the part of the path of the headline for map x (`pathButtons` in
+// `atlas_view`): focus on the card of x with the most flows. Null when x has no Focus view.
+function fcPathGo(x) {
+  return FC_MAPS.indexOf(x) < 0 ? null : function () { fcChoose(x, FC.m === x ? FC.id : fcRanked(x)[0].id, true); };
 }
 var FC_FROM = null;
 function fcHide() { FC.hot = null; FC.pin = null; if (SAY) { SAY.classList.remove('on'); SAY.replaceChildren(); } SAID_KEY = ''; }
@@ -259,7 +300,7 @@ function fcDraw(keyed) {
   fcEdges(m, at, gE, gH).forEach(function (e) { items.push(e); });
   var bb = FWORLD.getBBox(), k = Math.min(1.2, (aw - 1) / (bb.width + 40), (ah - 1) / (bb.height + 40));
   if (k < FC_MIN) k = Math.max(FC_MIN, Math.min((aw - 24) / bb.width, (ah - 24) / bb.height));
-  var tx = Math.max(12, (aw - bb.width * k) / 2), ty = Math.max(12, (ah - bb.height * k) / 2);
+  var tx = Math.max(12, (aw - bb.width * k) / 2), ty = phone ? 12 : Math.max(12, (ah - bb.height * k) / 2);
   FSVG.setAttribute('width', Math.ceil(Math.max(aw, tx * 2 + bb.width * k)));
   FSVG.setAttribute('height', Math.ceil(Math.max(ah, ty * 2 + bb.height * k)));
   FWORLD.setAttribute('transform', 'translate(' + (tx - bb.x * k) + ' ' + (ty - bb.y * k) + ') scale(' + k + ')');
@@ -268,6 +309,23 @@ function fcDraw(keyed) {
   fcLight();
   var back = keyed ? 'n0' : had, e = back === null ? null : FWORLD.querySelector('[data-item="' + back + '"]');
   if (e) e.focus({preventScroll: true});
+  fcFit();
+}
+// The board ends above the reading line while the reading line gives a kept line or the item
+// of the keyboard focus. Then the item of the keyboard focus moves into the board.
+function fcFit() {
+  var g = FC.free;
+  if (!g || !SAY) return;
+  var h = g.y1 - g.y0, a = document.activeElement, keyed = FBOARD.contains(a) && a !== FBOARD;
+  if (SAY.classList.contains('on') && (FC.pin || keyed)) {
+    var top = H - parseFloat(getComputedStyle(SAY).bottom) - SAY.offsetHeight;
+    h = Math.max(80, Math.min(h, top - 8 - g.y0));
+  }
+  document.body.style.setProperty('--fb-h', h + 'px');
+  if (!keyed) return;
+  var o = FBOARD.getBoundingClientRect(), r = a.getBoundingClientRect();
+  if (r.bottom > o.bottom) FBOARD.scrollTop += r.bottom - o.bottom + 8;
+  else if (r.top < o.top) FBOARD.scrollTop -= o.top - r.top + 8;
 }
 // The words of the place of the card at column j for the card c in the middle.
 function fcPlace(j, c) {
@@ -350,7 +408,7 @@ function fcSay() {
   if (!SAY) return;
   var it = fcItem(), c = fcCard();
   SAID_KEY = '';
-  if (!it || !c) { SAY.classList.remove('on'); SAY.replaceChildren(); return; }
+  if (!it || !c) { SAY.classList.remove('on'); SAY.replaceChildren(); fcFit(); return; }
   var parts;
   if (it.kind === 'n') {
     parts = [el('span', {'class': 'sr-only'}, 'Card '), el('b', null, it.id), el('span', null, (it.card.p ? it.card.p + ' · ' : '') + fcPlace(it.j, c) + (it.j === 0 ? '' : ' · select to focus on it'))];
@@ -362,6 +420,7 @@ function fcSay() {
   }
   SAY.replaceChildren.apply(SAY, parts);
   SAY.classList.add('on');
+  fcFit();
 }
 // A click on the ground (not on an item, a control or the reading line) removes the kept light.
 document.addEventListener('click', function (e) {
@@ -408,13 +467,14 @@ function fcState() {
     counts: c ? fcCounts(c) : null, cls: FWORLD ? FWORLD.getAttribute('class') : '', pin: FC.pin ? 'e' + FC.pin.i : null,
     active: document.activeElement ? document.activeElement.getAttribute('data-item') : null,
     rail: FRAIL_LIST ? Array.prototype.map.call(FRAIL_LIST.querySelectorAll('button'), function (b) { return {id: b.getAttribute('data-card'), text: b.textContent, on: b.getAttribute('aria-current') === 'true'}; }) : [],
-    railBox: box(FRAIL),
+    railBox: box(FRAIL), listBox: box(FRAIL_LIST), cur: box(FRAIL_LIST ? FRAIL_LIST.querySelector('[aria-current="true"]') : null), sayBox: box(SAY),
+    label: FBOARD ? FBOARD.getAttribute('aria-label') : null,
     cols: FWORLD ? Array.prototype.map.call(FWORLD.querySelectorAll('.fcol'), function (t) { return {text: t.textContent, box: box(t)}; }) : [],
     more: FWORLD ? Array.prototype.map.call(FWORLD.querySelectorAll('.fmore'), function (t) { return {text: t.textContent, box: box(t)}; }) : [],
     items: FC.items.map(function (o) {
       if (o.kind === 'n') {
         var t = o.g.querySelector('text');
-        return {kind: 'n', key: o.key, id: o.id, j: o.j, i: o.i, cls: o.g.getAttribute('class'), label: o.g.getAttribute('aria-label'), lit: o.g.classList.contains('lit'),
+        return {kind: 'n', key: o.key, id: o.id, j: o.j, i: o.i, cls: o.g.getAttribute('class'), label: o.g.getAttribute('aria-label'), current: o.g.getAttribute('aria-current'), lit: o.g.classList.contains('lit'),
           rect: box(o.g.querySelector('rect:last-of-type')), text: {text: t.textContent, box: box(t), px: parseFloat(getComputedStyle(t).fontSize) * FC.scale}};
       }
       return {kind: 'e', i: o.i, a: o.a, b: o.b, s: o.flows[0].s, t: o.flows[0].t, n: o.flows.length, near: o.near, label: o.g.getAttribute('aria-label'),
