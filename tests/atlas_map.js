@@ -28,6 +28,11 @@
 //   each layer tab, the frame of the map and the labels at rest with their screen boxes
 //   (`systemapCanvas.lines`): at 1440 x 900 at the fit, and at 390 x 844 at the open and
 //   after a click on the Fit control.
+// - --page: 1440 x 900, the nested map MAP opened with the hash #MAP. The maps of the page,
+//   the cards of MAP and of the top map, the texts and the geometry of one frame, and the
+//   headline of each layer tab. Then for each neighbour of MAP (an actor card of MAP), in a
+//   new load with the hash: a mouse click on the middle of its screen box, and after the
+//   flight the chain, the current map and the selected card.
 // - --axe: axe-core (from NODE_PATH; null when it is not there) in the light and the dark
 //   scheme, at 1440 x 900 and at 390 x 844.
 // Each mode prints one JSON object. `errors` has the script errors of the page.
@@ -313,6 +318,31 @@ async function inside(browser, file, map) {
   return out;
 }
 
+async function nestedPage(browser, file, map) {
+  const hash = '#' + map, wide = await open(browser, file, WIDE, hash), page = wide.page;
+  const out = await page.evaluate((id) => ({ chain: window.systemapCanvas.chain(), maps: window.systemapCanvas.maps(),
+    cards: window.systemapCanvas.boxes(id), top: window.systemapCanvas.boxes(''), drawn: window.systemapCanvas.drawn() }), map);
+  out.errors = wide.errors;
+  out.heads = [];
+  for (const tab of (await page.evaluate(() => window.systemapCanvas.viewState())).tabs) {
+    await page.evaluate((t) => window.systemapCanvas.setLayer(t), tab.id);
+    await page.waitForTimeout(700);
+    out.heads.push(await page.evaluate(() => window.systemapCanvas.viewState()));
+  }
+  await page.close();
+  out.goes = [];
+  for (const card of out.cards.filter((c) => c.k === 'actor')) {
+    const one = await open(browser, file, WIDE, hash), b = card.b;
+    await one.page.mouse.click(b[0] + b[2] / 2, b[1] + b[3] / 2);
+    await one.page.waitForTimeout(2500);
+    out.goes.push(await one.page.evaluate((id) => ({ id, chain: window.systemapCanvas.chain(), current: window.systemapCanvas.current(),
+      sel: window.systemapCanvas.side().sel, hash: location.hash }), card.id));
+    out.errors = out.errors.concat(one.errors);
+    await one.page.close();
+  }
+  return out;
+}
+
 async function axeRun(page) {
   let source;
   try { source = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch (e) { return null; }
@@ -338,7 +368,7 @@ async function axe(browser, file) {
 (async () => {
   const [mode, file, map] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const run = { '--rest': rest, '--phone': phone, '--nested': nested, '--marks': marks, '--input': input, '--motion': motion, '--axe': axe, '--inside': inside }[mode];
+  const run = { '--rest': rest, '--phone': phone, '--nested': nested, '--marks': marks, '--input': input, '--motion': motion, '--axe': axe, '--inside': inside, '--page': nestedPage }[mode];
   const out = await run(browser, file, map);
   await browser.close();
   process.stdout.write(JSON.stringify(out) + '\n');

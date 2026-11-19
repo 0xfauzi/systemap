@@ -89,6 +89,21 @@ of this test:
     of that map (`systemapCanvas.lines`) is inside the frame of the map, with 0.5 px of
     tolerance. After Fit on the phone, each such box is also inside the width of the
     screen. Each of the two maps shows at least one label at rest.
+
+Acceptance value 23, written on 2026-11-19 for the second repair of stage 10, from the rules
+"Nested maps" and "Neighbours of a nested map" of docs/design/atlas.md and from the model
+files. A run of the driver before this text only found the names of the page API, and the
+values below do not come from it:
+
+23. The nested map Page of the self-map, opened with #Page at 1440 x 900: the page has no
+    script error and the chain is Page. The parts of Page in the page are the components
+    of map/page.py that are not actors, and there are 11. The frame draws each part with
+    its name. The neighbours are the actors of map/page.py, and they are the cards of the
+    top map that have a flow with Page. For each layer tab, the counts of the headline are
+    the counts of the model (`model.reading`): the neighbours and the parts that the flows
+    of the layer touch, and the flows; for a layer with no flow, the cards and the
+    regions. A mouse click on each neighbour goes out to the top map and selects the card
+    of the top map with the same name.
 """
 
 from __future__ import annotations
@@ -579,3 +594,55 @@ def test_a_label_at_rest_stays_in_the_box_of_its_map(
                 assert -0.5 <= b[0] and b[2] <= run["size"][0] + 0.5, where
             shown += 1
     assert shown > 0
+
+
+def _counts(model: Any, meaning: Any, layer: str) -> str:
+    """The counts of the headline of a nested map for a layer, from the model."""
+    from systemap.model import reading  # noqa: PLC0415
+
+    def counted(n: int, one: str) -> str:
+        return f"{n} {one}" + ("" if n == 1 else "s")
+
+    edges = list(range(len(model.flows))) if layer == "all" else reading(model, meaning, layer)[0]
+    if not edges:
+        return (
+            counted(len(model.components), "card") + " in " + counted(len(model.regions), "region")
+        )
+    used = {e for i in edges for e in (model.flows[i].src, model.flows[i].dst)}
+    actors = sum(1 for c in model.components if c.id in used and c.kind == "actor")
+    parts = sum(1 for c in model.components if c.id in used and c.kind != "actor")
+    head = counted(actors, "neighbour") + " · " if actors else ""
+    return head + counted(parts, "part") + " · " + counted(len(edges), "flow")
+
+
+def test_the_nested_map_page_has_its_parts_and_neighbours(
+    self_page: tuple[Path, dict[str, Any]],
+) -> None:
+    """Acceptance 23."""
+    tree = nest.load(config.load(REPO))
+    page = next(m for m in tree.maps if m.id == "Page")
+    parts = {c.id for c in page.model.components if c.kind != "actor"}
+    actors = {c.id for c in page.model.components if c.kind == "actor"}
+    top = tree.top.model
+    near = {f.src for f in top.flows if f.dst == "Page"} | {
+        f.dst for f in top.flows if f.src == "Page"
+    }
+    assert len(parts) == 11 and actors == near - {"Page"}
+    out = _drive("--page", self_page[0], "Page")
+    assert out["errors"] == [] and out["chain"] == ["Page"]
+    shown = {c["id"]: c["k"] for c in out["cards"]}
+    assert {i for i, k in shown.items() if k != "actor"} == parts
+    assert {i for i, k in shown.items() if k == "actor"} == actors
+    assert actors <= {c["id"] for c in out["top"]}
+    marks = out["drawn"]["marks"]
+    drawn = {m["id"] for m in marks if m["t"] == "card" and m["map"] == "Page"}
+    assert parts <= drawn
+    assert parts <= {t["s"] for t in out["drawn"]["texts"]}
+    tabs = [h["layer"] for h in out["heads"]]
+    assert set(tabs) >= {"system", "structure", "all"}
+    for head in out["heads"]:
+        assert head["counts"] == _counts(page.model, page.meaning, head["layer"]), head["layer"]
+    assert sorted(g["id"] for g in out["goes"]) == sorted(actors)
+    for go in out["goes"]:
+        assert go["chain"] == [] and go["current"] == "", go
+        assert go["sel"] == {"map": "", "id": go["id"]}, go

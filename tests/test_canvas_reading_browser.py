@@ -3,11 +3,11 @@ labels at the fit (`labelSize` in `page_canvas_draw`), the caption (`page_canvas
 and the route in the Details panel (`seqRoute` in `page_canvas_sequences`).
 
 The test drives real canvas pages in the Chromium of Playwright (tests/canvas_reading.js):
-the top map of the self-map of this repository with no nested map (`self_page`), the real
-tree of this repository with the nested map Page (`tree_page`, acceptance 12), and the
-fixture of tests/test_canvas_page.py, which has the nested map Gateway. The test skips
-when Node or the Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is
-"required" (the CI job canvas-browser). Then it fails.
+the self-map of this repository, which has the nested map Page (`self_page`), the top map
+of the self-map with no nested map (`flat_page`, only for acceptance 10), and the fixture
+of tests/test_canvas_page.py, which has the nested map Gateway. The test skips when Node
+or the Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is "required"
+(the CI job canvas-browser). Then it fails.
 
 Acceptance values, written before the first run on 2026-11-15:
 
@@ -60,13 +60,21 @@ Acceptance values, written before the first run on 2026-11-15:
     tree of this repository, with the nested map Page. On that page, acceptance 1, 2 to 4,
     5 to 8 and 11 hold with the same checks, the page has ports, and the frame of the map
     at the fit is below the plate of the path and above the plate of the help line.
-    The first run on 2026-11-19 failed acceptance 1 on this page: in the layer System
-    context the smallest label at the fit is 8.5 px, not 9 px. The ports make the bands of
-    the fit larger, thus the scale of the fit is lower (`labelSize` in `page_canvas_draw`).
-    The other values held. The canvas page is not the default page and its modules stay as
-    they are (docs/design/atlas.md), thus this test checks the size of 8.5 px or more on
-    this page, and it keeps 9 px for the page of `self_page`. This is a decision for the
-    maintainer.
+    The first run on 2026-11-19 failed acceptance 1 on this page: the smallest label at the
+    fit is 8.5 px, not 9 px. The ports make the bands of the fit larger, thus the scale of
+    the fit is lower (`labelSize` in `page_canvas_draw`). The other values held.
+    Correction on 2026-11-19, after the second review of stage 10: an earlier text of this
+    record said that the 8.5 px label is only in the layer System context. That is not
+    correct. A run of `canvas_reading.js --labels` on this page gives a smallest label of
+    8.5 px in each layer: System context, Data flow, Control flow and Map review.
+    Also after the second review: the 9 px of acceptance 1 is not changed to 8.5 px. The
+    canvas page stays as it is (docs/design/atlas.md), thus the 9 px check is an expected
+    failure (`xfail`, strict) until the maintainer makes a decision. The other checks of
+    acceptance 1 pass. The fixture `self_page` is now the real tree with the nested map Page
+    (the earlier `tree_page`), thus acceptance 1 to 9 and 11 drive the real self-map again.
+    Only acceptance 10
+    uses `flat_page`, the top map with no nested map, because its values are for a tree
+    with no port. Acceptance 12 checks the bands of the real tree, which has ports.
 """
 
 from __future__ import annotations
@@ -98,48 +106,64 @@ def _drive(mode: str, page: Path) -> dict[str, Any]:
     return dict(json.loads(proc.stdout))
 
 
-@pytest.fixture(scope="module")
-def self_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    cfg = config.load(REPO)
-    # From stage 10 of docs/design/atlas.md, the card Page of the self-map opens the nested
-    # map Page. These acceptance values are for a map with no nested map, thus the page
-    # uses only the top map, and the card Page opens no map. The fixture `tree_page`
-    # (acceptance 12) drives the real tree with the nested map Page.
-    top = nest.load(cfg).top
-    cards = tuple(dataclasses.replace(c, map=None) for c in top.model.components)
-    flat = dataclasses.replace(top, model=dataclasses.replace(top.model, components=cards))
-    tree = nest.Tree(maps=(flat,))
+def _write(cfg: config.Config, tree: nest.Tree, out: Path) -> Path:
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
-    out = tmp_path_factory.mktemp("reading") / "index.html"
     data = canvas_data.build(cfg, tree, facts)
     out.write_text(canvas_page.build(canvas_page.tree_theme(cfg, tree), data), encoding="utf-8")
     return out
 
 
 @pytest.fixture(scope="module")
-def tree_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def self_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The canvas page of the real tree of this repository, with the nested map Page."""
     cfg = config.load(REPO)
     tree = nest.load(cfg)
     assert len(tree.maps) > 1
-    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
-    out = tmp_path_factory.mktemp("tree") / "index.html"
-    data = canvas_data.build(cfg, tree, facts)
-    out.write_text(canvas_page.build(canvas_page.tree_theme(cfg, tree), data), encoding="utf-8")
-    return out
+    return _write(cfg, tree, tmp_path_factory.mktemp("reading") / "index.html")
 
 
-def test_the_labels_of_a_layer_at_the_fit(self_page: Path) -> None:
-    """Acceptance 1, with the labels at rest (A3 of bench/jev/README.md).
+@pytest.fixture(scope="module")
+def flat_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The top map of the self-map with no nested map: the tree with no port of acceptance 10.
+
+    From stage 10 of docs/design/atlas.md, the card Page opens the nested map Page. Here the
+    card Page opens no map."""
+    cfg = config.load(REPO)
+    top = nest.load(cfg).top
+    cards = tuple(dataclasses.replace(c, map=None) for c in top.model.components)
+    flat = dataclasses.replace(top, model=dataclasses.replace(top.model, components=cards))
+    return _write(cfg, nest.Tree(maps=(flat,)), tmp_path_factory.mktemp("flat") / "index.html")
+
+
+@pytest.fixture(scope="module")
+def self_labels(self_page: Path) -> dict[str, Any]:
+    return _drive("--labels", self_page)
+
+
+def test_the_labels_of_a_layer_at_the_fit(self_labels: dict[str, Any]) -> None:
+    """Acceptance 1 with no size check, with the labels at rest (A3 of bench/jev/README.md).
 
     At rest, a label shows only when no path of a different flow of the layer goes
     through it. Thus the labels at rest are a part of the labels of the layer. With the
     pointer on a card, each label of a flow of that card shows.
     """
-    _labels(_drive("--labels", self_page), 9)
+    _labels(self_labels)
 
 
-def _labels(out: dict[str, Any], floor: float) -> None:
+@pytest.mark.xfail(
+    strict=True,
+    reason="Acceptance 1 fails on the real tree with the nested map Page: the smallest label "
+    "at the fit is 8.5 px in each layer, not 9 px (acceptance 12). A decision of the "
+    "maintainer is necessary.",
+)
+def test_the_labels_of_a_layer_have_9_px_at_the_fit(self_labels: dict[str, Any]) -> None:
+    """Acceptance 1, the size of 9 px or more."""
+    assert self_labels["errors"] == []
+    small = {lay["id"]: min(t["size"] for t in lay["got"]) for lay in self_labels["layers"]}
+    assert all(size >= 9 for size in small.values()), small
+
+
+def _labels(out: dict[str, Any]) -> None:
     assert out["errors"] == []
     assert len(out["layers"]) >= 4
     for layer in out["layers"]:
@@ -149,7 +173,6 @@ def _labels(out: dict[str, Any], floor: float) -> None:
             assert t["s"] in want, layer["id"]
             want.remove(t["s"])
         assert min(t["alpha"] for t in got) >= 0.99, layer["id"]
-        assert min(t["size"] for t in got) >= floor, layer["id"]
         near = [t["s"] for t in layer["near"] if t["alpha"] >= 0.99]
         for name in layer["of_card"]:
             assert name in near, (layer["id"], layer["card"])
@@ -247,9 +270,9 @@ def test_axe_core_finds_no_issue_with_the_route_in_the_panel(self_page: Path) ->
             assert found["violations"] == [], (scheme, key)
 
 
-def test_a_tree_with_no_port_has_no_portal_bands(self_page: Path, tmp_path: Path) -> None:
-    """Acceptance 10."""
-    own = _drive("--bands", self_page)
+def test_a_tree_with_no_port_has_no_portal_bands(flat_page: Path, tmp_path: Path) -> None:
+    """Acceptance 10, on the top map with no nested map (acceptance 12)."""
+    own = _drive("--bands", flat_page)
     assert own["errors"] == [] and own["ports"] is False
     path, help_plate, frame, bands = own["path"], own["help"], own["frame"], own["gutters"]
     assert bands == {"x": 0, "top": path[1] + path[3], "bottom": 34}
@@ -287,16 +310,9 @@ def test_the_page_opens_with_system_context(self_page: Path, tmp_path: Path) -> 
     _opens_with(_drive("--first", nested))
 
 
-def test_the_real_tree_with_the_nested_map_page(tree_page: Path) -> None:
-    """Acceptance 12."""
-    _labels(_drive("--labels", tree_page), 8.5)
-    test_the_caption_gives_the_question_of_each_layer(tree_page)
-    test_the_details_panel_gives_the_route_in_order(tree_page)
-    first = _drive("--first", tree_page)
-    assert _opens_with(first) == "system"
-    flow = first["flow"]
-    assert (flow["after"]["layer"], flow["after"]["mode"]) == (flow["layer"], "map")
-    own = _drive("--bands", tree_page)
+def test_the_real_tree_with_the_nested_map_page(self_page: Path) -> None:
+    """Acceptance 12, the bands. Acceptance 1 to 9 and 11 use the same page (`self_page`)."""
+    own = _drive("--bands", self_page)
     assert own["errors"] == [] and own["ports"] is True
     path, help_plate, frame = own["path"], own["help"], own["frame"]
     assert frame[1] >= path[1] + path[3]

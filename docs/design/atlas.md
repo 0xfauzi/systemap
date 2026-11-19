@@ -281,7 +281,12 @@ branch `views-prototype`. No stage makes a pull request.
    that only the frame "compare" uses the page with the disclosure.
 10. **The nested map of Page** in the map of this repository
     (`docs/design/atlas/tools/page_model.py.txt` is a draft), and the final checks.
-    Done (2026-11-19). `map/page.py` is the nested map of Page. It has 11 parts: PageWriter,
+    Not complete (2026-11-19). The stage asks to place the map with the rule "Neighbours of
+    a nested map", and that rule is not met (see below). A decision of the maintainer is
+    necessary: accept the one label collision of N4, make the artifact "uncovered entry
+    points, assurance levels, boundary findings" shorter (`map/flows.py` and the matching
+    flows of `map/page.py`), or keep the column. The other work of the stage is done.
+    `map/page.py` is the nested map of Page. It has 11 parts: PageWriter,
     PageData and PageAssets (shared parts), AtlasPage, AtlasDrawing and AtlasViews (the
     atlas page), CanvasPage, CanvasDrawing and CanvasViews (the canvas page), and LinkedPage
     and LinkedViews (the linked page). Each part has 10 modules or fewer. The 10 neighbours
@@ -302,9 +307,17 @@ branch `views-prototype`. No stage makes a pull request.
     (tests/test_atlas_browser.py, acceptance 22). Without the four sides as walls, it fails.
     A test drives the canvas page of the real tree with the nested map Page
     (tests/test_canvas_reading_browser.py, acceptance 12). On that page the smallest label
-    at the fit is 8.5 px, not the 9 px of the page with no nested map, because the ports
-    make the fit smaller. The canvas page stays as it is, thus this is a decision for the
-    maintainer.
+    at the fit is 8.5 px in each layer (System context, Data flow, Control flow and Map
+    review), not the 9 px of the page with no nested map, because the ports make the fit
+    smaller. The canvas page stays as it is, thus this is a decision for the maintainer.
+    After the second review of stage 10 (2026-11-19): the 9 px check of acceptance 1 of
+    that test is an expected failure (`xfail`, strict) on the real tree until the
+    maintainer makes a decision, and acceptance 1 to 9 and 11 drive the real tree with the
+    nested map Page again. Only acceptance 10, which is for a tree with no port, uses the
+    top map with no nested map. A test holds the rules of the nested map Page on the atlas
+    page (tests/test_atlas_browser.py, acceptance 23): its 11 parts, its neighbours as the
+    cards of the top map that have a flow with Page, a click on a neighbour that goes out
+    to its card, and the counts of the headline in each layer as the model gives them.
     The budget passes for each value on the finished page (B19 in `bench/jev/README.md`).
     The History view gives the components of the top map, also when the nested map Page is
     open. This document gives no rule for the history of the parts of a nested map.
