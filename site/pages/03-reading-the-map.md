@@ -77,8 +77,17 @@ On a phone, the map opens at its top left part. Fit shows the whole map.
 A card that opens a map has a second edge behind it and a small picture of its parts.
 When you zoom in, the small picture grows into the nested map, and the map above fades. Nothing appears at one time.
 You can also double-click the card, or select it and use the button in the details.
-A nested map opens on its Neighbours layer. A neighbour is a card of the map above. Select it to go out to that card.
-Each part of the path in the headline goes to that map. Esc goes out one level.
+When you double-click the card or use the button, the card grows into the nested map.
+
+The page shows five signs that you are inside a nested map:
+
+- A bar at the top of the map gives "Inside" and the name of the map. Its button "Back to" goes out to the map above, as Esc does. In a map at depth 2 or more, the bar also gives the path, and each name in the path goes to that map.
+- When you go out, the nested map becomes its card again, and that card is selected.
+- A small picture of the map above is in a corner of the screen. The card of the nested map has a mark. A click on the picture goes out.
+- The frame of the nested map has the name of the map as a title. The ground around the frame has a different color from the ground of the top map.
+- A nested map opens on its Neighbours layer. A neighbour is a card of the map above. It has the line "on" and the name of that map below its name. Select it to go out to that card.
+
+Each part of the path in the headline also goes to that map. Esc goes out one level.
 
 The URL hash holds the open map and the selected card, for example `index.html#Gateway/Routes`.
 A link with this hash opens the page at that map and selects the card.

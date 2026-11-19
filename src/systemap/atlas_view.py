@@ -15,7 +15,8 @@ outline (`quietOf`). Its change fades in VIEW_MS. With reduced motion, no value 
 
 The headline is type on the ground: the path of the current map, the name of the layer,
 the question of the layer and the counts. In a nested map, each part of the path is a
-button that goes to that map (in the Focus view, only a map with that view: `fcPathGo`),
+button that goes to that map with the zoom movement (`leaveTo` in `atlas_inside`; in the
+Focus view, only a map with that view: `fcPathGo`),
 and the layer System context has the name Neighbours. The
 tabs give the layers of the current map that have flows, Structure, and All, each with its
 count of flows. The arrow keys, Home and End move the keyboard focus between the tabs.
@@ -171,7 +172,7 @@ function pathButtons(m, go) {
   chain.forEach(function (x, i) {
     var name = x.owner ? x.owner.id : (DATA.name || 'map');
     if (i === chain.length - 1) { out.push(el('b', null, name)); return; }
-    var act = go ? go(x) : function () { flyTo(frameOf(x), FIT); }, b;
+    var act = go ? go(x) : function () { leaveTo(x); }, b;
     if (act) { b = el('button', {type: 'button', title: 'Go to this map'}, name); b.addEventListener('click', act); } else b = el('span', null, name);
     out.push(b, el('span', {'aria-hidden': 'true'}, '/'));
   });

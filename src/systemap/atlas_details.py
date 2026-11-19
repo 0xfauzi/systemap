@@ -199,9 +199,7 @@ function closeSide() {
 function act(c, mouse, keyed) {
   var up = upCard(c);
   if (!up) { select(SEL === c ? null : c, {wait: mouse, focus: keyed}); return; }
-  select(null, {keep: true});
-  AFTER = up; AFTER_KEY = !!keyed;
-  flyTo(frameOf(up.map), FIT);
+  leaveTo(up.map, up, keyed);
 }
 // When the camera stops in the map of the card of a neighbour, select that card.
 function afterFlight() {
@@ -216,8 +214,7 @@ function dive(c) {
   select(null, {keep: true});
   PIN = null; FOCUS = null; FOCUS_MAP = c.child; HOT = {c: null, f: null, from: ''};
   speak();
-  flyGoal(goalOf(c.map, c, null));
-  if (flight) flight.into = c.child;
+  zoomMove(c, true, frameOf(c.child));
 }
 
 // ---- the text of the details ------------------------------------------------------

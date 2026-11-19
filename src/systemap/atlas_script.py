@@ -2,7 +2,7 @@
 
 The atlas page (`atlas_page`) has one script element with `SCRIPT`. It joins the scene part
 (`atlas_scene`), the view part (`atlas_view`), the lines part (`atlas_lines`), the drawing
-part (`atlas_draw`), the marks part (`atlas_marks`), the lit part (`atlas_lit`), the image part (`atlas_image`), the tree
+part (`atlas_draw`), the marks part (`atlas_marks`), the lit part (`atlas_lit`), the image part (`atlas_image`), the inside part (`atlas_inside`), the tree
 part (`atlas_tree`), the keyboard part (`atlas_keys`), the details part (`atlas_details`), the tools part
 (`atlas_tools`), the Find part (`atlas_find`),
 the Sequences part and its diagram part (`atlas_sequences`), the States part
@@ -21,6 +21,7 @@ from systemap.atlas_focus import FOCUS
 from systemap.atlas_history import HISTORY
 from systemap.atlas_image import IMAGE
 from systemap.atlas_input import INPUT
+from systemap.atlas_inside import INSIDE
 from systemap.atlas_keys import KEYS
 from systemap.atlas_lines import LINES
 from systemap.atlas_lit import LIT
@@ -41,6 +42,7 @@ SCRIPT = (
     + MARKS
     + LIT
     + IMAGE
+    + INSIDE
     + TREE
     + KEYS
     + DETAILS

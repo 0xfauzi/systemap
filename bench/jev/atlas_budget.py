@@ -58,6 +58,13 @@ From stage 10 (written on 2026-11-19 before the run of B19): the map of this rep
 the nested map Page. Thus the `dive` of `self` zooms into Page, not into the middle card of
 the top map. The acceptance values do not change.
 
+From stage 11 (written on 2026-11-19 before the run of B21): the atlas page has the signs of a
+nested map (`atlas_inside`): the bar, the zoom movement, the locator, the title of the frame,
+the ground of a nested map and the line of a neighbour. The `dive` of each input now draws the
+ground of a nested map and the title of its frame. The run has no other heavy process on the
+machine. The acceptance values do not change: each value passes for self, workspace and the
+M11 tree (A9 of stage 11).
+
 From the third repair of stage 10 (written on 2026-11-19 before the run of B20): the nested
 map Page has its neighbours at the sides of its frame (N5), and the actor container of a
 nested map is a label on the atlas page. The acceptance values do not change.

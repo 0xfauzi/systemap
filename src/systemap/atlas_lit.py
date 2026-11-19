@@ -259,7 +259,7 @@ function cardSay(c, keyed) {
   var io = flowsIn(c, shownLayer(c.map)), words = c.p ? [c.p] : [];
   words.push(io[0] + io[1] ? 'receives ' + io[0] + ', gives ' + io[1] : 'no flow in this layer');
   if (c.child) words.push((keyed ? 'Shift+Enter shows' : 'double-click to see') + ' its ' + counted(partsOf(c), 'part'));
-  if (upCard(c)) words.push('outside ' + c.map.owner.id + ', select it to go to it');
+  if (upCard(c)) words.push('outside ' + c.map.owner.id + ', a card of the map ' + mapTitle(upCard(c).map) + ', select it to go out to it');
   if (markOf(c)) words.push(markWords(c));
   return [el('b', null, c.id), el('span', null, words.join(' · '))];
 }

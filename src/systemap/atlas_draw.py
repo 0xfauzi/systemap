@@ -23,6 +23,9 @@ The look at rest:
 - A card that opens a map has a second edge behind it and a small picture of its map at
   its right (`layout` in `atlas_scene`). The map above fades while the nested map takes
   the screen (`inside`).
+- The frame of a nested map has the name of the map as a title (`frameTitle`), and a
+  neighbour card has the line "on" and the name of the map above below its name (`upTag`).
+  These are signs of a nested map (`atlas_inside`).
 """
 
 from __future__ import annotations
@@ -177,6 +180,7 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels, open) {
     var kind = boxKind(m, b), x = ox + a * b.b[0], y = oy + a * b.b[1];
     if (kind === 'actors') { logged({t: 'actors', n: b.n, map: m.id}); if (m === TOP) caps(b.n, ox + a * b._at[0], oy + a * b._at[1], 9.5 * a, C['--ink-3'], alpha, 0.11); return; }
     if (kind !== 'box') return;
+    if (m.owner && b.id === 'part') { frameTitle(m, x, y, a, alpha); return; }
     var fs = 9.5 * a, nw = (unitWidth(b.n.toUpperCase(), 500, true) + 0.11 * b.n.length) * q(Math.min(fs, CAPS_MAX));
     caps(b.n, x + 20 * a, y + 30 * a, fs, C['--ink-3'], alpha, 0.11);
     var us = q(Math.min(10 * a, 14));
@@ -190,6 +194,15 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels, open) {
     caps(r.n, x + 31 * a, y + 20.5 * a, 9 * a, C['--ink-3'], ra, 0.11);
   });
   rings.flush(g);
+}
+
+// The frame of a nested map has the name of the map as a title, TITLE_PX high on the
+// screen, or 40 units of the map when that is smaller (`atlas_inside`).
+var TITLE_PX = 20;
+function frameTitle(m, x, y, a, alpha) {
+  var ts = q(Math.min(TITLE_PX, 40 * a));
+  logged({t: 'title', s: m.owner.id, size: ts, map: m.id});
+  text(m.owner.id, x + 20 * a, y + 12 * a + ts * 0.82, ts, C['--ink'], alpha, 600);
 }
 
 // ---- lines ----------------------------------------------------------------------
@@ -324,9 +337,17 @@ function cardText(c, x, y, w, h, alpha, qv) {
     caps(tag, x + w - 9 * u - thumb - gw, y + h - 9 * u, gs, tag === 'acts' ? C['--ink'] : C['--ink-2'], t, 0.09);
     if (DLOG) logged({t: 'tag', id: c.id, s: tag});
   }
-  var mid = y + h / 2, base = mid - 1.5 * u + (1 - far * (1 - qv)) * 6 * u;
+  var mid = y + h / 2, base = mid - 1.5 * u + (1 - far * (1 - qv)) * 6 * u, up = upCard(c);
+  if (up) { upTag(up, x + pad, mid, h, u, right, t * (1 - 0.4 * qv)); base = mid - 0.5 * u; far = 0; }
   text(fit(c.id, ns, right, 600), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600);
   if (c.p && far > 0) text(fit(c.p, q(10 * u), right, 400), x + pad, mid + 13 * u, q(10 * u), C['--ink-3'], t * far * (1 - qv) * (1 - HIDE));
+}
+// The line of a neighbour of a nested map below its name: "on" and the name of the map
+// above, so that a reader expects a selection to go out (`atlas_inside`).
+function upTag(up, x, mid, h, u, width, alpha) {
+  var s = q(Math.max(8.5 * u, Math.min(7.5, h * 0.3))), words = 'on ' + mapTitle(up.map);
+  if (DLOG) logged({t: 'up', id: up.id, s: words, size: s});
+  caps(fit(words.toUpperCase(), s, width, 500, true), x, mid + 4 * u + s, s, C['--ink-3'], alpha, 0.06);
 }
 // A weight that follows the zoom: the value while the camera moves, and 0 or 1 in the full
 // drawing at rest. Thus a text at rest is not partly transparent.
@@ -366,7 +387,7 @@ function drawMap(m, alpha, open) {
       if (img) { ctx.globalAlpha = own; ctx.drawImage(img.canvas, ox, oy, mw, mh); STATS.image++; }
       if (whole) drawLayer(whole, ox, oy, mw, mh, own);
       STATS.cards += m.cards.length;
-      hosts.forEach(function (c) { drawMap(c.child, alpha, c._deep); });
+      hosts.forEach(function (c) { if (MORPH && MORPH.c === c) morphGround(); drawMap(c.child, alpha, c._deep); });
       return;
     }
   }
@@ -402,7 +423,10 @@ function drawMap(m, alpha, open) {
     if (whole) drawLayer(whole, ox, oy, mw, mh, own);
   }
   OPEN = false;
-  hosts.forEach(function (c) { if (c.child.size[0] * c.child.T.s * cam.k >= 8) drawMap(c.child, alpha, c._deep); });
+  hosts.forEach(function (c) {
+    if (MORPH && MORPH.c === c) morphGround();
+    if (c.child.size[0] * c.child.T.s * cam.k >= 8) drawMap(c.child, alpha, c._deep);
+  });
 }
 // The chain: the cards whose nested map has the screen, from the top map down.
 function focusChain() {

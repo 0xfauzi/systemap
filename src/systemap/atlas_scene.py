@@ -9,7 +9,9 @@ point comes from the data.
 Placement. The top map has its own coordinates. A map that a card opens is a small picture
 in the right part of that card, as in the design study (`layout`). The scale fits the map
 in the height of the card. Thus the small picture of a map and the open map have the same
-positions, and a zoom into the picture goes into the map.
+positions, and a zoom into the picture goes into the map. Each nested map keeps its place in
+the coordinates of the map above (`L`). The zoom movement of `atlas_inside` moves that place
+from the box of the card to `L` (`retree`).
 
 Index. Each map has a grid of its card boxes and its flow boxes. A frame queries only the
 cells that the screen covers.
@@ -116,7 +118,7 @@ function place(m, x, y, s, depth, owner) {
     var child = c.o !== undefined ? MAPS[c.o] : null;
     if (!child || child.T || !(child.size[0] > 0 && child.size[1] > 0)) return;
     var lay = layout(c.b, child.size);
-    c.child = child;
+    c.child = child; child.L = {x: lay.at[0], y: lay.at[1], s: lay.s};
     place(child, x + s * lay.at[0], y + s * lay.at[1], s * lay.s, depth + 1, c);
   });
 }
@@ -138,13 +140,19 @@ ORDER.forEach(function (m) { KMAX = Math.max(KMAX, 64 / m.T.s); });
 // without a token has the color --ink-2.
 var C = {}, FONT_UI = 'sans-serif', FONT_MONO = 'monospace', EPOCH = 0;
 var TOKENS = ['--map', '--bg', '--surface', '--card', '--line', '--line-2', '--ink', '--ink-2', '--ink-3', '--wire',
-  '--tint', '--brand', '--halo', '--shade', '--focus', '--data', '--control', '--judge', '--context', '--tool', '--change'];
+  '--tint', '--brand', '--halo', '--shade', '--focus', '--data', '--control', '--judge', '--context', '--tool', '--change', '--inside', '--ink-3-in'];
 var KIND = {data: '--data', control: '--control', judge: '--judge', context: '--context', tool: '--tool'};
 function kindColor(k) { return C[KIND[k] || '--ink-2']; }
 function readColors() {
-  var cs = getComputedStyle(document.documentElement);
+  // The tokens of the top map: the style of a nested map (`data-inside`) changes --ink-3.
+  var root = document.documentElement, inside = root.hasAttribute('data-inside');
+  if (inside) root.removeAttribute('data-inside');
+  var cs = getComputedStyle(root);
   function v(name, other) { var x = cs.getPropertyValue(name).trim(); return x || other; }
   TOKENS.forEach(function (n) { C[n] = v(n, '#808080'); });
+  // The ground of the top map. A nested map has the ground --inside (`groundSync`).
+  C.mapTop = C['--map']; C.ink3Top = C['--ink-3'];
+  if (inside) root.setAttribute('data-inside', '');
   FONT_UI = v('--fs', 'sans-serif'); FONT_MONO = v('--fm', 'monospace');
   EPOCH++; textChanged();
 }

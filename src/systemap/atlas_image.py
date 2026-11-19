@@ -84,7 +84,7 @@ function isLeaf(m) {
 }
 function imageSize(m, z) {
   var d = dpr() * 0.5 * Math.pow(2, MAP_STEP), s = Math.pow(2, z);
-  return {w: Math.ceil(m.size[0] * s * d), h: Math.ceil(m.size[1] * s * d), d: d, s: s, key: TEXTS + '|' + VIEW.epoch + '|' + z + '|' + d};
+  return {w: Math.ceil(m.size[0] * s * d), h: Math.ceil(m.size[1] * s * d), d: d, s: s, key: TEXTS + '|' + EPOCH + '|' + VIEW.epoch + '|' + z + '|' + d};
 }
 function readyImage(m, key) {
   var list = m._imgs || [];

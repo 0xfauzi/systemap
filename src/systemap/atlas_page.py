@@ -49,6 +49,7 @@ from systemap import (
     atlas_focus,
     atlas_header,
     atlas_history,
+    atlas_inside,
     atlas_marks,
     atlas_sequences,
     atlas_states,
@@ -78,6 +79,8 @@ HELP = (
     "Enter selects the focused card or keeps the focused line lit. "
     "Enter on the selected card that opens a map goes into that map. "
     "Esc closes the details, or goes out one level. "
+    "In a nested map, the Back button of the bar at the top and the small picture of the map above "
+    "also go out one level. After a move out, the card of the nested map is selected. "
     "The arrow keys move the map. The keys + and - zoom. F fits the current map. "
     "The list after the canvas gives the maps, the cards and the flows. "
     "Each link in the list moves the camera to its item. "
@@ -186,6 +189,7 @@ def build(
         + atlas_history.CSS
         + atlas_tools.CSS
         + atlas_find.CSS
+        + atlas_inside.CSS
         + (atlas_marks.LIMITS_CSS if limits else "")
         + '</style></head><body data-mode="map">'
         + atlas_header.header(
@@ -196,10 +200,12 @@ def build(
             bool(history),
         )
         + "<main>"
+        + atlas_inside.BAR_HTML
         + atlas_header.headline(limits)
         + '<canvas id="canvas" tabindex="0" role="img" aria-describedby="canvas-help" '
         + f'aria-label="System map: {page.esc(name)}"></canvas>'
         + f'<p id="canvas-help" class="sr-only">{HELP}</p>'
+        + atlas_inside.LOC_HTML
         + atlas_sequences.BOARD_HTML
         + atlas_sequences.HTML
         + atlas_states.HTML

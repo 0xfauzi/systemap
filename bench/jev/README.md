@@ -7830,3 +7830,48 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 363 / 381 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,223,430 / 1,253,810 = 1.02 (pass) | 53 (pass) |
 
 Result: PASS for each value. The dive of `self` into Page is 16.8 ms at the 95th percentile, against 33.2 ms in B19. The cause was not measured.
+
+## S11: the signs of a nested map on the atlas page, stage 11 (2026-11-19)
+
+Test: `tests/test_atlas_inside_browser.py` with `tests/atlas_inside.js`, and
+`tests/test_atlas_inside_contrast.py`. The coordinator wrote the acceptance values A1 to A9
+before the work. The docstring of the test gives them with no change, and it gives how the test
+reads each value. Inputs: the map of this repository (the nested map Page), and the generated
+M11 tree (P0, P0/Q0 and P0/Q0/Deep). axe-core was on NODE_PATH.
+
+Result of the first full run of the test after the work: 125 passed, 0 skipped.
+
+| Value | Result |
+|---|---|
+| A1 bar in view, text 14 px or more, contrast 4.5 or more | pass in 16 of 16 runs (4 maps, light and dark, 1440 x 900 and 390 x 844). The lowest contrast is 7.82 (light) and 9.32 (dark). The bar is 49 px high at 1440 x 900, and 59 px or 109 px on a phone (the path takes a second row at depth 2 or more). |
+| A2 Back with a click, Enter and Esc | pass on Page and from P0/Q0 to P0, with the card selected. A click on the locator also goes out. |
+| A3 no sign on the top map | pass in 8 of 8 runs |
+| A4 movements 250 ms to 450 ms, first frame at the card box | pass. Each movement took 360 ms to 376 ms in the driver runs. With reduced motion, 0 ms. |
+| A5 the locator covers no card and no label | pass in 16 of 16 runs. The locator shows in each run. |
+| A6 a different ground | pass. Light: #E8E4DD against #F4F2EF, a largest channel difference of the mean pixel of 16 to 18. Dark: #070605 against #12110F, 10 to 11. |
+| A7 title 18 px or more | pass: 20 px in each nested map at 1440 x 900 |
+| A8 axe-core | pass: no violation on Page and on P0/Q0/Deep, light and dark, 1440 x 900 and 390 x 844 |
+
+The light ground of a nested map is darker than the ground of the top map. On it, the text in
+`--ink-3` measured 4.11, below 4.5. Thus a nested map uses the tone `--ink-3-in` (#67625B,
+4.77 on the ground of a nested map) in the light scheme. The test of each faint row with its
+alpha passes on the ground of a nested map.
+
+## B21: the performance budget of the atlas page, stage 11 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the
+acceptance values. Before the run, the docstring got one note: the signs of a nested map
+(`atlas_inside`) are on the page, and the acceptance is A9 of stage 11. The full output is in
+`bench/jev/atlas_budget_B21.txt`. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1,
+with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 271 / 306 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 364,445 / 429,026 = 1.18 (pass) | 63 (pass) |
+| workspace | 325 / 275 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 268,782 / 315,837 = 1.18 (pass) | 71 (pass) |
+| M11 tree | 351 / 414 (pass) | 16.8 / 16.8 (pass) | 33.3 / 33.2 (pass) | 1,223,430 / 1,267,066 = 1.04 (pass) | 75 (pass) |
+
+Result: PASS for each value. The dive of `self` and of the M11 tree is 33.3 ms and 33.2 ms at
+the 95th percentile, against 16.8 ms in B20. These values are in the limit (35 ms or less, and
+1.25 times the canvas page or less), but the margin to 35 ms is small. The cause of the change
+was not measured. A measurement is necessary before a change to the code of the dive.

@@ -143,12 +143,6 @@ function enterKey(shift) {
   if (x.child && (shift || SEL === x)) { dive(x); return; }
   act(x, false, true);
 }
-// Esc on the canvas: the keyboard focus goes to the card that opens the map that the camera
-// leaves. The live region gives that card with the new map, when the camera stops.
-function focusOut() {
-  var n = CHAIN.length, c = n ? CHAIN[n - 1] : null;
-  if (c && document.activeElement === cv) setFocus(c, toldLater(c));
-}
 function escapeKey() {
   if (SEL || SIDE_ON) closeSide();
   else if (PIN) pin(null);

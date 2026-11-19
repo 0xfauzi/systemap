@@ -7,6 +7,8 @@
   position that gives the larger map: beside when the screen is wider than 1180 px and
   the fit beside the headline is as large as the fit below it (`fitBox`). A map at the fit
   has a scale of 1.6 or less.
+- A nested map. Its fit keeps the height of its bar free (`insideH` in `atlas_inside`). Esc
+  and the Back button go out one level with the zoom movement (`leaveTo`).
 - Phone. On a screen of 720 px or less, the map opens at a scale of 0.5 or more, at its
   top left part. The Fit control still shows the whole map.
 - The details. While the details of a selected card are open on a wide screen, the fit
@@ -51,8 +53,9 @@ function mapFit(b, whole) {
   function fitK(left, top) { return Math.min((W - left - right) / b[2], (Hs - top - bottom) / b[3], 1.6 / m.T.s); }
   // `kBeside` and `kAbove` are the two fits for the tests: beside the headline (0 when the
   // screen is too narrow) and below it.
-  var kBeside = W - right > 1180 ? fitK(330, 26) : 0, kAbove = fitK(lo, wide ? 112 : g.top);
-  var beside = kBeside > 0 && kBeside >= fitK(lo, 112), top = beside ? 26 : wide ? 112 : g.top, left = beside ? 330 : lo;
+  // A nested map keeps the height of its bar free (`insideH` in `atlas_inside`).
+  var ih = insideH(m), kBeside = W - right > 1180 ? fitK(330, 26 + ih) : 0, kAbove = fitK(lo, (wide ? 112 : g.top) + ih);
+  var beside = kBeside > 0 && kBeside >= fitK(lo, 112 + ih), top = (beside ? 26 : wide ? 112 : g.top) + ih, left = beside ? 330 : lo;
   var k = clamp(fitK(left, top), KMIN, KMAX);
   if (!wide && k * m.T.s < 0.5 && !whole) {
     k = 0.5 / m.T.s;
@@ -82,13 +85,13 @@ function fitBox(b, pad, whole) {
   return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - (HEAD_H + Hs / 2) / k, k: k};
 }
 var flight = null;
-function stopFlight() { if (flight) { cancelAnimationFrame(flight.raf); flight = null; } }
+function stopFlight() { if (flight) { cancelAnimationFrame(flight.raf); flight = null; } morphEnd(); }
 // A flight to a box keeps the box. Thus a change of the screen size can fit it again. The
 // fit of a map also puts the headline beside the map or above it.
-function flyTo(box, pad, whole) {
+function flyTo(box, pad, whole, ms) {
   var to = fitBox(box, pad, whole);
   if (box.m && ASK_EL) ASK_EL.classList.toggle('beside', !!to.beside);
-  fly({x: to.x, y: to.y, k: to.k});
+  fly({x: to.x, y: to.y, k: to.k}, ms);
   if (flight) { flight.box = box; flight.pad = pad; flight.whole = whole; }
 }
 // The scale moves in log space. The middle of the screen moves at one rate in the inverse
@@ -106,10 +109,12 @@ function fly(to, ms) {
     var k = from.k * Math.pow(to.k / from.k, e), w = big > 0.05 ? (1 / from.k - 1 / k) / (1 / from.k - 1 / to.k) : e;
     var cx = c0[0] + (c1[0] - c0[0]) * w, cy = c0[1] + (c1[1] - c0[1]) * w;
     cam = {x: cx - W / 2 / k, y: cy - (HEAD_H + Hs / 2) / k, k: k};
+    // `each` follows the movement (`zoomMove` in `atlas_inside`).
+    if (flight.each) flight.each(e, t >= 1);
     moved(true);
     if (t < 1) flight.raf = requestAnimationFrame(step); else flight = null;
   }
-  flight = {raf: requestAnimationFrame(step)};
+  flight = {raf: requestAnimationFrame(step), to: to};
 }
 // A zoom by `f` at the screen point px, py. The world point at that point goes to the
 // screen point qx, qy (by default px, py).
@@ -163,11 +168,12 @@ function draw() {
   var began = performance.now(), d = dpr() * (sharp ? 1 : 0.5);
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
   if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
+  CHAIN = focusChain(); groundSync();
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
   drawGrid();
   STATS.cards = 0; STATS.image = 0;
   if (WORDS.size > 20000) WORDS.clear();
-  CHAIN = focusChain();
+  morphFrame();
   if (SEL && SEL.map !== currentMap()) select(null, {keep: true});
   litFrame();
   // The diagram form of a sequence (`atlas_sequences`) and the board of the States view
@@ -181,9 +187,10 @@ function draw() {
   drawn++;
   var m = currentMap();
   if (m !== SHOWN_MAP) { SHOWN_MAP = m; headSync(true); mapChanged(m); }
+  insideSync(m);
   if (SIDE_ON) sideSync();
   zoomShown();
-  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, hide: HIDE, images: LAYERS});
+  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, hide: HIDE, images: LAYERS, morph: MORPH ? MORPH.p : null});
   if (SPEED_FADING || VIEW_FADING) fadeLater();
   lightSharp();
 }
@@ -249,10 +256,12 @@ function enter(px, py) {
   var c = pickClosed(px, py);
   if (c && c.child) dive(c);
 }
+// Esc and the Back button go out one level, with the zoom movement to the card of the map
+// (`leaveTo` in `atlas_inside`). The card is then selected.
 function goOut() {
   var n = CHAIN.length;
-  focusOut();
-  flyTo(n > 1 ? frameOf(CHAIN[n - 2].child) : topFrame(), FIT);
+  if (!n) { flyTo(topFrame(), FIT); return; }
+  leaveTo(CHAIN[n - 1].map);
 }
 function fitCurrent(whole) { flyTo(frameOf(currentMap()), FIT, whole); }
 var pts = new Map(), drag = null, didMove = false, multi = false, kind = 'mouse';
@@ -445,6 +454,8 @@ window.systemapCanvas = {
   // The texts and the geometry of one frame (`DLOG` in `atlas_draw`).
   drawn: function () { TLOG = []; DLOG = []; draw(); var o = {texts: TLOG, marks: DLOG}; TLOG = null; DLOG = null; return o; },
   keys: keyState,
+  // The signs of a nested map (`atlas_inside`).
+  inside: insideState,
   // The light, the reading line and the details (`atlas_lit`, `atlas_details`).
   lit: function () {
     return {key: LIGHT.key, map: LIGHT.m ? LIGHT.m.id : null, focus: LIGHT.focus, step: !!LIGHT.step, dim: DIM, shown: LIT_SHOWN,

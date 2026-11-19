@@ -89,6 +89,29 @@ state machine, History needs commit data.
   of its parts. The reader goes in with zoom, with a double-click, or with a button in
   the details. The map above fades as the nested map takes the screen. The headline shows
   the path, and each part of the path goes to that map. Esc goes out one level.
+- **Inside a nested map.** The page shows five signs, so that a reader cannot think that a
+  nested map is the top map. They apply to each nested map at each depth, in the Map view
+  (`atlas_inside`). The top map has none of them.
+  1. *The bar.* A bar at the top of the map area gives "Inside" and the name of the map,
+     and the button "Back to" and the name of the map above, with the key Esc. At depth 2
+     or more, the bar also gives the path, for example "systemap / P0 / Q0", and each name
+     in the path goes to that map. The bar is fully on the screen at the fit, its text is
+     14 px or more, and the contrast of its text is 4.5 or more. The fit keeps the height of
+     the bar free, and the headline is below the bar.
+  2. *The zoom movement.* A move into a nested map goes from the box of its card on the map
+     above to the fit of the nested map. A move out goes back to that card, and the card is
+     then selected. Each movement takes 360 ms (250 ms to 450 ms). With reduced motion, the
+     camera goes to the end at once.
+  3. *The locator.* A small picture of the map above, with the card of the nested map
+     marked, is in a corner of the screen where it covers no card and no label at rest of
+     the nested map at the fit. When no corner is free, the locator does not show. A click
+     on it goes out one level.
+  4. *The inside look.* The frame of the nested map has its name as a title, 18 px or more
+     on the screen at the fit of a wide screen. The ground around the frame has the color
+     `--inside`, which is different from the ground of the top map in the light scheme and
+     in the dark scheme.
+  5. *The neighbours.* A neighbour card has the line "on" and the name of the map above
+     below its name, so that a reader expects a selection to go out.
 - **Neighbours of a nested map.** They sit around the frame of the nested map, each near
   the parts that it has flows with, not in one column. A neighbour is a card of the map
   above: selecting it goes out to that card.
@@ -100,7 +123,8 @@ state machine, History needs commit data.
   after N4 failed on Page. The commands use the rule for the atlas page
   (`place.SIDES_IN_COMMANDS = True`). The neighbours of Page are at the four sides of its
   frame (tests/test_atlas_browser.py, acceptance 26). Their positions are not those of the
-  study, and Page shows at 81 percent at 1440 x 900, against 103 percent in the study.
+  study, and Page shows at 81 percent at 1440 x 900, against 103 percent in the study. From
+  stage 11 the bar of a nested map takes 49 px at the top, and Page shows at 76 percent.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced
@@ -326,6 +350,11 @@ branch `views-prototype`. No stage makes a pull request.
     top map, and acceptance 10 of that test holds those bands (155 px and 75 px) on the
     fixture with a nested map. A larger fit of the top map would change that written value.
     Thus the canvas page does not change, and the maintainer must decide.
+
+11. **A zoomed-in view that a reader cannot mistake.** The five signs of "Inside a nested
+    map". tests/test_atlas_inside_browser.py holds the acceptance values A1 to A8 on the
+    nested map Page and on the three depths of the generated M11 tree. The budget is B21 in
+    `bench/jev/README.md`.
 
 ## What is not decided
 
