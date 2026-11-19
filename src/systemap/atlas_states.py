@@ -15,11 +15,16 @@ study (docs/design/atlas/study-script.html, `drawMachine`):
   because a state is not a component. It shows its ID and the short form of its source
   symbol: the last two parts. The first state has a dot and a short line before it.
 - A straight transition goes from the edge of its source state to the edge of its target
-  state, and its label is above the line. Two or more transitions between the same two
-  states bend apart, each to a different side, with their labels at the outer sides
-  (`bendsOf`). A straight transition that goes through a different state goes around the
-  states, at the right side of its direction (`blocked`, `aroundShape`). A transition from
-  a state to the same state is a loop above the state.
+  state. Its label is above the line when the line is horizontal, at the upper side of the
+  line when the line is diagonal, and at the right side when the line is vertical. Two or
+  more transitions between the same two states bend apart, each to a different side, with
+  their labels at the outer sides (`bendsOf`). When the straight line between two states
+  goes through a different state, each transition between the two states goes around the
+  states, the first two at the two sides (`blocked`, `aroundShape`). A transition from a
+  state to the same state is a loop above the state.
+- Each label goes to the first place that covers no state, no label before it and no line:
+  the middle of its line, then nearer to the ends of its line, then farther out
+  (`placeLabels`).
 - Pointing at a state or a transition, or the keyboard focus on it, lights it and the items
   that touch it. The other states and transitions go back. The reading line (`atlas-say`)
   gives the cause of a transition, and the meaning of a state. For a state it also gives
@@ -35,8 +40,14 @@ study (docs/design/atlas/study-script.html, `drawMachine`):
 - The board is in the free part of the screen: at the right of the list on a wide screen,
   under the row of the list on a phone, and above the reading line. Its scale is SM_MIN or
   more, so that its text can be read: on a phone the symbol of a state has a larger font, so
-  that each text is 7 px high or more at SM_MIN. When the board is larger than its part of
-  the screen at SM_MIN (a phone), that part scrolls.
+  that each text is 7 px high or more at SM_MIN. When the board does not fit at SM_MIN and
+  the board with the columns as rows gives a larger scale (a phone), the columns go down
+  the screen (`smTurn`). When the board is still larger than its part of the screen, that
+  part scrolls, and a mark "More" at a bottom corner tells that a part is out of view at
+  the right or below. A click on the mark scrolls the board (`smMore`).
+- On a phone the headline also gives the counts, as in the Sequences view.
+- Each state and each transition is a button for a screen reader. Its aria-pressed is
+  "true" while its light is kept.
 
 The board is SVG, not canvas: it does not zoom (docs/design/atlas.md, "The architecture").
 The script makes it with DOM functions (`sv` in `atlas_sequences`). It draws the board
@@ -51,6 +62,10 @@ HTML = (
     '<div class="rail__list" id="atlas-srail-list"></div></nav>'
     '<div id="atlas-sboard" class="sboard" role="group" aria-label="State machine">'
     '<svg id="atlas-ssvg"><g id="atlas-sworld"></g></svg></div>'
+    '<button type="button" class="smore smore--r" id="atlas-smore-r" hidden'
+    ' aria-label="More of the machine at the right">More <span aria-hidden="true">→</span></button>'
+    '<button type="button" class="smore smore--d" id="atlas-smore-d" hidden'
+    ' aria-label="More of the machine below">More <span aria-hidden="true">↓</span></button>'
 )
 
 # From the study, with the fixed header of the atlas page and the fonts of the product. The
@@ -63,6 +78,12 @@ body[data-mode="states"] .zoom,body[data-mode="states"] .key,body[data-mode="sta
 .sboard{position:fixed;left:var(--sb-x,0px);top:var(--sb-y,0px);width:var(--sb-w,100%);height:var(--sb-h,100%);display:none;
 overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;z-index:1}
 .sboard svg{display:block}
+.smore{position:fixed;z-index:2;height:30px;padding:0 10px;border:1px solid var(--line);border-radius:15px;background:var(--surface);
+color:var(--ink-2);font:500 12px/1 var(--fs);box-shadow:0 1px 6px rgba(0,0,0,.12)}
+.smore:hover{color:var(--ink)}
+.smore--r{left:calc(var(--sb-x,0px) + var(--sb-w,100%) - 76px);top:calc(var(--sb-y,0px) + var(--sb-h,100%) - 38px)}
+.smore--d{left:calc(var(--sb-x,0px) + 8px);top:calc(var(--sb-y,0px) + var(--sb-h,100%) - 38px)}
+body:not([data-mode="states"]) .smore{display:none}
 body[data-mode="states"] .sboard{display:block}
 .snode{cursor:pointer;outline:none;transition:opacity .2s}
 .snode rect{fill:var(--card);stroke:var(--ink-3);stroke-width:1;transition:stroke .16s,stroke-width .16s}
@@ -87,7 +108,7 @@ stroke-linejoin:round;pointer-events:none}
 .tedge.kf polygon{fill:var(--brand)}
 .sfocus .tedge:not(.lit),.sfocus .snode:not(.lit){opacity:.38}
 @media (min-width:1181px){body[data-mode="states"] .ask{max-width:290px}}
-@media (max-width:720px){.snode .sy{font-size:12px}}
+@media (max-width:720px){.snode .sy{font-size:12px}body[data-mode="states"] .ask__n{display:block;margin-top:4px}}
 @media (min-width:721px) and (max-width:1180px){
 body[data-mode="states"] .srail{top:calc(var(--ask-b,248px) + 24px);bottom:96px}
 }
@@ -99,6 +120,7 @@ var SM_MAPS = ORDER.filter(function (m) { return m.sm && m.sm.length; });
 var SM = {m: null, k: 0, hot: null, pin: null, items: [], scale: 0}, SM_MIN = 0.6;
 var SM_CW = 290, SM_CH = 170, SM_NW = 200, SM_NH = 62;
 var SRAIL = document.getElementById('atlas-srail'), SRAIL_LIST = document.getElementById('atlas-srail-list');
+var SMORE_R = document.getElementById('atlas-smore-r'), SMORE_D = document.getElementById('atlas-smore-d');
 var SBOARD = document.getElementById('atlas-sboard'), SSVG = document.getElementById('atlas-ssvg'), SWORLD = document.getElementById('atlas-sworld');
 function smX() { return SM.m ? SM.m.sm[SM.k] : null; }
 function smOn() { return VIEW.mode === 'states' && !!SM.m; }
@@ -154,24 +176,25 @@ function smShow() {
 function smHide() { SM.hot = null; SM.pin = null; if (SAY) { SAY.classList.remove('on'); SAY.replaceChildren(); } SAID_KEY = ''; }
 
 // ---- the geometry --------------------------------------------------------------------------
-// The bend of each transition. The transitions between the same two states bend apart: in
+// The shape of each transition. The transitions between the same two states bend apart: in
 // the frame of the pair, the offsets are 30, -30, 60, -60 and so on. A transition in the
 // other direction has the opposite sign in its own frame, so a pair in two directions goes to
-// two sides. A single straight transition that goes through a different state goes around
-// the states (AROUND): it is marked with a bend of AROUND, and `aroundShape` draws it.
-var AROUND = 999;
+// two sides. When the straight line between two states goes through a different state, all
+// the transitions between the two states go around the states (`aroundShape`): the first at
+// the right side of its direction, the second at the other side, and the next ones farther
+// out. `bend` is the bend of a line, or `side` and `depth` give a line around the states.
 function bendsOf(x, pos) {
-  var groups = Object.create(null), out = x.tr.map(function () { return 0; });
+  var groups = Object.create(null), out = x.tr.map(function () { return {bend: 0}; });
   x.tr.forEach(function (t, i) {
     if (t.a === t.b) return;
     var key = Math.min(t.a, t.b) + ':' + Math.max(t.a, t.b);
     (groups[key] = groups[key] || []).push(i);
   });
   Object.keys(groups).forEach(function (key) {
-    var list = groups[key];
+    var list = groups[key], t0 = x.tr[list[0]], s0 = t0.a < t0.b ? 1 : -1, around = blocked(x, pos, t0);
     list.forEach(function (i, j) {
-      var t = x.tr[i], s = t.a < t.b ? 1 : -1, o = list.length > 1 ? 30 * (1 + (j >> 1)) * (j % 2 ? -1 : 1) : 0;
-      out[i] = list.length === 1 && blocked(x, pos, t) ? AROUND : o * s;
+      var s = x.tr[i].a < x.tr[i].b ? 1 : -1, side = j % 2 ? -1 : 1, level = 1 + (j >> 1);
+      out[i] = around ? {side: side * s * s0, depth: 20 + 60 * level} : {bend: list.length > 1 ? 30 * level * side * s : 0};
     });
   });
   return out;
@@ -190,49 +213,86 @@ function blocked(x, pos, t) {
     return false;
   });
 }
-// The path, the arrowhead and the label of a transition from the point a to the point b
-// with the bend `bend`, as in the study: the line starts and ends at the edge of the two
-// states. The label of a straight line is above the line. The label of a bent line is at
-// the outer side of the bend.
+// The end of a quadratic line from p0 through the control point m to p1: the arrowhead and
+// the data of the label (`labelAt`).
+function curve(p0, m, p1, n, flat) {
+  var tx = p1[0] - m[0], ty = p1[1] - m[1], tl = Math.hypot(tx, ty) || 1;
+  tx /= tl; ty /= tl;
+  return {d: 'M' + p0[0] + ' ' + p0[1] + 'Q' + m[0] + ' ' + m[1] + ' ' + p1[0] + ' ' + p1[1], tip: [p1[0] + tx * 4, p1[1] + ty * 4], dir: [tx, ty],
+    p0: p0, m: m, p1: p1, n: n, flat: flat};
+}
+// The shape of a transition from the point a to the point b with the bend `bend`, as in the
+// study: the line starts and ends at the edge of the two states. The label of a horizontal
+// straight line is above the line. The label of a different straight line is at its upper
+// side, or at its right side when the line is vertical. The label of a bent line is at the
+// outer side of the bend.
 function edgeShape(a, b, bend) {
   var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
   var ea = Math.min(Math.abs(ux) > 0.01 ? SM_NW / 2 / Math.abs(ux) : 1e9, Math.abs(uy) > 0.01 ? SM_NH / 2 / Math.abs(uy) : 1e9) + 3;
   var p0 = [a[0] + ux * ea - uy * bend * 0.45, a[1] + uy * ea + ux * bend * 0.45], p1 = [b[0] - ux * (ea + 4) - uy * bend * 0.45, b[1] - uy * (ea + 4) + ux * bend * 0.45];
-  var mx = (p0[0] + p1[0]) / 2 - uy * bend, my = (p0[1] + p1[1]) / 2 + ux * bend;
-  var tx = p1[0] - mx, ty = p1[1] - my, tl = Math.hypot(tx, ty) || 1;
-  tx /= tl; ty /= tl;
-  var lx = (p0[0] + 2 * mx + p1[0]) / 4, ly = (p0[1] + 2 * my + p1[1]) / 4;
-  return {d: 'M' + p0[0] + ' ' + p0[1] + 'Q' + mx + ' ' + my + ' ' + p1[0] + ' ' + p1[1], tip: [p1[0] + tx * 4, p1[1] + ty * 4], dir: [tx, ty],
-    label: bend ? outerLabel(lx, ly, -uy * Math.sign(bend), ux * Math.sign(bend)) : {x: lx, y: ly - 12, cls: null}};
-}
-// The label of a bent line at the middle (x, y) of the line, at the outer side (nx, ny): 14
-// to the side or 12 up or down, as in the study.
-function outerLabel(x, y, nx, ny) {
-  return {x: x + nx * 14, y: y + ny * 12 + 4, cls: Math.abs(nx) < 0.3 ? null : nx < 0 ? 'end' : 'start'};
+  var m = [(p0[0] + p1[0]) / 2 - uy * bend, (p0[1] + p1[1]) / 2 + ux * bend], k = Math.sign(bend);
+  if (bend) return curve(p0, m, p1, [-uy * k, ux * k], false);
+  var up = ux < -1e-9 || (Math.abs(ux) <= 1e-9 && uy < 0) ? -1 : 1;
+  return curve(p0, m, p1, [uy * up, -ux * up], Math.abs(uy) < 0.01);
 }
 // A transition around the states between its two states: it leaves the side of its source
-// state that faces the side of the bend, near the target, and comes into the same side of
-// its target state, near the source. The middle of the line is 40 from the boxes of the two
-// states, so that it does not touch a state between them.
-function aroundShape(a, b) {
-  var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+// state that faces the side of the line (`side` 1 is the right side of its direction), near
+// the target, and comes into the same side of its target state, near the source. The middle
+// of the line is depth / 2 from the boxes of the two states, so that it does not touch a
+// state between them.
+function aroundShape(a, b, side, depth) {
+  var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy * side, ny = ux * side;
   var ext = Math.abs(nx) * SM_NW / 2 + Math.abs(ny) * SM_NH / 2 + 3, along = Math.abs(ux) * (SM_NW / 2 - 40) + Math.abs(uy) * (SM_NH / 2 - 12);
   var p0 = [a[0] + nx * ext + ux * along, a[1] + ny * ext + uy * along], p1 = [b[0] + nx * (ext + 4) - ux * along, b[1] + ny * (ext + 4) - uy * along];
-  var mx = (p0[0] + p1[0]) / 2 + nx * 80, my = (p0[1] + p1[1]) / 2 + ny * 80;
-  var tx = p1[0] - mx, ty = p1[1] - my, tl = Math.hypot(tx, ty) || 1;
-  tx /= tl; ty /= tl;
-  var lx = (p0[0] + 2 * mx + p1[0]) / 4, ly = (p0[1] + 2 * my + p1[1]) / 4;
-  return {d: 'M' + p0[0] + ' ' + p0[1] + 'Q' + mx + ' ' + my + ' ' + p1[0] + ' ' + p1[1], tip: [p1[0] + tx * 4, p1[1] + ty * 4], dir: [tx, ty], label: outerLabel(lx, ly, nx, ny)};
+  return curve(p0, [(p0[0] + p1[0]) / 2 + nx * depth, (p0[1] + p1[1]) / 2 + ny * depth], p1, [nx, ny], false);
 }
 // A loop from a state to the same state, above the state.
 function loopShape(a) {
-  var top = a[1] - SM_NH / 2;
+  var top = a[1] - SM_NH / 2, at = [a[0], top - 38];
   return {d: 'M' + (a[0] - 22) + ' ' + (top - 3) + 'C' + (a[0] - 34) + ' ' + (top - 56) + ' ' + (a[0] + 34) + ' ' + (top - 56) + ' ' + (a[0] + 22) + ' ' + (top - 7),
-    tip: [a[0] + 21, top - 3], dir: [-0.22, 0.98], label: {x: a[0], y: top - 50, cls: null}};
+    tip: [a[0] + 21, top - 3], dir: [-0.22, 0.98], p0: at, m: at, p1: at, n: [0, -1], flat: true};
 }
 function arrowPoints(tip, d) {
   var tx = d[0], ty = d[1];
   return [tip[0], tip[1], tip[0] - tx * 9 - ty * 4.2, tip[1] - ty * 9 + tx * 4.2, tip[0] - tx * 9 + ty * 4.2, tip[1] - ty * 9 - tx * 4.2].join(' ');
+}
+// The label of a transition at the point u of its line (0 at the start, 1 at the end), and
+// `extra` farther out. A flat label is 12 above its point. A different label is at the side n
+// of the line: 14 to the side or 12 up or down, as in the study.
+function labelAt(sh, u, extra) {
+  var v = 1 - u, x = v * v * sh.p0[0] + 2 * u * v * sh.m[0] + u * u * sh.p1[0], y = v * v * sh.p0[1] + 2 * u * v * sh.m[1] + u * u * sh.p1[1];
+  if (sh.flat) return {x: x, y: y - 12 - extra, cls: null};
+  var nx = sh.n[0], ny = sh.n[1];
+  return {x: x + nx * (14 + extra), y: y + ny * (12 + extra) + 4, cls: Math.abs(nx) < 0.3 ? null : nx < 0 ? 'end' : 'start'};
+}
+function setLabel(e, at) {
+  e.setAttribute('x', at.x); e.setAttribute('y', at.y);
+  if (at.cls) e.setAttribute('class', at.cls); else e.removeAttribute('class');
+}
+// Put each label, in model order, at the first place that covers no state, no label before
+// it and no line: the middle of its line, then nearer to the ends of its line, then farther
+// out. When no place is free, the label stays at the middle of its line.
+var SM_AT = [0.5, 0.38, 0.62, 0.26, 0.74], SM_OUT = [0, 10, 22, 36];
+function placeLabels(pos, items) {
+  var edges = items.filter(function (o) { return o.kind === 't'; }), dots = [];
+  var boxes = pos.map(function (p) { return [p[0] - SM_NW / 2 - 2, p[1] - SM_NH / 2 - 2, p[0] + SM_NW / 2 + 2, p[1] + SM_NH / 2 + 2]; });
+  edges.forEach(function (o) {
+    var w = o.look.querySelector('path.wire'), n = w.getTotalLength();
+    for (var s = 0; s <= 48; s++) { var q = w.getPointAtLength(n * s / 48); dots.push([q.x, q.y]); }
+  });
+  var free = function (r) {
+    return !boxes.some(function (b) { return r[0] < b[2] && b[0] < r[2] && r[1] < b[3] && b[1] < r[3]; }) &&
+      !dots.some(function (d) { return d[0] > r[0] && d[0] < r[2] && d[1] > r[1] && d[1] < r[3]; });
+  };
+  edges.forEach(function (o) {
+    var text = o.look.querySelector('text'), done = false;
+    for (var i = 0; i < SM_OUT.length * SM_AT.length && !done; i++) {
+      setLabel(text, labelAt(o.shape, SM_AT[i % SM_AT.length], SM_OUT[Math.floor(i / SM_AT.length)]));
+      var b = text.getBBox(), r = [b.x - 2, b.y - 1, b.x + b.width + 2, b.y + b.height + 1];
+      if (free(r)) { boxes.push(r); done = true; }
+    }
+    if (!done) setLabel(text, labelAt(o.shape, 0.5, 0));
+  });
 }
 
 // ---- the board -----------------------------------------------------------------------------
@@ -249,35 +309,56 @@ function smFree() {
   else if (W > WIDE && ASK_EL) top = Math.max(top, ASK_EL.getBoundingClientRect().bottom + 16);
   return {x0: left, y0: top, x1: W - 16, y1: Math.max(top + 1, bottom)};
 }
+// True when the board does not fit at SM_MIN and the board with the columns as rows gives a
+// larger scale: on a phone, the columns then go down the screen.
+function smTurn(x, aw, ah) {
+  var cols = 1, rows = 1;
+  x.st.forEach(function (s) { cols = Math.max(cols, s.c + 1); rows = Math.max(rows, s.r + 1); });
+  var fit = function (c, r) { return Math.min((aw - 1) / ((c - 1) * SM_CW + SM_NW + 120), (ah - 1) / ((r - 1) * SM_CH + SM_NH + 120)); };
+  return fit(cols, rows) < SM_MIN && fit(rows, cols) > fit(cols, rows);
+}
 function smDraw() {
   if (!SWORLD || !smOn()) return;
   var x = smX(), had = SBOARD.contains(document.activeElement) ? document.activeElement.getAttribute('data-item') : null;
-  SWORLD.replaceChildren(); SWORLD.setAttribute('class', '');
+  SWORLD.replaceChildren(); SWORLD.setAttribute('class', ''); SWORLD.removeAttribute('transform');
   SBOARD.setAttribute('aria-label', 'State machine: ' + x.n);
-  var cols = 1, rows = 1, loops = x.tr.some(function (t) { return t.a === t.b; }) ? 60 : 0;
-  x.st.forEach(function (s) { cols = Math.max(cols, s.c + 1); rows = Math.max(rows, s.r + 1); });
-  var first = x.st.some(function (s) { return s.first; }) ? 40 : 0;
-  var bw = (cols - 1) * SM_CW + SM_NW + first, bh = (rows - 1) * SM_CH + SM_NH + loops, g = smFree();
-  var aw = Math.max(1, g.x1 - g.x0), ah = Math.max(1, g.y1 - g.y0);
-  var k = Math.max(SM_MIN, Math.min(1.25, (aw - 1) / (bw + 80), (ah - 1) / (bh + 60)));
-  var tx = Math.max(40 * k, (aw - bw * k) / 2), ty = Math.max(30 * k, (ah - bh * k) / 2);
-  [['--sb-x', g.x0], ['--sb-y', g.y0], ['--sb-w', aw], ['--sb-h', ah]].forEach(function (v) { SBOARD.style.setProperty(v[0], v[1] + 'px'); });
-  SSVG.setAttribute('width', Math.ceil(Math.max(aw, tx + (bw + 40) * k)));
-  SSVG.setAttribute('height', Math.ceil(Math.max(ah, ty + (bh + 30) * k)));
-  SWORLD.setAttribute('transform', 'translate(' + (tx + first * k) + ' ' + (ty + loops * k) + ') scale(' + k + ')');
-  SM.scale = k;
-  var pos = x.st.map(function (s) { return [s.c * SM_CW + SM_NW / 2, s.r * SM_CH + SM_NH / 2]; }), bends = bendsOf(x, pos);
+  var g = smFree(), aw = Math.max(1, g.x1 - g.x0), ah = Math.max(1, g.y1 - g.y0), turn = smTurn(x, aw, ah);
+  [['--sb-x', g.x0], ['--sb-y', g.y0], ['--sb-w', aw], ['--sb-h', ah]].forEach(function (v) { document.body.style.setProperty(v[0], v[1] + 'px'); });
+  var pos = x.st.map(function (s) { return [(turn ? s.r : s.c) * SM_CW + SM_NW / 2, (turn ? s.c : s.r) * SM_CH + SM_NH / 2]; }), shapes = bendsOf(x, pos);
   var gE = sv('g', null, SWORLD), gN = sv('g', null, SWORLD), gT = sv('g', null, SWORLD), items = [];
   x.st.forEach(function (s, i) { items.push(smState(x, s, i, pos[i], gN)); });
-  x.tr.forEach(function (t, i) { items.push(smEdge(x, t, i, pos, bends[i], gE, gT)); });
-  SM.items = items;
-  smLight();
+  x.tr.forEach(function (t, i) { items.push(smEdge(x, t, i, pos, shapes[i], gE, gT)); });
+  placeLabels(pos, items);
+  // The scale and the place come from the box of the full board, with its labels. When the
+  // board with its margins is larger than its part of the screen, the margins become 12 px.
+  var bb = SWORLD.getBBox(), k = Math.min(1.25, (aw - 1) / (bb.width + 80), (ah - 1) / (bb.height + 60));
+  if (k < SM_MIN) k = Math.max(SM_MIN, Math.min((aw - 24) / bb.width, (ah - 24) / bb.height));
+  var tx = Math.max(12, (aw - bb.width * k) / 2), ty = Math.max(12, (ah - bb.height * k) / 2);
+  SSVG.setAttribute('width', Math.ceil(Math.max(aw, tx * 2 + bb.width * k)));
+  SSVG.setAttribute('height', Math.ceil(Math.max(ah, ty * 2 + bb.height * k)));
+  SWORLD.setAttribute('transform', 'translate(' + (tx - bb.x * k) + ' ' + (ty - bb.y * k) + ') scale(' + k + ')');
+  SM.scale = k; SM.turn = turn; SM.items = items;
+  SBOARD.scrollTo(0, 0);
+  smLight(); smMore();
   if (had !== null) { var back = SWORLD.querySelector('[data-item="' + had + '"]'); if (back) back.focus({preventScroll: true}); }
 }
+// The mark "More" at the bottom right corner of the board shows while a part of the board is
+// out of view at the right. The mark at the bottom left corner shows while a part is out of
+// view below. A corner is usually empty, because the board is at the middle. A click on a
+// mark scrolls the board.
+function smMore() {
+  var o = SBOARD, gap = 2;
+  if (SMORE_R) SMORE_R.hidden = !(smOn() && o.scrollLeft + o.clientWidth < o.scrollWidth - gap);
+  if (SMORE_D) SMORE_D.hidden = !(smOn() && o.scrollTop + o.clientHeight < o.scrollHeight - gap);
+}
+function smScroll(dx, dy) { SBOARD.scrollBy({left: dx * SBOARD.clientWidth * 0.8, top: dy * SBOARD.clientHeight * 0.8, behavior: reduced() ? 'auto' : 'smooth'}); }
+if (SBOARD) SBOARD.addEventListener('scroll', smMore, {passive: true});
+if (SMORE_R) SMORE_R.addEventListener('click', function (e) { e.stopPropagation(); smScroll(1, 0); });
+if (SMORE_D) SMORE_D.addEventListener('click', function (e) { e.stopPropagation(); smScroll(0, 1); });
 function smState(x, s, i, p, parent) {
   // The name starts with the visible text: the ID and the short symbol.
   var words = s.id + (s.sym ? ' ' + shortSym(s.sym) : '') + '. State. ' + (s.y || 'The model gives no meaning for this state.') + (s.first ? ' This is the first state.' : '');
-  var g = sv('g', {'class': 'snode', tabindex: '0', role: 'button', 'data-item': 's' + i, 'aria-label': words}, parent);
+  var g = sv('g', {'class': 'snode', tabindex: '0', role: 'button', 'aria-pressed': 'false', 'data-item': 's' + i, 'aria-label': words}, parent);
   if (s.first) {
     sv('circle', {cx: p[0] - SM_NW / 2 - 34, cy: p[1], r: 4, 'class': 'sstart'}, g);
     sv('path', {d: 'M' + (p[0] - SM_NW / 2 - 30) + ' ' + p[1] + 'H' + (p[0] - SM_NW / 2 - 6), 'class': 'sstart-l'}, g);
@@ -295,16 +376,17 @@ function smState(x, s, i, p, parent) {
 }
 // The transition: its line, arrowhead and label below the states, and its target for the
 // pointer and the keyboard after the states, so that Tab gives the states first.
-function smEdge(x, t, i, pos, bend, below, above) {
-  var shape = t.a === t.b ? loopShape(pos[t.a]) : bend === AROUND ? aroundShape(pos[t.a], pos[t.b]) : edgeShape(pos[t.a], pos[t.b], bend), from = x.st[t.a].id, to = x.st[t.b].id;
+function smEdge(x, t, i, pos, how, below, above) {
+  var a = pos[t.a], b = pos[t.b], from = x.st[t.a].id, to = x.st[t.b].id;
+  var shape = t.a === t.b ? loopShape(a) : how.depth ? aroundShape(a, b, how.side, how.depth) : edgeShape(a, b, how.bend), label = labelAt(shape, 0.5, 0);
   var look = sv('g', {'class': 'tedge', 'aria-hidden': 'true'}, below);
   sv('path', {d: shape.d, 'class': 'wire'}, look);
   sv('polygon', {points: arrowPoints(shape.tip, shape.dir)}, look);
-  sv('text', {x: shape.label.x, y: shape.label.y, 'class': shape.label.cls}, look, t.l);
+  sv('text', {x: label.x, y: label.y, 'class': label.cls}, look, t.l);
   var words = 'Transition from ' + from + ' to ' + to + ': ' + t.l + '. ' + (t.c || 'The model gives no cause for this transition.');
-  var g = sv('g', {'class': 'tedge', tabindex: '0', role: 'button', 'data-item': 't' + i, 'aria-label': words}, above);
+  var g = sv('g', {'class': 'tedge', tabindex: '0', role: 'button', 'aria-pressed': 'false', 'data-item': 't' + i, 'aria-label': words}, above);
   sv('path', {d: shape.d, 'class': 'hit'}, g);
-  var item = {kind: 't', i: i, g: g, look: look, t: t, bend: bend, shape: shape};
+  var item = {kind: 't', i: i, g: g, look: look, t: t, bend: how.depth ? how.side * how.depth : how.bend, shape: shape};
   smWire(item, g);
   return item;
 }
@@ -341,6 +423,7 @@ function smLight() {
   SM.items.forEach(function (o) {
     var on = o.kind === 's' ? !!states[o.i] : !!edges[o.i];
     o.g.classList.toggle('lit', on);
+    o.g.setAttribute('aria-pressed', SM.pin === o ? 'true' : 'false');
     if (o.look) o.look.classList.toggle('lit', on);
   });
 }
@@ -386,7 +469,9 @@ if (SM_MAPS.length) smRailWrite();
 // The state of the view for the tests.
 function smState2() {
   var x = smX(), view = SBOARD ? SBOARD.getBoundingClientRect().toJSON() : null;
-  return {mode: VIEW.mode, map: SM.m ? SM.m.id : null, k: SM.k, id: x ? x.id : null, scale: SM.scale, view: view,
+  var mark = function (e) { return e && !e.hidden ? e.getBoundingClientRect().toJSON() : null; };
+  return {mode: VIEW.mode, map: SM.m ? SM.m.id : null, k: SM.k, id: x ? x.id : null, scale: SM.scale, turn: !!SM.turn, view: view,
+    more: [mark(SMORE_R), mark(SMORE_D)], scrollAt: SBOARD ? [SBOARD.scrollLeft, SBOARD.scrollTop] : null,
     on: smOn() && !!SBOARD && getComputedStyle(SBOARD).display !== 'none', cls: SWORLD ? SWORLD.getAttribute('class') : '',
     scroll: SBOARD ? [SBOARD.scrollWidth, SBOARD.scrollHeight, SBOARD.clientWidth, SBOARD.clientHeight] : null,
     rail: SRAIL_LIST ? Array.prototype.map.call(SRAIL_LIST.querySelectorAll('button'), function (b) { return {text: b.textContent, on: b.getAttribute('aria-current') === 'true'}; }) : [],
@@ -397,14 +482,14 @@ function smState2() {
       var box = function (e) { return e ? e.getBoundingClientRect().toJSON() : null; };
       if (o.kind === 's') {
         var r = o.g.querySelector('rect'), dot = o.g.querySelector('.sstart');
-        return {kind: 's', i: o.i, id: o.s.id, label: o.g.getAttribute('aria-label'), lit: o.g.classList.contains('lit'), opacity: getComputedStyle(o.g).opacity,
+        return {kind: 's', i: o.i, id: o.s.id, label: o.g.getAttribute('aria-label'), pressed: o.g.getAttribute('aria-pressed'), lit: o.g.classList.contains('lit'), opacity: getComputedStyle(o.g).opacity,
           rect: box(r), rx: +r.getAttribute('rx'), h: +r.getAttribute('height'), dot: box(dot), dotLine: box(o.g.querySelector('.sstart-l')),
           texts: Array.prototype.map.call(o.g.querySelectorAll('.nm, .sy'), function (t) { return {text: t.textContent, box: box(t), px: parseFloat(getComputedStyle(t).fontSize) * SM.scale}; })};
       }
       var w = o.look.querySelector('path.wire'), tl = w.getTotalLength(), ctm = w.getScreenCTM(), pts = [];
       for (var s = 0; s <= 16; s++) { var q = w.getPointAtLength(tl * s / 16), sp = new DOMPoint(q.x, q.y).matrixTransform(ctm); pts.push([sp.x, sp.y]); }
       var lt = o.look.querySelector('text');
-      return {kind: 't', i: o.i, a: o.t.a, b: o.t.b, l: o.t.l, bend: o.bend, label: o.g.getAttribute('aria-label'), lit: o.look.classList.contains('lit'),
+      return {kind: 't', i: o.i, a: o.t.a, b: o.t.b, l: o.t.l, bend: o.bend, label: o.g.getAttribute('aria-label'), pressed: o.g.getAttribute('aria-pressed'), lit: o.look.classList.contains('lit'),
         opacity: getComputedStyle(o.look).opacity, wire: getComputedStyle(w).stroke, points: pts, text: {text: lt.textContent, box: box(lt), px: parseFloat(getComputedStyle(lt).fontSize) * SM.scale},
         tip: box(o.look.querySelector('polygon'))};
     })};

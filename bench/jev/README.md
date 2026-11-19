@@ -7486,3 +7486,17 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 | M11 tree | 372 / 371 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,236,352 / 1,187,526 = 0.96 (pass) | 56 (pass) |
 
 Result: PASS for each value. The atlas pages grew by about 19,000 bytes against B9 (the States part of the script and its styles). The canvas page of the map of this repository grew by 675 bytes, because the map text of the model changed.
+
+## B11: the performance budget of the atlas page, the repair of stage 4 (2026-11-18)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the scripts or to their acceptance values. The atlas page is the stage 4 page after the repair of the review: the States view places its labels, sends the transitions around a state between their two states, turns the board on a phone, and has the marks "More". The canvas page lost 36 bytes of its details script (two empty comments). At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1. The host has no GPU. One run, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 265 / 237 (pass) | 16.7 / 16.7 (pass) | 33.3 / 33.2 (pass) | 316,456 / 281,437 = 0.89 (pass) | 59 (pass) |
+| workspace | 297 / 279 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,864 / 227,519 = 0.85 (pass) | 58 (pass) |
+| M11 tree | 366 / 358 (pass) | 16.8 / 16.8 (pass) | 33.4 / 16.8 (pass) | 1,236,316 / 1,191,552 = 0.96 (pass) | 63 (pass) |
+
+Result: PASS for each value. The atlas pages grew by about 4,000 bytes against B10.
+
+The axe-core test of the States view (`test_axe_finds_no_violation` in `tests/test_atlas_states_browser.py`) ran on this host with axe-core on NODE_PATH: no violation at 1440 x 900 and at 390 x 844, in the light and the dark scheme. In the B10 run that test did not run, because axe-core was not on NODE_PATH.

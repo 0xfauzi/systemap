@@ -14,6 +14,9 @@
 //   Gateway. The list, and a click on the machine of Gateway, with the board.
 // - --phone: 390 x 844 with a touch screen. The view, the list and the board. A tap on the
 //   transition 1. Then the second machine.
+// - --probe: 1440 x 900 and then 390 x 844 on a page with more machines (each machine of the
+//   list in turn). On the phone, a tap on the mark "More" at the right of each machine
+//   that shows it.
 // - --axe: axe-core in the States view with a lit transition, in the light and the dark
 //   scheme, at 1440 x 900 and at 390 x 844 (null when axe-core is not on NODE_PATH).
 // Each mode prints one JSON object. `errors` has the script errors of the page.
@@ -40,6 +43,7 @@ async function state(page) {
     const shown = (sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e).display : null; };
     return { states: s.states(), view: s.viewState(), say: s.say(), said: document.getElementById('atlas-said').textContent,
       camera: s.camera(), ask: b('#atlas-ask'), canvas: getComputedStyle(document.getElementById('canvas')).visibility,
+      countsShown: shown('#atlas-ask-n'),
       tabs: shown('#atlas-tabs'), key: shown('#atlas-key'), zoom: shown('.zoom'), seqRail: shown('#atlas-rail'), sayBox: b('#atlas-say'),
       pressed: Array.from(document.querySelectorAll('#atlas-head [data-mode]')).map((x) => [x.textContent, x.getAttribute('aria-pressed')]),
       scroll: document.documentElement.scrollWidth, width: innerWidth };
@@ -149,6 +153,30 @@ async function phone(browser, file) {
   return out;
 }
 
+async function probe(browser, file) {
+  const out = { errors: [], wide: [], phone: [] };
+  for (const [opts, list] of [[WIDE, out.wide], [PHONE, out.phone]]) {
+    const { page, errors } = await open(browser, file, { ...opts, colorScheme: 'light' });
+    await page.click('#atlas-head [data-mode="states"]');
+    await page.waitForTimeout(500);
+    const n = await page.locator('#atlas-srail-list button').count();
+    for (let k = 0; k < n; k++) {
+      await page.click(`#atlas-srail-list button:nth-of-type(${k + 1})`);
+      await page.waitForTimeout(300);
+      const o = { shown: await state(page) };
+      if (opts === PHONE && o.shown.states.more[0]) {
+        await page.tap('#atlas-smore-r');
+        await page.waitForTimeout(900);
+        o.more = await state(page);
+      }
+      list.push(o);
+    }
+    out.errors.push(...errors);
+    await page.close();
+  }
+  return out;
+}
+
 async function axe(browser, file) {
   let source;
   try { source = require.resolve('axe-core/axe.min.js'); } catch (e) { return { axe: null, errors: [] }; }
@@ -172,7 +200,7 @@ async function axe(browser, file) {
   const [mode, file] = process.argv.slice(2);
   const browser = await chromium.launch();
   try {
-    const run = { '--wide': wide, '--nested': nested, '--phone': phone, '--axe': axe }[mode];
+    const run = { '--wide': wide, '--nested': nested, '--phone': phone, '--probe': probe, '--axe': axe }[mode];
     if (!run) throw new Error('unknown mode ' + mode);
     process.stdout.write(JSON.stringify(await run(browser, file)));
   } finally {

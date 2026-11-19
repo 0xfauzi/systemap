@@ -72,6 +72,32 @@ Acceptance value written on 2026-11-18 after the first runs, before its own firs
 14. No line of a transition goes through the label of a different transition, in each
     machine of the two pages: no point of the line (each of 16 parts of the line in 10
     steps) is in the label box with a margin of 1 px.
+
+Acceptance values written on 2026-11-18 for the repair after the review, before their first
+run. They use a third page (`probe_page`): the map of this repository with more machines.
+"Life of a job" comes from `states.layout` (`canvas_states`) and has three states in one
+column: idle, running and paused, with a transition in each direction between idle and
+running and between idle and paused. "A row" has a transition in each direction between a
+and c, with b between them. "Many lines" has three transitions between b and c, a
+vertical transition and two diagonal transitions.
+
+15. In each machine of the three pages, no line of a transition goes into the box of a
+    state that is not one of its two states (the check of acceptance 14, with the box of
+    the state). The two transitions between idle and paused go around running, at two
+    sides of it.
+16. Acceptance 3, 5 and 14 also hold for each machine of the probe page at 1440 x 900. The
+    label of a straight transition is at the upper side of its line: for a line that is
+    not vertical, the middle of the label is above the line at the x of that middle, and
+    for a vertical line, the label is at its right side. No line goes through its own
+    label.
+17. On a phone of 390 x 844 px, the headline gives the counts of the machine. Each state of
+    each machine is in the view of the board at the right, or the mark "More" at the right
+    shows. The mark shows for at least one machine of the probe page. A tap
+    on that mark scrolls the board to the right, and then no state goes out of the view at
+    the right.
+    "Review of a flow" of this repository fits on the phone: no mark shows.
+18. A kept state or transition has aria-pressed "true", and each other item has
+    aria-pressed "false".
 """
 
 from __future__ import annotations
@@ -88,7 +114,16 @@ from conftest import write_tree
 from test_canvas_access import no_axe
 from test_canvas_browser import browser
 
-from systemap import atlas_data, atlas_page, canvas_page, config, facts_file, nest
+from systemap import (
+    atlas_data,
+    atlas_page,
+    canvas_page,
+    canvas_states,
+    config,
+    facts_file,
+    nest,
+    states,
+)
 from systemap.cli import main
 
 ROOT = Path(__file__).resolve().parent
@@ -178,6 +213,70 @@ def nested_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return _write(root / "atlas.html", cfg, tree, data)
 
 
+def _job() -> dict[str, Any]:
+    """A machine from `states.layout`: idle, running and paused are in one column."""
+    s, t = states.State, states.Transition
+    machine = states.StateMachine(
+        "job",
+        "Life of a job",
+        "Model",
+        (s("new", say="The job is new."), s("idle"), s("running"), s("paused")),
+        (
+            t("new", "idle", "accept", "The queue takes the job."),
+            t("idle", "running", "start"),
+            t("running", "idle", "stop"),
+            t("idle", "paused", "pause"),
+            t("paused", "idle", "resume"),
+        ),
+        ("new",),
+    )
+    return dict(canvas_states._machine(machine, {}, {}))
+
+
+ROW_MACHINE = {
+    "id": "row",
+    "n": "A row",
+    "of": "Model",
+    "st": [_st("a", 0, 0, first=1), _st("b", 1, 0), _st("c", 2, 0)],
+    "tr": [_tr(0, 1, "go"), _tr(1, 2, "on"), _tr(0, 2, "skip there"), _tr(2, 0, "skip back")],
+}
+
+LINES_MACHINE = {
+    "id": "lines",
+    "n": "Many lines",
+    "of": "Model",
+    "st": [
+        _st("a", 0, 0, first=1),
+        _st("b", 1, 0),
+        _st("c", 2, 0),
+        _st("d", 0, 1),
+        _st("e", 2, 1),
+    ],
+    "tr": [
+        _tr(0, 1, "go"),
+        _tr(0, 3, "down straight"),
+        _tr(3, 1, "diagonal"),
+        _tr(1, 4, "diag two"),
+        _tr(1, 2, "one"),
+        _tr(1, 2, "two"),
+        _tr(2, 1, "three"),
+    ],
+}
+
+
+@pytest.fixture(scope="module")
+def probe_page(self_page: tuple[Path, dict[str, Any]]) -> Path:
+    data = json.loads(json.dumps(self_page[1]))
+    data["maps"][0]["sm"] = [_job(), ROW_MACHINE, LINES_MACHINE] + list(data["maps"][0]["sm"])
+    cfg = config.load(REPO)
+    return _write(self_page[0].parent / "probe.html", cfg, nest.load(cfg), data)
+
+
+@pytest.fixture(scope="module")
+def probe(probe_page: Path) -> dict[str, Any]:
+    return _drive("--probe", probe_page)
+
+
 @pytest.fixture(scope="module")
 def wide(self_page: tuple[Path, dict[str, Any]]) -> dict[str, Any]:
     return _drive("--wide", self_page[0])
@@ -218,7 +317,12 @@ def _cover(a: Box, b: Box, pad: float = 0.0) -> bool:
 
 def _crosses(points: list[list[float]], b: Box) -> bool:
     """True when the line of the points goes into the box b, with a margin of 1 px."""
-    inner = {"left": b["left"] + 1, "right": b["right"] - 1, "top": b["top"] + 1, "bottom": b["bottom"] - 1}
+    inner = {
+        "left": b["left"] + 1,
+        "right": b["right"] - 1,
+        "top": b["top"] + 1,
+        "bottom": b["bottom"] - 1,
+    }
     for p, q in zip(points, points[1:], strict=False):
         for n in range(11):
             u = n / 10
@@ -237,9 +341,13 @@ def _side(a: list[float], b: list[float], p: list[float]) -> float:
     return ((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / (math.hypot(dx, dy) or 1.0)
 
 
-def _line_y(points: list[list[float]], x: float) -> float:
-    """The y of the line at x, from the nearest point."""
-    return min(points, key=lambda p: abs(p[0] - x))[1]
+def _line_y(points: list[list[float]], x: float) -> float | None:
+    """The y of the line at x, from the two points at the two sides of x (None out of the line)."""
+    for p, q in zip(points, points[1:], strict=False):
+        lo, hi = sorted((p[0], q[0]))
+        if lo <= x <= hi and hi > lo:
+            return p[1] + (q[1] - p[1]) * (x - p[0]) / (q[0] - p[0])
+    return None
 
 
 def test_the_view_shows_only_with_a_machine(self_page: tuple[Path, dict[str, Any]]) -> None:
@@ -287,8 +395,23 @@ def test_the_headline_the_list_and_the_board(
             assert n["dot"] is None
 
 
+def _straight_label(e: dict[str, Any]) -> None:
+    """The label of a straight transition is at the upper side of its line."""
+    box, pts = e["text"]["box"], e["points"]
+    mid = _centre(box)
+    if abs(pts[0][0] - pts[-1][0]) < 1:
+        assert box["left"] > max(p[0] for p in pts), e
+        return
+    y = _line_y(pts, mid[0])
+    if y is None:
+        y = min(pts, key=lambda p: abs(p[0] - mid[0]))[1]
+    assert mid[1] < y, e
+    if abs(pts[0][1] - pts[-1][1]) < 1:
+        assert box["bottom"] < y, e
+
+
 def _geometry(run: dict[str, Any]) -> None:
-    """Acceptance 3, 5 and 14 for the machine on show."""
+    """Acceptance 3, 5, 14 and 15 for the machine on show."""
     nodes = {n["i"]: n for n in _items(run, "s")}
     edges = _items(run, "t")
     for e in edges:
@@ -296,13 +419,14 @@ def _geometry(run: dict[str, Any]) -> None:
         assert _gap(start, nodes[e["a"]]["rect"]) <= 12, e
         assert _gap(tip, nodes[e["b"]]["rect"]) <= 12, e
         if e["bend"] == 0 and e["a"] != e["b"]:
-            box = e["text"]["box"]
-            assert box["bottom"] < _line_y(e["points"], _centre(box)[0]), e
+            _straight_label(e)
+        for n in nodes.values():
+            if n["i"] not in (e["a"], e["b"]):
+                assert not _crosses(e["points"], n["rect"]), (e["l"], n["id"])
     for e in edges:
         box = e["text"]["box"]
         for o in edges:
-            if o is not e:
-                assert not _crosses(o["points"], box), (o["l"], e["l"])
+            assert not _crosses(o["points"], box), (o["l"], e["l"])
     labels = [e["text"]["box"] for e in edges]
     for i, a in enumerate(labels):
         for b in labels[i + 1 :]:
@@ -329,7 +453,9 @@ def test_the_transitions_and_their_labels(wide: dict[str, Any]) -> None:
     assert sides[0] * sides[1] < 0
 
 
-def test_pointing_lights_and_reads(self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]) -> None:
+def test_pointing_lights_and_reads(
+    self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]
+) -> None:
     """Acceptance 6."""
     first = _machines(self_page[1])[0]
     t = first["tr"][1]
@@ -366,6 +492,9 @@ def test_a_click_keeps_the_light(wide: dict[str, Any]) -> None:
     assert p["say"]["on"] and p["states"]["cls"] == "sfocus"
     u = wide["unpinned"]
     assert u["states"]["pin"] is None and not u["say"]["on"]
+    for o in p["states"]["items"]:
+        assert o["pressed"] == ("true" if (o["kind"], o["i"]) == ("t", 1) else "false"), o
+    assert all(o["pressed"] == "false" for o in u["states"]["items"])
 
 
 def test_the_keys(self_page: tuple[Path, dict[str, Any]], wide: dict[str, Any]) -> None:
@@ -452,6 +581,55 @@ def test_a_phone(self_page: tuple[Path, dict[str, Any]]) -> None:
             for e in _items(run, "t"):
                 assert e["text"]["px"] >= 7, e
         assert o["tapped"]["states"]["pin"] == "t1" and o["tapped"]["say"]["on"]
+        for run in (o["shown"], o["second"]):
+            assert run["countsShown"] != "none" and run["view"]["counts"].endswith("transitions")
+        assert o["second"]["states"]["more"] == [None, None]
+        _all_in_view(o["second"])
+
+
+def _all_in_view(run: dict[str, Any]) -> None:
+    view = run["states"]["view"]
+    for n in _items(run, "s"):
+        r = n["rect"]
+        assert view["left"] - 1 <= r["left"] and r["right"] <= view["right"] + 1, n["id"]
+        assert view["top"] - 1 <= r["top"] and r["bottom"] <= view["bottom"] + 1, n["id"]
+
+
+def test_more_machines_on_a_wide_screen(probe: dict[str, Any]) -> None:
+    """Acceptance 15 and 16."""
+    names = [o["shown"]["view"]["question"] for o in probe["wide"]]
+    assert names[:3] == ["Life of a job", "A row", "Many lines"]
+    for o in probe["wide"]:
+        _geometry(o["shown"])
+    job = probe["wide"][0]["shown"]
+    nodes = {n["id"]: n for n in _items(job, "s")}
+    cols = {round(_centre(nodes[i]["rect"])[0]) for i in ("idle", "running", "paused")}
+    assert len(cols) == 1
+    mid = _centre(nodes["running"]["rect"])[0]
+    around = [e for e in _items(job, "t") if e["l"] in ("pause", "resume")]
+    sides = [e["points"][8][0] - mid for e in around]
+    assert (
+        sides[0] * sides[1] < 0
+        and min(abs(x) for x in sides) > nodes["running"]["rect"]["width"] / 2
+    )
+
+
+def test_more_machines_on_a_phone(probe: dict[str, Any]) -> None:
+    """Acceptance 17."""
+    for o in probe["phone"]:
+        run = o["shown"]
+        assert run["countsShown"] != "none"
+        view = run["states"]["view"]
+        out = [n for n in _items(run, "s") if n["rect"]["right"] > view["right"] + 1]
+        if out:
+            assert run["states"]["more"][0] is not None, run["view"]["question"]
+        if run["states"]["more"][0] is None:
+            continue
+        after = o["more"]
+        assert after["states"]["scrollAt"][0] > 0
+        for n in _items(after, "s"):
+            assert n["rect"]["right"] <= after["states"]["view"]["right"] + 1, n["id"]
+    assert any("more" in o for o in probe["phone"])
 
 
 def test_axe_finds_no_violation(self_page: tuple[Path, dict[str, Any]]) -> None:

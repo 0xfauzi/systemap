@@ -168,7 +168,8 @@ DETAILS = r"""
     b.addEventListener('click', function () {
       var had = document.activeElement === b, name = b.getAttribute('data-scheme');
       root.setAttribute('data-theme', name);
-      try { localStorage.setItem(SCHEME_KEY, name); } catch (e) { /* no storage */ }
+      // With no storage, the page does not keep the choice.
+      try { localStorage.setItem(SCHEME_KEY, name); } catch (e) {}
       showScheme();
       var other = all('[data-scheme]').filter(function (x) { return x !== b; })[0];
       if (had && other) other.focus();
@@ -182,7 +183,8 @@ DETAILS = r"""
   if (motion) motion.addEventListener('click', function () {
     var off = root.getAttribute('data-reduce-motion') !== 'true';
     root.setAttribute('data-reduce-motion', String(off));
-    try { localStorage.setItem(MOTION_KEY, String(off)); } catch (e) { /* no storage */ }
+    // With no storage, the page does not keep the choice.
+    try { localStorage.setItem(MOTION_KEY, String(off)); } catch (e) {}
     showMotion(); request();
     say('Reduce motion: ' + (off ? 'on' : 'off') + '.');
   });
