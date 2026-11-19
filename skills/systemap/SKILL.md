@@ -24,8 +24,8 @@ Apply the profile to all names and text that a person reads in every new map and
 It includes component names, artifacts, layers, sequences, steps, invariants, explanations, and recorded reasons.
 Read [references/language.md](references/language.md) before you write. Do not change commands, schema keys, identifiers, or quoted source evidence.
 
-- `plain`: the common rules and the glossary terms with their meanings. There is no dictionary step. Do not say that the text obeys ASD-STE100.
-- `asd-ste100`: also ASD-STE100 Issue 9, with the official ASD rules and dictionary. Use approved meanings and parts of speech. If the dictionary is not available, tell the maintainer. Do not give an ASD-STE100 acceptance result.
+- `plain`: the common rules and the glossary terms with their meanings. There is no ASD-STE100 step. Do not say that the text follows ASD-STE100.
+- `asd-ste100`: also the ASD-STE100 Issue 9 style, with the style rules and the project word list in the policy. Use each word with one meaning and one part of speech. The policy does not use the official ASD dictionary. Say that the text follows the ASD-STE100 style. Do not say that it obeys the official standard.
 
 ## Jev answers
 

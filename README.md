@@ -211,10 +211,10 @@ Other agents can use the same instructions if they can read files and execute co
 
 The writing profile in `systemap.toml` sets the writing rules for map names, sequence steps, and other map text.
 The default profile is `plain`. Its rules limit the sentence length and require literal words and one term for each concept.
-A person or a program can examine these rules without a dictionary.
+A person or a program can examine these rules.
 
-To use the full ASD-STE100 Issue 9 rules, set `profile = "asd-ste100"` in the `[writing]` table.
-These rules need the official ASD dictionary.
+To use the ASD-STE100 Issue 9 style, set `profile = "asd-ste100"` in the `[writing]` table.
+This profile adds the style rules and a project word list from public summaries of the standard. It does not use the official ASD dictionary.
 The [language policy](src/systemap/skill/references/language.md) gives the two profiles, the glossary, and the examination procedure.
 This repository uses the `asd-ste100` profile for its map, its interface text, and its documentation.
 

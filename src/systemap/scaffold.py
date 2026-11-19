@@ -59,9 +59,9 @@ out_dir = "docs/map"
 
 # The writing profile selects the writing rules for the map text that a person reads.
 # "plain" selects the common writing rules of the installed skill. A person or a program
-# can examine these rules without a dictionary.
-# "asd-ste100" also selects the full ASD-STE100 Issue 9 rules. These rules need the
-# official ASD dictionary.
+# can examine these rules.
+# "asd-ste100" also selects the ASD-STE100 Issue 9 style: the style rules and the project
+# word list of the policy. It does not use the official ASD dictionary.
 [writing]
 profile = "plain"
 
@@ -105,7 +105,7 @@ MODEL = '''# ruff: noqa: E501
 
 All reader text must obey the writing profile in systemap.toml ([writing] profile).
 Before you write names or sentences, read the language policy of the installed systemap skill.
-The "plain" profile has no dictionary step. The "asd-ste100" profile needs the ASD dictionary.
+The "plain" profile has no ASD-STE100 step. The "asd-ste100" profile adds the ASD-STE100 style.
 
 The extractor supplies source facts. This file records component purposes and flow claims.
 Each component identifies its source modules and an applicable public entry point.

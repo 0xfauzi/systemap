@@ -2809,7 +2809,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[writing]</code></td>
 <td><code>profile = &quot;plain&quot;</code></td>
-<td>The writing profile for the map text that a person reads. <code>plain</code> selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. <code>asd-ste100</code> also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. <code>systemap journeys</code> puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. <code>init</code> writes <code>profile = &quot;plain&quot;</code>.</td>
+<td>The writing profile for the map text that a person reads. <code>plain</code> selects the common writing rules of the skill's language policy. A person or a program can examine these rules. <code>asd-ste100</code> also selects the ASD-STE100 Issue 9 style: the style rules and the project word list of the policy. It does not use the official ASD dictionary. The skill reads this value. <code>systemap journeys</code> puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. <code>init</code> writes <code>profile = &quot;plain&quot;</code>.</td>
 </tr>
 <tr>
 <td><code>[theme]</code></td>

@@ -2,7 +2,7 @@
 
 The extractor supplies mechanical facts. The agent writes meaning from source evidence.
 The skill specifies the writing rules of each writing profile for map names and descriptions.
-The "plain" profile is the default. The "asd-ste100" profile adds ASD-STE100 Issue 9.
+The "plain" profile is the default. The "asd-ste100" profile adds the ASD-STE100 Issue 9 style.
 """
 
 from __future__ import annotations
