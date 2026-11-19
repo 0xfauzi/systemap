@@ -7792,3 +7792,41 @@ The two other M11 maps give the same values as m11 P0: each has 40 cards, one ac
 Result: FAIL. The collision is the label of the flow from Judgement to PageData, "uncovered entry points, assurance levels, boundary findings". The label placer of `place.score` (the placer of the canvas page) found no seat for it: the label is 117 units wider than its longest free part of the line, and it covers the cards CLI and PageWriter. The column layout has a seat for it. The artifact is the artifact of the flow of the top map, thus stage 10 keeps it. The atlas page does not use this placer for its labels at rest: it shows a label only where it fits. But acceptance 1 is a written value, and it is not changed after the run.
 
 Decision: the commands keep the column layout (`place.SIDES_IN_COMMANDS = False`), and map/page.py does not change. The neighbours of Page stay in one column at the left of the frame, and the rule "Neighbours of a nested map" is not met. A decision of the maintainer is necessary: accept the rule with this collision, change the artifact of the flow in the top map and in Page, or keep the column.
+
+## N5: the neighbours of a nested map, with the moves to a different side (2026-11-19)
+
+Script: `bench/jev/neighbour_sides_n5.py`. The review of stage 10 found again that the rule "Neighbours of a nested map" of docs/design/atlas.md is not met: on #Page the 10 neighbours were in one column at the left of the frame. N4 failed only acceptance 1, with one label collision on Page. The rule now has one more step (`place_order._clear_sides`): when a sides layout has a label collision or a refused route, the placer tries each actor at each other side with free room, and keeps the move with the fewest collisions and refused routes, then the smallest map, while a move removes a collision or a refused route.
+
+The acceptance values are the six values of N4 with no change, written in the docstring before the first run. The inputs are the four inputs of N4 and three inputs that no earlier measurement used: the stubs of `systemap parts --stub` for the cards Check, Config and Model of the map of this repository. This is not a blind test on Page: the step was written after N4 failed on Page, and before the docstring a calculation in the same session gave the sides layout of Page with the step (0 collisions, 0 refused routes, 101 bends, length 18,472, canvas 928 x 980, Judgement at the bottom side). The full output is in `bench/jev/neighbour_sides_N5.txt`.
+
+| Input | Layout | Canvas | Zoom | Shown | Collisions | Refused | Bends | Length | Reach |
+|---|---|---|---|---|---|---|---|---|---|
+| page | column | 714 x 1022 | 0.773 | 0.773 | 0 | 0 | 148 | 26,405 | 666 |
+| page | sides | 928 x 980 | 0.806 | 0.806 | 0 | 0 | 101 | 18,472 | 320 |
+| m11 P0 | column | 2756 x 400 | 0.522 | 0.522 | 0 | 0 | 53 | 14,659 | 234 |
+| m11 P0 | sides | 2582 x 560 | 0.558 | 0.558 | 0 | 0 | 53 | 14,716 | 130 |
+| stub Check | column and sides | 476 x 1080 | 0.731 | 0.731 | 0 | 0 | 0 | 0 | - |
+| stub Config | column and sides | 476 x 1172 | 0.674 | 0.674 | 0 | 0 | 0 | 0 | - |
+| stub Model | column and sides | 476 x 1448 | 0.546 | 0.546 | 0 | 0 | 0 | 0 | - |
+
+The two other M11 maps give the same values as m11 P0, as in N4. Each stub has one part and 11 to 15 actors with no flow. The four sides of its frame have too little room for them, thus the rule keeps the column layout, and the two layouts are the same. The stubs thus test only that case.
+
+1 PASS. 2 PASS (260 / 307 bends). 3 PASS (62,620 / 70,382 length). 4 PASS (total reach 710 against 1,368). 5 PASS (the smallest ratio of `shown` is 1.000 on the stubs, and on Page it is 1.043). 6 PASS.
+
+Result: PASS. The step cost about 9 s of routing on Page (`systemap place --map Page --all`), and no time on a map with no collision.
+
+Decision, as the docstring of N4 and N5 says: the commands use the rule for the atlas page (`place.SIDES_IN_COMMANDS = True`). `systemap place --map Page --all` placed the nested map Page again: FactsExtractor and ChangeDetector at the top, Schematic and Model at the left, CLI, Check, Figures, Config and Maintainer at the right, and Judgement at the bottom. The atlas page draws the actor container of a nested map with the actors around the frame as a label with no surface (`boxKind` in `atlas_draw.py`). Before, the code of that rule was not in the page, contrary to the text of N3, and the container was a surface around the whole map. The canvas page uses the same positions of map/page.py.
+
+The positions are not those of the study: in the study, Judgement is at the left, Model at the right, and Config, CLI and Check at the bottom. The study script uses a different spread and no room for the label of the actor container. On the product page at 1440 x 900, Page shows at 81 percent (78 percent with the column), against 103 percent in the study. Thus the short names of the cards do not show at the fit. A decision of the maintainer is necessary if the map must show at the scale of the study.
+
+## B20: the performance budget of the atlas page, third repair of stage 10 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the acceptance values. Before the run, the docstring got one note: the nested map Page has its neighbours at the sides of its frame (N5), and the actor container of a nested map is a label. The full output is in `bench/jev/atlas_budget_B20.txt`. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 296 / 293 (pass) | 16.8 / 16.8 (pass) | 33.4 / 16.8 (pass) | 363,633 / 414,957 = 1.14 (pass) | 59 (pass) |
+| workspace | 257 / 271 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 268,782 / 302,581 = 1.13 (pass) | 56 (pass) |
+| M11 tree | 363 / 381 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 1,223,430 / 1,253,810 = 1.02 (pass) | 53 (pass) |
+
+Result: PASS for each value. The dive of `self` into Page is 16.8 ms at the 95th percentile, against 33.2 ms in B19. The cause was not measured.

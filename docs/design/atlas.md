@@ -92,18 +92,15 @@ state machine, History needs commit data.
 - **Neighbours of a nested map.** They sit around the frame of the nested map, each near
   the parts that it has flows with, not in one column. A neighbour is a card of the map
   above: selecting it goes out to that card.
-  Not met (2026-11-19). The rule `place_sides` was measured three times (N1, N2 and N3 in
-  bench/jev/README.md). N1 and N2 failed acceptance 4 and 5 on the small fixtures. N3 passed,
-  but its acceptance values were written after the results of N1 and N2 were known, thus it
-  is not a test. The commands keep the column layout (`place.SIDES_IN_COMMANDS = False`). To
-  use the rule, write the acceptance values first and measure on nested maps that N1 to N3
-  did not use.
-  N4 (2026-11-19) did this, on the nested map Page of this repository and on three maps of
-  the generated M11 tree. It failed acceptance 1: on Page, the sides layout has one label
-  collision of the canvas page placer, and the column layout has none. The label is the
-  artifact of the flow from Judgement to PageData, which is the artifact of the flow of the
-  top map. The other five values passed. Thus the commands keep the column layout, and the
-  neighbours of Page are in one column. A decision of the maintainer is necessary.
+  Met (2026-11-19, N5 in bench/jev/README.md). N1, N2 and N4 failed, and N3 changed two
+  acceptance values after the results were known. N5 added one step to the rule: when the
+  sides layout has a label collision or a refused route, the placer moves actors to a
+  different side while a move removes one (`place_order._clear_sides`). N5 passed the six
+  acceptance values of N4. On Page it is not a blind test, because the step was written
+  after N4 failed on Page. The commands use the rule for the atlas page
+  (`place.SIDES_IN_COMMANDS = True`). The neighbours of Page are at the four sides of its
+  frame (tests/test_atlas_browser.py, acceptance 26). Their positions are not those of the
+  study, and Page shows at 81 percent at 1440 x 900, against 103 percent in the study.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced
@@ -281,19 +278,16 @@ branch `views-prototype`. No stage makes a pull request.
    that only the frame "compare" uses the page with the disclosure.
 10. **The nested map of Page** in the map of this repository
     (`docs/design/atlas/tools/page_model.py.txt` is a draft), and the final checks.
-    Not complete (2026-11-19). The stage asks to place the map with the rule "Neighbours of
-    a nested map", and that rule is not met (see below). A decision of the maintainer is
-    necessary: accept the one label collision of N4, make the artifact "uncovered entry
-    points, assurance levels, boundary findings" shorter (`map/flows.py` and the matching
-    flows of `map/page.py`), or keep the column. The other work of the stage is done.
+    Not complete (2026-11-19). One measure fails: acceptance 1 of
+    tests/test_canvas_reading_browser.py on the canvas page (see below). A decision of the
+    maintainer is necessary. The rule "Neighbours of a nested map" is met from N5.
     `map/page.py` is the nested map of Page. It has 11 parts: PageWriter,
     PageData and PageAssets (shared parts), AtlasPage, AtlasDrawing and AtlasViews (the
     atlas page), CanvasPage, CanvasDrawing and CanvasViews (the canvas page), and LinkedPage
     and LinkedViews (the linked page). Each part has 10 modules or fewer. The 10 neighbours
-    are the components of the top map that have a flow with Page. The placer puts them in
-    one column, because the rule "Neighbours of a nested map" is not met. After the review of
-    stage 10, N4 measured the rule on Page with the acceptance values written first, and it
-    failed (bench/jev/README.md). Each flow between
+    are the components of the top map that have a flow with Page. After the third review of
+    stage 10, the placer puts them at the four sides of the frame (N5 in
+    bench/jev/README.md). Each flow between
     two parts has its source records and its review digest. A flow with a neighbour has the
     artifact of the flow of the top map. `systemap check` and `systemap judgement --strict`
     give no open line.
@@ -318,9 +312,20 @@ branch `views-prototype`. No stage makes a pull request.
     page (tests/test_atlas_browser.py, acceptance 23): its 11 parts, its neighbours as the
     cards of the top map that have a flow with Page, a click on a neighbour that goes out
     to its card, and the counts of the headline in each layer as the model gives them.
-    The budget passes for each value on the finished page (B19 in `bench/jev/README.md`).
+    The budget passes for each value on the finished page (B19 in `bench/jev/README.md`,
+    and B20 after the third review).
     The History view gives the components of the top map, also when the nested map Page is
     open. This document gives no rule for the history of the parts of a nested map.
+    After the third review of stage 10 (2026-11-19): the actor container of a nested map with
+    the actors around the frame is a label, not a surface (`boxKind` in `atlas_draw.py`).
+    Tests hold the counts of the headline of Page to counts from the text of map/page.py
+    (acceptance 24), a neighbour selected with the keyboard (acceptance 25), and the
+    neighbours at three sides or more, at 1440 x 900 and 390 x 844, light and dark
+    (acceptance 26). The 9 px check of the canvas page stays an expected failure. The
+    canvas page keeps a band for the portals at the fit of a tree with ports, also at the
+    top map, and acceptance 10 of that test holds those bands (155 px and 75 px) on the
+    fixture with a nested map. A larger fit of the top map would change that written value.
+    Thus the canvas page does not change, and the maintainer must decide.
 
 ## What is not decided
 

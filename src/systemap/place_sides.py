@@ -15,6 +15,10 @@ column at the left of the frame. This rule moves each actor to a side of the fra
   together have less room than the actors need, the column layout stays.
 - Along its side, each actor is near the position of its centre. Two actors on one side
   have ACTOR_GAP or more between them, and all of them stay along the frame.
+- When the layout has a label collision or a refused route, the placer tries each actor
+  at each other side with free room (`moved`, `place_order`). It keeps the move that gives
+  the fewest collisions and refused routes, then the smallest map, while a move removes a
+  collision or a refused route (N5 in bench/jev/README.md).
 - The actor container becomes a box around the frame and the actors, so that each actor
   stays in its container. The form (`Form`) gives the space between the frame and an
   actor, the space inside the edge of that box, and whether the box keeps the room for
@@ -23,20 +27,19 @@ column at the left of the frame. This rule moves each actor to a side of the fra
 
 A map that does not have this shape keeps the column layout.
 
-The commands do not use this rule. `place.compute(model, nested=True)` gives the form BOX
-(`KEPT`), and `place.compute(model, nested="study")` gives the form STUDY, for the
-measurements. N1 (BOX, SIDE_GAP 48) and N2 (STUDY) failed two of their five acceptance
-values. N3 (BOX, SIDE_GAP 44) passed with two acceptance values that were changed after
-the results of N1 and N2 were known. Only the maintainer can accept those values. Until
-then, `place.sides_for` gives False, and `systemap place`, `systemap describe` and
-`systemap parts --stub` keep the column layout. The records in `bench/jev/README.md` give
-the values. When the rule is on, a map that has positions keeps them until
-`systemap place --all` runs.
+`place.compute(model, nested=True)` gives the form BOX (`KEPT`), and
+`place.compute(model, nested="study")` gives the form STUDY, for the measurements. N1
+(BOX, SIDE_GAP 48), N2 (STUDY) and N4 (BOX, SIDE_GAP 44) failed. N3 passed with two
+acceptance values that were changed after the results were known. N5 added the moves to a
+different side and passed the six acceptance values of N4. Thus `place.sides_for` is true
+for the atlas page, and `systemap place`, `systemap describe` and `systemap parts --stub`
+use this rule for each map that is not the top map. The records in `bench/jev/README.md`
+give the values. A map that has positions keeps them until `systemap place --all` runs.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 
 from systemap.model import CARD_H, CARD_W, Box, Container, Model
@@ -145,10 +148,26 @@ def _move_one(
     sides[to].append(actor)
 
 
+def _apply_moves(
+    sides: dict[str, list[str]], room: dict[str, int], moves: Mapping[str, str]
+) -> None:
+    """Move each actor of `moves` to its side, when that side has free room."""
+    for actor, to in moves.items():
+        here = next((s for s in SIDES if actor in sides[s]), None)
+        if here is None or here == to or len(sides[to]) >= room[to]:
+            continue
+        sides[here].remove(actor)
+        sides[to].append(actor)
+
+
 def assign_sides(
-    actors: list[str], wanted: dict[str, Point | None], frame: Box
+    actors: list[str],
+    wanted: dict[str, Point | None],
+    frame: Box,
+    moves: Mapping[str, str] | None = None,
 ) -> dict[str, list[str]] | None:
-    """Give the actors of each side, or None when the four sides have too little room."""
+    """Give the actors of each side, or None when the four sides have too little room.
+    `moves` gives a side for some actors (the search of `place_order`)."""
     room = _room(frame)
     if sum(room.values()) < len(actors):
         return None
@@ -168,6 +187,7 @@ def assign_sides(
     for a in alone:
         free = _free(room, sides)
         sides[max(SIDES, key=free)].append(a)
+    _apply_moves(sides, room, moves or {})
     return sides
 
 
@@ -279,9 +299,26 @@ def _frame(
     return _Frame(fx, fy, int(w), int(h), left, top, form.gap), ring_w
 
 
-def around(model: Model, laid: Placement, form: Form = BOX) -> Placement:
+def sides_of(
+    model: Model, laid: Placement, moves: Mapping[str, str] | None = None
+) -> dict[str, list[str]] | None:
+    """Give the actors of each side of the frame for the column layout `laid`, or None when
+    the map does not have the shape of a nested map or the sides have too little room.
+    """
+    found = frame_of(model)
+    if found is None:
+        return None
+    actors = [c.id for c in model.components if c.kind == "actor"]
+    wanted = _wanted(model, actors, _centres(model, laid.positions))
+    return assign_sides(actors, wanted, laid.containers[found[0]], moves)
+
+
+def around(
+    model: Model, laid: Placement, form: Form = BOX, moves: Mapping[str, str] | None = None
+) -> Placement:
     """Move the actors of a nested map to the sides of its frame. Give the placement
     unchanged when the map does not have that shape or the sides have too little room.
+    `moves` gives a side for some actors.
     """
     found = frame_of(model)
     if found is None:
@@ -290,7 +327,7 @@ def around(model: Model, laid: Placement, form: Form = BOX) -> Placement:
     frame = laid.containers[frame_id]
     actors = [c.id for c in model.components if c.kind == "actor"]
     wanted = _wanted(model, actors, _centres(model, laid.positions))
-    sides = assign_sides(actors, wanted, frame)
+    sides = assign_sides(actors, wanted, frame, moves)
     if sides is None:
         return laid
     ring = next(b for b in model.containers if b.id == ring_id)

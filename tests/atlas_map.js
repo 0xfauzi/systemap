@@ -32,7 +32,10 @@
 //   the cards of MAP and of the top map, the texts and the geometry of one frame, and the
 //   headline of each layer tab. Then for each neighbour of MAP (an actor card of MAP), in a
 //   new load with the hash: a mouse click on the middle of its screen box, and after the
-//   flight the chain, the current map and the selected card.
+//   flight the chain, the current map and the selected card. The same with the keyboard:
+//   Tab to the neighbour on the canvas, then Enter. Then at 1440 x 900 and at 390 x 844
+//   (after a click on Fit), in the light and the dark scheme: the frame of MAP, the screen
+//   boxes of its cards, the ground color and the scroll width.
 // - --axe: axe-core (from NODE_PATH; null when it is not there) in the light and the dark
 //   scheme, at 1440 x 900 and at 390 x 844.
 // Each mode prints one JSON object. `errors` has the script errors of the page.
@@ -339,6 +342,35 @@ async function nestedPage(browser, file, map) {
       sel: window.systemapCanvas.side().sel, hash: location.hash }), card.id));
     out.errors = out.errors.concat(one.errors);
     await one.page.close();
+  }
+  out.keyed = [];
+  for (const card of out.cards.filter((c) => c.k === 'actor')) {
+    const one = await open(browser, file, { ...WIDE, reducedMotion: 'reduce' }, hash);
+    const order = await one.page.evaluate((id) => window.systemapCanvas.tabOrder(id), map);
+    const k = order.findIndex((x) => x.id === card.id);
+    await one.page.focus('#canvas');
+    for (let i = 0; i <= k; i++) await one.page.keyboard.press('Tab');
+    const focus = await one.page.evaluate(() => window.systemapCanvas.keys().focus);
+    await one.page.keyboard.press('Enter');
+    await one.page.waitForTimeout(1500);
+    out.keyed.push(await one.page.evaluate(([id, f]) => ({ id, focus: f, chain: window.systemapCanvas.chain(), current: window.systemapCanvas.current(),
+      sel: window.systemapCanvas.side().sel }), [card.id, focus]));
+    out.errors = out.errors.concat(one.errors);
+    await one.page.close();
+  }
+  // The nested map on a phone and in the dark scheme: the frame of the map and the screen
+  // boxes of its parts and its neighbours at the fit (`systemapCanvas.boxes`).
+  out.looks = [];
+  for (const [name, opts] of [['wide', WIDE], ['phone', PHONE]]) {
+    for (const scheme of ['light', 'dark']) {
+      const one = await open(browser, file, { ...opts, colorScheme: scheme, reducedMotion: 'reduce' }, hash);
+      if (name === 'phone') { await one.page.click('#atlas-zf'); await one.page.waitForTimeout(600); }
+      out.looks.push(await one.page.evaluate(([id, size, sch]) => ({ size, scheme: sch, chain: window.systemapCanvas.chain(),
+        dark: getComputedStyle(document.body).backgroundColor, frame: window.systemapCanvas.frame(id), cards: window.systemapCanvas.boxes(id),
+        width: document.documentElement.scrollWidth }), [map, name, scheme]));
+      out.errors = out.errors.concat(one.errors);
+      await one.page.close();
+    }
   }
   return out;
 }

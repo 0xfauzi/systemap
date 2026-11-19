@@ -104,6 +104,24 @@ values below do not come from it:
     of the layer touch, and the flows; for a layer with no flow, the cards and the
     regions. A mouse click on each neighbour goes out to the top map and selects the card
     of the top map with the same name.
+
+Acceptance values 24 to 26, written on 2026-11-19 for the third repair of stage 10, before
+the first run of these tests. A run of the driver before this text gave the names of the
+values only:
+
+24. The counts of the headline of Page are the counts from the text of map/page.py, found
+    with no systemap code (`_text_counts`): the flows of the layer by their kind (each
+    flow with a neighbour for Neighbours), the neighbours and the parts that these flows
+    touch, and for Structure the components and the regions.
+25. With the keyboard, on #Page: Tab on the canvas to each neighbour gives the keyboard
+    focus to that card of Page, and Enter goes out to the top map and selects the card of
+    the top map with the same name.
+26. The rule "Neighbours of a nested map": on #Page, at 1440 x 900 at the fit and at
+    390 x 844 after a click on Fit, in the light and the dark scheme, the neighbours are at
+    three sides or more of the box of the parts, and no side has all of them. A neighbour
+    is at a side when its screen box is fully outside the box of the parts at that side.
+    The chain is Page, the dark scheme has a dark ground, and the page has no horizontal
+    scroll.
 """
 
 from __future__ import annotations
@@ -596,29 +614,26 @@ def test_a_label_at_rest_stays_in_the_box_of_its_map(
     assert shown > 0
 
 
-def _counts(model: Any, meaning: Any, layer: str) -> str:
-    """The counts of the headline of a nested map for a layer, from the model."""
-    from systemap.model import reading  # noqa: PLC0415
+def _text_counts(layer: str) -> str:
+    """The counts of the headline of Page for a layer, from the text of map/page.py."""
+    import re  # noqa: PLC0415
 
-    def counted(n: int, one: str) -> str:
-        return f"{n} {one}" + ("" if n == 1 else "s")
+    text = (REPO / "map/page.py").read_text(encoding="utf-8")
+    actors = set(re.findall(r"id='(\w+)',\s*does='[^']*',\s*kind='actor'", text))
+    flows = re.findall(r"Flow\('(\w+)', '(\w+)', '[^']*', '(\w+)'", text)
+    if layer == "structure":
+        cards, regions = text.count("Component("), text.count("Region(")
+        return f"{cards} cards in {regions} regions"
+    if layer == "system":
+        chosen = [f for f in flows if f[0] in actors or f[1] in actors]
+    else:
+        chosen = [f for f in flows if layer == "all" or f[2] == layer]
+    ends = {e for f in chosen for e in f[:2]}
+    return f"{len(ends & actors)} neighbours · {len(ends - actors)} parts · {len(chosen)} flows"
 
-    edges = list(range(len(model.flows))) if layer == "all" else reading(model, meaning, layer)[0]
-    if not edges:
-        return (
-            counted(len(model.components), "card") + " in " + counted(len(model.regions), "region")
-        )
-    used = {e for i in edges for e in (model.flows[i].src, model.flows[i].dst)}
-    actors = sum(1 for c in model.components if c.id in used and c.kind == "actor")
-    parts = sum(1 for c in model.components if c.id in used and c.kind != "actor")
-    head = counted(actors, "neighbour") + " · " if actors else ""
-    return head + counted(parts, "part") + " · " + counted(len(edges), "flow")
 
-
-def test_the_nested_map_page_has_its_parts_and_neighbours(
-    self_page: tuple[Path, dict[str, Any]],
-) -> None:
-    """Acceptance 23."""
+def test_the_nested_map_page_has_its_parts_and_neighbours(page_run: dict[str, Any]) -> None:
+    """Acceptance 23 and 24."""
     tree = nest.load(config.load(REPO))
     page = next(m for m in tree.maps if m.id == "Page")
     parts = {c.id for c in page.model.components if c.kind != "actor"}
@@ -628,7 +643,7 @@ def test_the_nested_map_page_has_its_parts_and_neighbours(
         f.dst for f in top.flows if f.src == "Page"
     }
     assert len(parts) == 11 and actors == near - {"Page"}
-    out = _drive("--page", self_page[0], "Page")
+    out = page_run
     assert out["errors"] == [] and out["chain"] == ["Page"]
     shown = {c["id"]: c["k"] for c in out["cards"]}
     assert {i for i, k in shown.items() if k != "actor"} == parts
@@ -641,8 +656,65 @@ def test_the_nested_map_page_has_its_parts_and_neighbours(
     tabs = [h["layer"] for h in out["heads"]]
     assert set(tabs) >= {"system", "structure", "all"}
     for head in out["heads"]:
-        assert head["counts"] == _counts(page.model, page.meaning, head["layer"]), head["layer"]
+        assert head["counts"] == _text_counts(head["layer"]), head["layer"]
     assert sorted(g["id"] for g in out["goes"]) == sorted(actors)
     for go in out["goes"]:
         assert go["chain"] == [] and go["current"] == "", go
         assert go["sel"] == {"map": "", "id": go["id"]}, go
+
+
+@pytest.fixture(scope="module")
+def page_run(self_page: tuple[Path, dict[str, Any]]) -> dict[str, Any]:
+    return _drive("--page", self_page[0], "Page")
+
+
+def test_a_neighbour_goes_out_with_the_keyboard(page_run: dict[str, Any]) -> None:
+    """Acceptance 25."""
+    assert page_run["errors"] == []
+    actors = sorted(c["id"] for c in page_run["cards"] if c["k"] == "actor")
+    assert sorted(k["id"] for k in page_run["keyed"]) == actors and actors
+    for one in page_run["keyed"]:
+        assert one["focus"] == {"map": "Page", "id": one["id"]}, one
+        assert one["chain"] == [] and one["current"] == "", one
+        assert one["sel"] == {"map": "", "id": one["id"]}, one
+
+
+def _sides_of(cards: list[dict[str, Any]]) -> list[str]:
+    parts = [_box(c["b"]) for c in cards if c["k"] != "actor"]
+    x0, y0 = min(b[0] for b in parts), min(b[1] for b in parts)
+    x1, y1 = max(b[2] for b in parts), max(b[3] for b in parts)
+    out = []
+    for c in cards:
+        if c["k"] != "actor":
+            continue
+        b = _box(c["b"])
+        at = [
+            s
+            for s, yes in (
+                ("left", b[2] <= x0),
+                ("right", b[0] >= x1),
+                ("top", b[3] <= y0),
+                ("bottom", b[1] >= y1),
+            )
+            if yes
+        ]
+        assert at, (c["id"], b, (x0, y0, x1, y1))
+        out.append(at[0])
+    return out
+
+
+def test_the_neighbours_of_page_are_around_its_parts(page_run: dict[str, Any]) -> None:
+    """Acceptance 26."""
+    assert len(page_run["looks"]) == 4
+    grounds = {}
+    for look in page_run["looks"]:
+        assert look["chain"] == ["Page"], look["size"]
+        assert look["width"] <= (1440 if look["size"] == "wide" else 390)
+        sides = _sides_of(look["cards"])
+        assert len(set(sides)) >= 3, (look["size"], look["scheme"], sides)
+        assert max(sides.count(s) for s in set(sides)) < len(sides)
+        grounds[(look["size"], look["scheme"])] = look["dark"]
+    for size in ("wide", "phone"):
+        light = [int(v) for v in grounds[(size, "light")][4:-1].split(",")]
+        dark = [int(v) for v in grounds[(size, "dark")][4:-1].split(",")]
+        assert sum(dark) < 150 < sum(light), (size, light, dark)

@@ -196,17 +196,70 @@ def _orders(model: Model) -> Iterator[tuple[Region, ...]]:
         yield tuple(r for part in combo for r in part)
 
 
+def _column(model: Model, order: tuple[Region, ...]) -> Placement:
+    """This function sets the layout with the selected region order, with the actors of a
+    nested map in one column."""
+    laid = _first_layout(replace(model, regions=order))
+    return replace(laid, regions={r.id: laid.regions[r.id] for r in model.regions})
+
+
+def _form(nested: bool | str) -> place_sides.Form:
+    return place_sides.KEPT if nested is True else place_sides.FORMS[str(nested)]
+
+
 def _laid(model: Model, order: tuple[Region, ...], nested: bool | str = False) -> Placement:
     """This function sets the layout with the selected region order. In a nested map, the
     actors then go to the sides of the frame (`place_sides`). True gives the form of the
     commands (`place_sides.KEPT`), and "box" or "study" gives the form of that name.
     """
-    laid = _first_layout(replace(model, regions=order))
-    laid = replace(laid, regions={r.id: laid.regions[r.id] for r in model.regions})
+    laid = _column(model, order)
     if not nested:
         return laid
-    form = place_sides.KEPT if nested is True else place_sides.FORMS[str(nested)]
-    return place_sides.around(model, laid, form)
+    return place_sides.around(model, laid, _form(nested))
+
+
+Ranked = tuple[int, int, int, Score]
+
+
+def _ranked(model: Model, laid: Placement) -> Ranked:
+    """This function gives the rank of a sides layout: the label collisions, the refused
+    routes, the area of the map, then the score."""
+    got = score(apply(model, laid))
+    return (got.collisions, got.refused, laid.canvas[0] * laid.canvas[1], got)
+
+
+def _move_trials(
+    model: Model, column: Placement, form: place_sides.Form, moves: dict[str, str]
+) -> Iterator[tuple[Ranked, dict[str, str], Placement]]:
+    """This function gives each layout with one actor more at a different side."""
+    sides = place_sides.sides_of(model, column, moves) or {}
+    for side, ids in sides.items():
+        for actor in ids:
+            for to in place_sides.SIDES:
+                trial = {**moves, actor: to}
+                if to == side or place_sides.sides_of(model, column, trial) == sides:
+                    continue
+                laid = place_sides.around(model, column, form, trial)
+                yield _ranked(model, laid), trial, laid
+
+
+def _clear_sides(model: Model, laid: Placement, nested: bool | str) -> Placement:
+    """This function moves actors of a nested map to different sides of the frame while a
+    move removes a label collision or a refused route (`place_sides`). Each step keeps the
+    move with the smallest rank (`_ranked`).
+    """
+    if not nested or place_sides.frame_of(model) is None:
+        return laid
+    order = tuple(next(r for r in model.regions if r.id == i) for i in laid.order)
+    column, form = _column(model, order), _form(nested)
+    best, moves = _ranked(model, laid), dict[str, str]()
+    while best[0] or best[1]:
+        found = min(_move_trials(model, column, form, moves), default=None, key=lambda t: t[0])
+        if found is None or found[0][:2] >= best[:2]:
+            break
+        best, moves = found[0], found[1]
+        laid = replace(found[2], order=laid.order, tried=laid.tried, routed=laid.routed)
+    return replace(laid, score=best[3])
 
 
 Estimate = tuple[int, float, int]
@@ -286,7 +339,8 @@ def _search(model: Model, nested: bool | str = False) -> Placement:
     if len(model.regions) <= 1:
         laid = _laid(model, model.regions, nested)
         placed = apply(model, laid)
-        return replace(laid, order=tuple(r.id for r in model.regions), score=score(placed))
+        laid = replace(laid, order=tuple(r.id for r in model.regions), score=score(placed))
+        return _clear_sides(model, laid, nested)
 
     # Every order laid out and estimated, keyed by its ids; the estimate
     # carries the index so a tie goes to the order tried first.
@@ -309,13 +363,14 @@ def _search(model: Model, nested: bool | str = False) -> Placement:
     else:
         try_order(grouped)
         _swaps(model, try_order)
-    return _routed(model, seen, tuple(r.id for r in grouped))
+    return _clear_sides(model, _routed(model, seen, tuple(r.id for r in grouped)), nested)
 
 
 def _listed(model: Model, nested: bool | str = False) -> Placement:
     """This function sets the layout in the model region order for --keep-order."""
     laid = _laid(model, model.regions, nested)
-    return replace(laid, order=tuple(r.id for r in model.regions), score=score(apply(model, laid)))
+    laid = replace(laid, order=tuple(r.id for r in model.regions), score=score(apply(model, laid)))
+    return _clear_sides(model, laid, nested)
 
 
 def grid_order(model: Model) -> tuple[str, ...]:

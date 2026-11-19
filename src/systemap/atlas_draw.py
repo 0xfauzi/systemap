@@ -134,10 +134,17 @@ function drawGrid() {
 function inside(m, b) {
   return m.cards.filter(function (c) { return c.b[0] >= b[0] && c.b[0] < b[0] + b[2] && c.b[1] >= b[1] && c.b[1] < b[1] + b[3]; });
 }
+// True when box o is inside box b and is not b.
+function within(o, b) {
+  return o !== b && o[0] >= b[0] && o[1] >= b[1] && o[0] + o[2] <= b[0] + b[2] && o[1] + o[3] <= b[1] + b[3];
+}
 // The kind of each container: 'actors' (only actors: a label), 'none' (no card) or 'box'.
+// In a nested map, the cards of a box inside b do not count, because the actors can be
+// around the frame (`place_sides`). Then the actor container is not a surface.
 function boxKind(m, b) {
   if (b._kind) return b._kind;
-  var list = inside(m, b.b);
+  var inner = m === TOP ? [] : m.boxes.filter(function (o) { return within(o.b, b.b); });
+  var list = inside(m, b.b).filter(function (c) { return !inner.some(function (o) { return inside({cards: [c]}, o.b).length; }); });
   b._kind = !list.length ? 'none' : list.every(function (c) { return c.k === 'actor'; }) ? 'actors' : 'box';
   if (b._kind === 'actors') {
     b._at = [Math.min.apply(null, list.map(function (c) { return c.b[0]; })) + 6, Math.min.apply(null, list.map(function (c) { return c.b[1]; })) - 14];

@@ -1,11 +1,10 @@
 """The placer rule for a nested map: the actors at the four sides of the frame.
 
-`place.compute(model, nested=True)` uses the rule. The commands do not use it while
-`place.SIDES_IN_COMMANDS` is False: N3 passed only with acceptance values that were changed
-after the results were known, and only the maintainer can accept them (bench/jev/README.md).
-When the value is True, the commands give nested=True for each map that is not the top map
-when `[render] page = "atlas"`. These tests examine the rule, the commands with the value
-True, and that the default of `place.compute` and of the commands stays the column layout.
+`place.compute(model, nested=True)` uses the rule. From N5 (bench/jev/README.md),
+`place.SIDES_IN_COMMANDS` is True: the commands give nested=True for each map that is not
+the top map when `[render] page = "atlas"`, the default. These tests examine the rule, the
+commands with the value True and with the value False, and that the default of
+`place.compute` stays the column layout.
 
 Acceptance values, written before the tests:
 
@@ -59,13 +58,24 @@ Acceptance values 18 and 19, written on 2026-11-19 for the third repair of stage
 these tests ran. Acceptance 13 is now for the commands with `place.SIDES_IN_COMMANDS` set to
 True:
 
-18. With `place.SIDES_IN_COMMANDS` False (the value in the repository), `systemap place`,
+18. With `place.SIDES_IN_COMMANDS` False (the value in the repository until N5), `systemap place`,
     `systemap describe` and `systemap parts --stub` give the column layout also with
     `[render] page = "atlas"`, and `systemap place --all` keeps the column layout.
 19. With `place.SIDES_IN_COMMANDS` True and `[render] page = "atlas"`, a nested map that
     already has the positions of the column layout keeps them after `systemap place`.
     After `systemap place --all`, its actors are at the sides of the frame, and the
     layout is the layout of `place.compute` with all_cards and nested.
+
+Acceptance values 20 and 21, written on 2026-11-19 for the third repair of stage 10, after
+N5 passed and before these tests ran. Acceptance 18 is now for the commands with
+`place.SIDES_IN_COMMANDS` set to False:
+
+20. `place.SIDES_IN_COMMANDS` is True in the repository. With no `[render] page` setting,
+    `systemap place` writes the nested maps of the fixture with the actors at the sides.
+21. On the nested map Page of this repository (map/page.py), the sides layout of
+    `place_sides.around` with no side move has one label collision (N4). With the side
+    moves of `place_order`, the fresh sides layout has no label collision and no refused
+    route, its actors are at three sides or more, and no side has all the actors.
 """
 
 from __future__ import annotations
@@ -79,7 +89,7 @@ import test_nested
 import test_parts
 from conftest import write_tree
 
-from systemap import config, model_load, nest, place, place_sides
+from systemap import config, model_load, nest, place, place_order, place_sides
 from systemap.cli import main
 from systemap.model import CARD_W, Container, Model
 
@@ -363,11 +373,18 @@ def test_the_commands_put_the_actors_at_the_sides(
     assert _loaded(tmp_path) == after
 
 
-@pytest.mark.parametrize("setting", ["", '[render]\npage = "canvas"\n', ATLAS])
+@pytest.mark.parametrize(
+    ("setting", "on"), [("", False), ('[render]\npage = "canvas"\n', True), (ATLAS, False)]
+)
 def test_the_commands_keep_the_column(
-    tmp_path: Path, setting: str, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path,
+    setting: str,
+    on: bool,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Acceptance 13, without the atlas page, and acceptance 18, with the rule off."""
+    monkeypatch.setattr(place, "SIDES_IN_COMMANDS", on)
     _tree(tmp_path, setting)
     before = _loaded(tmp_path)
     assert main(["--root", str(tmp_path), "extract"]) == 0
@@ -388,6 +405,7 @@ def test_a_map_with_positions_keeps_them_until_place_all(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Acceptance 19. The first place has the rule off, and writes the column layout."""
+    monkeypatch.setattr(place, "SIDES_IN_COMMANDS", False)
     _tree(tmp_path)
     before = _loaded(tmp_path)
     assert main(["--root", str(tmp_path), "extract"]) == 0
@@ -491,3 +509,32 @@ def test_the_stub_of_a_part_has_the_kept_form(
     assert stub == (sides if atlas and on else column)
     if atlas and on:
         _side(stub.component("App").box, _frame(stub))
+
+
+def test_the_commands_use_the_rule_by_default(tmp_path: Path) -> None:
+    """Acceptance 20."""
+    assert place.SIDES_IN_COMMANDS is True
+    _tree(tmp_path, "")
+    before = _loaded(tmp_path)
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    assert main(["--root", str(tmp_path), "place"]) == 0
+    after = _loaded(tmp_path)
+    for mid in ("Gateway", "Style"):
+        assert after[mid] == _laid(before[mid], nested=True)
+
+
+def test_the_side_moves_remove_the_label_collision_of_page() -> None:
+    """Acceptance 21."""
+    page = model_load.read(REPO / "map/page.py", "map/page.py", REPO)["MODEL"]
+    column = place.compute(page, all_cards=True)
+    order = tuple(next(r for r in page.regions if r.id == i) for i in column.order)
+    plain = place_sides.around(page, place_order._column(page, order))
+    assert place.score(place.apply(page, plain)).collisions == 1
+    laid = place.compute(page, all_cards=True, nested=True)
+    assert laid.score is not None
+    assert (laid.score.collisions, laid.score.refused) == (0, 0)
+    model = place.apply(page, laid)
+    frame = _frame(model)
+    sides = [_side(c.box, frame) for c in model.components if c.kind == "actor"]
+    assert len(set(sides)) >= 3
+    assert max(sides.count(s) for s in set(sides)) < len(sides)

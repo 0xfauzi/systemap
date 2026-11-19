@@ -58,6 +58,10 @@ From stage 10 (written on 2026-11-19 before the run of B19): the map of this rep
 the nested map Page. Thus the `dive` of `self` zooms into Page, not into the middle card of
 the top map. The acceptance values do not change.
 
+From the third repair of stage 10 (written on 2026-11-19 before the run of B20): the nested
+map Page has its neighbours at the sides of its frame (N5), and the actor container of a
+nested map is a label on the atlas page. The acceptance values do not change.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """
