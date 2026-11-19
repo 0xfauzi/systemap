@@ -136,6 +136,7 @@ The frame time after this pass has only the runs of `tests/test_canvas_frames.py
   by more than 0.25 between two recorded frames in 2 of 3 runs of
   `tests/test_canvas_details_browser.py`. With the delay, it passed in 4 of 4 runs.
 - The limit of the size test of the panel is 44,000 bytes (before: 41,000).
+  On 2026-11-19 this sum failed because the map of this repository had more modules (241, before: 218), with no change to the panel. The test now has two limits: the code of the panel 25,000 bytes or less (24,689 at c28ebd5), and the data 85 bytes or less for each module record (84.5 at c28ebd5).
 
 Not done: the list of rules, the source records, the panel of a flow and the panel of a map
 have the new type and spacing, but their structure did not change.

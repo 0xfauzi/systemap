@@ -7,6 +7,8 @@ it uses free slots inside the existing boxes.
 
 The modules `place_layout` (the fresh layout) and `place_order` (the region order) hold
 the parts. This module fills free slots when positions stay, and gives the result lines.
+`place_sides` has the rule that puts the actors of a nested map at the sides of its
+frame. Only `compute(model, nested=True)` uses it, and the commands do not.
 """
 
 from __future__ import annotations
@@ -98,6 +100,23 @@ def _region_walls(model: Model) -> list[tuple[float, float, float, float]]:
     return [*(r.box for r in model.regions), *(region_header(r)[0] for r in model.regions)]
 
 
+def _covered(model: Model, home: str) -> list[tuple[float, float, float, float]]:
+    """This function gives the boxes of the other containers that overlap the container
+    home. In a nested map with the actors at the sides, the frame is inside the box of the
+    actors, and a new actor must not go into the frame.
+    """
+    x, y, w, h = next(b.box for b in model.containers if b.id == home)
+    return [
+        b.box
+        for b in model.containers
+        if b.id != home
+        and b.box[0] < x + w
+        and x < b.box[0] + b.box[2]
+        and b.box[1] < y + h
+        and y < b.box[1] + b.box[3]
+    ]
+
+
 def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
     """This function assigns free slots inside existing boxes to components without
     retained positions.
@@ -128,7 +147,7 @@ def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
             box = containers[home]
             holder = next(b for b in model.containers if b.id == home)
             top = container_top(holder.sub, box[2])
-            blocked = taken + walls
+            blocked = taken + walls + _covered(model, home)
         tallest = max(CARD_H[model.kind_of(i)] for i in ids)
         room = [
             s
@@ -189,12 +208,15 @@ def _references(model: Model) -> None:
             raise PlaceError(f"flow {f.src} -> {f.dst} has an unknown component. Correct the flow.")
 
 
-def compute(model: Model, all_cards: bool = False, keep_order: bool = False) -> Placement:
+def compute(
+    model: Model, all_cards: bool = False, keep_order: bool = False, nested: bool = False
+) -> Placement:
     """This function calculates a fresh layout if no position stays the same. otherwise, it
     fills free slots.
 
     The all_cards option keeps only positioned components with pinned=True. The default
-    keeps all existing component positions.
+    keeps all existing component positions. With nested, a fresh layout puts the actors
+    of a nested map at the sides of its frame (`place_sides`).
     """
     keep = kept_by(model, all_cards)
     if len(keep) == len(model.components):
@@ -209,7 +231,7 @@ def compute(model: Model, all_cards: bool = False, keep_order: bool = False) -> 
     _references(model)
     if keep:
         return _fill_layout(model, set(keep), all_cards)
-    laid = _listed(model) if keep_order else _search(model)
+    laid = _listed(model, nested) if keep_order else _search(model, nested)
     return replace(laid, all_cards=all_cards)
 
 

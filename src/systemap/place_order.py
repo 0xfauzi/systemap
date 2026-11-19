@@ -11,6 +11,7 @@ import itertools
 from collections.abc import Callable, Iterator
 from dataclasses import replace
 
+from systemap import place_sides
 from systemap.model import Box, Model, Region
 from systemap.place_layout import (
     PORT_REACH_X,
@@ -195,10 +196,13 @@ def _orders(model: Model) -> Iterator[tuple[Region, ...]]:
         yield tuple(r for part in combo for r in part)
 
 
-def _laid(model: Model, order: tuple[Region, ...]) -> Placement:
-    """This function sets the layout with the selected region order."""
+def _laid(model: Model, order: tuple[Region, ...], nested: bool = False) -> Placement:
+    """This function sets the layout with the selected region order. In a nested map, the
+    actors then go to the sides of the frame (`place_sides`).
+    """
     laid = _first_layout(replace(model, regions=order))
-    return replace(laid, regions={r.id: laid.regions[r.id] for r in model.regions})
+    laid = replace(laid, regions={r.id: laid.regions[r.id] for r in model.regions})
+    return place_sides.around(model, laid) if nested else laid
 
 
 Estimate = tuple[int, float, int]
@@ -273,10 +277,10 @@ def _routed(
     )
 
 
-def _search(model: Model) -> Placement:
+def _search(model: Model, nested: bool = False) -> Placement:
     """This function selects the layout with the smallest measured routing score."""
     if len(model.regions) <= 1:
-        laid = _laid(model, model.regions)
+        laid = _laid(model, model.regions, nested)
         placed = apply(model, laid)
         return replace(laid, order=tuple(r.id for r in model.regions), score=score(placed))
 
@@ -289,7 +293,7 @@ def _search(model: Model) -> Placement:
         ids = tuple(r.id for r in order)
         if ids in seen:
             return seen[ids][0]
-        laid = _laid(model, order)
+        laid = _laid(model, order, nested)
         bends, length = estimate(apply(model, laid))
         key = (bends, length, len(seen))
         seen[ids] = (key, laid)
@@ -304,9 +308,9 @@ def _search(model: Model) -> Placement:
     return _routed(model, seen, tuple(r.id for r in grouped))
 
 
-def _listed(model: Model) -> Placement:
+def _listed(model: Model, nested: bool = False) -> Placement:
     """This function sets the layout in the model region order for --keep-order."""
-    laid = _laid(model, model.regions)
+    laid = _laid(model, model.regions, nested)
     return replace(laid, order=tuple(r.id for r in model.regions), score=score(apply(model, laid)))
 
 

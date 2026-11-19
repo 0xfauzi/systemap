@@ -7569,3 +7569,51 @@ Script: `bench/jev/history_log.py`. The acceptance values are in its docstring, 
 | `days`: no cache file, `history_days = 30` (721 commits) | 0.266 s | less than 50 % of `full` (0.418 s) | pass |
 
 The cache file has 677,090 bytes after `full` and 97,686 bytes after `days`. Result: PASS. Before the repair, each new commit made a full read of the log (the value `full`), and `history_days` did not limit the read.
+
+## N1: the neighbours of a nested map at the four sides of its frame (2026-11-19)
+
+Script: `bench/jev/neighbour_sides.py`. The acceptance values are in its docstring, written before the first run. The rule is `systemap.place_sides`, from stage 7 of docs/design/atlas.md and the study version `docs/design/atlas/tools/sides.py.txt`. The script compares two fresh layouts of each input with `place.compute(model, all_cards=True)`: `column` (the present layout, nested=False) and `sides` (nested=True). Both do the same search of the region order. The inputs are the nested maps of tests/test_nested.py, tests/test_nest_join.py and tests/three_levels.py (2 parts, 2 sub parts), and the draft nested map Page (`docs/design/atlas/tools/page_model.py.txt`).
+
+Four runs, all on 2026-11-19, with the same acceptance values:
+
+| Run | Rule | 1 refused, collisions | 2 bends (sides / column) | 3 length (sides / column) | 4 reach | 5 zoom | Note |
+|---|---|---|---|---|---|---|---|
+| 1 | SIDE_GAP 70 | PASS | 93 / 82 FAIL | 16,872 / 18,810 PASS | FAIL | FAIL | Error in the rule: the actors did not move with the frame |
+| 2 | SIDE_GAP 48 | PASS | 94 / 82 FAIL | 14,998 / 18,810 PASS | FAIL | FAIL | The same error |
+| 3 | SIDE_GAP 48, error corrected | PASS | 71 / 82 PASS | 15,007 / 18,810 PASS | FAIL | FAIL | The output is in `bench/jev/neighbour_sides_N1.txt` |
+| 4 | SIDE_GAP 70, error corrected | PASS | 71 / 82 PASS | 16,063 / 18,810 PASS | FAIL | FAIL | |
+
+In runs 1 and 2, the frame moved to make room for the left column and the top row, but the positions of the actors along the sides were calculated from the frame before the move. Thus the actors were not near their parts. The code now moves the wanted centres with the frame.
+
+Run 3, the values of the draft map Page and the inputs that failed (reach is the mean distance from an actor to the mean centre of its parts, in map units):
+
+| Input | Layout | Canvas | Zoom | Bends | Length | Reach |
+|---|---|---|---|---|---|---|
+| draft Page | column | 904 x 1142 | 0.692 | 62 | 15,628 | 677 |
+| draft Page | sides | 1126 x 804 | 0.983 | 57 | 11,671 | 363 |
+| nested Style | column | 476 x 308 | 2.565 | 2 | 206 | 235 |
+| nested Style | sides | 500 x 472 | 1.674 | 0 | 212 | 187 |
+| levels p0 | column | 476 x 400 | 1.975 | 4 | 448 | 234 |
+| levels p0 | sides | 302 x 564 | 1.401 | 4 | 510 | 180 |
+| nested Gateway | column | 476 x 400 | 1.975 | 2 | 376 | 234 |
+| nested Gateway | sides | 500 x 472 | 1.674 | 2 | 384 | 238 |
+| levels p0_q0_deep | column | 476 x 308 | 2.565 | 0 | 120 | 234 |
+| levels p0_q0_deep | sides | 500 x 380 | 2.079 | 0 | 124 | 238 |
+
+No input has a refused route or a label collision in either layout, and no sides layout has a layout problem.
+
+Result: FAIL. Acceptance 4 fails on 5 of the 14 inputs: when the column is already at the side of the nearest parts, the sides layout puts the actor at the same side, 4 map units farther (SIDE_GAP 48 against the 44 units of the column layout). Acceptance 5 fails on 4 inputs: in a map of two or three parts, an actor at the bottom or at the top makes the map taller, and the zoom of the fit is 65 to 71 percent of the column layout. On the draft map Page, the only input of the size of a real nested map, the sides layout is better in each value: the zoom is 1.42 times larger, the paths are 25 percent shorter and have 5 bends less, and the actors are 46 percent nearer to their parts.
+
+Decision: the rule is not kept in the commands. `systemap place`, `systemap describe` and `systemap parts --stub` keep the column layout. The rule stays in `place_sides.py` and `place.compute(model, nested=True)`, so that this script can run again. A change of the rule, or of the acceptance values, is a decision for the maintainer, and it needs a new measurement.
+
+## B17: the performance budget of the atlas page, stage 7 (2026-11-19)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the acceptance values. The full output is in `bench/jev/atlas_budget_B17.txt`. The first run of B17 stopped before the M11 tree row, because the turn of the agent ended. Its self and workspace rows passed. The run below is the second run, with no other command on the host. The product page does not use the side rule of N1, thus the page is the page of stage 6 with the divided placer. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 278 / 241 (pass) | 16.7 / 16.8 (pass) | 16.8 / 16.8 (pass) | 319,289 / 323,351 = 1.01 (pass) | 60 (pass) |
+| workspace | 278 / 262 (pass) | 16.8 / 16.8 (pass) | 33.3 / 16.8 (pass) | 268,782 / 262,393 = 0.98 (pass) | 50 (pass) |
+| M11 tree | 387 / 334 (pass) | 16.7 / 16.7 (pass) | 33.3 / 16.8 (pass) | 1,223,822 / 1,214,014 = 0.99 (pass) | 51 (pass) |
+
+Result: PASS for each value.

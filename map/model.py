@@ -251,13 +251,14 @@ COMPONENTS = (
     ),
     Component(
         id="Placer",
-        source_review="3a0423d1aa0f3c0e699d9567c94ccb1a3f93408c6bc3ece6fb74ad2a1fbf77b7",
-        does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. Holds the lock of the model file from the read to the end of the write. With --all, keeps only pinned positions.",
+        source_review="e3a558f6a89d1457bd485b2881628d2386f0c75778bfd6cc022c63939ecfebd7",
+        does="Calculates initial card positions in a grid of regions. Scores region orders with route collisions, route errors, bends and length. Writes positions in map/model.py. Then loads the file again. If a value is different, restores the previous file. Holds the lock of the model file from the read to the end of the write. With --all, keeps only pinned positions. Has a rule that puts the actors of a nested map at the sides of its frame. The commands do not use that rule.",
         interface="compute(model) -> Placement; write(path, label, placement, expected, load)",
         implemented_by=(
             "systemap.place",
             "systemap.place_layout",
             "systemap.place_order",
+            "systemap.place_sides",
             "systemap.place_source",
         ),
         entry="compute",

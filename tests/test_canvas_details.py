@@ -222,7 +222,15 @@ def test_the_source_button_gives_the_commit_and_the_records() -> None:
 
 
 def test_the_page_grows_by_at_most_44000_bytes() -> None:
-    """Acceptance 10: the bytes of the parts of this step on the self-map page."""
+    """Acceptance 10: the bytes of the parts of this step on the self-map page.
+
+    The limit was 44,000 bytes for the sum of the code and the data, set at c28ebd5 with
+    218 module records (24,689 bytes of code, 18,420 bytes of data). The data grows with
+    each module of this repository, thus a fixed sum failed when a module was added, with
+    no change to the panel. Since 2026-11-19 the two parts have their own limits, from the
+    values at c28ebd5: the code 25,000 bytes or less, the data 85 bytes or less for each
+    module record. The test name stays, because it is an identifier.
+    """
     cfg, tree, _facts, data = _self()
     added = sum(
         len(json.dumps(m.get(k), ensure_ascii=False, separators=(",", ":")).encode()) + len(k) + 4
@@ -230,13 +238,15 @@ def test_the_page_grows_by_at_most_44000_bytes() -> None:
         for k in B_KEYS
         if k in m
     )
+    records = sum(len(m.get("md") or []) for m in data["maps"])
     parts = (
         page.compact(page_canvas_details.DETAILS),
         page_canvas_details.CSS,
         page_canvas_details.HTML,
         canvas_header._tools(data),
     )
-    added += sum(len(p.encode()) for p in parts)
-    assert added <= 44_000, added
+    code = sum(len(p.encode()) for p in parts)
+    assert code <= 25_000, code
+    assert added <= 85 * records, (added, records)
     built = canvas_page.build(canvas_page.tree_theme(cfg, tree), data)
     assert page_canvas_details.HTML in built and canvas_header._tools(data) in built
