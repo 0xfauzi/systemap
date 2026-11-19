@@ -12,7 +12,9 @@ section "Map view: the rules" of docs/design/atlas.md:
   arrowhead starts (`laned`).
 - Busy layers. With many flows, the lines go light: the alpha of a line at rest is
   1.25 - n / 56, from 0.3 to 1, and the alpha of the dot and the arrowhead is
-  1.25 - n / 160, from 0.75 to 1. With more than DENSE flows, no label shows at rest.
+  1.25 - n / 160, from 0.8 to 1. At 0.8 the dot and the arrowhead keep a contrast of 3.0 or
+  more on the map (tests/test_atlas_contrast.py). With more than DENSE flows, no label shows
+  at rest.
 - Labels at rest. A label shows at rest only when it is on its line, on no card, on no name
   of a region or of a container, on no other label, and no other line of the layer goes
   through it. A horizontal part of the line comes first, then the longest part. The label
@@ -54,7 +56,7 @@ function linesOf(m, id) {
   lanesOf(list);
   var seq = isSeqLayer(id), out = {list: list, n: list.length, dense: !seq && list.length > DENSE, seq: seq, seats: null};
   out.rest = clamp(1.25 - list.length / 56, 0.3, 1);
-  out.ends = clamp(1.25 - list.length / 160, 0.75, 1);
+  out.ends = clamp(1.25 - list.length / 160, 0.8, 1);
   list.forEach(function (e) { laned(e); seqLabel(m, id, e); });
   memo[id] = out;
   return out;

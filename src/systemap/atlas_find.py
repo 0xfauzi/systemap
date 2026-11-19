@@ -34,9 +34,11 @@ import json
 
 from systemap import page_canvas_find, page_icons, page_palette
 
-# The hint of the field names the cards, the flows and the sequences, the words of the
-# keyboard sheet (`atlas_tools.KEYS`). It is short, so that a phone of 390 px shows it all.
-PLACEHOLDER = "Find a card, flow or sequence"
+# The hint of the field names the cards, the flows, the sequences and the actions, as the
+# keyboard sheet does (`atlas_tools.KEYS`). At 15 px it is 261 px wide, and the field of a
+# phone of 390 px has 262 px for it. Thus on a narrow screen the hint is 14 px high, so that
+# it shows all of it with a margin (tests/test_atlas_parity_browser.py).
+PLACEHOLDER = "Find a card, flow, sequence or action"
 HTML = page_palette.html(PLACEHOLDER)
 
 # The dialog CSS of the map page and the base text of the dialog. The Close button shows
@@ -48,6 +50,7 @@ CSS = (
     ".pal .pal__x kbd{display:none}.pal .pal__x span{display:inline;font-size:13px}"
     "@media (pointer:coarse),(max-width:640px){.pal .pal__x{min-width:44px;min-height:44px;"
     "padding:0 4px}.pal .pal__o{height:44px}}"
+    "@media (max-width:640px){.pal .pal__field input::placeholder{font-size:14px}}"
     "@media (prefers-reduced-motion:reduce){"
     'html:not([data-reduce-motion="true"]) .pal:not([hidden]),'
     'html:not([data-reduce-motion="true"]) .pal:not([hidden]) .pal__box{animation:none}}'

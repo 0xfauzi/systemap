@@ -226,6 +226,14 @@ async function findMode(browser, file, card, flow) {
   await ph.page.tap('#atlas-tools-open');
   await ph.page.tap('#atlas-find-menu');
   out.phone = { tools: await tools(ph.page), active: await active(ph.page), errors: ph.errors };
+  // The width of the hint of the field in its font, and the width that the field gives it.
+  out.phone.hint = await ph.page.evaluate(async () => {
+    await document.fonts.ready;
+    const i = document.getElementById('pal-input'), cs = getComputedStyle(i), ps = getComputedStyle(i, '::placeholder');
+    const g = document.createElement('canvas').getContext('2d');
+    g.font = ps.fontWeight + ' ' + ps.fontSize + ' ' + ps.fontFamily;
+    return { text: i.placeholder, width: g.measureText(i.placeholder).width, room: i.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight), size: ps.fontSize };
+  });
   await ph.page.keyboard.press('Escape');
   out.phone.back = await active(ph.page);
   await pctx.close();

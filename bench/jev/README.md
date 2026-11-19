@@ -7699,3 +7699,57 @@ Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no chan
 Result: PASS for each value. The atlas page of `self` grew by about 37,000 bytes against B17, mostly for the Find dialog and its styles.
 
 The test of the budget in the suite: `tests/test_atlas_frames.py`. Its acceptance values are in its docstring, written before its first run. It measures the M11 tree with the code and the limits of `atlas_budget.py`, two attempts of three for each timed value. First run, on 2026-11-19 before the run of B18: 5 of 5 tests passed, in 69 s. The test does not print the measured values, thus this record has no numbers for that run.
+
+## C18: the contrast of the faint texts and marks of the atlas page (2026-11-19)
+
+Test: `tests/test_atlas_contrast.py`, acceptance values 3 to 5 in its docstring, written before the run. A review of stage 8 found that the test used only the token of a text or a mark on its ground, and not the alpha that the page draws it at. The test now has the tables `FAINT` and `FAINT_BELOW`. The alpha of each row comes from the code of the page. These are computations from the theme tokens of `atlas_css`, not browser measurements.
+
+First run: the dot and the arrowhead of a busy layer, at their lowest alpha 0.75, were 2.92 in the light scheme and 3.52 in the dark scheme. The floor is 3.0. FAIL. The specification says that they stay in a busy layer. Thus `atlas_lines.py` now gives them the lowest alpha 0.8: 3.20 light and 3.84 dark. PASS.
+
+The 39 rows below their floor (light / dark), each with a partner at full alpha in `ALSO_FAINT`:
+
+| Row | Alpha | Ratio light / dark |
+|---|---|---|
+| label of a later step | 0.4 | 1.92 / 2.50 |
+| dot and arrowhead of a later step | 0.32 | 1.51 / 1.59 |
+| wire of a later step | 0.12 | 1.09 / 1.08 |
+| wire of a line in a busy layer | 0.3 | 1.24 / 1.27 |
+| name of a card that goes back | 0.34 | 2.11 / 2.76 |
+| name of an actor that goes back | 0.34 | 2.10 / 2.83 |
+| kind tag of a card that goes back | 0.34 | 1.56 / 1.60 |
+| short name of a card that goes back | 0.34 | 1.56 / 1.60 |
+| name of a quiet card that goes back | 0.204 | 1.29 / 1.30 |
+| kind tag of a quiet card that goes back | 0.17 | 1.23 / 1.23 |
+| outline of a card that goes back | 0.34 | 1.13 / 1.13 |
+| wire of a line that goes back | 0.066 | 1.05 / 1.04 |
+| dot and arrowhead of a line that goes back | 0.176 | 1.25 / 1.25 |
+| ring of a change on a card that goes back | 0.34 | 1.72 / 1.84 |
+| tag of a change on a card that goes back | 0.34 | 1.72 / 1.84 |
+| ring of an open boundary line on a card that goes back | 0.34 | 1.72 / 2.13 |
+| tag of an open boundary line on a card that goes back | 0.34 | 1.72 / 2.13 |
+| lost flow of a change that goes back | 0.22 | 1.41 / 1.42 |
+| name of a quiet card | 0.6 | 2.28 / 2.68 |
+| kind tag of a quiet card | 0.5 | 1.96 / 2.21 |
+| outline of a quiet card | 0.7 | 1.28 / 1.34 |
+| label of a later row of the Sequences diagram | 0.38 | 1.85 / 2.35 |
+| number of a later row of the Sequences diagram | 0.38 | 1.85 / 2.35 |
+| ring of the number of a later row of the Sequences diagram | 0.38 | 1.64 / 1.78 |
+| arrowhead of a later row of the Sequences diagram | 0.38 | 1.64 / 1.78 |
+| line of a later row of the Sequences diagram | 0.38 | 1.32 / 1.37 |
+| label of a step button that is not available | 0.4 | 1.94 / 2.51 |
+| label of the next step button that is not available | 0.4 | 1.48 / 1.71 |
+| thin line of the Focus view | 0.55 | 1.51 / 1.64 |
+| line of the Focus view that goes back | 0.38 | 1.32 / 1.37 |
+| thin line of the Focus view that goes back | 0.209 | 1.16 / 1.16 |
+| arrowhead of a line of the Focus view that goes back | 0.38 | 1.64 / 1.78 |
+| label of a transition that goes back | 0.38 | 1.85 / 2.35 |
+| wire of a transition that goes back | 0.38 | 1.32 / 1.37 |
+| arrowhead of a transition that goes back | 0.38 | 1.64 / 1.78 |
+| name of a state that goes back | 0.38 | 2.35 / 3.16 |
+| symbol of a state that goes back | 0.38 | 1.66 / 1.73 |
+| outline of a state that goes back | 0.38 | 1.64 / 1.78 |
+| cell of few lines in the History view (example: 1 line, largest cell 10 lines) | 0.316 | 1.98 / 2.61 |
+
+Result: PASS for acceptance values 3 to 5 after the change of the busy layer. The rows below their floor are decisions for the maintainer.
+
+The hint of the field of Find is now "Find a card, flow, sequence or action". At 390 x 844 in Chromium, after the fonts load, it is 243.95 px wide at 14 px, in a field with 262 px for it (acceptance 18 of tests/test_atlas_parity_browser.py). At 15 px it was 261.38 px.

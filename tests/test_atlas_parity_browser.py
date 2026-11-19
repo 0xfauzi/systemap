@@ -114,6 +114,13 @@ run of their tests:
     lines, the headline shows the text "2 open boundary lines" in a box of 1 px or more
     high, and the count of the parts does not show. At the top map of the tree with a
     revision comparison, the headline shows the count of the changed cards.
+
+Acceptance value written on 2026-11-19 after the third review of stage 8, before the first
+run of its test:
+
+18. The hint of the field of Find is "Find a card, flow, sequence or action". On a phone of
+    390 x 844, after the fonts load, its width in the font of the hint is 8 px or more less
+    than the width of the field between its padding.
 """
 
 from __future__ import annotations
@@ -277,7 +284,7 @@ def _check_sheet_and_phone(out: dict[str, Any]) -> None:
 
 
 def test_find_goes_to_a_card_a_flow_a_sequence_and_a_step() -> None:
-    """Acceptance 5 and 12."""
+    """Acceptance 5, 12 and 18."""
     out = _drive("--find", str(_self_page()), "Judgement", "verdict")
     assert out["errors"] == [] and out["phone"]["errors"] == [], out
     assert out["ctrl"]["find"] and out["ctrl"]["active"] == "pal-input"
@@ -307,6 +314,10 @@ def test_find_goes_to_a_card_a_flow_a_sequence_and_a_step() -> None:
     assert typed["open"] and typed["field"] == "a/b"
     assert out["phone"]["tools"]["find"] and out["phone"]["active"] == "pal-input"
     assert out["phone"]["back"] == "atlas-tools-open"
+    # The hint names the four kinds of row, and a phone of 390 px shows all of it.
+    hint = out["phone"]["hint"]
+    assert hint["text"] == "Find a card, flow, sequence or action", hint
+    assert hint["width"] + 8 <= hint["room"], hint
 
 
 def _gateway_flow(page_file: Path) -> str:

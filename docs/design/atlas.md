@@ -149,7 +149,12 @@ These are not in the study. They are necessary.
   adds no comparison view: the change marks are on the Map view (`atlas_marks`). On a
   phone the tools are in one Tools menu (`atlas_tools`). The contrast test
   (tests/test_atlas_contrast.py) gives eight quiet marks below the floor of 3.0, for example
-  the wire of a line at rest. They are decisions for the maintainer.
+  the wire of a line at rest. It also gives each text and mark that the page draws at a
+  reduced alpha, with that alpha in its ratio: 39 of them are below their floor, for example
+  the label of a later step (1.92 in the light scheme). These are decisions for the
+  maintainer, because this document makes later steps faint and makes the other cards and
+  lines go back. In a busy layer, the alpha of the dot and the arrowhead is 0.8 or more, so
+  that they keep a contrast of 3.0 or more.
 - **Text.** All text for a reader obeys the language policy of the repository.
 - **Measurement.** Follow `AGENTS.md`: write the acceptance value in the docstring before
   a run, and record each result in `bench/jev/README.md`, including a failure.
