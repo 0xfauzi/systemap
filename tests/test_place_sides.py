@@ -1,8 +1,9 @@
 """The placer rule for a nested map: the actors at the four sides of the frame.
 
-`systemap place` does not use the rule, because the measurement N1 failed two of its
-acceptance values (bench/jev/README.md). `place.compute(model, nested=True)` uses it.
-These tests examine the rule and that the default stays the column layout.
+`place.compute(model, nested=True)` uses the rule. The measurement N3 passed
+(bench/jev/README.md). The commands give nested=True for each map that is not the top map
+when `[render] page = "atlas"`. These tests examine the rule, and that the default of
+`place.compute` and of the commands stays the column layout.
 
 Acceptance values, written before the tests:
 
@@ -35,6 +36,22 @@ tests ran:
 12. With nested="study", each actor is 70 units from one side of the frame, the layout has
     no layout problems, and the frame is higher than with the form BOX, because the actor
     container keeps no room for its label.
+
+Acceptance values 13 to 17, written on 2026-11-20 for the second repair of stage 7, before
+these tests ran:
+
+13. With `[render] page = "atlas"`, `systemap place` writes the nested maps of the fixture
+    with the actors at the sides of the frame, and the top map with no change from
+    `place.compute` without nested. `systemap describe` gives the canvas of the same
+    layout for a nested map without positions. `systemap place` with positions keeps them.
+    `systemap parts --stub` writes a stub with the actor at a side. Without that setting,
+    the three commands give the column layout.
+14. An actor with no flow to a part goes to the side with the most free room.
+15. When the four sides have too little room for the actors, `around` gives the column
+    layout with no change.
+16. `place._covered` gives no box without nested, and no box for a map that does not have
+    the shape of a nested map. Thus the fill of each other map does not change.
+17. With nested=True, the form is `place_sides.KEPT`, the form BOX.
 """
 
 from __future__ import annotations
@@ -45,8 +62,11 @@ from typing import Any
 
 import pytest
 import test_nested
+import test_parts
+from conftest import write_tree
 
-from systemap import config, nest, place, place_sides
+from systemap import config, model_load, nest, place, place_sides
+from systemap.cli import main
 from systemap.model import CARD_W, Container, Model
 
 REPO = Path(__file__).resolve().parent.parent
@@ -162,7 +182,7 @@ def test_a_new_actor_does_not_go_into_the_frame() -> None:
     frame = _frame(laid)
     added = replace(laid.component("Reader"), id="Extra", x=None, y=None)
     grown = replace(laid, components=(*laid.components, added))
-    placed = place.apply(grown, place.compute(grown))
+    placed = place.apply(grown, place.compute(grown, nested=True))
     assert placed.layout_problems() == []
     x, y, w, h = placed.component("Extra").box
     fx, fy, fw, fh = frame
@@ -237,7 +257,7 @@ def _column_maps() -> list[Model]:
 def _fill(model: Model) -> place.Placement | str:
     """Give the placement of the fill, or the error when the boxes have no free slot."""
     try:
-        return place.compute(model)
+        return place.compute(model, nested=True)
     except place.PlaceError as err:
         return str(err)
 
@@ -256,7 +276,7 @@ def test_the_cover_term_keeps_the_column_fill(k: int, monkeypatch: pytest.Monkey
             model, components=tuple(free if c.id == card.id else c for c in model.components)
         )
         with_cover = _fill(lost)
-        monkeypatch.setattr(place, "_covered", lambda _m, _h: [])
+        monkeypatch.setattr(place, "_covered", lambda _m, _h, _n: [])
         without = _fill(lost)
         monkeypatch.undo()
         assert with_cover == without
@@ -278,3 +298,145 @@ def test_the_study_form_has_no_room_for_the_label() -> None:
             if c.kind == "actor":
                 _side(c.box, frame, place_sides.STUDY.gap)
         assert frame[1] < _frame(box)[1]
+
+
+ATLAS = '[render]\npage = "atlas"\n'
+
+
+def _tree(root: Path, setting: str = ATLAS) -> None:
+    config_text = test_nested.CONFIG + setting
+    write_tree(root, {**test_nested.TREE, "systemap.toml": config_text, **test_nested.MODELS})
+
+
+def _loaded(root: Path) -> dict[str, Model]:
+    return {m.id: m.model for m in nest.load(config.load(root)).maps}
+
+
+def test_the_commands_put_the_actors_at_the_sides(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 13."""
+    _tree(tmp_path)
+    before = _loaded(tmp_path)
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "describe"]) == 0
+    described = capsys.readouterr().out
+    assert main(["--root", str(tmp_path), "place"]) == 0
+    after = _loaded(tmp_path)
+    assert after[""] == place.apply(before[""], place.compute(before[""]))
+    for mid in ("Gateway", "Style"):
+        laid = after[mid]
+        assert laid == _laid(before[mid], nested=True)
+        assert laid != _laid(before[mid], nested=False)
+        frame = _frame(laid)
+        for c in laid.components:
+            if c.kind == "actor":
+                _side(c.box, frame)
+        w, h = laid.canvas
+        assert f"{mid}: canvas {w} x {h}:" in described
+    # A second place keeps the positions.
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "place"]) == 0
+    assert _loaded(tmp_path) == after
+
+
+@pytest.mark.parametrize("setting", ["", '[render]\npage = "canvas"\n'])
+def test_the_commands_keep_the_column_for_the_other_pages(
+    tmp_path: Path, setting: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance 13, without the atlas page."""
+    _tree(tmp_path, setting)
+    before = _loaded(tmp_path)
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    assert main(["--root", str(tmp_path), "describe"]) == 0
+    described = capsys.readouterr().out
+    assert main(["--root", str(tmp_path), "place"]) == 0
+    after = _loaded(tmp_path)
+    for mid in ("Gateway", "Style"):
+        assert after[mid] == _laid(before[mid], nested=False)
+        w, h = after[mid].canvas
+        assert f"{mid}: canvas {w} x {h}:" in described
+
+
+def test_an_actor_with_no_flow_goes_to_the_most_free_room() -> None:
+    """Acceptance 14. The frame is 600 wide and 140 high: the left and the right have room
+    for two actors, the top and the bottom for three. Two actors want the top."""
+    frame = (300, 300, 600, 140)
+    wanted: dict[str, tuple[float, float] | None] = {
+        "A": (400.0, 305.0),
+        "B": (700.0, 305.0),
+        "C": None,
+    }
+    sides = place_sides.assign_sides(["A", "B", "C"], wanted, frame)
+    assert sides == {"left": [], "right": [], "top": ["A", "B"], "bottom": ["C"]}
+    alone = place_sides.assign_sides(["C"], {"C": None}, frame)
+    assert alone == {"left": [], "right": [], "top": ["C"], "bottom": []}
+
+
+def test_too_little_room_keeps_the_column() -> None:
+    """Acceptance 15. Twenty actors need more room than the sides of a small frame give."""
+    model = model_of(test_nested.GATEWAY)
+    actor = model.component("Reader")
+    many = tuple(replace(actor, id=f"Actor{k}") for k in range(20))
+    model = replace(model, components=(*model.components, *many))
+    column = place.compute(model, all_cards=True)
+    frame = column.containers["gateway"]
+    actors = [c.id for c in model.components if c.kind == "actor"]
+    wanted = place_sides._wanted(model, actors, place_sides._centres(model, column.positions))
+    assert place_sides.assign_sides(actors, wanted, frame) is None
+    assert place_sides.around(model, column) == column
+
+
+def test_the_cover_is_only_for_a_nested_map() -> None:
+    """Acceptance 16."""
+    laid = _laid(model_of(test_nested.GATEWAY), nested=True)
+    frame = _frame(laid)
+    assert place._covered(laid, "around", True) == [frame]
+    assert place._covered(laid, "around", False) == []
+    assert place._covered(laid, "gateway", True) == []
+    # The top map of this repository has the shape of a nested map, but the commands give
+    # nested=False for a top map. Its two containers do not overlap.
+    repo = nest.load(config.load(REPO)).top.model
+    for nested in (False, True):
+        assert all(place._covered(repo, b.id, nested) == [] for b in repo.containers)
+    other = model_of(test_nested.TOP)
+    more = Container(id="more", label="MORE", box=(0, 0, 0, 0))
+    assert (
+        place._covered(replace(other, containers=(*other.containers, more)), "outside", True) == []
+    )
+
+
+def test_nested_gives_the_kept_form() -> None:
+    """Acceptance 17."""
+    assert place_sides.KEPT == place_sides.BOX == place_sides.FORMS["box"]
+    model = model_of(test_nested.STYLE)
+    assert _laid(model, nested=True) == place.apply(
+        model, place.compute(model, all_cards=True, nested="box")
+    )
+
+
+@pytest.mark.parametrize("atlas", [True, False])
+def test_the_stub_of_a_part_has_the_kept_form(tmp_path: Path, atlas: bool) -> None:
+    """Acceptance 13, for `systemap parts --stub`. The stub has no flow, thus its actor goes
+    to the side with the most free room."""
+    root = test_parts._gate(tmp_path)
+    if atlas:
+        with (root / "systemap.toml").open("a", encoding="utf-8") as out:
+            out.write(ATLAS)
+    assert test_parts.run(root, "parts", "--stub", "Gate") == 0
+    stub = model_load.read(root / "map/gate.py", "map/gate.py", root)["MODEL"]
+    bare = replace(
+        stub,
+        components=tuple(replace(c, x=None, y=None) for c in stub.components),
+        containers=tuple(replace(b, box=(0, 0, 0, 0)) for b in stub.containers),
+        regions=tuple(replace(r, box=(0, 0, 0, 0)) for r in stub.regions),
+        canvas=(0, 0),
+    )
+    sides = place.apply(bare, place.compute(bare, nested=True))
+    column = place.apply(bare, place.compute(bare))
+    assert sides != column
+    assert stub == (sides if atlas else column)
+    if atlas:
+        _side(stub.component("App").box, _frame(stub))

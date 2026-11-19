@@ -23,12 +23,16 @@ column at the left of the frame. This rule moves each actor to a side of the fra
 
 A map that does not have this shape keeps the column layout.
 
-The commands do not use this rule. `place.compute(model, nested=True)` (the form BOX) and
-`place.compute(model, nested="study")` use it, and only the measurements N1 and N2
-(`bench/jev/neighbour_sides.py`) call them. N1 (BOX) and N2 (STUDY) failed two of their
-five acceptance values on the nested maps of the test fixtures (the mean distance to the
-parts and the zoom of the fit), thus `systemap place` keeps the column layout. The records
-in `bench/jev/README.md` give the values.
+The commands use this rule with the form BOX (`KEPT`) when `[render] page = "atlas"`:
+`systemap place`, `systemap describe` and `systemap parts --stub` then give nested=True
+for each map that is not the top map (`place.sides_for`). The canvas page and the linked
+page keep the column layout. `place.compute(model, nested="study")` gives the form STUDY
+for the measurements. N1 (BOX, SIDE_GAP 48) and N2 (STUDY) failed two of their five
+acceptance values. A review found two errors in these values: the zoom did not have the
+limit of the fit of the page, and the reach had to be strictly less where the column is
+already at the nearest side. N3 (BOX, SIDE_GAP 44) has the two values with these errors
+corrected, and it passed. The records in `bench/jev/README.md` give the values. A map
+that has positions keeps them until `systemap place --all` runs.
 """
 
 from __future__ import annotations
@@ -41,8 +45,9 @@ from systemap.place_layout import CANVAS_MARGIN, CONTAINER_PAD, Placement, conta
 from systemap.place_layout import container_width as _container_width
 
 SIDES = ("left", "right", "top", "bottom")
-# The space between the frame and an actor in the form BOX, and between two actors on one side.
-SIDE_GAP = 48
+# The space between the frame and an actor in the form BOX: the gap of the column layout
+# (N1 measured 48, N3 measured 44). ACTOR_GAP is the space between two actors on one side.
+SIDE_GAP = 44
 ACTOR_GAP = 26
 ACTOR_H = CARD_H["actor"]
 
@@ -232,6 +237,8 @@ class Form:
 BOX = Form(gap=SIDE_GAP, pad=CONTAINER_PAD, labelled=True)
 STUDY = Form(gap=70, pad=28 - CANVAS_MARGIN, labelled=False)
 FORMS = {"box": BOX, "study": STUDY}
+# The form of the commands: `place.compute(model, nested=True)`.
+KEPT = BOX
 
 
 @dataclass(frozen=True)

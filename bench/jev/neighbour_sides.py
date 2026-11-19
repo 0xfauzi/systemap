@@ -52,9 +52,36 @@ because an actor at that side with a gap of 44 or more has a reach that is equal
 more than the reach of the column. The review of N1 found this. N2 does not change
 acceptance 4 for this reason. A different acceptance 4 is a decision for the maintainer.
 
+N3: the form BOX with SIDE_GAP 44, with acceptance 4 and 5 corrected, added on 2026-11-20
+after a second review. The review found two errors in the acceptance values of N1 and N2:
+
+- `zoom` has no upper limit, but the page limits the fit to a screen scale of 1.6
+  (`fitK` in src/systemap/atlas_input.py). On each small fixture the zoom of the column
+  is more than 1.6, thus the reader sees 1.6 and not the value of the metric.
+- Acceptance 4 asks for a reach that is strictly less on each input. Where the column is
+  already at the nearest side of the parts, an actor at that side has the same reach or
+  more, and the value can not pass. Run 5 of N1 showed equal reach (234 = 234).
+
+SIDE_GAP is now 44, the gap of the column layout, so that the form BOX is the form of run 5
+of N1. `shown` is the smaller of `zoom` and 1.6: the zoom that the page shows.
+
+Acceptance values of N3, written before the run of N3 with `--acceptance n3`. They are not
+a blind test: the values of N1, N2 and run 5 were known, and a scratch calculation in the
+same session gave the values of these forms before this text. The maintainer can refuse
+them. The rule is kept in the commands only if all of them hold:
+
+1. to 3. The values 1, 2 and 3 of N1, with no change.
+4. On each input with an actor, `reach` of `sides` is not more than that of `column`, and
+   the total `reach` of `sides` over these inputs is less than that of `column`.
+5. On the draft map Page, `shown` of `sides` is 90 percent or more of that of `column`.
+   On each other input, it is 80 percent or more.
+
 Run from the repository root:
     uv run python bench/jev/neighbour_sides.py               (N1, the form BOX)
     uv run python bench/jev/neighbour_sides.py --form study  (N2, the form STUDY)
+    uv run python bench/jev/neighbour_sides.py --acceptance n3  (N3, the form BOX)
+
+N1 ran with SIDE_GAP 48. To run N1 again with its own form, set SIDE_GAP to 48.
 """
 
 from __future__ import annotations
@@ -70,6 +97,9 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 from systemap import place  # noqa: E402
 from systemap.model import CARD_H, CARD_W, Model  # noqa: E402
+
+# The largest screen scale of the fit of a map on the page (`fitK` in atlas_input.py).
+FIT_LIMIT = 1.6
 
 
 def _model(source: str) -> Model:
@@ -133,6 +163,7 @@ def measure(model: Model, nested: bool | str) -> dict[str, Any]:
         "canvas": (w, h),
         "area": round(w * h / 1000),
         "zoom": round(min(1440 / w, 790 / h), 3),
+        "shown": round(min(1440 / w, 790 / h, FIT_LIMIT), 3),
         "collisions": placement.score.collisions,
         "refused": placement.score.refused,
         "bends": placement.score.bends,
@@ -146,7 +177,8 @@ def _row(name: str, form: str, v: dict[str, Any]) -> str:
     reach = "-" if v["reach"] is None else f"{v['reach']:.0f}"
     w, h = v["canvas"]
     return (
-        f"| {name} | {form} | {w} x {h} | {v['area']} | {v['zoom']} | {v['collisions']} | "
+        f"| {name} | {form} | {w} x {h} | {v['area']} | {v['zoom']} | {v['shown']} | "
+        f"{v['collisions']} | "
         f"{v['refused']} | {v['bends']} | {v['length']} | {reach} |"
     )
 
@@ -176,27 +208,65 @@ def _verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[str]:
     ]
 
 
+def _n3(results: dict[str, dict[str, dict[str, Any]]]) -> list[str]:
+    """The values 4 and 5 of N3: the reach not more, and the zoom that the page shows."""
+    col = {n: r["column"] for n, r in results.items()}
+    sid = {n: r["sides"] for n, r in results.items()}
+    with_actor = [n for n in results if col[n]["reach"] is not None]
+    each = all(sid[n]["reach"] <= col[n]["reach"] for n in with_actor)
+    total = (sum(sid[n]["reach"] for n in with_actor), sum(col[n]["reach"] for n in with_actor))
+    four = each and total[0] < total[1]
+    ratio = {n: sid[n]["shown"] / col[n]["shown"] for n in results}
+    five = all(ratio[n] >= (0.9 if n == "draft Page" else 0.8) for n in results)
+    worst = min(ratio, key=lambda n: ratio[n])
+    return [
+        f"4. (N3) reach not more on each input, total {total[0]:.0f} against {total[1]:.0f}: "
+        f"{'PASS' if four else 'FAIL'}",
+        f"5. (N3) shown zoom 90 percent (Page) or 80 percent (others) or more, smallest "
+        f"{ratio[worst]:.3f} ({worst}), Page {ratio['draft Page']:.3f}: "
+        f"{'PASS' if five else 'FAIL'}",
+    ]
+
+
+def _args(argv: list[str]) -> tuple[str, str] | None:
+    opts = dict(zip(argv[::2], argv[1::2], strict=False))
+    if len(argv) % 2 or set(opts) - {"--form", "--acceptance"}:
+        return None
+    form, acceptance = opts.get("--form", "box"), opts.get("--acceptance", "n1")
+    if form not in ("box", "study") or acceptance not in ("n1", "n3"):
+        return None
+    return form, acceptance
+
+
 def main(argv: list[str]) -> int:
-    form = argv[1] if argv[:1] == ["--form"] and len(argv) == 2 else "box"
-    if form not in ("box", "study") or (argv and argv[:1] != ["--form"]):
-        print("Usage: neighbour_sides.py [--form box|study]", file=sys.stderr)
+    parsed = _args(argv)
+    if parsed is None:
+        print(
+            "Usage: neighbour_sides.py [--form box|study] [--acceptance n1|n3]",
+            file=sys.stderr,
+        )
         return 2
+    form, acceptance = parsed
     results: dict[str, dict[str, dict[str, Any]]] = {}
     for name, model in inputs().items():
         results[name] = {"column": measure(model, False), "sides": measure(model, form)}
     print(
-        "| input | layout | canvas | area | zoom | collisions | refused | bends | length | reach |"
+        "| input | layout | canvas | area | zoom | shown | collisions | refused | bends | "
+        "length | reach |"
     )
-    print("|---|---|---|---|---|---|---|---|---|---|")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
     for name, r in results.items():
-        for form in ("column", "sides"):
-            print(_row(name, form, r[form]))
+        for layout in ("column", "sides"):
+            print(_row(name, layout, r[layout]))
     for name, r in results.items():
-        for form in ("column", "sides"):
-            if r[form]["problems"]:
-                print(f"{name} {form}: {r[form]['problems']}")
+        for layout in ("column", "sides"):
+            if r[layout]["problems"]:
+                print(f"{name} {layout}: {r[layout]['problems']}")
     print()
-    for line in _verdicts(results):
+    lines = _verdicts(results)
+    if acceptance == "n3":
+        lines = [*lines[:3], *_n3(results), lines[5]]
+    for line in lines:
         print(line)
     return 0
 

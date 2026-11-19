@@ -763,7 +763,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
         # place` would place it, and the positions line says which; a
         # whole layout searched the region order, and the order line says
         # how many orders it tried.
-        placement = place.compute(m.model)
+        placement = place.compute(m.model, nested=not m.top and place.sides_for(p.cfg))
         model = place.apply(m.model, placement) if placement.positions else m.model
         problems = model_problems(model, m.meaning)
         if problems:
@@ -806,7 +806,10 @@ def cmd_place(args: argparse.Namespace) -> int:
     say(*cli_scope.notes(p.tree))
     for m in p.tree.reported:
         placement = place.compute(
-            m.model, all_cards=bool(args.all), keep_order=bool(args.keep_order)
+            m.model,
+            all_cards=bool(args.all),
+            keep_order=bool(args.keep_order),
+            nested=not m.top and place.sides_for(p.cfg),
         )
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))

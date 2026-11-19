@@ -7613,7 +7613,7 @@ Two facts that a review of N1 found, for the decision of the maintainer:
 - The rule of N1 is not the form of the study. The study script (`docs/design/atlas/tools/sides.py.txt`) has no actor box: it keeps only the frame, and the actors are directly around it. The rule of N1 (the form BOX of `place_sides`) keeps the actor container as a box around the frame and the actors, with the room for its label above them (`container_top`) and CONTAINER_PAD inside its edge. Thus each frame moves down by the room of the label, and each map of N1 is taller than the same map in the form of the study. For example, on levels p0_q0_deep the only actor stays at the left, but the canvas grows from 476 x 308 to 500 x 380, and the zoom goes down to 81 percent. This added height makes the zoom of acceptance 5 lower on each input. N2 below measures the form of the study.
 - Acceptance 4 can not pass on an input where the column is already at the nearest side of the parts. Run 5 below shows this.
 
-Run 5, 2026-11-19, after the review: the form BOX with SIDE_GAP 44, the gap of the column layout. The acceptance values did not change. 1 PASS, 2 PASS (71 / 82), 3 PASS (14,815 / 18,810), 4 FAIL, 5 FAIL. The reach is equal (234 against 234) on nested Gateway and on the four levels inputs `*_deep`: the actor is at the same place relative to its parts as in the column. Thus acceptance 4 fails because it asks for a reach that is strictly less on each input. This failure comes from the words of acceptance 4, not from an error in the rule. The output of run 5 was not kept in a file. To get it again, set `place_sides.FORMS["box"]` to the form BOX with `gap=44` and run the script.
+Run 5, 2026-11-19, after the review: the form BOX with SIDE_GAP 44, the gap of the column layout. The acceptance values did not change. 1 PASS, 2 PASS (71 / 82), 3 PASS (14,815 / 18,810), 4 FAIL, 5 FAIL. The reach is equal (234 against 234) on nested Gateway and on the four levels inputs `*_deep`: the actor is at the same place relative to its parts as in the column. Thus acceptance 4 fails because it asks for a reach that is strictly less on each input. This failure comes from the words of acceptance 4, not from an error in the rule. The output of run 5 was not kept in a file. To get it again, set `place_sides.FORMS["box"]` to the form BOX with `gap=44` and run the script. Addition on 2026-11-20: SIDE_GAP is now 44, thus `uv run python bench/jev/neighbour_sides.py` runs the form of run 5 with no edit. Its output is now in `bench/jev/neighbour_sides_N1_run5.txt`, with the same values (71 / 82 bends, 14,815 length, 4 FAIL, 5 FAIL).
 
 ## N2: the form of the study for the neighbours of a nested map (2026-11-19)
 
@@ -7637,6 +7637,38 @@ Script: `bench/jev/neighbour_sides.py --form study`. The acceptance values are t
 Result: FAIL. Without the room for the label, the small maps are less tall than in N1: levels p0_q0_deep is 506 x 332 (N1: 500 x 380), with 93 percent of the zoom of the column. But acceptance 5 still fails on 4 inputs (nested Style and join Gateway 69 percent, levels p0 and p1 74 percent): an actor at the top or the bottom adds a row to a map of two or three parts. Acceptance 4 fails on 9 inputs, because an actor 70 units from the frame is farther from its parts than the column at 44 units, when the column is already at the nearest side. On the draft map Page the form of the study is better than the column in each value, as in N1.
 
 Decision: the rule is not kept. The commands keep the column layout. Thus the product page does not meet the rule "Neighbours of a nested map" of docs/design/atlas.md: the neighbours of a nested map are in one column at the left of the frame. A decision of the maintainer is necessary: keep the column, use the rule only for a map of the size of Page, or accept different acceptance values for a new measurement.
+
+## N3: the neighbours of a nested map, with acceptance 4 and 5 corrected (2026-11-20)
+
+Script: `bench/jev/neighbour_sides.py --acceptance n3`. The rule is the form BOX of `place_sides` with SIDE_GAP 44, the gap of the column layout: the form of run 5 of N1. The acceptance values are in the docstring, written before this run. The full output is in `bench/jev/neighbour_sides_N3.txt`.
+
+The cause: a second review of stage 7 found two errors in acceptance 4 and 5 of N1 and N2.
+
+- Acceptance 5 used `zoom` = min(1440 / w, 790 / h) with no upper limit. The page limits the fit of a map to a screen scale of 1.6 (`fitK` in `src/systemap/atlas_input.py`), and the product page shows 160% for the column layout of join Gateway. On each small fixture the zoom of the column is 1.975 to 2.565, thus the reader sees 1.6. N1 and N2 thus failed acceptance 5 on a difference that the page does not show. This fact was not in this file or in `docs/reference.md` before.
+- Acceptance 4 asked for a reach that is strictly less on each input. Where the column is already at the nearest side, the value can not pass (run 5: 234 = 234).
+
+These acceptance values are not a blind test. The values of N1, N2 and run 5 were known, and a calculation in the same session gave the values of the forms before the docstring was written. The maintainer can refuse the corrected values, and then the commands must go back to the column layout.
+
+N3 uses `shown` = min(zoom, 1.6). `zoom` is still an approximation of the fit: the page fits the map beside or below the headline, and the space for the map is not exactly 1440 x 790.
+
+| Input | Layout | Canvas | Zoom | Shown | Bends | Length | Reach |
+|---|---|---|---|---|---|---|---|
+| draft Page | column | 904 x 1142 | 0.692 | 0.692 | 62 | 15,628 | 677 |
+| draft Page | sides | 1118 x 796 | 0.992 | 0.992 | 57 | 11,567 | 359 |
+| nested Gateway | column | 476 x 400 | 1.975 | 1.6 | 2 | 376 | 234 |
+| nested Gateway | sides | 496 x 472 | 1.674 | 1.6 | 2 | 376 | 234 |
+| nested Style | column | 476 x 308 | 2.565 | 1.6 | 2 | 206 | 235 |
+| nested Style | sides | 496 x 468 | 1.688 | 1.6 | 0 | 204 | 183 |
+| levels p0 | column | 476 x 400 | 1.975 | 1.6 | 4 | 448 | 234 |
+| levels p0 | sides | 302 x 560 | 1.411 | 1.411 | 4 | 502 | 176 |
+| levels p0_q0_deep | column | 476 x 308 | 2.565 | 1.6 | 0 | 120 | 234 |
+| levels p0_q0_deep | sides | 496 x 380 | 2.079 | 1.6 | 0 | 120 | 234 |
+
+1 PASS. 2 PASS (71 / 82 bends). 3 PASS (14,815 / 18,810 length). 4 PASS (no input has a larger reach, total 3,322 against 3,904). 5 PASS (the smallest ratio of `shown` is 0.882 on levels p0 and levels p1, and on the draft map Page it is 1.434). No input has a refused route or a label collision, and no sides layout has a layout problem.
+
+Result: PASS. Decision: the rule is kept with the form BOX (`place_sides.KEPT`), for the atlas page only. With `[render] page = "atlas"`, `systemap place`, `systemap describe` and `systemap parts --stub` give nested=True for each map that is not the top map (`place.sides_for`). The canvas page and the linked page keep the column layout. The cause: with the rule for all pages, three tests of the canvas page failed. At the fit of P0 of the three-level tree on a screen of 390 x 844, the actor Base is at the bottom side, and the canvas page found no clear path for the boundary flow from the bottom of the frame to the portal: the bottom gutter is on the help line. A test of the Changes view sampled the dashed ring of D0 at a different scale, and the linked pages of the fixture got new digests. The atlas page is not the default until stage 9, and the canvas page stays as it is until then. Thus the rule is not used with the canvas page. A map that has positions keeps them until `systemap place --all` runs. `place._covered` now gives a box only for the actor container of a nested map, so the fill of free slots of each other map is as before stage 7. The atlas page draws the actor container of a nested map as a label also when the frame is inside its box (`boxKind` in `atlas_draw.py`). The fixtures of the tests with `[render] page = "atlas"` now have the actors of their nested maps at the sides. The map of this repository has no nested map, thus it does not change.
+
+A decision of the maintainer is still necessary: accept the corrected acceptance values of N3, or keep the column.
 
 ## B17: the performance budget of the atlas page, stage 7 (2026-11-19)
 

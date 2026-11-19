@@ -198,14 +198,15 @@ def _orders(model: Model) -> Iterator[tuple[Region, ...]]:
 
 def _laid(model: Model, order: tuple[Region, ...], nested: bool | str = False) -> Placement:
     """This function sets the layout with the selected region order. In a nested map, the
-    actors then go to the sides of the frame (`place_sides`). True or "box" gives the
-    form BOX, and "study" gives the form STUDY.
+    actors then go to the sides of the frame (`place_sides`). True gives the form of the
+    commands (`place_sides.KEPT`), and "box" or "study" gives the form of that name.
     """
     laid = _first_layout(replace(model, regions=order))
     laid = replace(laid, regions={r.id: laid.regions[r.id] for r in model.regions})
     if not nested:
         return laid
-    return place_sides.around(model, laid, place_sides.FORMS["box" if nested is True else nested])
+    form = place_sides.KEPT if nested is True else place_sides.FORMS[str(nested)]
+    return place_sides.around(model, laid, form)
 
 
 Estimate = tuple[int, float, int]

@@ -8,13 +8,16 @@ it uses free slots inside the existing boxes.
 The modules `place_layout` (the fresh layout) and `place_order` (the region order) hold
 the parts. This module fills free slots when positions stay, and gives the result lines.
 `place_sides` has the rule that puts the actors of a nested map at the sides of its
-frame. Only `compute(model, nested=True)` uses it, and the commands do not.
+frame. `compute(model, nested=True)` uses it. The commands give nested=True for each map
+that is not the top map when `[render] page = "atlas"` (`sides_for`).
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
 
+from systemap import place_sides
+from systemap.config import Config
 from systemap.model import CARD_H, CARD_W, KINDS, Model
 from systemap.place_layout import (
     COL_GUTTER,
@@ -100,11 +103,15 @@ def _region_walls(model: Model) -> list[tuple[float, float, float, float]]:
     return [*(r.box for r in model.regions), *(region_header(r)[0] for r in model.regions)]
 
 
-def _covered(model: Model, home: str) -> list[tuple[float, float, float, float]]:
-    """This function gives the boxes of the other containers that overlap the container
-    home. In a nested map with the actors at the sides, the frame is inside the box of the
-    actors, and a new actor must not go into the frame.
+def _covered(model: Model, home: str, nested: bool) -> list[tuple[float, float, float, float]]:
+    """This function gives the box of the frame of a nested map when home is the container
+    of its actors. With the actors at the sides, the frame is inside the box of the actors,
+    and a new actor must not go into the frame. In each other case it gives no box, so the
+    fill of a map that is not nested does not change.
     """
+    found = place_sides.frame_of(model) if nested else None
+    if found is None or found[1] != home:
+        return []
     x, y, w, h = next(b.box for b in model.containers if b.id == home)
     return [
         b.box
@@ -117,7 +124,7 @@ def _covered(model: Model, home: str) -> list[tuple[float, float, float, float]]
     ]
 
 
-def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
+def _fill_layout(model: Model, keep: set[str], all_cards: bool, nested: bool) -> Placement:
     """This function assigns free slots inside existing boxes to components without
     retained positions.
     """
@@ -147,7 +154,7 @@ def _fill_layout(model: Model, keep: set[str], all_cards: bool) -> Placement:
             box = containers[home]
             holder = next(b for b in model.containers if b.id == home)
             top = container_top(holder.sub, box[2])
-            blocked = taken + walls + _covered(model, home)
+            blocked = taken + walls + _covered(model, home, nested)
         tallest = max(CARD_H[model.kind_of(i)] for i in ids)
         room = [
             s
@@ -216,8 +223,10 @@ def compute(
 
     The all_cards option keeps only positioned components with pinned=True. The default
     keeps all existing component positions. With nested, a fresh layout puts the actors
-    of a nested map at the sides of its frame (`place_sides`): True or "box" gives the
-    labelled actor box of stage 7, and "study" gives the form of the design study.
+    of a nested map at the sides of its frame (`place_sides`): True gives the form of the
+    commands (`place_sides.KEPT`), and "box" or "study" gives the form of that name. The
+    commands give nested=True for each map that is not the top map when `sides_for` is
+    true.
     """
     keep = kept_by(model, all_cards)
     if len(keep) == len(model.components):
@@ -231,9 +240,18 @@ def compute(
         )
     _references(model)
     if keep:
-        return _fill_layout(model, set(keep), all_cards)
+        return _fill_layout(model, set(keep), all_cards, bool(nested))
     laid = _listed(model, nested) if keep_order else _search(model, nested)
     return replace(laid, all_cards=all_cards)
+
+
+def sides_for(cfg: Config) -> bool:
+    """Tell if the commands put the actors of a nested map at the sides of its frame. Only
+    the atlas page uses that layout (`[render] page = "atlas"`). The canvas page and the
+    linked page keep the column layout until the atlas page is the default, because their
+    boundary flows on a phone need the actors at the left (N3 in bench/jev/README.md).
+    """
+    return cfg.render_page == "atlas"
 
 
 def head(placement: Placement) -> str:
