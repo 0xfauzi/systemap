@@ -76,6 +76,30 @@ N5 passed and before these tests ran. Acceptance 18 is now for the commands with
     `place_sides.around` with no side move has one label collision (N4). With the side
     moves of `place_order`, the fresh sides layout has no label collision and no refused
     route, its actors are at three sides or more, and no side has all the actors.
+    Replaced on 2026-11-20 (stage 2 of the open faults of the atlas page) by acceptance 21b.
+    The value "one label collision" was a value of the layout of N4, not of the rule. The
+    rule of the side moves is: while a move of one actor to a different side removes a
+    label collision or a refused route, the placer makes the best such move. The change of
+    the count of region columns (N6, N7) changed the layout of Page, and the value changed
+    with it, but the rule did not change.
+
+Acceptance values 21b to 23, written on 2026-11-20 for stage 2 of the open faults of the
+atlas page, before these tests ran:
+
+21b. On the nested map Page, for each count of region columns of `place_sides.grid_counts`:
+     the side moves (`place_order._clear_sides`) give no more label collisions and refused
+     routes than the sides layout with no move, and fewer when that layout has one or more.
+     After the moves, no move of one more actor to a different side gives fewer. At least one
+     of these layouts has a label collision or a refused route before the moves, thus the
+     test examines the moves.
+22. P4 of the coordinator: on the nested map Page (map/page.py) and on the nested fixtures,
+    each neighbour is at the side of the frame nearest to the parts it has flows with. The
+    measure of "nearest": the point is the mean of the centres of the parts that the
+    neighbour has flows with. The distance to a side is the distance from that point to the
+    line of that side of the frame. The side of the neighbour has the smallest distance of
+    the four sides (an equal distance is permitted).
+23. When the sides layout has more label collisions or more refused routes than the column
+    layout, the placer gives the column layout (`place_sides.kept_or_column`, N7).
 """
 
 from __future__ import annotations
@@ -523,18 +547,94 @@ def test_the_commands_use_the_rule_by_default(tmp_path: Path) -> None:
         assert after[mid] == _laid(before[mid], nested=True)
 
 
-def test_the_side_moves_remove_the_label_collision_of_page() -> None:
-    """Acceptance 21."""
-    page = model_load.read(REPO / "map/page.py", "map/page.py", REPO)["MODEL"]
-    column = place.compute(page, all_cards=True)
-    order = tuple(next(r for r in page.regions if r.id == i) for i in column.order)
-    plain = place_sides.around(page, place_order._column(page, order))
-    assert place.score(place.apply(page, plain)).collisions == 1
-    laid = place.compute(page, all_cards=True, nested=True)
+def _page() -> Model:
+    model = model_load.read(REPO / "map/page.py", "map/page.py", REPO)["MODEL"]
+    assert isinstance(model, Model)
+    return model
+
+
+def _sides_now(model: Model, laid: place.Placement) -> dict[str, str]:
+    placed = place.apply(model, laid)
+    frame = _frame(placed)
+    return {c.id: _side(c.box, frame) for c in placed.components if c.kind == "actor"}
+
+
+def _no_move_left(page: Model, column: place.Placement, laid: place.Placement) -> None:
+    """After the side moves, no move of one more actor gives fewer collisions and refused
+    routes. The moves are the actors that are not at the side of `place_sides.sides_of`."""
     assert laid.score is not None
-    assert (laid.score.collisions, laid.score.refused) == (0, 0)
-    model = place.apply(page, laid)
+    got = (laid.score.collisions, laid.score.refused)
+    first = place_sides.sides_of(page, column) or {}
+    home = {a: s for s, ids in first.items() for a in ids}
+    moves = {a: s for a, s in _sides_now(page, laid).items() if home[a] != s}
+    assert place_sides.around(page, column, place_sides.KEPT, moves).positions == laid.positions
+    trials = place_order._move_trials(page, column, place_sides.KEPT, moves)
+    best = min((t[0][:2] for t in trials), default=None)
+    assert best is None or best >= got, (best, got)
+
+
+def test_the_side_moves_remove_what_a_move_can_remove() -> None:
+    """Acceptance 21b."""
+    page = _page()
+    order_ids = place.compute(page, all_cards=True).order
+    order = tuple(next(r for r in page.regions if r.id == i) for i in order_ids)
+    examined = 0
+    for n in place_sides.grid_counts(page):
+        column = place_order._column(page, order, n)
+        plain = place_sides.around(page, column)
+        before = place.score(place.apply(page, plain))
+        was = (before.collisions, before.refused)
+        laid = place_order._clear_sides(page, replace(plain, order=order_ids), True)
+        assert laid.score is not None
+        got = (laid.score.collisions, laid.score.refused)
+        assert got < was if any(was) else got == was, (n, got, was)
+        examined += any(was)
+        _no_move_left(page, column, laid)
+    assert examined >= 1
+
+
+def _nearest(model: Model) -> list[tuple[str, str, dict[str, float]]]:
+    """Give each neighbour with flows, its side and the distance to each side."""
     frame = _frame(model)
-    sides = [_side(c.box, frame) for c in model.components if c.kind == "actor"]
-    assert len(set(sides)) >= 3
-    assert max(sides.count(s) for s in set(sides)) < len(sides)
+    fx, fy, fw, fh = frame
+    actors = {c.id for c in model.components if c.kind == "actor"}
+    centre = {c.id: _centre(c.box) for c in model.components}
+    out = []
+    for a in sorted(actors):
+        parts = [
+            f.dst if f.src == a else f.src
+            for f in model.flows
+            if a in (f.src, f.dst) and (f.dst if f.src == a else f.src) not in actors
+        ]
+        if not parts:
+            continue
+        mx = sum(centre[p][0] for p in parts) / len(parts)
+        my = sum(centre[p][1] for p in parts) / len(parts)
+        far = {"left": mx - fx, "right": fx + fw - mx, "top": my - fy, "bottom": fy + fh - my}
+        out.append((a, _side(model.component(a).box, frame), far))
+    return out
+
+
+def test_each_neighbour_is_at_the_nearest_side() -> None:
+    """Acceptance 22."""
+    maps = [_page()] + [
+        _laid(model_of(s), nested=True) for s in (test_nested.GATEWAY, test_nested.STYLE)
+    ]
+    checked = 0
+    for model in maps:
+        for actor, side, far in _nearest(model):
+            assert far[side] <= min(far.values()), (actor, side, far)
+            checked += 1
+    assert checked >= 12
+
+
+def test_a_sides_layout_with_more_collisions_gives_the_column() -> None:
+    """Acceptance 23."""
+    one = place.Score(collisions=1, refused=0, bends=0, length=0)
+    none = place.Score(collisions=0, refused=0, bends=9, length=99)
+    sides = place.Placement({}, {}, {}, (1, 1), score=one)
+    column = place.Placement({}, {}, {}, (2, 2), score=none)
+    assert place_sides.kept_or_column(sides, column) is column
+    assert place_sides.kept_or_column(column, sides) is column
+    refused = replace(column, score=place.Score(0, 1, 0, 0))
+    assert place_sides.kept_or_column(refused, column) is column

@@ -7980,3 +7980,131 @@ full output is in `bench/jev/atlas_budget_B24_second.txt`:
 
 In this run the pan of the M11 tree is 33.3 ms for the canvas page and 33.4 ms for the atlas
 page. Thus the difference of the first run is not a stable difference of the two pages.
+
+## N6: a blind test of the side rule on generated nested maps (2026-11-20)
+
+Script: `bench/jev/neighbour_sides_n6.py` (seed 6). Stage 2 of the open faults of the atlas
+page changed the side rule on the nested map Page, before this run:
+
+- The placer tries each count of region columns in the frame, from 2 to the count of regions
+  (`place_sides.grid_counts`). It keeps the layout with the fewest label collisions and
+  refused routes, then the largest fit of the atlas page at 1440 x 900, with the headline at
+  the left of the map or above it (`place_sides.fit_rank`, `ROOMS`). The fit also ranks the
+  region orders of one count (`place_order._routed`).
+
+This change was made and examined on Page, thus it is not blind on Page. N5 was not blind
+either. The coordinator asked for a blind test: a seeded generator of 12 nested maps that the
+rule was never tuned on (3 to 15 parts in 1 to 5 regions, 2 to 12 neighbours, five flow
+patterns, one neighbour with no flow, artifacts of 1 to 6 words). The six acceptance values
+of N4 are in the docstring with no change, written before the first run. No input is named
+`page`, thus value 5 is 80 percent on each input. Before the run, no generated map was laid
+out. The full output is in `bench/jev/neighbour_sides_N6.txt`. After the run, `ruff format`
+changed the layout of the text of the script, and no statement.
+
+| Input | Column: collisions | Sides: collisions | Sides: canvas | Sides / column shown |
+|---|---|---|---|---|
+| gen 6.3 | 1 | 3 | 880 x 648 | 1.219 / 0.709 |
+| gen 6.6 | 0 | 1 | 928 x 648 | 1.219 / 0.656 |
+| gen 6.8 | 1 | 6 | 690 x 648 | 1.219 / 0.655 |
+
+The table gives only the three inputs that failed value 1. No input has a refused route.
+
+1 FAIL. 2 PASS (581 / 631 bends). 3 PASS (89,604 / 174,106 length). 4 PASS (total reach
+3,591 against 7,976). 5 PASS (smallest 0.848, gen 6.10). 6 PASS.
+
+Result: FAIL. A diagnostic run with the rule of N5 (only two region columns: a script
+replaced `place_sides.grid_counts` with a function that gives `(2,)`; the output is not in
+the repository) on the same seed also
+failed value 1 on the same three inputs (gen 6.3: 3 against 1, gen 6.6: 1 against 0, gen 6.8:
+6 against 1). Thus the cause is not the count of region columns: on these maps, the
+neighbours at the sides give more label collisions than one column, and the side moves do
+not remove them. N5 did not show this, because its inputs were Page, the M11 maps and stubs
+with no flow.
+
+Change of the rule after N6: when the sides layout has more label collisions or more refused
+routes than the column layout, the placer keeps the column layout
+(`place_sides.kept_or_column`). The cost is one more search of the column layout for each
+nested map.
+
+## N7: the side rule with the column fallback, on a new seed (2026-11-20)
+
+Script: `bench/jev/neighbour_sides_n6.py --seed 7`. The acceptance values are the values of
+N6 with no change. Seed 7 was not used before this run. The full output is in
+`bench/jev/neighbour_sides_N7.txt`.
+
+1 PASS. 2 PASS (428 / 457 bends). 3 PASS (69,521 / 113,127 length). 4 PASS (total reach 3,437
+against 6,704). 5 PASS (smallest 0.812, gen 7.6). 6 PASS.
+
+Result: PASS. The rule stays in the commands (`place.SIDES_IN_COMMANDS = True`). One input
+of 12 (gen 7.9: 6 parts, 12 neighbours, 1 region) has the column layout, from the fallback:
+a diagnostic run without the fallback gave 2 label collisions for the sides layout, against
+0 for the column. On 8 of 12 inputs, the sides layout shows at a larger scale than the column
+layout. On gen 7.2, 7.6 and 7.10 it shows at a smaller scale (0.964 / 0.977, 1.068 / 1.316,
+1.219 / 1.377).
+
+`systemap place --map Page --all` placed Page again with this rule: four region columns
+(shared parts, linked page, canvas page, atlas page in one row), canvas 1210 x 648, 0 label
+collisions, 0 refused routes, 110 bends, length 18,216, 24 orders examined, 13 routed. The
+neighbours CLI, Check and Figures are at the left, FactsExtractor and ChangeDetector at the
+top, and Config, Schematic, Judgement, Model and Maintainer at the bottom.
+
+The inputs of N5 again, with the rule of N7 (`uv run python bench/jev/neighbour_sides_n5.py`,
+2026-11-20). This run is not blind, because the rule was changed on Page. The full output is
+in `bench/jev/neighbour_sides_N5_after_N7.txt`. Page: sides canvas 1210 x 648, shown 1.19
+against 0.773 for the column, 0 collisions, 110 bends, length 18,216, reach 300. The M11 maps
+and the stubs give the values of N5 (the M11 frames have one region, and the stubs keep the
+column). 1 PASS. 2 PASS (269 / 307). 3 PASS (62,364 / 70,382). 4 PASS (690 against 1,368).
+5 PASS (smallest 1.000, page 1.539). 6 PASS.
+
+## P1 to P5: the layout of the nested map Page, stage 2 of the open faults (2026-11-20)
+
+Tests: `tests/test_atlas_page_layout_browser.py` with `tests/atlas_layout.js` (P1 to P3), and
+acceptance 21b, 22 and 23 of `tests/test_place_sides.py` (P4). The coordinator wrote the
+acceptance values before the work. The docstrings give them with no change, and give how the
+tests read each value. The three browser tests fail on the commit before this work (498efab):
+P1 on the label "uncovered entry points, assurance...", P2 on the line Judgement -> PageData
+(length 1,267 against 1.5 x 765), and P3 on the fit of 76 percent.
+
+| Value | Result |
+|---|---|
+| P1 labels at rest | pass. No label is cut, and the lines of one neighbour with one artifact show one label at most. Neighbours: "name, paths", "the page", "source records", "svg, detail", "layers". Control flow: "render" three times, for three different flows of PageWriter. Data flow and All are busy layers with no label at rest. Structure has no line. |
+| P2 lines of a neighbour | pass. The largest ratio of the length to the Manhattan distance between the two ends of the line is 1.08 (Model -> PageWriter, 1,033 against 956 map units). With the distance between the centres of the two cards, the largest ratio is 1.16 (the same line). Before the work: 1.66 (Judgement -> PageData). |
+| P3 fit | pass. 102 percent at 1440 x 900, with the headline above the map (before: 76 percent, beside the headline). The frame of the map at the fit is 1,234 px of the 1,440 px of the screen (86 percent). |
+| P4 nearest side | pass. Each of the 10 neighbours of Page is at the side nearest to the mean centre of the parts that it has flows with. Acceptance 21b replaces acceptance 21. |
+| P5 blind test | N6 failed (value 1), N7 passed. See N6 and N7 above. |
+
+The full label of the five flows from Judgement, "uncovered entry points, assurance levels,
+boundary findings", has no place at rest. At the fit, the text of the label is 318 px wide at
+11 px, thus the label box is 326 map units wide. A place on a horizontal part of a line
+needs a part of 344 map units or more. The longest horizontal part of the five lines is 237
+map units (Judgement -> AtlasPage). On each vertical part, the box of the label has a card, a
+name, an edge, a label or a different line in it (`seat` in `atlas_lines` gives no place).
+The label shows when the reader points at Judgement or at one of its lines. Four short labels
+also have no place at rest: "render" (CLI), "render to compare" (Check), "map hash" (Figures)
+and "change map" (ChangeDetector). Before the work, "change map" showed at rest.
+
+One test of the earlier stage fails after this work:
+`tests/test_atlas_inside_browser.py::test_the_line_of_a_neighbour_is_readable_at_the_fit` at
+390 x 844 on Page. The phone opens a map at a zoom of 0.5 at its top left part (rule "Phone"
+of docs/design/atlas.md). Page is now 1210 map units wide, thus the cards Model (x 848) and
+Maintainer (x 1024) are fully outside the screen at the phone fit, and the page draws no
+"on systemap" line for them. The test asks for the line on each neighbour card. A change of
+the test to the cards on the screen was refused as a weaker test. A decision of the
+maintainer is necessary: keep the wide layout and change the test, or change the rule
+"Phone", or keep a layout of Page that fits the phone view.
+
+## B25: the performance budget of the atlas page, stage 2 of the open faults (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the
+acceptance values. Before the run, the docstring got one note: the new layout of Page, the
+full labels at rest and one label for the lines of one neighbour with one artifact. The full
+output is in `bench/jev/atlas_budget_B25.txt`. At 4 times CPU slowdown, 1440 x 900, device
+pixel ratio 1, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 354 / 350 (pass) | 33.3 / 16.8 (pass) | 50.0 / 33.3 (pass) | 365,301 / 436,060 = 1.19 (pass) | 70 (pass) |
+| workspace | 332 / 320 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,951 / 322,169 = 1.20 (pass) | 66 (pass) |
+| M11 tree | 500 / 576 (pass) | 33.3 / 33.4 (pass) | 33.4 / 33.4 (pass) | 1,223,599 / 1,273,398 = 1.04 (pass) | 69 (pass) |
+
+Result: PASS for each value.

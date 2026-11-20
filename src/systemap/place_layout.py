@@ -1,6 +1,7 @@
 """The fresh layout of the placer: the sizes of the boxes, the slots, and the sweeps.
 
-`_first_layout` sets the regions in grids of two columns inside their containers, and
+`_first_layout` sets the regions in grids of two columns inside their containers (the
+side rule of a nested map can give more columns, `place_order`), and
 the containers from left to right. The barycentre sweeps then move each card near the
 cards that it has flows with. `apply` writes a placement into a model.
 """
@@ -101,6 +102,7 @@ class Placement:
     score: Score | None = None
     tried: int = 0
     routed: int = 0
+    grid_columns: int = REGION_COLUMNS
 
     @property
     def placed(self) -> tuple[str, ...]:
@@ -352,6 +354,7 @@ class _Laying:
     """
 
     by_region: dict[str, list[str]]
+    grid_columns: int = REGION_COLUMNS
     region_boxes: dict[str, Box] = field(default_factory=dict)
     container_boxes: dict[str, Box] = field(default_factory=dict)
     slots: dict[str, list[_Slot]] = field(default_factory=dict)
@@ -359,13 +362,14 @@ class _Laying:
     pos: dict[str, tuple[int, int]] = field(default_factory=dict)
 
     def grid(self, regions: list[Region], x0: int, y0: int) -> tuple[int, int]:
-        """This method sets regions on a two-column grid and gives the occupied width and
-        height.
+        """This method sets regions on a grid of `grid_columns` columns and gives the occupied
+        width and height.
         """
         sizes = {r.id: region_size(len(self.by_region[r.id]), r.label) for r in regions}
-        cols = [regions[k::REGION_COLUMNS] for k in range(REGION_COLUMNS)]
+        n = self.grid_columns
+        cols = [regions[k::n] for k in range(n)]
         col_w = [max((sizes[r.id][0] for r in col), default=0) for col in cols]
-        rows = [regions[k : k + REGION_COLUMNS] for k in range(0, len(regions), REGION_COLUMNS)]
+        rows = [regions[k : k + n] for k in range(0, len(regions), n)]
         y = y0
         for row in rows:
             row_h = max(sizes[r.id][1] for r in row)
@@ -386,7 +390,8 @@ class _Laying:
         cards. It gives the height of the container.
         """
         sizes = [region_size(len(self.by_region[r.id]), r.label) for r in regions]
-        cols = [sizes[k::REGION_COLUMNS] for k in range(REGION_COLUMNS)]
+        n = self.grid_columns
+        cols = [sizes[k::n] for k in range(n)]
         col_w = [max((s[0] for s in col), default=0) for col in cols]
         used = [w for w in col_w if w]
         inner = sum(used) + REGION_GAP_X * (len(used) - 1) if used else 0
@@ -409,12 +414,12 @@ class _Laying:
         return h
 
 
-def _first_layout(model: Model) -> Placement:
-    """This function sets regions in two-column container grids and containers from left to
-    right.
+def _first_layout(model: Model, columns: int = REGION_COLUMNS) -> Placement:
+    """This function sets regions in container grids of `columns` columns (two by default)
+    and containers from left to right.
     """
     by_region, loose, regions_of = _homes(model)
-    lay = _Laying(by_region)
+    lay = _Laying(by_region, columns)
     x = CANVAS_MARGIN
     bottom = CANVAS_MARGIN
     # Regions with no container form a grid straight on the canvas.
@@ -442,7 +447,15 @@ def _first_layout(model: Model) -> Placement:
         lay.container_boxes[cid] = (cx, cy, cw, max(ch, low + CONTAINER_PAD - cy))
         bottom = max(bottom, cy + lay.container_boxes[cid][3])
     canvas = (x - CONTAINER_GAP + CANVAS_MARGIN, bottom + CANVAS_MARGIN)
-    return Placement(pos, lay.region_boxes, lay.container_boxes, canvas, kept=(), fresh=True)
+    return Placement(
+        pos,
+        lay.region_boxes,
+        lay.container_boxes,
+        canvas,
+        kept=(),
+        fresh=True,
+        grid_columns=columns,
+    )
 
 
 def apply(model: Model, placement: Placement) -> Model:

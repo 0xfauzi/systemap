@@ -19,6 +19,12 @@ column at the left of the frame. This rule moves each actor to a side of the fra
   at each other side with free room (`moved`, `place_order`). It keeps the move that gives
   the fewest collisions and refused routes, then the smallest map, while a move removes a
   collision or a refused route (N5 in bench/jev/README.md).
+- The placer lays out the frame with each count of region columns from 2 to the count of
+  its regions (`grid_counts`). It keeps the layout with the fewest collisions and refused
+  routes, then the largest fit of the atlas page at 1440 x 900 (`fit_rank`, ROOMS). The fit
+  also ranks the region orders of one count. When that layout has more collisions or more
+  refused routes than the column layout, the placer keeps the column layout
+  (`kept_or_column`). N6 and N7 in bench/jev/README.md measure this form of the rule.
 - The actor container becomes a box around the frame and the actors, so that each actor
   stays in its container. The form (`Form`) gives the space between the frame and an
   actor, the space inside the edge of that box, and whether the box keeps the room for
@@ -43,7 +49,14 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 
 from systemap.model import CARD_H, CARD_W, Box, Container, Model
-from systemap.place_layout import CANVAS_MARGIN, CONTAINER_PAD, Placement, container_top
+from systemap.place_layout import (
+    CANVAS_MARGIN,
+    CONTAINER_PAD,
+    REGION_COLUMNS,
+    Placement,
+    Score,
+    container_top,
+)
 from systemap.place_layout import container_width as _container_width
 
 SIDES = ("left", "right", "top", "bottom")
@@ -54,6 +67,12 @@ ACTOR_GAP = 26
 ACTOR_H = CARD_H["actor"]
 
 Point = tuple[float, float]
+# The two rooms of a nested map at the fit of the atlas page on a screen of 1440 x 900, in
+# CSS px (`mapFit` in atlas_input.py): with the headline at the left of the map, and with
+# the headline above the map. The page uses the room that gives the larger scale.
+# FIT_LIMIT is the largest scale of that fit.
+ROOMS = ((1086, 745), (1396, 659))
+FIT_LIMIT = 1.6
 
 
 def frame_of(model: Model) -> tuple[str, str] | None:
@@ -357,3 +376,37 @@ def around(
         containers=boxes,
         canvas=(2 * CANVAS_MARGIN + ring_box[2], 2 * CANVAS_MARGIN + ring_box[3]),
     )
+
+
+def grid_counts(model: Model) -> tuple[int, ...]:
+    """Give the counts of region columns that the placer tries for a nested map: from
+    REGION_COLUMNS to the count of regions in the frame. A map that does not have the shape
+    of a nested map gets only REGION_COLUMNS."""
+    found = frame_of(model)
+    if found is None:
+        return (REGION_COLUMNS,)
+    regions = sum(1 for r in model.regions if r.container == found[0])
+    return tuple(range(REGION_COLUMNS, max(REGION_COLUMNS, regions) + 1))
+
+
+def shown(canvas: tuple[int, int]) -> float:
+    """Give the scale of the fit of a map of this size in the better of ROOMS, to FIT_LIMIT
+    or less."""
+    w, h = max(canvas[0], 1), max(canvas[1], 1)
+    return min(FIT_LIMIT, max(min(rw / w, rh / h) for rw, rh in ROOMS))
+
+
+def fit_rank(laid: Placement) -> tuple[int, int, float, Score]:
+    """Give the rank of a layout of a nested map: the label collisions, the refused routes,
+    then the largest scale of the fit (`shown`), then the score."""
+    score = laid.score or Score(0, 0, 0, 0)
+    return (score.collisions, score.refused, -shown(laid.canvas), score)
+
+
+def kept_or_column(sides: Placement, column: Placement) -> Placement:
+    """Give the sides layout, or the column layout when the sides layout has more label
+    collisions or more refused routes than the column layout (N7 in bench/jev/README.md)."""
+    a, b = sides.score, column.score
+    if a is None or b is None or (a.collisions <= b.collisions and a.refused <= b.refused):
+        return sides
+    return column

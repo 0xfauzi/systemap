@@ -72,7 +72,10 @@ state machine, History needs commit data.
 - **Labels at rest.** A label shows at rest only when it is on its line, in the box of the
   map, on no card, on no name of a region, on no other label, and no other line goes
   through it. A horizontal part of the line comes first. The label has a constant size on
-  the screen.
+  the screen. A label at rest shows the full artifact, or it does not show: it is not cut
+  with "...". In a nested map, the lines of one neighbour with one artifact are the parts of
+  one flow of the map above, and they show one label at most (stage 2 of the open faults,
+  2026-11-20).
 - **Busy layers.** With many flows, the lines go light and the labels do not show at rest.
   The dot and the arrowhead stay.
 - **Pointing at a card.** The flows of the card get the color of their kind and draw one
@@ -141,6 +144,22 @@ state machine, History needs commit data.
   frame (tests/test_atlas_browser.py, acceptance 26). Their positions are not those of the
   study, and Page shows at 81 percent at 1440 x 900, against 103 percent in the study. From
   stage 11 the bar of a nested map takes 49 px at the top, and Page shows at 76 percent.
+  Stage 2 of the open faults (2026-11-20, N6 and N7 in bench/jev/README.md) changed the
+  rule. The placer tries each count of region columns in the frame, from 2 to the count of
+  regions (`place_sides.grid_counts`). It keeps the layout with the fewest label collisions
+  and refused routes, then the largest fit of the atlas page at 1440 x 900, with the
+  headline at the left or above (`place_sides.fit_rank`). The fit also ranks the region
+  orders. When the sides layout has more label collisions or more refused routes than the
+  column layout, the placer keeps the column layout (`place_sides.kept_or_column`). The
+  frame of Page now has its four regions in one row. Page shows at 102 percent at
+  1440 x 900, with the headline above the map. Its neighbours are at the left, the top and
+  the bottom, each at the side nearest to the parts that it has flows with. N6, the first
+  blind test on generated nested maps, failed acceptance 1 also with the rule of N5. N7,
+  with the column fallback and a new seed, passed the six acceptance values of N4. At
+  390 x 844 the phone fit of Page shows its top left part at 50 percent, and the
+  neighbours Model and Maintainer are outside the screen. A test of stage 11 asks for the
+  line "on systemap" on each neighbour card at that fit, and it fails. A decision of the
+  maintainer is necessary (P1 to P5 in bench/jev/README.md).
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced

@@ -81,6 +81,12 @@ move out draws the nested map at the box of its card (`morphDone` in `atlas_insi
 bar and the inside ground show in each view of a nested map. The acceptance values do not
 change: each value must pass for self, workspace and the M11 tree.
 
+From stage 2 of the open faults (written on 2026-11-20 before the run of B25): the nested map
+Page has a new layout (four region columns, N7), a label at rest shows the full artifact,
+and the lines of one neighbour with one artifact show one label (`labelKey` in
+`atlas_lines`). The acceptance values do not change: each value must pass for self,
+workspace and the M11 tree.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

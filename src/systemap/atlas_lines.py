@@ -20,9 +20,12 @@ section "Map view: the rules" of docs/design/atlas.md:
   in the box of the map, and no other line of the layer goes through it. The parts of its
   own line before and after its part do not go through it (`ownCrossed`): thus a label is
   not on a corner of its line. The halo of a label has the color of the ground under it,
-  the surface of a container or the ground of the map (`groundOf`). An artifact of more than
-  LABEL_MAX characters is cut at the end of a word, with "..." after it (`shortText`). A
-  label of a sequence that has no place on one ground can cross such an edge, so that it
+  the surface of a container or the ground of the map (`groundOf`). A label at rest shows
+  the full artifact. It is not cut, thus a long artifact needs a long free part of its line.
+  In a nested map, the lines of one neighbour with one artifact in one direction are the
+  parts of one flow of the map above, and they show one label (`labelKey`): the first line
+  in the order below that has a place. Only the boards of the Sequences view cut an artifact
+  of more than LABEL_MAX characters, with "..." after it (`shortText`). A label of a sequence that has no place on one ground can cross such an edge, so that it
   still shows (`m._walls0`). A horizontal part of the line comes first, then the longest
   part. The label has a constant size on the screen (`labelPx`). The short lines get their
   places first. A line with no such place has no label at rest (`seatsOf`).
@@ -102,9 +105,19 @@ function laned(e) {
   e.d = q.slice(0, n - 1).concat([[z[0] - (z[0] - y[0]) / l * cut, z[1] - (z[1] - y[1]) / l * cut]]);
   e.len = 0;
   for (var i = 0; i + 1 < n; i++) e.len += segLen(q, i);
-  e.s = shortText(e.f.a);
+  // A label at rest shows the full artifact, or it does not show (no "...").
+  e.s = e.f.a;
 }
-// A long artifact is cut at the end of a word, with "..." after it.
+// The key of the label of line e in map m: in a nested map, the lines of one neighbour with
+// one artifact are the parts of one flow of the map above, and they show one label. Each
+// other line has its own key.
+function labelKey(m, e) {
+  if (m === TOP) return e.f.i;
+  var a = m.byId[e.f.s], b = m.byId[e.f.t], n = a && a.k === 'actor' ? a : b && b.k === 'actor' ? b : null;
+  return n ? (n === a ? '>' : '<') + n.id + '|' + e.f.a : e.f.i;
+}
+// A long artifact is cut at the end of a word, with "..." after it (the boards of the
+// Sequences view).
 function shortText(a) {
   if (a.length <= LABEL_MAX) return a;
   var cut = a.slice(0, LABEL_MAX - 2), end = cut.lastIndexOf(' ');
@@ -258,14 +271,18 @@ function seatsOf(m, id, a) {
   // a frame. The full drawing at rest calculates the places of the new zoom.
   if (L.seats && (L.seats.key === key || !sharp)) return L.seats;
   // The tags of the marks come first: a label does not cover a tag (`tagsOf` in `atlas_marks`).
-  var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = tagsOf(m, id, a).boxes.slice(), wall = walls(m), out = [], later = [];
+  var low = Math.pow(2, step / 4), fs = labelPx(low) / low, taken = tagsOf(m, id, a).boxes.slice(), wall = walls(m), out = [], later = [], shown = Object.create(null);
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
     // A line of a sequence with no free place on the line: the label goes beside its own
     // line (`seqSeat`), or it shows only at its step (`stepSeat`).
     // A label of a sequence with no place on one ground can cross an edge of a surface or
     // of a region (`m._walls0`), so that it still shows at rest.
+    // The lines of one flow of the map above show one label (`labelKey`).
+    var key = L.seq ? null : labelKey(m, e);
+    if (key !== null && shown[key]) return;
     var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) || seqSeat(e, fs, m._walls0, taken, L.list) : null);
     if (!at) { if (L.seq) later.push(e); return; }
+    if (key !== null) shown[key] = true;
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
   });
   later.forEach(function (e) {

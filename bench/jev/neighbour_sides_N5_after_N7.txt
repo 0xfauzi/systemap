@@ -1,0 +1,24 @@
+| input | layout | canvas | area | zoom | shown | collisions | refused | bends | length | reach |
+|---|---|---|---|---|---|---|---|---|---|---|
+| page | column | 714 x 1022 | 730 | 0.773 | 0.773 | 0 | 0 | 148 | 26405 | 666 |
+| page | sides | 1210 x 648 | 784 | 1.19 | 1.19 | 0 | 0 | 110 | 18216 | 300 |
+| m11 P0 | column | 2756 x 400 | 1102 | 0.522 | 0.522 | 0 | 0 | 53 | 14659 | 234 |
+| m11 P0 | sides | 2582 x 560 | 1446 | 0.558 | 0.558 | 0 | 0 | 53 | 14716 | 130 |
+| m11 P0/Q0 | column | 2756 x 400 | 1102 | 0.522 | 0.522 | 0 | 0 | 53 | 14659 | 234 |
+| m11 P0/Q0 | sides | 2582 x 560 | 1446 | 0.558 | 0.558 | 0 | 0 | 53 | 14716 | 130 |
+| m11 P0/Q0/Deep | column | 2756 x 400 | 1102 | 0.522 | 0.522 | 0 | 0 | 53 | 14659 | 234 |
+| m11 P0/Q0/Deep | sides | 2582 x 560 | 1446 | 0.558 | 0.558 | 0 | 0 | 53 | 14716 | 130 |
+| stub Check | column | 476 x 1080 | 514 | 0.731 | 0.731 | 0 | 0 | 0 | 0 | - |
+| stub Check | sides | 476 x 1080 | 514 | 0.731 | 0.731 | 0 | 0 | 0 | 0 | - |
+| stub Config | column | 476 x 1172 | 558 | 0.674 | 0.674 | 0 | 0 | 0 | 0 | - |
+| stub Config | sides | 476 x 1172 | 558 | 0.674 | 0.674 | 0 | 0 | 0 | 0 | - |
+| stub Model | column | 476 x 1448 | 689 | 0.546 | 0.546 | 0 | 0 | 0 | 0 | - |
+| stub Model | sides | 476 x 1448 | 689 | 0.546 | 0.546 | 0 | 0 | 0 | 0 | - |
+
+1. refused and collisions not more on each input: PASS
+2. total bends 269 against 307: PASS
+3. total length 62364 against 70382: PASS
+4. reach not more on each input, total 690 against 1368: PASS
+5. shown zoom 90 percent (page) or 80 percent (others) or more, smallest 1.000 (stub Check), page 1.539: PASS
+6. no layout problem in a sides layout: PASS
+Result: PASS

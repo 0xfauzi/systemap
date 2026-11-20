@@ -247,7 +247,8 @@ def compute(
 
 # The commands use the side rule for the atlas page. N1, N2 and N4 failed, and N3 changed
 # two acceptance values after the results were known. N5 added the moves to a different
-# side and passed the acceptance values of N4 (bench/jev/README.md).
+# side and passed the acceptance values of N4. N6, a blind test on generated maps, failed.
+# N7 (more region columns, the column fallback, a new seed) passed (bench/jev/README.md).
 SIDES_IN_COMMANDS = True
 
 
