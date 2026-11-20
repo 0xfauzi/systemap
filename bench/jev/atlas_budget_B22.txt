@@ -1,0 +1,6 @@
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 295 / 318 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 364,529 / 429,125 = 1.18 (pass) | 72 (pass) |
+| workspace | 299 / 315 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,782 / 315,837 = 1.18 (pass) | 66 (pass) |
+| M11 tree | 369 / 486 (pass) | 16.8 / 16.8 (pass) | 33.3 / 33.3 (pass) | 1,223,430 / 1,267,066 = 1.04 (pass) | 56 (pass) |
+budget: pass

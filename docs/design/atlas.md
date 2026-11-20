@@ -354,7 +354,9 @@ branch `views-prototype`. No stage makes a pull request.
 11. **A zoomed-in view that a reader cannot mistake.** The five signs of "Inside a nested
     map". tests/test_atlas_inside_browser.py holds the acceptance values A1 to A8 on the
     nested map Page and on the three depths of the generated M11 tree. The budget is B21 in
-    `bench/jev/README.md`.
+    `bench/jev/README.md`, and B22 after the examination of the work (2026-11-20). Both pass.
+    tests/test_atlas_inside_contrast.py gives the contrast of each sign. The CI job
+    canvas-browser runs the browser test of the signs.
 
 ## What is not decided
 

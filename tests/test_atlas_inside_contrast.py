@@ -58,7 +58,7 @@ INSIDE = (
         ".inside__path button{color:var(--ink-2)",
     ),
     ("title of the frame", "ink", "surface", TEXT, "ts, C['--ink'], alpha, 600"),
-    ("line of a neighbour", "ink-3", "inside", TEXT, "s, C['--ink-3'], alpha, 0.06"),
+    ("line of a neighbour", "ink-3", "card", TEXT, "s, C['--ink-3'], alpha, 0.06"),
     ("marked card of the locator", "focus", "map", MARK, "g.fillStyle = C['--focus']"),
 )
 

@@ -7875,3 +7875,22 @@ Result: PASS for each value. The dive of `self` and of the M11 tree is 33.3 ms a
 the 95th percentile, against 16.8 ms in B20. These values are in the limit (35 ms or less, and
 1.25 times the canvas page or less), but the margin to 35 ms is small. The cause of the change
 was not measured. A measurement is necessary before a change to the code of the dive.
+
+## B22: the performance budget of the atlas page, stage 11, second run (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the
+acceptance values (A9 of stage 11). The stage 11 work of B21 was in a commit that a
+container restart stopped before its checks. This run is on the examined work, before the
+commit of stage 11, with no other command on the host. The page code is the same as in B21.
+The full output is in `bench/jev/atlas_budget_B22.txt`. At 4 times CPU slowdown, 1440 x 900,
+device pixel ratio 1:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 295 / 318 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 364,529 / 429,125 = 1.18 (pass) | 72 (pass) |
+| workspace | 299 / 315 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.3 (pass) | 268,782 / 315,837 = 1.18 (pass) | 66 (pass) |
+| M11 tree | 369 / 486 (pass) | 16.8 / 16.8 (pass) | 33.3 / 33.3 (pass) | 1,223,430 / 1,267,066 = 1.04 (pass) | 56 (pass) |
+
+Result: PASS for each value. In this run the dive of the canvas page is also 33.3 ms to
+33.4 ms at the 95th percentile. Thus the dive of the atlas page is equal to the dive of the
+canvas page on each input. The margin to 35 ms is small for the two pages.
