@@ -96,6 +96,14 @@ tree.
 Before the run of B27 (written on 2026-11-20): the nested map Page has the layout of N9
 (928 x 860). The acceptance values do not change.
 
+Before the runs of B28 (written on 2026-11-20, after the second review of stage 2 of the
+open faults): the atlas page moves a part of a line that is near the edge of a surface
+(`offEdges` in `atlas_lines`). The acceptance values do not change. A review found that B26
+and B27 each ran again after a failed run until a run passed. Thus the rule of B28, written
+before its first run: the script runs three times, with no other heavy command on the host,
+and B28 passes only if each of the three runs passes each value. A failed run is not run
+again, and the three results are all recorded.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

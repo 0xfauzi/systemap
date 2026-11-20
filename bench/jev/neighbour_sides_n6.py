@@ -4,7 +4,10 @@ docs/design/atlas.md, rule "Neighbours of a nested map". N5 was not blind: the s
 side moves was written after N4 failed on the nested map Page. Stage 2 of the open faults of
 the atlas page changed the rule again on Page (the count of region columns of the frame,
 `place_sides.grid_counts` and `place_sides.fit_rank`, both removed for N8). This script measures the rule on
-nested maps that a seeded generator makes. No change of the rule was made after a measurement on these maps.
+nested maps that a seeded generator makes. Before N6, no change of the rule used these maps.
+After N6, the rule changed because of the result of N6 on the maps of seed 6
+(`place_sides.kept_or_column`). Thus the maps of seed 6 are not blind for the rules of N7
+and after. Each later run uses a seed that no earlier run used.
 
 The generator (`generate`) makes COUNT nested maps from one seed. Each map has one frame
 with 3 to 15 parts in 1 to 5 regions, and 2 to 12 neighbours in the actor container. The
@@ -38,17 +41,17 @@ N6 uses the seed 6. If N6 fails and the rule changes, N7 uses a new seed that no
 before, with the same values.
 
 N8, written on 2026-11-20 before the first run of N8, after a review of N7. The review
-found that the column fallback of N7 (`place_sides.kept_or_column`) gives the column layout
-each time the sides layout has more collisions or refused routes. Thus value 1 is always
-met by construction, and N6 and N7 do not test value 1 of the side moves. The rule then
+found that the column step of N7 (`place_sides.kept_or_column`) gives the column layout
+each time the sides layout has more collisions or refused routes. Thus the column step
+always meets value 1, and N7 does not test value 1 of the side moves. The rule then
 changed on Page again (the repair of stage 2 of the open faults): the frame keeps two
 region columns, the form of the commands is ATLAS (no room for the label of the actor
 container), and the rank of the layouts is the collisions, the refused routes, the area
 of the map and the score (`place_sides.size_rank`), with no size of a screen. N8 uses the
-seed 8, which no run used before, and the six values above with no change. Value 1 is
-still met by construction. For this reason the script also gives, as a diagnostic with no
-acceptance value, the layout of the rule without the fallback (`rule`) and value 1 for it,
-and the count of inputs where the fallback gave the column layout.
+seed 8, which no run used before, and the six values above with no change. The column
+step still meets value 1 always. For this reason the script also gives, with no acceptance
+value, the layout of the rule without the column step (`rule`) and value 1 for it, and the
+count of inputs where the column step gave the column layout.
 
 N9, written on 2026-11-20 after N8 failed (values 2 and 4) and before the first run of
 N9. After N8, the full atlas tests found that the layout of N8 put the neighbours of Page
@@ -56,13 +59,20 @@ at two sides only, and acceptance 26 of tests/test_atlas_browser.py asks for thr
 or more. The rule changed again: after the collisions and the refused routes, a layout
 with the actors at fewer than three sides comes last (`place_sides.few_sides`), then the
 area and the score. This change was made on Page. N8 gave no reason for it. N9 uses the
-seed 9, which no run used before, and the six values above with no change. Value 1 is
-still met by construction.
+seed 9, which no run used before, and the six values above with no change. The column
+step still meets value 1 always.
+
+The second review of the repair of stage 2 of the open faults (2026-11-20) found that the
+result "PASS" of value 1 in N7, N8 and N9 measures nothing about the side placement,
+because the column step always meets it. From that review, the script reads value 1 on the
+layout of the rule without the column step (`rule`), and gives the value of the layout with
+the column step on a second line with no acceptance value. The text of the six values does
+not change. N7, N8 and N9 were not run again with this change: their output files have the
+`rule` rows, and bench/jev/README.md gives value 1 from those rows.
 
 Run from the repository root:
-    uv run python bench/jev/neighbour_sides_n6.py [--seed N] [--rule]
+    uv run python bench/jev/neighbour_sides_n6.py [--seed N]
 
-With --rule, the script also measures the rule without the column fallback.
 """
 
 from __future__ import annotations
@@ -199,15 +209,21 @@ def generate(seed: int, count: int = COUNT) -> dict[str, Model]:
     return {f"gen {seed}.{k}": _one(rng, k, k == lonely) for k in range(count)}
 
 
-def verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[tuple[str, bool]]:
-    """Give the six acceptance values of N4, each with its result. Value 5 is 80 percent on
-    each input, because no input is named `page`."""
+def _value_one(results: dict[str, dict[str, dict[str, Any]]], layout: str) -> bool:
     col = {n: r["column"] for n, r in results.items()}
-    sid = {n: r["sides"] for n, r in results.items()}
-    one = all(
-        sid[n]["refused"] <= col[n]["refused"] and sid[n]["collisions"] <= col[n]["collisions"]
+    lay = {n: r[layout] for n, r in results.items()}
+    return all(
+        lay[n]["refused"] <= col[n]["refused"] and lay[n]["collisions"] <= col[n]["collisions"]
         for n in results
     )
+
+
+def verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[tuple[str, bool]]:
+    """Give the six acceptance values of N4, each with its result. Value 5 is 80 percent on
+    each input, because no input is named `page`. Value 1 reads the layout of the rule
+    without the column step (`rule`); the other values read `sides`."""
+    col = {n: r["column"] for n, r in results.items()}
+    sid = {n: r["sides"] for n, r in results.items()}
     bends = (sum(v["bends"] for v in sid.values()), sum(v["bends"] for v in col.values()))
     length = (sum(v["length"] for v in sid.values()), sum(v["length"] for v in col.values()))
     with_actor = [n for n in results if col[n]["reach"] is not None]
@@ -216,7 +232,10 @@ def verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[tuple[str, b
     ratio = {n: sid[n]["shown"] / col[n]["shown"] for n in results}
     worst = min(ratio, key=lambda n: ratio[n])
     return [
-        ("1. refused and collisions not more on each input", one),
+        (
+            "1. refused and collisions not more on each input (rule without the column step)",
+            _value_one(results, "rule"),
+        ),
         (f"2. total bends {bends[0]} against {bends[1]}", bends[0] <= bends[1]),
         (f"3. total length {length[0]} against {length[1]}", length[0] <= length[1]),
         (f"4. reach not more on each input, total {reach[0]:.0f} against {reach[1]:.0f}", four),
@@ -228,8 +247,8 @@ def verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[tuple[str, b
     ]
 
 
-def _without_fallback(model: Model) -> dict[str, Any]:
-    """Measure the sides layout of the rule with no column fallback (a diagnostic)."""
+def _without_column_step(model: Model) -> dict[str, Any]:
+    """Measure the sides layout of the rule with no column step."""
     from systemap import place_sides  # noqa: PLC0415
 
     kept = place_sides.kept_or_column
@@ -238,18 +257,6 @@ def _without_fallback(model: Model) -> dict[str, Any]:
         return ns.measure(model, True)
     finally:
         place_sides.kept_or_column = kept
-
-
-def _diagnostic(models: dict[str, Model], results: dict[str, dict[str, dict[str, Any]]]) -> None:
-    """Print value 1 for the rule without the fallback, and the inputs of the fallback."""
-    worse = []
-    for name, model in models.items():
-        rule, col = _without_fallback(model), results[name]["column"]
-        print(ns._row(name, "rule", rule), flush=True)
-        if rule["collisions"] > col["collisions"] or rule["refused"] > col["refused"]:
-            worse.append(name)
-    print(f"Diagnostic: the fallback gave the column layout on {len(worse)} inputs: {worse}")
-    print(f"Diagnostic value 1 without the fallback: {'FAIL' if worse else 'PASS'}")
 
 
 def main(argv: list[str]) -> int:
@@ -263,8 +270,12 @@ def main(argv: list[str]) -> int:
     )
     print("|---|---|---|---|---|---|---|---|---|---|---|")
     for name, model in models.items():
-        results[name] = {"column": ns.measure(model, False), "sides": ns.measure(model, True)}
-        for layout in ("column", "sides"):
+        results[name] = {
+            "column": ns.measure(model, False),
+            "sides": ns.measure(model, True),
+            "rule": _without_column_step(model),
+        }
+        for layout in ("column", "sides", "rule"):
             print(ns._row(name, layout, results[name][layout]), flush=True)
     for name, r in results.items():
         for layout in ("column", "sides"):
@@ -275,9 +286,9 @@ def main(argv: list[str]) -> int:
     for text, ok in found:
         print(f"{text}: {'PASS' if ok else 'FAIL'}")
     print(f"Result: {'PASS' if all(ok for _t, ok in found) else 'FAIL'}")
-    if "--rule" in argv:
-        print()
-        _diagnostic(models, results)
+    kept = [n for n, r in results.items() if r["sides"]["canvas"] != r["rule"]["canvas"]]
+    print(f"Value 1 with the column step (no acceptance value): {_value_one(results, 'sides')}")
+    print(f"Inputs where the column step gave the column layout: {kept}")
     return 0
 
 

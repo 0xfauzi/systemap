@@ -17,6 +17,10 @@ A layer is a filtered view of the map.
 - The language policy text changed for the two profiles. The cache key of a coding-agent request contains the policy.
   Thus `systemap journeys` does not use an answer that it recorded before this change. It asks the agent again.
 
+### Atlas page
+
+- No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
+
 ### Changes that can break a script or a CI job
 
 - `render`, `refresh`, and `live` write the atlas page by default (`[render] page = "atlas"`, stage 9 of `docs/design/atlas.md`). Before, the default was the canvas page.

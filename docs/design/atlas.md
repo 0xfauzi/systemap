@@ -67,6 +67,9 @@ state machine, History needs commit data.
   at its target.
 - **Lanes.** The router puts paths that share a gap on one line. The page gives each such
   path its own lane, 4.5 map units apart, so that N flows show as N lines.
+- **Edges.** No line is drawn on the edge of a surface. A part of a line that is nearer than
+  7 map units to such an edge goes 7 units farther from it, on its side of the edge. The
+  routes do not change (E1 in bench/jev/README.md, 2026-11-20).
 - **Crossings.** Each line has a casing in the ground color below it, so that a line goes
   over a different line with a small gap.
 - **Labels at rest.** A label shows at rest only when it is on its line, in the box of the
@@ -155,13 +158,20 @@ state machine, History needs commit data.
   routes, then the neighbours at three sides or more (`place_sides.few_sides`), then the
   smallest area of the map (`place_sides.size_rank`). The rule uses no size of a screen.
   When the sides layout has more label collisions or more refused routes than the column
-  layout, the placer keeps the column layout (`place_sides.kept_or_column`). Thus
-  acceptance 1 of N4 is always met by construction. Page is now 928 x 860. At 390 x 844
+  layout, the placer keeps the column layout (`place_sides.kept_or_column`, the column
+  step). Thus the column step always meets acceptance 1 of N4, and the scripts now measure
+  that value on the layout before the column step. No form of the rule has a blind pass of
+  the six values of N4 (N6 to N9 and the corrections after the second review in
+  bench/jev/README.md), and the commands keep the rule against the gate of N4, because the
+  column layout fails acceptance 20 and 26. Page is now 928 x 860. At 390 x 844
   its four regions show, and seven neighbours at the right show 7 percent of their width
   (five before stage 2). At 1440 x 900 it shows at 87 percent, against 90 percent in P3.
-  Judgement is at the bottom after a side move, not at its nearest side (P4). No measured
-  layout of Page meets P2, P3, P4, acceptance 26 and the phone values together (P6 to P8 in
-  bench/jev/README.md). A decision of the maintainer is necessary.
+  Judgement is at the bottom after a side move, not at its nearest side (P4): the move
+  removes two label collisions of its long label (M1 in bench/jev/README.md). P9 measured
+  each layout of the rule with 2, 3 and 4 region columns and each region order (118
+  layouts): no layout meets P1 to P4, acceptance 26 and the phone test of stage 11
+  together. P3 and the phone test hold together only with two region columns and two
+  sides. A decision of the maintainer is necessary.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced

@@ -8,6 +8,9 @@ section "Map view: the rules" of docs/design/atlas.md:
   as N lines. Two segments share a line when they are on the same axis value (to a half
   unit) and their ranges overlap by more than 2 units. The lanes of a group are in the
   order of the flows, around the line of the router (`lanesOf`).
+- Edges. A part of a line nearer than EDGE_CLEAR to the edge of a surface goes EDGE_CLEAR
+  farther from that edge, on its side (`offEdges`). Thus no line is drawn on the edge of a
+  surface.
 - The end of a line. The drawn line stops END units before the target, where the
   arrowhead starts (`laned`).
 - Busy layers. With many flows, the lines go light: the alpha of a line at rest is
@@ -63,6 +66,7 @@ function linesOf(m, id) {
     if (fl[i] && f.p.length > 1) list.push({f: f, q: f.p.map(function (p) { return [p[0], p[1]]; })});
   });
   lanesOf(list);
+  offEdges(m, list);
   var seq = isSeqLayer(id), out = {list: list, n: list.length, dense: !seq && list.length > DENSE, seq: seq, seats: null};
   out.rest = clamp(1.25 - list.length / 56, 0.3, 1);
   out.ends = clamp(1.25 - list.length / 160, 0.8, 1);
@@ -95,6 +99,29 @@ function lanesOf(list) {
         });
       }
       k = j;
+    }
+  });
+}
+// A part of a line that is nearer than EDGE_CLEAR to the edge of a surface goes EDGE_CLEAR
+// farther from that edge, on its side of the edge. Thus no line is drawn on the edge of a
+// surface and hides it. The parts before and after it change their lengths.
+var EDGE_CLEAR = 7;
+function offEdges(m, list) {
+  var boxes = m.boxes.filter(function (b) { return boxKind(m, b) === 'box'; }).map(function (b) { return b.b; });
+  if (!boxes.length) return;
+  list.forEach(function (e) {
+    var q = e.q;
+    for (var i = 0; i + 1 < q.length; i++) {
+      var a = q[i], c = q[i + 1], ax = Math.abs(a[0] - c[0]) < 0.01 ? 0 : Math.abs(a[1] - c[1]) < 0.01 ? 1 : -1;
+      if (ax < 0) continue;
+      var lo = Math.min(a[1 - ax], c[1 - ax]), hi = Math.max(a[1 - ax], c[1 - ax]), d = 0;
+      boxes.forEach(function (b) {
+        if (d || hi <= b[1 - ax] || lo >= b[1 - ax] + b[3 - ax]) return;
+        [b[ax], b[ax] + b[2 + ax]].forEach(function (edge) {
+          if (!d && Math.abs(a[ax] - edge) < EDGE_CLEAR) d = a[ax] >= edge ? EDGE_CLEAR : -EDGE_CLEAR;
+        });
+      });
+      if (d) { a[ax] += d; c[ax] += d; }
     }
   });
 }

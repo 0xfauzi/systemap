@@ -14,6 +14,15 @@ P2. On #Page, each line between a neighbour and a part has a length of 1.5 times
 P3. At 1440 x 900 the fit of #Page is 90 percent or more, and the box of the map with the
     headline covers 60 percent or more of the width of the map area.
 
+Acceptance value E1, written on 2026-11-20 for the second repair of stage 2 of the open faults,
+before the first run of its test. A review saw the line Model -> PageWriter along the top edge
+of the frame of Page and the line "name, paths" along its right edge:
+
+E1. On #Page at 1440 x 900, in each layer tab, no part of a line is on an edge of the frame
+    of the map: a part with one axis value that is less than 7 map units from the axis
+    value of an edge, and that overlaps the range of that edge by more than 2 map units, is
+    on the edge. The frame is the box of the container `part` of the page data.
+
 How the test reads these values (written before the first run of this test):
 
 - P1: a label at rest is an item of `labels` of `systemapCanvas.lines('Page')` in each layer
@@ -134,3 +143,35 @@ def test_the_fit_of_page_is_large(run: dict[str, Any]) -> None:
     x, _y, w, _h = run["frame"]
     assert 0 <= x and x + w <= run["width"]
     assert w >= 0.6 * run["width"], (run["frame"], run["width"])
+
+
+def _on_edge(q: list[list[float]], frame: list[float]) -> list[tuple[float, ...]]:
+    """Give each part of a line that is on an edge of the frame (E1)."""
+    fx, fy, fw, fh = frame
+    out = []
+    for a, b in zip(q, q[1:], strict=False):
+        for ax in (0, 1):
+            if abs(a[ax] - b[ax]) > 0.01:
+                continue
+            lo, hi = sorted((a[1 - ax], b[1 - ax]))
+            start, size = (fy, fh) if ax == 0 else (fx, fw)
+            if min(hi, start + size) - max(lo, start) <= 2:
+                continue
+            edges = (fx, fx + fw) if ax == 0 else (fy, fy + fh)
+            if any(abs(a[ax] - e) < 7 for e in edges):
+                out.append((ax, a[ax], lo, hi))
+    return out
+
+
+def test_no_line_is_on_the_edge_of_the_frame(
+    run: dict[str, Any], page_data: dict[str, Any]
+) -> None:
+    """E1."""
+    page = _page(page_data)
+    frame = next(b["b"] for b in page["boxes"] if b["id"] == "part")
+    parts = 0
+    for layer in run["layers"]:
+        for lane in layer["lanes"]:
+            assert not _on_edge(lane["q"], frame), (layer["id"], lane["f"], lane["q"])
+            parts += len(lane["q"]) - 1
+    assert parts > 0

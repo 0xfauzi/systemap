@@ -27,9 +27,11 @@ column at the left of the frame. This rule moves each actor to a side of the fra
   then the smallest area of the map, then the score (`size_rank`). The area also selects
   the region orders that the placer routes and moves. The rule uses no size of a screen.
   When that layout has more collisions or more refused routes than the column layout, the
-  placer keeps the column layout (`kept_or_column`). Thus acceptance 1 of N4 (no more
-  collisions and refused routes than the column) is always met by construction. N6 to N9
-  in bench/jev/README.md measure this form of the rule.
+  placer keeps the column layout (`kept_or_column`, the column step). Thus the column step
+  always meets acceptance 1 of N4 (no more collisions and refused routes than the column),
+  and that value is measured on the layout before the column step
+  (bench/jev/neighbour_sides_n6.py). N6 to N9 in bench/jev/README.md measure this form of
+  the rule.
 - The actor container becomes a box around the frame and the actors, so that each actor
   stays in its container. The form (`Form`) gives the space between the frame and an
   actor, the space inside the edge of that box, and whether the box keeps the room for

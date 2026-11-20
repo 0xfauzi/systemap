@@ -195,7 +195,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=460,
-            source_review="2c26fe1108177536af5c784748d82280c32fb09d1f359817552f4c893e1fd44d",
+            source_review="4e66d801ca1fb3b3feb5fb18a1e6bc9f58d2e11a65febe26ec22d79aaa95048e",
         ),
         Component(
             id='AtlasViews',

@@ -1,0 +1,7 @@
+Page: region order canvas, shared, atlas, linked, 2 region columns
+Before the side moves: canvas 928 x 772, 2 label collisions
+  Judgement -> PageData, "uncovered entry points, assurance levels, boundary findings", label 366 units wide, cost 6762.45, touches FactsExtractor, LinkedViews, label of Judgement -> LinkedPage
+  Judgement -> LinkedPage, "uncovered entry points, assurance levels, boundary findings", label 366 units wide, cost 3040.84, touches FactsExtractor, LinkedViews, label of FactsExtractor -> LinkedViews
+After the side moves: canvas 928 x 860, 0 label collisions
+Side moves: Judgement right -> bottom
+The layout after the moves is the layout of map/page.py: True
