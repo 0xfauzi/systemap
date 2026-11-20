@@ -48,6 +48,12 @@ Acceptance values (written before the first run, step 4 of docs/design/nested-ca
    not there. At the fit of P0 (two ports to Base in the same direction) on a screen of 390 x
    844 pixels, the frame draws one boundary flow to Base, with the alpha 1.
 
+Changed on 2026-11-20 in the final repair of the atlas page: the ring of the canvas page is
+on the pixel grid of the screen (`ringRect` in page_canvas_view). At a position of the camera
+with a part of a pixel, a ring of 1 px had no pixel with its full color, and acceptance 1
+failed after the side rule (place.SIDES_IN_COMMANDS) moved the cards. The values of the
+acceptance do not change.
+
 Changes at the merge with the header part (step 4): the header gives the words of the view
 ("View: Changes." in place of "Changes view."). The ring is 3 px outside the card, so the
 pixels of acceptance 1 are on that line. In acceptance 3, the steps of the zoom start at the

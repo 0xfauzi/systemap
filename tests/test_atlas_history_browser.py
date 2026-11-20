@@ -47,6 +47,13 @@ Acceptance values, written before the first run on 2026-11-19:
 11. On a phone of 390 x 844 px, the Map view shows the layer tabs in a strip under the
    header: each of the first two tabs is 40 px wide or more and in the screen, the strip
    does not cover the views, and the headline is under the strip.
+
+Acceptance value, written on 2026-11-20 for the final repair, before the first run of its
+test:
+
+12. For a shallow clone, the board marks where the clone starts: it has the two texts
+   "Clone starts" and "no earlier commits", at the left of the first column (the right
+   edge of each text is at the left of the left edge of the first cell).
 """
 
 from __future__ import annotations
@@ -293,3 +300,12 @@ def test_axe_finds_no_violation(pages: dict[str, Any]) -> None:
     assert len(out["axe"]) == 4
     for run in out["axe"]:
         assert run["violations"] == [], run
+
+
+def test_the_board_marks_where_a_shallow_clone_starts(wide: dict[str, Any]) -> None:
+    """Acceptance 12."""
+    h = wide["shown"]["history"]
+    assert h["data"]["shallow"] is True
+    assert [e["text"] for e in h["edge"]] == ["Clone starts", "no earlier commits"]
+    first = min(o["rect"]["left"] for o in h["items"] if o["kind"] == "c")
+    assert all(e["box"]["right"] <= first for e in h["edge"])

@@ -97,19 +97,13 @@ async function moveState(page) {
     return { moves: s.inside().moves, sel: s.side().sel, current: s.current(), bar: !!s.inside().bar, focus: document.activeElement && document.activeElement.id };
   });
 }
-// Go into the map of a card: a double-click on the card. With reduced motion, the first click
-// opens the details at once and the fit moves the map, so the second click can miss the card.
-// Thus with reduced motion the driver selects the card and clicks the button of the details
-// that goes into its map.
+// Go into the map of a card: a double-click on the card, with and without reduced motion. A
+// click of a mouse on a card that opens a map opens the details after a wait (`OPEN_MS` in
+// atlas_details), also with reduced motion. Thus the camera does not move before the second
+// click.
 async function dblInto(page, mapId, cardId) {
-  if (await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-    await page.evaluate(([m, c]) => window.systemapCanvas.select(m, c), [mapId, cardId]);
-    await page.waitForTimeout(300);
-    await page.click('#atlas-side .enter');
-  } else {
-    const b = await page.evaluate(([m, c]) => window.systemapCanvas.box(m, c), [mapId, cardId]);
-    await page.mouse.dblclick(b[0] + b[2] / 2, b[1] + b[3] / 2);
-  }
+  const b = await page.evaluate(([m, c]) => window.systemapCanvas.box(m, c), [mapId, cardId]);
+  await page.mouse.dblclick(b[0] + b[2] / 2, b[1] + b[3] / 2);
   await page.waitForTimeout(1100);
 }
 async function move(browser, file, path, reduced) {

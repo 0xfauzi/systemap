@@ -8,10 +8,14 @@ rules are the section "Map view: the rules" of docs/design/atlas.md:
   `atlas_input`). On a phone (720 px or less), the details are a sheet at the bottom, and
   the selected card goes to the part of the screen above the sheet (`showAbove`). A click
   with a mouse opens the details after OPEN_MS ms, so that a double-click goes into a
-  card and opens no details. With reduced motion, they open at once. After Enter, the
-  keyboard focus goes to the heading of the details.
+  card and opens no details. With reduced motion, they open at once, except for a card that
+  opens a map: it keeps the wait, because the camera goes to the selection at once, and the
+  second click of a double-click would land on the details.
+  After Enter, the keyboard focus goes to the heading of the details. A selection hides
+  the help note at the bottom left, as a pointer on the map does (`atlas_lit`).
 - The details keep the content of the canvas page (`page_canvas_details`): the kind, the
-  short name, the assurance level and the freshness, the description, the note, the flows
+  short name, the assurance level and the freshness (under the name in the words of the
+  study, for example "Claims examined against the source, current": `claimWords`), the description, the note, the flows
   in and out with the evidence state and the relation sentence, the sequences that use the
   card, the source modules, the source records and the rules of the map (invariants and
   import rules). The flows are the flows of the layer of the map. The details give the count
@@ -27,7 +31,11 @@ text. Thus no text of the page data goes to an HTML parser. The details change o
 change of the selected card or of the layer (`sideSync`).
 
 The reading line (`atlas-say`) is a polite live region at the bottom of the map
-(`speak` in `atlas_lit`). The Reduce motion button of the header sets
+(`speak` in `atlas_lit`). It is one line of text: a long last part ends with an ellipsis on
+the screen, and a screen reader gets the full text. While the details are open at the side,
+the reading line is in the middle of the part of the screen at the left of the details,
+clear of the zoom control. While the reading line shows, the key does not show, because
+the reading line can cover it. The Reduce motion button of the header sets
 `data-reduce-motion` and keeps the setting with the key of the linked page
 (`page.MOTION_KEY`). The setting of the device for reduced motion also applies.
 """
@@ -57,8 +65,8 @@ HTML = (
 
 CSS = """
 .say{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom,0px));transform:translate(-50%,6px);
-max-width:min(760px,calc(100% - 32px));box-sizing:border-box;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
-justify-content:center;padding:10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--line);
+max-width:min(760px,calc(100% - 32px));box-sizing:border-box;display:flex;align-items:baseline;gap:10px;flex-wrap:nowrap;
+white-space:nowrap;justify-content:center;padding:10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--line);
 box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .14s,transform .14s;text-align:center;z-index:2}
 .say.on{opacity:1;transform:translate(-50%,0)}
 .say b{font:600 13px/1.3 var(--fs);letter-spacing:-.01em;white-space:nowrap}
@@ -66,6 +74,8 @@ box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .14s,t
 .say code{font:500 11px/1 var(--fm);padding:3px 6px;border-radius:5px;background:var(--tint);border:1px solid var(--line);white-space:nowrap}
 .say code::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--k,var(--wire));vertical-align:1px}
 .say span{color:var(--ink-2);min-width:0}
+.say>span:last-child{overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.say b,.say code{flex:none}
 .note{transition:opacity .2s}.note.gone{opacity:0}
 .bar__end{margin-left:auto;display:flex;align-items:center;gap:4px;flex:none}
 .tool{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--ink-3)}
@@ -89,7 +99,7 @@ transition:transform .26s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:c
 .side__body{overflow:auto;padding:16px 22px 28px;display:grid;gap:22px;align-content:start;grid-auto-rows:max-content;min-height:0;overscroll-behavior:contain;
 scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
 .side__d{margin:0;color:var(--ink-2);max-width:62ch}
-.side__d.clip{max-height:5.8em;overflow:hidden}
+.side__d.clip{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
 .side p{margin:0}
 .more{color:var(--ink-3);font-size:12px;text-decoration:underline;text-underline-offset:3px;justify-self:start;margin-top:-16px}
 .more:hover{color:var(--ink)}
@@ -122,6 +132,8 @@ color:var(--ink-2);overflow-wrap:anywhere}
 .side summary:hover{color:var(--ink)}
 .side .as{color:var(--ink-3)}
 body.open .key{right:400px}
+@media (min-width:721px){body.open .say{left:calc((100% - 380px) / 2);max-width:min(760px,calc(100% - 692px))}}
+body:has(#atlas-say.on) .key{visibility:hidden}
 @media (max-width:720px){
 .side{top:auto;height:62%;width:100%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(104%)}
 .say{bottom:max(60px,env(safe-area-inset-bottom,0px))}
@@ -169,7 +181,8 @@ function select(c, how) {
     if (how.keep) return;
     if (W <= WIDE) showAbove(c); else if (!was) fitCurrent();
   };
-  if (how.wait && !reduced()) OPEN_WAIT = setTimeout(go, OPEN_MS); else go();
+  if (NOTE_EL) NOTE_EL.classList.add('gone');
+  if (how.wait && (!reduced() || c.child)) OPEN_WAIT = setTimeout(go, OPEN_MS); else go();
 }
 // On a phone: move the selected card to the middle of the part of the screen between the
 // headline and the sheet, at a scale of 0.62 or more.
@@ -226,6 +239,9 @@ function kindWords(c) {
 }
 function colorOf(f, e) { e.style.setProperty('--k', 'var(' + (KIND[f.k] || '--ink-2') + ')'); return e; }
 function levelWords(o) { return o.as ? 'Assurance level: ' + o.as[0] + '. Freshness: ' + o.as[1] + '.' : ''; }
+// The assurance level and the freshness of a card under its name, in the words of the study.
+var CLAIM_WORDS = {established: 'Claims established from the source facts', examined: 'Claims examined against the source', unknown: 'Claims not examined'};
+function claimWords(o) { return (CLAIM_WORDS[o.as[0]] || 'Claims ' + o.as[0]) + ', ' + o.as[1]; }
 // A section of the details: a heading with the count n, and each argument after n as a child.
 function section(name, n) {
   var e = el('section', {'class': 'sec'}, el('h3', null, name, n === null ? null : el('span', null, String(n))));
@@ -348,7 +364,7 @@ function sideSync() {
   document.getElementById('atlas-side-h').textContent = c.id;
   document.getElementById('atlas-side-p').textContent = c.p || '';
   var st = document.getElementById('atlas-side-s');
-  st.replaceChildren.apply(st, c.as ? [el('i', {'class': c.as[0] === 'unknown' ? 'no' : null}), levelWords(c)] : []);
+  st.replaceChildren.apply(st, c.as ? [el('i', {'class': c.as[0] === 'unknown' ? 'no' : null}), claimWords(c)] : []);
   var body = document.createDocumentFragment();
   addChild(body, [c.child ? enterButton(c) : null, focusButton(c), c.d ? about(c.d) : null, c.nt ? el('p', {'class': 'side__d'}, el('b', null, 'Note.'), ' ' + c.nt) : null,
     flowLists(c), sequencesOf(c), modules(c), records(c), rules(c)]);

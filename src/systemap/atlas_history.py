@@ -18,7 +18,9 @@ its own element of the page (`atlas-history`, `atlas_page`):
   the right of a row is its count of file changes.
 - The headline gives "History", the question "Where did the system change, and when?", the
   count of commits, the dates and, for a shallow clone, the words "the clone is shallow,
-  earlier commits are not in it". On a phone the headline also gives the counts.
+  earlier commits are not in it". On a phone the headline also gives the counts. For a
+  shallow clone, the board also has a dashed line at the left of the first column with the
+  words "Clone starts" and "no earlier commits" (`hsEdge`).
 - Pointing at a cell, or the keyboard focus on it, writes the reading line: the component,
   the dates of the part, the count of file changes and changed lines, and the new modules
   (four names at most, and then the count of the others). A click or Enter on a cell keeps
@@ -66,6 +68,8 @@ body[data-mode="history"] .hboard{display:block}
 .hrow:focus-visible rect{stroke:var(--focus);stroke-width:2}
 .hsum{font:400 10.5px/1 var(--fm);fill:var(--ink-3);font-variant-numeric:tabular-nums}
 .haxis{font:400 10px/1 var(--fm);fill:var(--ink-3);text-anchor:middle}
+.hedge path{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:3 3;fill:none}
+.hedge text{font:400 10.5px/1 var(--fs);fill:var(--ink-3);text-anchor:end}
 @media (min-width:1181px){body[data-mode="history"] .ask{max-width:290px}}
 @media (max-width:720px){body[data-mode="history"] .ask__n{display:block;margin-top:4px}}
 """
@@ -132,6 +136,7 @@ function hsDraw() {
     if (i % every === 0) sv('text', {x: LAB + i * CW + CW / 2, y: BAR + 16, 'class': 'haxis'}, HWORLD, b[0]);
   });
   sv('text', {x: LAB + N * CW + 12, y: BAR + 16, 'class': 'hsum'}, HWORLD, 'files');
+  if (HS_DATA.shallow) hsEdge(LAB, BAR + 26 + rows.length * CH);
   rows.forEach(function (c, ri) {
     var y = BAR + 26 + ri * CH, cells = hsCells(c.id), files = 0;
     cells.forEach(function (x) { files += x[0]; });
@@ -166,6 +171,15 @@ function hsDraw() {
   var back = HS.at && HWORLD.querySelector('[data-item="' + HS.at + '"]') ? HS.at : items.length ? items[0].g.getAttribute('data-item') : null;
   hsRove(back, had !== null);
   hsLight(); hsSay();
+}
+// The mark of a shallow clone: a dashed line at the left of the first column, from the top
+// of the bars to the last row, and two words at its left. The clone has no commit before
+// this line.
+function hsEdge(x, y1) {
+  var g = sv('g', {'class': 'hedge', 'aria-hidden': 'true'}, HWORLD);
+  sv('path', {d: 'M' + x + ' 0V' + y1}, g);
+  sv('text', {x: x - 8, y: 12}, g, 'Clone starts');
+  sv('text', {x: x - 8, y: 26}, g, 'no earlier commits');
 }
 // The one stop of Tab: the item `key`. `focus` gives it the keyboard focus.
 function hsRove(key, focus) {
@@ -247,6 +261,7 @@ function hsState() {
     bars: HWORLD ? Array.prototype.map.call(HWORLD.querySelectorAll('.hbar'), function (b) { return {h: +b.getAttribute('height'), box: box(b)}; }) : [],
     axis: HWORLD ? Array.prototype.map.call(HWORLD.querySelectorAll('.haxis'), function (t) { return t.textContent; }) : [],
     sums: HWORLD ? Array.prototype.map.call(HWORLD.querySelectorAll('.hsum'), function (t) { return t.textContent; }) : [],
+    edge: HWORLD ? Array.prototype.map.call(HWORLD.querySelectorAll('.hedge text'), function (t) { return {text: t.textContent, box: box(t)}; }) : [],
     items: HS.items.map(function (o) {
       var r = o.g.querySelector('rect:last-of-type'), t = o.g.querySelector('text');
       return {kind: o.kind, id: o.id, i: o.i, j: o.j, key: o.g.getAttribute('data-item'), label: o.g.getAttribute('aria-label'), lit: o.g.classList.contains('lit'),

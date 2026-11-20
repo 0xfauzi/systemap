@@ -69,6 +69,12 @@ From the third repair of stage 10 (written on 2026-11-19 before the run of B20):
 map Page has its neighbours at the sides of its frame (N5), and the actor container of a
 nested map is a label on the atlas page. The acceptance values do not change.
 
+From the final repair (written on 2026-11-20 before the run of B23): a label at rest also
+keeps off the edges of the surfaces and of the region tints, and the halo of a label has the
+color of the ground under it (`groundOf` in `atlas_lines`). The ring of a card on the canvas
+page is on the pixel grid of the screen (`ringRect` in page_canvas_view). The acceptance
+values do not change: each value must pass for self, workspace and the M11 tree.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

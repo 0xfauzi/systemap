@@ -180,7 +180,7 @@ function drawLitLabels(m, id, a, ox, oy, alpha, under) {
   seats.list.forEach(function (s) {
     if (!!s.under !== under) return;
     var x = ox + a * s.x, y = oy + a * s.y + fs * 0.34;
-    ctx.globalAlpha = alpha * DIM; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
+    ctx.globalAlpha = alpha * DIM; ctx.strokeStyle = groundOf(m, s.box); ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
     text(s.e.s, x, y, fs, C['--ink'], alpha * DIM, 500, false, 'center');
     if (DLOG) logged({t: 'litLabel', f: s.e.f.i, s: s.e.s, x: x, y: y, under: under, box: labelBox(s.box, a, ox, oy)});
   });

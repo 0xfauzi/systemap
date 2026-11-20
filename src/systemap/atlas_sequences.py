@@ -58,7 +58,9 @@ The diagram form. The rule is the section "The other views: the rules" of docs/d
 each step, with the step state of the map form. The current step has the color of the kind
 of its flow, earlier steps are dark, and later steps are faint. Each row is a button: a
 click, Enter or Space goes to that step. A step with no flow has its number in the column
-of its first acting card and the words "No flow".
+of its first acting card and the words "No flow". Each label of a row has a plate in the
+color of the ground below it, at full opacity (`boardPlate`). Thus a lifeline does not go
+through the label of a faint later step.
 
 The diagram has a scale of BOARD_MIN or more, so that its text can be read. Above BOARD_MIN,
 the full diagram with its margins is in its part of the screen, and that part does not
@@ -499,6 +501,8 @@ body[data-mode="seq"][data-form="diagram"] .board{display:block}
 .board .qrow:hover rect{fill:var(--tint)}
 .board .qrow:focus-visible rect{fill:var(--tint);stroke:var(--focus);stroke-width:2}
 .qlife{stroke:var(--line-2);stroke-width:1}
+.qplate{fill:var(--map);pointer-events:none}
+:root[data-inside] .board{--map:var(--inside)}
 .board .fnode rect{fill:var(--card);stroke:var(--line-2);stroke-width:1}
 .board .fnode text{font:600 13px/1 var(--fs);fill:var(--ink);text-anchor:middle}
 .qbead circle{fill:var(--map);stroke:var(--ink-3);stroke-width:1}
@@ -581,13 +585,24 @@ function boardDraw() {
       var x2 = X(f.t), dir = x2 >= x1 ? 1 : -1;
       sv('path', {d: 'M' + (x1 + dir * 11) + ' ' + y + 'H' + (x2 - dir * 9), 'class': 'wire'}, eg);
       sv('polygon', {points: [x2 - dir, y, x2 - dir * 10, y - 4.4, x2 - dir * 10, y + 4.4].join(' ')}, eg);
-      sv('text', {x: (x1 + x2) / 2, y: y - 9}, eg, shortText(f.a));
-    } else sv('text', {x: x1 + 18, y: y + 4, 'class': 'start'}, eg, 'No flow');
+      boardPlate(sv('text', {x: (x1 + x2) / 2, y: y - 9}, eg, shortText(f.a)), eg, 0.5);
+    } else boardPlate(sv('text', {x: x1 + 18, y: y + 4, 'class': 'start'}, eg, 'No flow'), eg, 0);
     var bead = sv('g', {'class': 'qbead'}, eg);
     sv('circle', {cx: x1, cy: y, r: 10}, bead); sv('text', {x: x1, y: y + 3.6}, bead, String(i + 1));
   });
   if (had !== null) { var back = BWORLD.querySelector('[data-step="' + had + '"]'); if (back) back.focus({preventScroll: true}); }
   if (SEQ.step >= 0) boardShow(tx + X(boardX(m, j.s[SEQ.step], parts)) * k, ty + (TOPY + SEQ.step * RH) * k, RH * k);
+}
+// A plate in the color of the ground under the label t of the group eg of a row. The plate
+// is not in the group, so that it keeps its full opacity when the row is faint: a lifeline
+// does not go through the label of a later step. `at` is the anchor of the text: 0.5 for the
+// middle, 0 for the start.
+function boardPlate(t, eg, at) {
+  var w = 0;
+  try { w = t.getComputedTextLength(); } catch (e) { w = 0; }
+  if (!(w > 0)) w = t.textContent.length * 6.6;
+  var x = +t.getAttribute('x') - w * at, y = +t.getAttribute('y');
+  BWORLD.insertBefore(sv('rect', {x: x - 4, y: y - 12, width: w + 8, height: 16, rx: 3, 'class': 'qplate'}), eg);
 }
 // The part of the screen of the diagram (x, y, w, h) and the size of its content (cw, ch).
 function boardBox(x, y, w, h, cw, ch) {

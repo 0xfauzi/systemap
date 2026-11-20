@@ -16,8 +16,14 @@ section "Map view: the rules" of docs/design/atlas.md:
   more on the map (tests/test_atlas_contrast.py). With more than DENSE flows, no label shows
   at rest.
 - Labels at rest. A label shows at rest only when it is on its line, on no card, on no name
-  of a region or of a container, on no other label, in the box of the map, and no other line
-  of the layer goes through it. A horizontal part of the line comes first, then the longest
+  of a region or of a container, on no edge of a surface or of a region, on no other label,
+  in the box of the map, and no other line of the layer goes through it. The parts of its
+  own line before and after its part do not go through it (`ownCrossed`): thus a label is
+  not on a corner of its line. The halo of a label has the color of the ground under it,
+  the surface of a container or the ground of the map (`groundOf`). An artifact of more than
+  LABEL_MAX characters is cut at the end of a word, with "..." after it (`shortText`). A
+  label of a sequence that has no place on one ground can cross such an edge, so that it
+  still shows (`m._walls0`). A horizontal part of the line comes first, then the longest
   part. The label has a constant size on the screen (`labelPx`). The short lines get their
   places first. A line with no such place has no label at rest (`seatsOf`).
 - Sequences. In the layer of a sequence (`atlas_sequences`), the label of each line has the
@@ -41,7 +47,7 @@ from __future__ import annotations
 
 LINES = r"""
 // ---- the lanes, the busy layer rule and the labels at rest ----------------------------
-var LANE = 4.5, END = 5, DENSE = 48, LABEL_MAX = 30;
+var LANE = 4.5, END = 5, DENSE = 48, LABEL_MAX = 36;
 // The lines of map m in layer `id`: for each flow index of the layer, `q` (the laned
 // points), `d` (the points to draw, which stop END units before the target) and `len`. Also
 // the count `n` of the lines, `dense`, `rest` (the alpha of a line at rest) and `ends` (the
@@ -98,7 +104,12 @@ function laned(e) {
   for (var i = 0; i + 1 < n; i++) e.len += segLen(q, i);
   e.s = shortText(e.f.a);
 }
-function shortText(a) { return a.length > LABEL_MAX ? a.slice(0, LABEL_MAX - 2).replace(/[ ,]+$/, '') + '...' : a; }
+// A long artifact is cut at the end of a word, with "..." after it.
+function shortText(a) {
+  if (a.length <= LABEL_MAX) return a;
+  var cut = a.slice(0, LABEL_MAX - 2), end = cut.lastIndexOf(' ');
+  return (end > LABEL_MAX / 2 ? cut.slice(0, end) : cut).replace(/[ ,;]+$/, '') + '...';
+}
 // The size of a label on the screen for the map scale a: 11 px, smaller when the map is
 // small (15 units of the map).
 function labelPx(a) { return Math.min(11, 15 * a); }
@@ -116,8 +127,34 @@ function walls(m) {
   // phone view, which use the frame of the map, show the full label.
   var w = m.size[0], h = m.size[1], far = 1e6;
   out.push([-far, -far, 0, far], [-far, -far, far, 0], [w, -far, far, far], [-far, h, far, far]);
+  m._walls0 = out.slice();
+  // The edges of each surface and of each region tint: a label at rest is fully on one
+  // ground, so that its halo has the color of the ground under it (`groundOf`).
+  m.boxes.forEach(function (b) { if (boxKind(m, b) === 'box') edges(out, b.b, 0); });
+  m.regions.forEach(function (r) { edges(out, r.b, 3); });
   m._walls = out;
   return out;
+}
+// Four thin boxes on the edges of the box b, `inset` units inside it.
+function edges(out, b, inset) {
+  var x0 = b[0] + inset, y0 = b[1] + inset, x1 = b[0] + b[2] - inset, y1 = b[1] + b[3] - inset, e = 0.5;
+  out.push([x0 - e, y0, x0 + e, y1], [x1 - e, y0, x1 + e, y1], [x0, y0 - e, x1, y0 + e], [x0, y1 - e, x1, y1 + e]);
+}
+// The color of the ground under the label box b of map m: the surface of a container, or
+// the ground of the map.
+function groundOf(m, b) {
+  var x = (b[0] + b[2]) / 2, y = (b[1] + b[3]) / 2;
+  return m.boxes.some(function (o) { return boxKind(m, o) === 'box' && x > o.b[0] && x < o.b[0] + o.b[2] && y > o.b[1] && y < o.b[1] + o.b[3]; }) ? C['--surface'] : C['--map'];
+}
+// Tell if a part of the line q, other than part i, goes through the box b. A label on part
+// i must not have the next part or the part before it in its box (a corner).
+function ownCrossed(b, q, i) {
+  for (var j = 0; j + 1 < q.length; j++) {
+    if (j === i) continue;
+    if (Math.min(q[j][0], q[j + 1][0]) < b[2] && Math.max(q[j][0], q[j + 1][0]) > b[0] &&
+      Math.min(q[j][1], q[j + 1][1]) < b[3] && Math.max(q[j][1], q[j + 1][1]) > b[1]) return true;
+  }
+  return false;
 }
 // Tell if a line of `list`, except `skip`, goes through the box b.
 function crossed(b, list, skip) {
@@ -151,7 +188,7 @@ function seat(e, fs, wall, taken, list) {
       if (best) return;
       var cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, box = [cx - w / 2, cy - hh / 2, cx + w / 2, cy + hh / 2];
       if (wall.some(function (c) { return over(box, c); }) || taken.some(function (c) { return over(box, c); })) return;
-      if (!crossed(box, list, e)) best = {x: cx, y: cy, box: box};
+      if (!crossed(box, list, e) && !ownCrossed(box, q, i)) best = {x: cx, y: cy, box: box};
     });
   }
   return best;
@@ -202,8 +239,8 @@ function seqSeat(e, fs, wall, taken, list) {
 // The place of a label of a sequence that shows only at its step and after it (`hide`): on
 // its line or beside it and touching it, on no other label. A place on no card comes first.
 // The last choice is the middle of the longest part of the line.
-function stepSeat(e, fs, wall, taken) {
-  var at = seat(e, fs, wall, taken, []) || near(e, fs, wall, taken, [], false) || near(e, fs, [], taken, [], false);
+function stepSeat(e, fs, wall, taken, base) {
+  var at = seat(e, fs, wall, taken, []) || near(e, fs, wall, taken, [], false) || seat(e, fs, base, taken, []) || near(e, fs, base, taken, [], false) || near(e, fs, [], taken, [], false);
   if (at) return at;
   var q = e.q, w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, best = 0;
   for (var i = 1; i + 1 < q.length; i++) if (segLen(q, i) > segLen(q, best)) best = i;
@@ -225,12 +262,14 @@ function seatsOf(m, id, a) {
   L.list.slice().sort(function (u, v) { return u.len - v.len; }).forEach(function (e) {
     // A line of a sequence with no free place on the line: the label goes beside its own
     // line (`seqSeat`), or it shows only at its step (`stepSeat`).
-    var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) : null);
+    // A label of a sequence with no place on one ground can cross an edge of a surface or
+    // of a region (`m._walls0`), so that it still shows at rest.
+    var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) || seqSeat(e, fs, m._walls0, taken, L.list) : null);
     if (!at) { if (L.seq) later.push(e); return; }
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});
   });
   later.forEach(function (e) {
-    var at = stepSeat(e, fs, wall, taken);
+    var at = stepSeat(e, fs, wall, taken, m._walls0);
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box, hide: true});
   });
   L.seats = {key: key, list: out, fs: fs};

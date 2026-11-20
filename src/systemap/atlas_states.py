@@ -38,7 +38,9 @@ study (docs/design/atlas/study-script.html, `drawMachine`):
   first and to the last item. Enter and Space keep the light of the focused item, as a
   click does. Esc removes it. The arrow keys do not move the map.
 - The board is in the free part of the screen: at the right of the list on a wide screen,
-  under the row of the list on a phone, and above the reading line. Its scale is SM_MIN or
+  under the row of the list on a phone, and above the reading line. Its scale is SM_MAX or
+  less, as in the study: at a larger scale, a label is more than 12 px from its line
+  (tests/test_atlas_states_browser.py). Its scale is SM_MIN or
   more, so that its text can be read: on a phone the symbol of a state has a larger font, so
   that each text is 7 px high or more at SM_MIN. When the board does not fit at SM_MIN and
   the board with the columns as rows gives a larger scale (a phone), the columns go down
@@ -117,7 +119,7 @@ body[data-mode="states"] .srail{top:calc(var(--ask-b,248px) + 24px);bottom:96px}
 STATES = r"""
 // ---- the States view ---------------------------------------------------------------------
 var SM_MAPS = ORDER.filter(function (m) { return m.sm && m.sm.length; });
-var SM = {m: null, k: 0, hot: null, pin: null, items: [], scale: 0}, SM_MIN = 0.6;
+var SM = {m: null, k: 0, hot: null, pin: null, items: [], scale: 0}, SM_MIN = 0.6, SM_MAX = 1.25;
 var SM_CW = 290, SM_CH = 170, SM_NW = 200, SM_NH = 62;
 var SRAIL = document.getElementById('atlas-srail'), SRAIL_LIST = document.getElementById('atlas-srail-list');
 var SMORE_R = document.getElementById('atlas-smore-r'), SMORE_D = document.getElementById('atlas-smore-d');
@@ -331,7 +333,7 @@ function smDraw() {
   placeLabels(pos, items);
   // The scale and the place come from the box of the full board, with its labels. When the
   // board with its margins is larger than its part of the screen, the margins become 12 px.
-  var bb = SWORLD.getBBox(), k = Math.min(1.25, (aw - 1) / (bb.width + 80), (ah - 1) / (bb.height + 60));
+  var bb = SWORLD.getBBox(), k = Math.min(SM_MAX, (aw - 1) / (bb.width + 80), (ah - 1) / (bb.height + 60));
   if (k < SM_MIN) k = Math.max(SM_MIN, Math.min((aw - 24) / bb.width, (ah - 24) / bb.height));
   var tx = Math.max(12, (aw - bb.width * k) / 2), ty = Math.max(12, (ah - bb.height * k) / 2);
   SSVG.setAttribute('width', Math.ceil(Math.max(aw, tx * 2 + bb.width * k)));

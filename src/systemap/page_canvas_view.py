@@ -269,7 +269,14 @@ var MARKS_OF = [];
 function markColor(m) { return C[m.c] || m.c; }
 // The ring of a card: a line 3 px outside the card. The back line: a line around the back
 // card of a card that opens a map.
-function ringRect(b, ring, al, x, y, w, h, r) { b.rect(markColor(ring), al, x - 3, y - 3, w + 6, h + 6, r + 3, ring.w || 2, ring.d); }
+// The ring is 3 px outside the card. Its edges are on the pixel grid of the screen, so that
+// a thin ring keeps its full color at each position of the camera.
+function ringRect(b, ring, al, x, y, w, h, r) {
+  var lw = ring.w || 2, d = dpr(), o = (Math.round(lw * d) % 2) / 2;
+  function px(v) { return (Math.round(v * d - o) + o) / d; }
+  var x0 = px(x - 3), y0 = px(y - 3);
+  b.rect(markColor(ring), al, x0, y0, px(x + w + 3) - x0, px(y + h + 3) - y0, r + 3, lw, ring.d);
+}
 function backRect(b, back, al, x, y, w, h, r) { b.rect(markColor(back), al, x + 4, y + 4, w, h, r, back.w || 1.5); }
 function viewBack(v, x, y, w, h, r, alpha) { if (v.back && v.d > 0) backRect(BACK_LINE, v.back, alpha * v.d, x, y, w, h, r); }
 function viewMarksAt(c, v, x, y, w, h, alpha) {

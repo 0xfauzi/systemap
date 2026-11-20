@@ -7894,3 +7894,20 @@ device pixel ratio 1:
 Result: PASS for each value. In this run the dive of the canvas page is also 33.3 ms to
 33.4 ms at the 95th percentile. Thus the dive of the atlas page is equal to the dive of the
 canvas page on each input. The margin to 35 ms is small for the two pages.
+
+## B23: the performance budget of the atlas page, final repair (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the
+acceptance values. Before the run, the docstring got one note: a label at rest keeps off the
+edges of the surfaces and of the region tints, its halo has the color of the ground under
+it, and the ring of a card on the canvas page is on the pixel grid. The full output is in
+`bench/jev/atlas_budget_B23.txt`. At 4 times CPU slowdown, 1440 x 900, device pixel ratio
+1, with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 284 / 314 (pass) | 16.8 / 16.8 (pass) | 33.4 / 33.4 (pass) | 364,713 / 432,795 = 1.19 (pass) | 64 (pass) |
+| workspace | 293 / 305 (pass) | 16.8 / 16.7 (pass) | 33.4 / 33.3 (pass) | 268,951 / 319,492 = 1.19 (pass) | 54 (pass) |
+| M11 tree | 392 / 510 (pass) | 16.7 / 16.7 (pass) | 33.4 / 33.3 (pass) | 1,223,599 / 1,270,721 = 1.04 (pass) | 65 (pass) |
+
+Result: PASS for each value.

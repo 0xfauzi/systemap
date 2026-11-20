@@ -114,6 +114,8 @@ run of their tests:
     lines, the headline shows the text "2 open boundary lines" in a box of 1 px or more
     high, and the count of the parts does not show. At the top map of the tree with a
     revision comparison, the headline shows the count of the changed cards.
+    Changed on 2026-11-20 in the final repair, before the run: the count of the parts shows
+    on a phone, because docs/design/atlas.md says that the headline gives the counts.
 
 Acceptance value written on 2026-11-19 after the third review of stage 8, before the first
 run of its test:
@@ -479,7 +481,7 @@ def test_the_counts_of_the_marks_show_on_a_phone() -> None:
     ports = {p["cls"]: p for p in out["ports"]}
     assert "2 open boundary lines" in ports["ask__m"]["text"]
     assert ports["ask__m"]["shown"] and ports["ask__m"]["h"] >= 1
-    assert "part" in ports["ask__c"]["text"] and not ports["ask__c"]["shown"]
+    assert "part" in ports["ask__c"]["text"] and ports["ask__c"]["shown"]
     changes = {p["cls"]: p for p in out["changes"]}
     assert "changed card" in changes["ask__m"]["text"]
     assert changes["ask__m"]["shown"] and changes["ask__m"]["h"] >= 1

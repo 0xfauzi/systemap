@@ -358,6 +358,25 @@ branch `views-prototype`. No stage makes a pull request.
     tests/test_atlas_inside_contrast.py gives the contrast of each sign. The CI job
     canvas-browser runs the browser test of the signs.
 
+12. **The final review** (2026-11-20). The review found faults in the finished page, and
+    the repair corrects them. tests/test_atlas_final_browser.py holds the acceptance values.
+    With reduced motion, a double-click goes into a nested map: a mouse click on a card
+    that opens a map opens the details after a short wait, so the camera does not move
+    before the second click. A selection hides the help note. The reading line is one line of text, in the
+    middle of the map area. A label at rest is not on the edge of a surface or of a region,
+    and its halo has the color of the ground under it. A label of a sequence with no other
+    place can still cross such an edge, because each label of a sequence shows at rest
+    (acceptance 2 of tests/test_atlas_sequences_browser.py). The regions have numbers in reading
+    order. In the sequence diagram, each label has a plate, so no lifeline goes through it.
+    On a phone, the headline of the Map view gives the counts. The key gives "Color when
+    you point:", and the details give the assurance level and the freshness in the words of
+    the study. In the History view, a dashed line marks where a shallow clone starts. The
+    budget is B23 in `bench/jev/README.md`.
+    Not changed: the many parallel lines between the actors of the System context layer of
+    the top map. They come from the placer and the router, which the canvas page and the
+    linked page also use, and from the positions in `map/model.py`. A change needs a
+    decision of the maintainer.
+
 ## What is not decided
 
 - The time of the removal of the canvas page and of the linked page.

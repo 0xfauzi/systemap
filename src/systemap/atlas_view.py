@@ -20,7 +20,9 @@ Focus view, only a map with that view: `fcPathGo`),
 and the layer System context has the name Neighbours. The
 tabs give the layers of the current map that have flows, Structure, and All, each with its
 count of flows. The arrow keys, Home and End move the keyboard focus between the tabs.
-The key at the bottom right gives the kinds of the lines of the current map in its layer.
+The key at the bottom right gives the kinds of the lines of the current map in its layer,
+with the words of the study (`KIND_WORD`). The lines at rest have one neutral color, thus
+the key starts with "Color when you point:".
 The zoom readout gives the scale of the current map.
 """
 
@@ -204,6 +206,8 @@ function writeTabs(m, id) {
     return b;
   }));
 }
+// The words of the key for each kind of flow, as in the design study.
+var KIND_WORD = {data: 'Data', control: 'Control', judge: 'Map review', context: 'Context', tool: 'Tool'};
 function writeKey(m, id) {
   var lf = layerFlags(m, id), seen = Object.create(null), out = [], order = Object.keys(KIND);
   m.flows.slice().sort(function (u, v) {
@@ -215,8 +219,10 @@ function writeKey(m, id) {
     seen[f.k] = true;
     var mark = el('i', {'aria-hidden': 'true'});
     mark.style.setProperty('--k', 'var(' + (KIND[f.k] || '--ink-2') + ')');
-    out.push(el('span', null, mark, LAYER_OF[f.l] && f.l !== 'system' ? LAYER_OF[f.l].n : f.k));
+    out.push(el('span', null, mark, KIND_WORD[f.k] || (LAYER_OF[f.l] && f.l !== 'system' ? LAYER_OF[f.l].n : f.k)));
   });
+  // The lines at rest have one neutral color. Thus the key says when the colors show.
+  if (out.length) out.unshift(el('span', {'class': 'key__lead'}, 'Color when you point:'));
   KEY.replaceChildren.apply(KEY, out);
 }
 // Write the headline, the tabs and the key of the current map when they change. `soft`

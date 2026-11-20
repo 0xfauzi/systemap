@@ -77,6 +77,9 @@ the new checks:
     the head, the source records, one entry for each sequence that uses the card with the
     numbers of its steps, and the text of each rule that names the card, as on the canvas
     page (an import rule with no source is under each card).
+    Changed on 2026-11-20 in the final repair, before the run: the head gives the level and
+    the freshness in the words of the study, for example "Claims examined against the
+    source, current".
 18. The keyboard. Tab moves through the full order, and one more Tab leaves the canvas.
     Enter on a focused line pins it. Enter on a card gives the keyboard focus to the heading
     of the details, and 3 Tab presses or less give it to the first flow row, which lights its
@@ -361,8 +364,15 @@ def test_a_click_selects_the_card_and_opens_the_details(
     assert ("Source modules" in details["heads"]) is has_modules
 
 
+_CLAIMS = {
+    "established": "Claims established from the source facts",
+    "examined": "Claims examined against the source",
+    "unknown": "Claims not examined",
+}
+
+
 def _level(o: dict[str, Any]) -> str:
-    return f"Assurance level: {o['as'][0]}. Freshness: {o['as'][1]}." if o.get("as") else ""
+    return f"{_CLAIMS[o['as'][0]]}, {o['as'][1]}" if o.get("as") else ""
 
 
 def test_the_details_keep_the_content_of_the_canvas_page(

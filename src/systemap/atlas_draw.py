@@ -12,7 +12,8 @@ The look at rest:
 
 - A container that holds only actors is a label above its first actor, not a surface. A
   different container is a surface with its name and its subtitle. A region is a faint
-  tint with its number in a ring and its name. The tint keeps 3 units from the edge of the
+  tint with its number in a ring and its name. The numbers are in reading order, by rows
+  from the top (`regionNumbers`). The tint keeps 3 units from the edge of the
   region, so adjacent regions do not touch.
 - A line has one neutral color, and a casing in the color of the ground below it. Each
   line draws its casing and then its wire, so that a line goes over a different line with
@@ -187,15 +188,33 @@ function drawBoxes(g, m, a, ox, oy, alpha, labels, open) {
     if (b.u) text(fit(b.u, us, a * b.b[2] - 50 * a - nw, 400), x + 20 * a + nw + 10 * a, y + 30 * a, us, C['--ink-3'], alpha);
   });
   if (ra <= 0.02) return;
-  m.regions.forEach(function (r, i) {
-    var x = ox + a * r.b[0], y = oy + a * r.b[1];
+  regionNumbers(m).forEach(function (n, i) {
+    var r = m.regions[i], x = ox + a * r.b[0], y = oy + a * r.b[1];
     rings.rect(C['--line-2'], ra, x + 10 * a, y + 10 * a, 14 * a, 14 * a, 7 * a, 1);
-    caps(String(i + 1), x + 17 * a, y + 20 * a, 8.5 * a, C['--ink-3'], ra, 0, 'center');
+    caps(String(n), x + 17 * a, y + 20 * a, 8.5 * a, C['--ink-3'], ra, 0, 'center');
     caps(r.n, x + 31 * a, y + 20.5 * a, 9 * a, C['--ink-3'], ra, 0.11);
   });
   rings.flush(g);
 }
 
+// The number of each region of map m, in reading order: by rows from the top, and from the
+// left in a row. A region starts a new row when its top is below the middle of the row.
+function regionNumbers(m) {
+  if (m._rn) return m._rn;
+  var order = m.regions.map(function (r, i) { return i; }).sort(function (u, v) { return m.regions[u].b[1] - m.regions[v].b[1]; });
+  var rows = [], row = null;
+  order.forEach(function (i) {
+    var b = m.regions[i].b;
+    if (!row || b[1] > row.mid) { row = {mid: b[1] + b[3] / 2, list: []}; rows.push(row); }
+    row.list.push(i);
+  });
+  m._rn = [];
+  var n = 0;
+  rows.forEach(function (r) {
+    r.list.sort(function (u, v) { return m.regions[u].b[0] - m.regions[v].b[0]; }).forEach(function (i) { m._rn[i] = ++n; });
+  });
+  return m._rn;
+}
 // The frame of a nested map has the name of the map as a title, TITLE_PX high on the
 // screen, or 40 units of the map when that is smaller (`atlas_inside`).
 var TITLE_PX = 20;
@@ -274,7 +293,7 @@ function stepEnds(g, m, list, L, alpha, a, ox, oy, s, w, r) {
   });
 }
 // The labels at rest (`seatsOf`), with a constant size on the screen. A label has a halo
-// in the color of the ground.
+// in the color of the ground under it (`groundOf`).
 // While a light is on the map, the labels of the lines that go back fade out, and the
 // labels of the lit lines draw with the lit lines (`drawLitLabels`). A label of a sequence
 // with `hide` shows only at its step and after it (`seatsOf` in `atlas_lines`).
@@ -290,7 +309,7 @@ function drawLabels(m, id, a, ox, oy, alpha) {
     if (s.hide && st !== 'now' && st !== 'was') return;
     var la = alpha * (lit && lit.focus && !lit.step ? 1 - DIM : 1) * (st === 'later' ? LATER_A : 1);
     if (x < -200 || x > W + 200 || y < -20 || y > H + 20 || la <= 0.02) return;
-    ctx.globalAlpha = la; ctx.strokeStyle = C['--map']; ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
+    ctx.globalAlpha = la; ctx.strokeStyle = groundOf(m, s.box); ctx.lineWidth = 5; ctx.strokeText(s.e.s, x, y);
     if (DLOG) logged({t: 'label', f: s.e.f.i, s: s.e.s, x: x, y: y, alpha: la, step: st, box: labelBox(s.box, a, ox, oy)});
     text(s.e.s, x, y, fs, C['--ink-2'], la, 500, false, 'center');
   });

@@ -11,9 +11,9 @@ docs/design/atlas.md:
   with the dark scheme of the device when the page has no light `data-theme`.
 - The canvas fills the window under the header. The parts that do not zoom (the header,
   the headline, the zoom control, the key and the note) are HTML over the canvas.
-- On a screen of 720 px or less, the headline is smaller and has no counts, and the note
-  and the key do not show. The counts of the marks (`atlas_marks`) stay: the open boundary
-  lines and the changed cards.
+- On a screen of 720 px or less, the headline is smaller, and the note and the key do not
+  show. The headline keeps its counts, as in the other views, and the counts of the marks
+  (`atlas_marks`): the open boundary lines and the changed cards.
 - `--fs` and `--fm` give the two fonts to the renderer script (`atlas_scene`).
 - `--change` is the color of the change marks (`atlas_marks`). `--focus` is the color of
   the focus rings, of the keyboard focus lines and of the lit cell of the History view: the
@@ -95,12 +95,12 @@ color:var(--ink-3);font:500 11px/1 var(--fm);font-variant-numeric:tabular-nums;z
 .zoom button:hover{background:var(--tint);color:var(--ink)}
 .zoom span{min-width:38px;text-align:center}
 .key{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));display:flex;gap:14px;color:var(--ink-3);font-size:11.5px;z-index:1}
+.key__lead{color:var(--ink-3)}
 .key i{display:inline-block;width:14px;height:2px;border-radius:2px;margin-right:6px;vertical-align:3px;background:var(--k)}
 .note{position:fixed;left:max(24px,env(safe-area-inset-left,0px));bottom:64px;margin:0;font-size:11.5px;color:var(--ink-3);max-width:230px;line-height:1.5;z-index:1}
 @media (max-width:720px){
 .bar{gap:12px}.brand span,.note,.key{display:none}
-.ask{top:calc(62px + var(--ih,0px))}.ask__q{font-size:19px}.ask__n{display:none}
-.ask__n:has(.ask__m){display:block;margin-top:4px}.ask__n:has(.ask__m) .ask__c,.ask__d{display:none}
+.ask{top:calc(62px + var(--ih,0px))}.ask__q{font-size:19px}.ask__n{margin-top:4px}
 .views button{padding:0 7px}
 .tabs{position:fixed;top:48px;left:0;right:0;height:38px;box-sizing:border-box;background:var(--surface);border-bottom:1px solid var(--line);
 padding:0 max(5px,env(safe-area-inset-left,0px))}
