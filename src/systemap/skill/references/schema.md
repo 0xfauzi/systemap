@@ -167,11 +167,14 @@ Leave positions unset. Run `systemap place`.
 `pinned=True` keeps a position during `systemap place --all`.
 
 Card names and short descriptions have measured text limits.
-A component, agent, or tool can show a long CamelCase name on two lines.
+The atlas page shows a card name on one line.
+The checker gives an error for a name that the atlas page cuts.
+The SVG diagram can show a long CamelCase name of a component, agent, or tool on two lines.
 Other kinds use one name line.
 The short description uses two lines except for actors or a component with a two-line name.
 The checker gives the actual available dimensions when text does not fit.
 Do not remove part of an identifier or invent a shorter source name.
+If a component name does not fit, select a different literal name with fewer or narrower letters.
 
 `note` gives a source limitation or other necessary qualification.
 On the atlas page and the canvas page, the details show it below the `does` text.

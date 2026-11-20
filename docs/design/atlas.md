@@ -60,6 +60,12 @@ state machine, History needs commit data.
 - **Cards.** A card shows its name. Its short name shows below when the zoom is 0.95 or
   more. An actor has round ends. A card that is not a component and not an actor has a
   small tag with its kind. A card with no flow in the layer keeps a faint outline.
+- **Card names.** A card name is on one line, in Inter at weight 600 with no kerning. The
+  check and the page use one measure of a name (`card_names`): the same font widths, the
+  same size and the same room. Thus `systemap check` gives an error for each name that the
+  page cuts. When the page makes a name larger than its base size, for example on a small
+  card, it makes the name smaller again until it fits, but not smaller than the base size.
+  Thus a name that the check accepts always shows in full.
 - **No dashed border.** A container that holds only actors is a label, not a surface. A
   region is a faint tint with a number in a ring and a name. Adjacent regions do not
   touch.

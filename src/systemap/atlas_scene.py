@@ -170,18 +170,24 @@ var WORDS = new Map(), TEXTS = 0;
 // key of each image that has text (atlas_image), so such an image is made again.
 function textChanged() { WORDS.clear(); TEXTS++; }
 function font(weight, size, mono) { return weight + ' ' + size + 'px ' + (mono ? FONT_MONO : FONT_UI); }
-function unitWidth(word, weight, mono) {
-  var key = weight + (mono ? 'm' : 's') + word, w = WORDS.get(key);
-  if (w === undefined) { ctx.font = font(weight, 100, mono); w = ctx.measureText(word).width / 100; WORDS.set(key, w); }
+// With `flat`, the width has no kerning, as a card name has (`flat` in `atlas_draw`).
+function unitWidth(word, weight, mono, flat) {
+  var key = weight + (mono ? 'm' : 's') + (flat ? 'f' : '') + word, w = WORDS.get(key);
+  if (w === undefined) {
+    ctx.font = font(weight, 100, mono); kerning(ctx, flat);
+    w = ctx.measureText(word).width / 100; kerning(ctx, false); WORDS.set(key, w);
+  }
   return w;
 }
+// No kerning with `flat`, where the browser has the property, and else the kerning of the font.
+function kerning(g, flat) { if ('fontKerning' in g) g.fontKerning = flat ? 'none' : 'auto'; }
 // Cut a text to fit `width` at `size`. Add three dots when the text is cut.
-function fit(text, size, width, weight, mono) {
-  if (unitWidth(text, weight, mono) * size <= width) return text;
-  var dots = unitWidth('...', weight, mono) * size, lo = 0, hi = text.length;
+function fit(text, size, width, weight, mono, flat) {
+  if (unitWidth(text, weight, mono, flat) * size <= width) return text;
+  var dots = unitWidth('...', weight, mono, flat) * size, lo = 0, hi = text.length;
   while (lo < hi) {
     var mid = (lo + hi + 1) >> 1;
-    if (unitWidth(text.slice(0, mid), weight, mono) * size + dots <= width) lo = mid; else hi = mid - 1;
+    if (unitWidth(text.slice(0, mid), weight, mono, flat) * size + dots <= width) lo = mid; else hi = mid - 1;
   }
   return lo ? text.slice(0, lo) + '...' : '';
 }

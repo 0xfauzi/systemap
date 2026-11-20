@@ -32,6 +32,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from systemap import assurance, evidence, flow_ids
+from systemap.card_names import page_name_problems
 from systemap.model import (
     DERIVED_LAYERS,
     Meaning,
@@ -461,8 +462,9 @@ def render(
                 f'fill-opacity=".85"/>'
             )
         # The name and the plain word, within the card's budget; what does
-        # not fit is reported for the check, never cut short.
-        collisions += card_text(kind, cid, plain)[2]
+        # not fit is reported for the check, never cut short. The check also
+        # reports a name that the atlas page cuts (`card_names`).
+        collisions += card_text(kind, cid, plain)[2] + page_name_problems(kind, cid)
         name_rows, plain_rows = card_lines(kind, cid, plain, sizes) or ([], [])
         for dy, line in name_rows:
             g.append(L(x + 10, y + dy, line, sizes[0], INK, "600", True, "start"))

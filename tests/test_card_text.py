@@ -154,7 +154,12 @@ def test_the_drawing_reports_unfit_text_and_never_elides(sample: Sample) -> None
         "card User: plain word does not fit (actor cards fit about 26 characters on one "
         f"line; this one has {len(long_plain)})"
     ) in problems
-    assert len(problems) == 1, problems
+    # The atlas page draws a name on one line. Thus the check also reports the long name
+    # (`card_names`), but the diagram still draws it over two lines.
+    assert problems[0].startswith(
+        "card AVeryLongParserComponentName: name does not fit on the atlas page"
+    )
+    assert len(problems) == 2, problems
     assert "..." not in svg and "…" not in svg, "nothing is elided"
     # What fits is drawn: the first plain line, and the name over two lines
     # (fifteen and thirteen characters), which is why it was not refused.

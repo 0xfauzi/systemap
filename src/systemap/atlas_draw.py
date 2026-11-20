@@ -31,6 +31,10 @@ The look at rest:
 
 from __future__ import annotations
 
+import json
+
+from systemap.card_names import PAGE_NAME
+
 DRAW = r"""
 // ---- batches of boxes ----------------------------------------------------------
 function Batch(fill) { this.fill = fill; this.items = new Map(); }
@@ -74,11 +78,13 @@ var OPEN = false, OPEN_H = 3, OPEN_TEXT = 2.5;
 function cardShow(h) { return OPEN ? smooth(OPEN_H, OPEN_H + 3, h) : smooth(NAME_H, NAME_H + 4, h); }
 function hasText(h) { return h >= (OPEN ? OPEN_H : NAME_H); }
 function textMin() { return OPEN ? OPEN_TEXT : MIN_TEXT; }
-function text(s, x, y, size, color, alpha, weight, mono, align) {
+// With `flat`, the text has no kerning (`kerning` in `atlas_scene`).
+function text(s, x, y, size, color, alpha, weight, mono, align, flat) {
   if (size < textMin() || alpha <= 0.02 || !s) return;
   ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.font = font(weight || 400, size, mono);
-  ctx.textAlign = align || 'left'; ctx.fillText(s, x, y);
+  ctx.textAlign = align || 'left'; kerning(ctx, flat); ctx.fillText(s, x, y);
   if (TLOG && (ctx === PAGE_CTX || ctx === STILL_CTX)) TLOG.push(drawnText(s, x, y, size, alpha, weight, color));
+  kerning(ctx, false);
 }
 // While TLOG is a list, each text adds its size, its alpha, its color and its screen box.
 // While DLOG is a list, each map, container, region, line and card of the page frame adds
@@ -346,10 +352,10 @@ function cardText(c, x, y, w, h, alpha, qv) {
   if (lit || c === SEL || HOT.c === c) { alpha *= backCard(lit, c); if (inkCard(c)) qv = 0; }
   var t = alpha * cardShow(h);
   if (t <= 0.02) return;
-  var a = h / c.b[3], u = Math.min(a, 1.6), actor = c.k === 'actor', pad = (actor ? 20 : 13) * u;
+  var a = h / c.b[3], u = Math.min(a, 1.6), actor = c.k === 'actor', pad = (actor ? PAGE_NAME.actor : PAGE_NAME.pad) * u;
   // A small card keeps a name of 7.5 px or more while the card is high enough for it.
-  var ns = q(Math.max(13.5 * u, Math.min(7.5, h * 0.3))), far = rest(smooth(0.9, 0.95, a)), thumb = c.child ? c.child.size[0] * c.child.T.s / c.map.T.s * a + 10 * u : 0;
-  var right = w - pad - 8 * u, low = right - thumb;
+  var least = PAGE_NAME.size * u, ns = q(Math.max(least, Math.min(7.5, h * 0.3))), far = rest(smooth(0.9, 0.95, a)), thumb = c.child ? c.child.size[0] * c.child.T.s / c.map.T.s * a + 10 * u : 0;
+  var right = w - pad - PAGE_NAME.end * u, low = right - thumb;
   if (c.k !== 'actor' && c.k !== 'component') {
     var ks = q(8.5 * u), kw = (unitWidth(c.k.toUpperCase(), 500, true) + 0.09 * c.k.length) * ks;
     caps(c.k, x + w - 9 * u - kw, y + 14 * u, ks, C['--ink-3'], t * (1 - 0.5 * qv), 0.09);
@@ -361,9 +367,20 @@ function cardText(c, x, y, w, h, alpha, qv) {
     if (DLOG) logged({t: 'tag', id: c.id, s: tag});
   }
   var mid = y + h / 2, base = mid - 1.5 * u + (c.child ? 0 : (1 - far * (1 - qv)) * 6 * u), up = upCard(c);
-  if (up) { ns = Math.max(ns, upSize(ns, h)); base = upTag(up, x + pad, mid, ns, h, right, t * (1 - 0.4 * qv)); far = 0; }
-  text(fit(c.id, ns, right, 600), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600);
+  if (up) ns = Math.max(ns, upSize(ns, h));
+  ns = nameSize(c.id, ns, least, right);
+  if (up) { base = upTag(up, x + pad, mid, ns, h, right, t * (1 - 0.4 * qv)); far = 0; }
+  text(fit(c.id, ns, right, 600, false, true), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600, false, 'left', true);
   if (c.p && far > 0) text(fit(c.p, q(10 * u), low, 400), x + pad, mid + 13 * u, q(10 * u), C['--ink-3'], t * far * (1 - qv) * (1 - HIDE));
+}
+// The size and the room of a card name at scale 1 (`card_names`). The check uses the same
+// values and the same font widths. Thus the check reports each name that the page cuts.
+var PAGE_NAME = PAGE_NAME_JSON;
+// The size of the name s: ns, or the largest smaller size in half pixels at which the name
+// fits in `room`, but not smaller than `least`. A name that the check accepts fits at `least`.
+function nameSize(s, ns, least, room) {
+  var w = unitWidth(s, 600, false, true);
+  return w * ns <= room ? ns : Math.max(least, Math.floor(2 * room / w) / 2);
 }
 // The size of the line of a neighbour for a name of size ns on a card h high: 10 px while
 // the card is 24 px high or more, and 0.75 times the name or more. The name of a neighbour
@@ -478,3 +495,6 @@ function focusChain() {
 }
 function boxOnScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > HEAD_H && r[0] < W && r[1] < H; }
 """
+
+# The page reads the size and the room of a card name from the check values (`card_names`).
+DRAW = DRAW.replace("PAGE_NAME_JSON", json.dumps(PAGE_NAME))

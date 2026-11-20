@@ -26,6 +26,7 @@ from fontTools import subset
 from fontTools.ttLib import TTFont
 from fontTools.varLib import instancer
 
+from systemap.card_names import NAME_ADVANCES, NAME_EM, NAME_WEIGHT
 from systemap.schematic_cards import (
     LABEL_CHAR_W,
     LABEL_PX,
@@ -170,7 +171,7 @@ def report_rule(name: str, widths: dict[int, float], limit: float) -> None:
     )
 
 
-def measure(source: bytes) -> None:
+def measure(source: bytes, woff2: bytes) -> None:
     """Print each map width rule with the Inter widths of the subset characters."""
     by_weight = {w: advances(source, w) for w in (400, 500, 600)}
     for weight, px, limit, name in (
@@ -181,6 +182,15 @@ def measure(source: bytes) -> None:
     ):
         table, upm = by_weight[weight]
         report_rule(name, {c: a * px / upm for c, a in table.items()}, limit)
+    # The page draws the subset, and the subset deltas give widths that can differ by 1 unit.
+    font = instance(woff2, {"wght": NAME_WEIGHT})
+    cmap, hmtx = font.getBestCmap(), font["hmtx"]
+    upm = font["head"].unitsPerEm
+    names = tuple(round(hmtx[cmap[c]][0] * NAME_EM / upm) for c in range(32, 127))
+    same = "the same as" if names == NAME_ADVANCES else "different from"
+    print(f"card name advances, Inter 600: {same} NAME_ADVANCES in card_names")
+    if names != NAME_ADVANCES:
+        print(" ".join(map(str, names)))
     table, upm = by_weight[400]
     plain = {c: a * 2048 / upm for c, a in table.items() if c < 127}
     wider = [chr(c) for c in plain if plain[c] > PLAIN_ADVANCES[c - 32]]
@@ -208,7 +218,7 @@ def main() -> None:
     encoded = len(base64.b64encode(woff2))
     print(f"{PACKAGE}: {version}; source {len(source)} bytes")
     print(f"subset: {len(characters)} characters, WOFF2 {len(woff2)} bytes, base64 {encoded}")
-    measure(source)
+    measure(source, woff2)
 
 
 if __name__ == "__main__":
