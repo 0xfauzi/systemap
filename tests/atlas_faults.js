@@ -14,6 +14,9 @@
 // - names: at 1440 x 900 and at 390 x 844, in the All layer at the fit of the whole top map,
 //   the drawn texts, the screen box of the card Orchestration, and the screen frame of the
 //   small picture of its map.
+// - states: at 1440 x 900 in the States view, the IDs of the states and, for each transition,
+//   the distance of its start and of its end to the nearest state outline, and the states
+//   that its line goes into by more than 2 units, other than its two ends.
 // The driver gives one JSON object. `errors` has the script errors of the page.
 'use strict';
 const { chromium } = require('playwright');
@@ -101,10 +104,38 @@ async function names(browser, file) {
   return out;
 }
 
+async function states(browser, file) {
+  const { page, errors } = await open(browser, file, WIDE);
+  await page.evaluate(() => window.systemapCanvas.mode('states'));
+  await page.waitForTimeout(800);
+  const out = await page.evaluate(() => {
+    // The distance of point q to the outline of a state: a box with round ends.
+    const dist = (q, r) => {
+      const rad = r.height / 2, half = r.width / 2 - rad;
+      return Math.hypot(Math.max(Math.abs(q[0] - r.x - r.width / 2) - half, 0), q[1] - r.y - r.height / 2) - rad;
+    };
+    const rects = [...document.querySelectorAll('.snode rect')].map((e) => e.getBBox());
+    const names = [...document.querySelectorAll('.snode .nm')].map((t) => t.textContent);
+    const edges = [...document.querySelectorAll('g.tedge[aria-hidden] path.wire')].map((w) => {
+      const n = w.getTotalLength(), a = w.getPointAtLength(0), z = w.getPointAtLength(n);
+      const near = (p) => Math.min(...rects.map((r) => Math.abs(dist([p.x, p.y], r))));
+      const ends = rects.map((r) => Math.min(dist([a.x, a.y], r), dist([z.x, z.y], r)) < 9);
+      const through = names.filter((_, k) => !ends[k] && [...Array(47).keys()].some((s) => {
+        const q = w.getPointAtLength(n * (s + 2) / 50);
+        return dist([q.x, q.y], rects[k]) < -2;
+      }));
+      return { label: w.parentNode.querySelector('text').textContent, start: near(a), end: near(z), through };
+    });
+    return { names, edges };
+  });
+  await page.close();
+  return { ...out, errors };
+}
+
 (async () => {
   const [mode, file] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const modes = { sheet, keys, names };
+  const modes = { sheet, keys, names, states };
   const out = await modes[mode](browser, file);
   await browser.close();
   process.stdout.write(JSON.stringify(out));

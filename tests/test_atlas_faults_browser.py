@@ -22,6 +22,10 @@ Acceptance values, written on 2026-11-20 before the first run of these tests:
    name of each card of the top map shows in full, with no "...". This includes the long
    name of the card Orchestration, which opens a map. The box of that name is in the box of
    its card, and it is not on the small picture of the map of the card.
+4. In the States view at 1440 x 900, each end of each transition is on the outline of its
+   state: 8 units or less from it (3 at the start, and 7 before the arrowhead at the end).
+   No transition goes more than 2 units into a state that is not one of its two ends. Each
+   state shows its full ID, with no "...". No run has a script error.
 """
 
 from __future__ import annotations
@@ -41,6 +45,20 @@ from systemap.cli import main
 DRIVER = Path(__file__).resolve().parent / "atlas_faults.js"
 NAMES = ("Auth", "Store", "Log", "Cache", "Queue", "Mail", "Search", "Billing")
 HEAD = "from systemap import Component, Container, Flow, Meaning, Model, Region\n"
+# A state machine with the shape of the session transaction of SQLAlchemy 2.1.9: a state ID
+# wider than the default state, and two transitions whose straight lines go through other
+# states, one of them on a diagonal.
+MACHINES = (
+    "from systemap import State, StateMachine, Transition\n"
+    "MACHINES = (StateMachine(id='work', label='State of a work item', of='Cache', "
+    "start=('OPEN',), states=(State('OPEN'), State('WAITING_FOR_A_CONNECTION'), "
+    "State('READY'), State('DONE'), State('FAILED'), State('CLOSED')), transitions=("
+    "Transition('OPEN', 'WAITING_FOR_A_CONNECTION', 'wait'), "
+    "Transition('WAITING_FOR_A_CONNECTION', 'OPEN', 'connected'), "
+    "Transition('OPEN', 'READY', 'prepare'), Transition('READY', 'DONE', 'finish'), "
+    "Transition('OPEN', 'FAILED', 'error'), Transition('FAILED', 'CLOSED', 'reset'), "
+    "Transition('DONE', 'CLOSED', 'close'), Transition('OPEN', 'CLOSED', 'cancel'))),)\n"
+)
 
 
 def _top() -> str:
@@ -67,11 +85,12 @@ def _top() -> str:
         'map="orchestration.py"),\n' + cards + ")\nFLOWS = (\n" + flows + ")\n"
         "MODEL = Model(canvas=(0, 0), containers=CONTAINERS, regions=REGIONS, "
         "components=COMPONENTS, flows=FLOWS, flow_kinds=())\n"
-        'MEANING = Meaning(plain={"Orchestration": "the orchestration", '
+        + MACHINES
+        + 'MEANING = Meaning(plain={"Orchestration": "the orchestration", '
         + plain
         + "}, relations={"
         + said
-        + "})\n"
+        + "}, machines=MACHINES)\n"
     )
 
 
@@ -197,3 +216,15 @@ def test_the_name_of_a_card_that_opens_a_map_shows_in_full(shape_page: Path) -> 
         assert c[0] <= name[0] and name[2] <= c[0] + c[2], run["width"]
         assert c[1] <= name[1] and name[3] <= c[1] + c[3], run["width"]
         assert not _over(name, [p[0], p[1], p[0] + p[2], p[1] + p[3]]), (run["width"], name, p)
+
+
+def test_each_transition_starts_and_ends_on_its_states(shape_page: Path) -> None:
+    """Acceptance 4."""
+    out = _run(str(shape_page), "states")
+    assert out["errors"] == []
+    assert "WAITING_FOR_A_CONNECTION" in out["names"]
+    assert [n for n in out["names"] if n.endswith("...")] == []
+    assert len(out["edges"]) == 8
+    for edge in out["edges"]:
+        assert edge["start"] <= 8 and edge["end"] <= 8, edge
+        assert edge["through"] == [], edge

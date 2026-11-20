@@ -20,8 +20,12 @@ study (docs/design/atlas/study-script.html, `drawMachine`):
   more transitions between the same two states bend apart, each to a different side, with
   their labels at the outer sides (`bendsOf`). When the straight line between two states
   goes through a different state, each transition between the two states goes around the
-  states, the first two at the two sides (`blocked`, `aroundShape`). A transition from a
-  state to the same state is a loop above the state.
+  states, the first two at the two sides (`blocked`, `aroundShape`). Such a line gets a
+  larger depth, or goes to the other side, until it goes through no other state (`clear`). A
+  transition from a state to the same state is a loop above the state.
+- Each end of a line is on the outline of its state, in the direction of the control point
+  of the line (`rim`). A state is as wide as its widest ID or symbol, and SM_NW0 or more
+  (`smSize`). Thus a state shows its full ID.
 - Each label goes to the first place that covers no state, no label before it and no line:
   the middle of its line, then nearer to the ends of its line, then farther out
   (`placeLabels`).
@@ -121,7 +125,7 @@ STATES = r"""
 // ---- the States view ---------------------------------------------------------------------
 var SM_MAPS = ORDER.filter(function (m) { return m.sm && m.sm.length; });
 var SM = {m: null, k: 0, hot: null, pin: null, items: [], scale: 0}, SM_MIN = 0.6, SM_MAX = 1.25;
-var SM_CW = 290, SM_CH = 170, SM_NW = 200, SM_NH = 62;
+var SM_CW0 = 290, SM_NW0 = 200, SM_CW = SM_CW0, SM_CH = 170, SM_NW = SM_NW0, SM_NH = 62;
 var SRAIL = document.getElementById('atlas-srail'), SRAIL_LIST = document.getElementById('atlas-srail-list');
 var SMORE_R = document.getElementById('atlas-smore-r'), SMORE_D = document.getElementById('atlas-smore-d');
 var SBOARD = document.getElementById('atlas-sboard'), SSVG = document.getElementById('atlas-ssvg'), SWORLD = document.getElementById('atlas-sworld');
@@ -231,9 +235,9 @@ function curve(p0, m, p1, n, flat) {
 // outer side of the bend.
 function edgeShape(a, b, bend) {
   var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
-  var ea = Math.min(Math.abs(ux) > 0.01 ? SM_NW / 2 / Math.abs(ux) : 1e9, Math.abs(uy) > 0.01 ? SM_NH / 2 / Math.abs(uy) : 1e9) + 3;
-  var p0 = [a[0] + ux * ea - uy * bend * 0.45, a[1] + uy * ea + ux * bend * 0.45], p1 = [b[0] - ux * (ea + 4) - uy * bend * 0.45, b[1] - uy * (ea + 4) + ux * bend * 0.45];
-  var m = [(p0[0] + p1[0]) / 2 - uy * bend, (p0[1] + p1[1]) / 2 + ux * bend], k = Math.sign(bend);
+  var m = [(a[0] + b[0]) / 2 - uy * bend, (a[1] + b[1]) / 2 + ux * bend], k = Math.sign(bend);
+  // The ends are on the outlines of the two states, toward the control point (`rim`).
+  var p0 = rim(a, bend ? m : b, 3), p1 = rim(b, bend ? m : a, 7);
   if (bend) return curve(p0, m, p1, [-uy * k, ux * k], false);
   var up = ux < -1e-9 || (Math.abs(ux) <= 1e-9 && uy < 0) ? -1 : 1;
   return curve(p0, m, p1, [uy * up, -ux * up], Math.abs(uy) < 0.01);
@@ -243,11 +247,44 @@ function edgeShape(a, b, bend) {
 // the target, and comes into the same side of its target state, near the source. The middle
 // of the line is depth / 2 from the boxes of the two states, so that it does not touch a
 // state between them.
-function aroundShape(a, b, side, depth) {
-  var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, nx = -uy * side, ny = ux * side;
-  var ext = Math.abs(nx) * SM_NW / 2 + Math.abs(ny) * SM_NH / 2 + 3, along = Math.abs(ux) * (SM_NW / 2 - 40) + Math.abs(uy) * (SM_NH / 2 - 12);
-  var p0 = [a[0] + nx * ext + ux * along, a[1] + ny * ext + uy * along], p1 = [b[0] + nx * (ext + 4) - ux * along, b[1] + ny * (ext + 4) - uy * along];
-  return curve(p0, [(p0[0] + p1[0]) / 2 + nx * depth, (p0[1] + p1[1]) / 2 + ny * depth], p1, [nx, ny], false);
+// The depth grows, first at the side `side` and then at the other side, until the line goes
+// through no other state (`clear`). When no depth gives such a line, the line has the first
+// depth at `side`. The two ends are on the outlines of the two states, in the direction of
+// the control point (`rim`).
+function aroundShape(a, b, side, depth, pos) {
+  var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  function shape(sd, d) {
+    var nx = -uy * sd, ny = ux * sd, m = [(a[0] + b[0]) / 2 + nx * d, (a[1] + b[1]) / 2 + ny * d];
+    return curve(rim(a, m, 3), m, rim(b, m, 7), [nx, ny], false);
+  }
+  for (var n = 0; n < 16; n++) {
+    for (var k = 0; k < 2; k++) {
+      var sh = shape(k ? -side : side, depth + 40 * n);
+      if (clear(sh, pos, a, b)) return sh;
+    }
+  }
+  return shape(side, depth);
+}
+// The point of the outline of the state at c (a box with round ends) in the direction of the
+// point `to`, `gap` farther out. A point that the old rule gave (the middle of the side that
+// faces the normal of a diagonal line) is not on the outline: it was up to 60 units from it.
+function rim(c, to, gap) {
+  var dx = to[0] - c[0], dy = to[1] - c[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+  var r = SM_NH / 2, L = SM_NW / 2 - r, t = Math.abs(uy) > 1e-9 ? r / Math.abs(uy) : Infinity;
+  if (Math.abs(ux * t) > L) { var e = Math.sign(ux) * L, bq = ux * e; t = bq + Math.sqrt(bq * bq - e * e + r * r); }
+  return [c[0] + ux * (t + gap), c[1] + uy * (t + gap)];
+}
+// True when the quadratic line of shape sh goes through no state other than its two ends at
+// a and b. The box of each state has a margin of 8, as in `blocked`.
+function clear(sh, pos, a, b) {
+  return pos.every(function (p) {
+    if (p === a || p === b) return true;
+    for (var n = 1; n < 40; n++) {
+      var u = n / 40, v = 1 - u, qx = v * v * sh.p0[0] + 2 * u * v * sh.m[0] + u * u * sh.p1[0], qy = v * v * sh.p0[1] + 2 * u * v * sh.m[1] + u * u * sh.p1[1];
+      if (Math.abs(qx - p[0]) < SM_NW / 2 + 8 && Math.abs(qy - p[1]) < SM_NH / 2 + 8) return false;
+    }
+    return true;
+  });
 }
 // A loop from a state to the same state, above the state.
 function loopShape(a) {
@@ -322,11 +359,28 @@ function smTurn(x, aw, ah) {
   var fit = function (c, r) { return Math.min((aw - 1) / ((c - 1) * SM_CW + SM_NW + 120), (ah - 1) / ((r - 1) * SM_CH + SM_NH + 120)); };
   return fit(cols, rows) < SM_MIN && fit(rows, cols) > fit(cols, rows);
 }
+// The width of the states of machine x: SM_NW0, or more when the ID or the symbol of a state
+// is wider, so that each ID and symbol shows in full. The columns keep the gap of SM_CW0 and
+// SM_NW0 between them. A long ID made the state cut it with "...": the width was a constant.
+function smSize(x) {
+  // The styles of the ID and the symbol apply inside a state (`.snode`).
+  var box = sv('g', {'class': 'snode'}, SWORLD), tx = sv('text', null, box), most = 0;
+  x.st.forEach(function (s) {
+    [['nm', s.id], ['sy', s.sym ? shortSym(s.sym) : '']].forEach(function (v) {
+      if (!v[1]) return;
+      var e = sv('tspan', {'class': v[0]}, tx, v[1]);
+      most = Math.max(most, e.getComputedTextLength ? e.getComputedTextLength() : 0);
+    });
+  });
+  SWORLD.removeChild(box);
+  SM_NW = Math.max(SM_NW0, Math.ceil(most) + 28); SM_CW = SM_NW + SM_CW0 - SM_NW0;
+}
 function smDraw() {
   if (!SWORLD || !smOn()) return;
   var x = smX(), had = SBOARD.contains(document.activeElement) ? document.activeElement.getAttribute('data-item') : null;
   SWORLD.replaceChildren(); SWORLD.setAttribute('class', ''); SWORLD.removeAttribute('transform');
   SBOARD.setAttribute('aria-label', 'State machine: ' + x.n);
+  smSize(x);
   var g = smFree(), aw = Math.max(1, g.x1 - g.x0), ah = Math.max(1, g.y1 - g.y0), turn = smTurn(x, aw, ah);
   [['--sb-x', g.x0], ['--sb-y', g.y0], ['--sb-w', aw], ['--sb-h', ah]].forEach(function (v) { document.body.style.setProperty(v[0], v[1] + 'px'); });
   var pos = x.st.map(function (s) { return [(turn ? s.r : s.c) * SM_CW + SM_NW / 2, (turn ? s.c : s.r) * SM_CH + SM_NH / 2]; }), shapes = bendsOf(x, pos);
@@ -383,7 +437,7 @@ function smState(x, s, i, p, parent) {
 // pointer and the keyboard after the states, so that Tab gives the states first.
 function smEdge(x, t, i, pos, how, below, above) {
   var a = pos[t.a], b = pos[t.b], from = x.st[t.a].id, to = x.st[t.b].id;
-  var shape = t.a === t.b ? loopShape(a) : how.depth ? aroundShape(a, b, how.side, how.depth) : edgeShape(a, b, how.bend), label = labelAt(shape, 0.5, 0);
+  var shape = t.a === t.b ? loopShape(a) : how.depth ? aroundShape(a, b, how.side, how.depth, pos) : edgeShape(a, b, how.bend), label = labelAt(shape, 0.5, 0);
   var look = sv('g', {'class': 'tedge', 'aria-hidden': 'true'}, below);
   sv('path', {d: shape.d, 'class': 'wire'}, look);
   sv('polygon', {points: arrowPoints(shape.tip, shape.dir)}, look);

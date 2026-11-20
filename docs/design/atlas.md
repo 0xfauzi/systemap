@@ -203,8 +203,9 @@ state machine, History needs commit data.
 - **States.** A state has round ends, because a state is not a component. The first state
   has a dot and a short line before it. A straight transition has its label above the
   line. Two transitions between the same two states bend apart, with their labels at the
-  outer sides. The reading line gives the cause of a transition, and the meaning of a
-  state.
+  outer sides. Each transition starts and ends on the outline of its states, and it goes
+  through no other state. A state is as wide as its full ID. The reading line gives the
+  cause of a transition, and the meaning of a state.
 - **Focus.** The headline gives the counts and the reach, for example "a change here can
   reach 16 of 27 cards". Reach is the count of cards on a path of flows from the card. A
   column shows nine cards at most and then the count of the others. Selecting a card
