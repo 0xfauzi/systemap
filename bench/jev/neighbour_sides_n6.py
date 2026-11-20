@@ -3,8 +3,8 @@
 docs/design/atlas.md, rule "Neighbours of a nested map". N5 was not blind: the step of the
 side moves was written after N4 failed on the nested map Page. Stage 2 of the open faults of
 the atlas page changed the rule again on Page (the count of region columns of the frame,
-`place_sides.grid_counts` and `place_sides.fit_rank`). This script measures the rule on
-nested maps that a seeded generator makes. The rule was never tuned on these maps.
+`place_sides.grid_counts` and `place_sides.fit_rank`, both removed for N8). This script measures the rule on
+nested maps that a seeded generator makes. No change of the rule was made after a measurement on these maps.
 
 The generator (`generate`) makes COUNT nested maps from one seed. Each map has one frame
 with 3 to 15 parts in 1 to 5 regions, and 2 to 12 neighbours in the actor container. The
@@ -37,8 +37,32 @@ rule (`place.SIDES_IN_COMMANDS = True`) only if all of them hold.
 N6 uses the seed 6. If N6 fails and the rule changes, N7 uses a new seed that no run used
 before, with the same values.
 
+N8, written on 2026-11-20 before the first run of N8, after a review of N7. The review
+found that the column fallback of N7 (`place_sides.kept_or_column`) gives the column layout
+each time the sides layout has more collisions or refused routes. Thus value 1 is always
+met by construction, and N6 and N7 do not test value 1 of the side moves. The rule then
+changed on Page again (the repair of stage 2 of the open faults): the frame keeps two
+region columns, the form of the commands is ATLAS (no room for the label of the actor
+container), and the rank of the layouts is the collisions, the refused routes, the area
+of the map and the score (`place_sides.size_rank`), with no size of a screen. N8 uses the
+seed 8, which no run used before, and the six values above with no change. Value 1 is
+still met by construction. For this reason the script also gives, as a diagnostic with no
+acceptance value, the layout of the rule without the fallback (`rule`) and value 1 for it,
+and the count of inputs where the fallback gave the column layout.
+
+N9, written on 2026-11-20 after N8 failed (values 2 and 4) and before the first run of
+N9. After N8, the full atlas tests found that the layout of N8 put the neighbours of Page
+at two sides only, and acceptance 26 of tests/test_atlas_browser.py asks for three sides
+or more. The rule changed again: after the collisions and the refused routes, a layout
+with the actors at fewer than three sides comes last (`place_sides.few_sides`), then the
+area and the score. This change was made on Page. N8 gave no reason for it. N9 uses the
+seed 9, which no run used before, and the six values above with no change. Value 1 is
+still met by construction.
+
 Run from the repository root:
-    uv run python bench/jev/neighbour_sides_n6.py [--seed N]
+    uv run python bench/jev/neighbour_sides_n6.py [--seed N] [--rule]
+
+With --rule, the script also measures the rule without the column fallback.
 """
 
 from __future__ import annotations
@@ -204,6 +228,30 @@ def verdicts(results: dict[str, dict[str, dict[str, Any]]]) -> list[tuple[str, b
     ]
 
 
+def _without_fallback(model: Model) -> dict[str, Any]:
+    """Measure the sides layout of the rule with no column fallback (a diagnostic)."""
+    from systemap import place_sides  # noqa: PLC0415
+
+    kept = place_sides.kept_or_column
+    place_sides.kept_or_column = lambda sides, _column: sides
+    try:
+        return ns.measure(model, True)
+    finally:
+        place_sides.kept_or_column = kept
+
+
+def _diagnostic(models: dict[str, Model], results: dict[str, dict[str, dict[str, Any]]]) -> None:
+    """Print value 1 for the rule without the fallback, and the inputs of the fallback."""
+    worse = []
+    for name, model in models.items():
+        rule, col = _without_fallback(model), results[name]["column"]
+        print(ns._row(name, "rule", rule), flush=True)
+        if rule["collisions"] > col["collisions"] or rule["refused"] > col["refused"]:
+            worse.append(name)
+    print(f"Diagnostic: the fallback gave the column layout on {len(worse)} inputs: {worse}")
+    print(f"Diagnostic value 1 without the fallback: {'FAIL' if worse else 'PASS'}")
+
+
 def main(argv: list[str]) -> int:
     seed = int(argv[argv.index("--seed") + 1]) if "--seed" in argv else 6
     models = generate(seed)
@@ -227,6 +275,9 @@ def main(argv: list[str]) -> int:
     for text, ok in found:
         print(f"{text}: {'PASS' if ok else 'FAIL'}")
     print(f"Result: {'PASS' if all(ok for _t, ok in found) else 'FAIL'}")
+    if "--rule" in argv:
+        print()
+        _diagnostic(models, results)
     return 0
 
 

@@ -1,0 +1,30 @@
+
+current: canvas 928 x 860
+  1440 x 900: zoom 87%, frame 0.560 of the screen width
+  390 x 844: zoom 50%
+  regions: shared 1.00, atlas 1.00, canvas 1.00, linked 1.00
+  neighbours: CLI 0.07, ChangeDetector 0.07, Check 0.07, Config 0.07, FactsExtractor 0.07, Figures 0.07, Judgement 1.00, Maintainer 1.00, Model 1.00, Schematic 0.07
+  neighbours with 50 percent or more on the screen: 3 of 10
+  1: FAIL
+  2: PASS
+  3: PASS
+
+N7: canvas 1210 x 648
+  1440 x 900: zoom 102%, frame 0.857 of the screen width
+  390 x 844: zoom 50%
+  regions: shared 1.00, atlas 0.00, canvas 0.14, linked 1.00
+  neighbours: CLI 1.00, ChangeDetector 1.00, Check 1.00, Config 1.00, FactsExtractor 1.00, Figures 1.00, Judgement 0.53, Maintainer 0.00, Model 0.00, Schematic 1.00
+  neighbours with 50 percent or more on the screen: 8 of 10
+  1: PASS
+  2: FAIL
+  3: FAIL
+
+before: canvas 928 x 980
+  1440 x 900: zoom 76%, frame 0.491 of the screen width
+  390 x 844: zoom 50%
+  regions: shared 1.00, atlas 1.00, canvas 1.00, linked 1.00
+  neighbours: CLI 0.07, ChangeDetector 1.00, Check 0.07, Config 0.07, FactsExtractor 1.00, Figures 0.07, Judgement 1.00, Maintainer 0.07, Model 1.00, Schematic 1.00
+  neighbours with 50 percent or more on the screen: 5 of 10
+  1: FAIL
+  2: PASS
+  3: PASS

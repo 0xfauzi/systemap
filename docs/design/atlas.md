@@ -144,22 +144,24 @@ state machine, History needs commit data.
   frame (tests/test_atlas_browser.py, acceptance 26). Their positions are not those of the
   study, and Page shows at 81 percent at 1440 x 900, against 103 percent in the study. From
   stage 11 the bar of a nested map takes 49 px at the top, and Page shows at 76 percent.
-  Stage 2 of the open faults (2026-11-20, N6 and N7 in bench/jev/README.md) changed the
-  rule. The placer tries each count of region columns in the frame, from 2 to the count of
-  regions (`place_sides.grid_counts`). It keeps the layout with the fewest label collisions
-  and refused routes, then the largest fit of the atlas page at 1440 x 900, with the
-  headline at the left or above (`place_sides.fit_rank`). The fit also ranks the region
-  orders. When the sides layout has more label collisions or more refused routes than the
-  column layout, the placer keeps the column layout (`place_sides.kept_or_column`). The
-  frame of Page now has its four regions in one row. Page shows at 102 percent at
-  1440 x 900, with the headline above the map. Its neighbours are at the left, the top and
-  the bottom, each at the side nearest to the parts that it has flows with. N6, the first
-  blind test on generated nested maps, failed acceptance 1 also with the rule of N5. N7,
-  with the column fallback and a new seed, passed the six acceptance values of N4. At
-  390 x 844 the phone fit of Page shows its top left part at 50 percent, and the
-  neighbours Model and Maintainer are outside the screen. A test of stage 11 asks for the
-  line "on systemap" on each neighbour card at that fit, and it fails. A decision of the
-  maintainer is necessary (P1 to P5 in bench/jev/README.md).
+  Stage 2 of the open faults (2026-11-20, N6 and N7 in bench/jev/README.md) tried more
+  region columns and a rank by the fit of the atlas page at 1440 x 900. Page then had its
+  four regions in one row, and at 390 x 844 two regions and two neighbours were outside the
+  phone view. The repair of that stage (N8, N9 and P6 to P8 in bench/jev/README.md)
+  changed the rule again. The frame keeps two region columns, as each other map, because
+  the phone opens a map at its top left part. The form of the commands is ATLAS: no room
+  for the label of the actor container, because the atlas page draws that label only in
+  the top map. The placer keeps the layout with the fewest label collisions and refused
+  routes, then the neighbours at three sides or more (`place_sides.few_sides`), then the
+  smallest area of the map (`place_sides.size_rank`). The rule uses no size of a screen.
+  When the sides layout has more label collisions or more refused routes than the column
+  layout, the placer keeps the column layout (`place_sides.kept_or_column`). Thus
+  acceptance 1 of N4 is always met by construction. Page is now 928 x 860. At 390 x 844
+  its four regions show, and seven neighbours at the right show 7 percent of their width
+  (five before stage 2). At 1440 x 900 it shows at 87 percent, against 90 percent in P3.
+  Judgement is at the bottom after a side move, not at its nearest side (P4). No measured
+  layout of Page meets P2, P3, P4, acceptance 26 and the phone values together (P6 to P8 in
+  bench/jev/README.md). A decision of the maintainer is necessary.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced

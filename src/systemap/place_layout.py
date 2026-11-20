@@ -1,7 +1,6 @@
 """The fresh layout of the placer: the sizes of the boxes, the slots, and the sweeps.
 
-`_first_layout` sets the regions in grids of two columns inside their containers (the
-side rule of a nested map can give more columns, `place_order`), and
+`_first_layout` sets the regions in grids of two columns inside their containers, and
 the containers from left to right. The barycentre sweeps then move each card near the
 cards that it has flows with. `apply` writes a placement into a model.
 """

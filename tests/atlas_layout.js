@@ -4,7 +4,8 @@
 //     node atlas_layout.js PAGE.html MAP
 //
 // At 1440 x 900, a load with the hash of the map MAP. For each layer tab: the labels at
-// rest (flow index and text), the laned points of each line (map units), and the screen
+// rest (flow index and text), the laned points of each line (map units) with the width of
+// its label and the counts of `seatWhy` (atlas_input), and the screen
 // boxes of the cards with their kinds. Also the screen box of the frame of the map at the
 // fit, the box of the headline, the width of the screen and the text of the zoom control.
 // The output is one JSON object. `errors` has the script errors of the page.
@@ -33,7 +34,7 @@ const { chromium } = require('playwright');
       s.setLayer(layer);
       await new Promise((r) => setTimeout(r, 400));
       const L = s.lines(id);
-      res.layers.push({ id: layer, n: L.n, dense: L.dense, labels: L.labels.map((l) => ({ f: l.f, s: l.s })),
+      res.layers.push({ id: layer, n: L.n, dense: L.dense, fs: L.fs, labels: L.labels.map((l) => ({ f: l.f, s: l.s })),
         lanes: L.lanes });
     }
     return res;

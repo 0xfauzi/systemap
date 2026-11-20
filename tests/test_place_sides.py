@@ -53,6 +53,12 @@ these tests ran (the first copy gave the wrong date 2026-11-20):
 16. `place._covered` gives no box without nested, and no box for a map that does not have
     the shape of a nested map. Thus the fill of each other map does not change.
 17. With nested=True, the form is `place_sides.KEPT`, the form BOX.
+    Replaced on 2026-11-20 (the repair of stage 2 of the open faults) by acceptance 17b,
+    because the rule changed under P5: the atlas page draws no label for the actor
+    container of a nested map, thus the form of the commands keeps no room for it.
+17b. With nested=True, the form is `place_sides.KEPT`, the form ATLAS: the form BOX with
+    no room for the label of the actor container. Acceptance 12 compares STUDY with BOX,
+    as before.
 
 Acceptance values 18 and 19, written on 2026-11-19 for the third repair of stage 7, before
 these tests ran. Acceptance 13 is now for the commands with `place.SIDES_IN_COMMANDS` set to
@@ -86,7 +92,9 @@ N5 passed and before these tests ran. Acceptance 18 is now for the commands with
 Acceptance values 21b to 23, written on 2026-11-20 for stage 2 of the open faults of the
 atlas page, before these tests ran:
 
-21b. On the nested map Page, for each count of region columns of `place_sides.grid_counts`:
+21b. On the nested map Page, for each count of region columns of `place_sides.grid_counts`
+     (from the repair of stage 2 of the open faults: REGION_COLUMNS only, for two region
+     orders):
      the side moves (`place_order._clear_sides`) give no more label collisions and refused
      routes than the sides layout with no move, and fewer when that layout has one or more.
      After the moves, no move of one more actor to a different side gives fewer. At least one
@@ -339,7 +347,7 @@ def test_the_study_form_has_no_room_for_the_label() -> None:
     for source in (test_nested.GATEWAY, test_nested.STYLE):
         model = model_of(source)
         study = place.apply(model, place.compute(model, all_cards=True, nested="study"))
-        box = _laid(model, nested=True)
+        box = place.apply(model, place.compute(model, all_cards=True, nested="box"))
         assert study.layout_problems() == []
         frame = _frame(study)
         for c in study.components:
@@ -499,11 +507,12 @@ def test_the_cover_is_only_for_a_nested_map() -> None:
 
 
 def test_nested_gives_the_kept_form() -> None:
-    """Acceptance 17."""
-    assert place_sides.KEPT == place_sides.BOX == place_sides.FORMS["box"]
+    """Acceptance 17b."""
+    assert place_sides.KEPT == place_sides.ATLAS == place_sides.FORMS["atlas"]
+    assert place_sides.ATLAS == replace(place_sides.BOX, labelled=False)
     model = model_of(test_nested.STYLE)
     assert _laid(model, nested=True) == place.apply(
-        model, place.compute(model, all_cards=True, nested="box")
+        model, place.compute(model, all_cards=True, nested="atlas")
     )
 
 
@@ -574,20 +583,21 @@ def _no_move_left(page: Model, column: place.Placement, laid: place.Placement) -
 
 
 def test_the_side_moves_remove_what_a_move_can_remove() -> None:
-    """Acceptance 21b."""
+    """Acceptance 21b. From the repair of stage 2 of the open faults, the frame has
+    REGION_COLUMNS columns of regions (no `grid_counts`), and the test examines the region
+    order of the column layout and the region order of map/page.py, with the form KEPT."""
     page = _page()
-    order_ids = place.compute(page, all_cards=True).order
-    order = tuple(next(r for r in page.regions if r.id == i) for i in order_ids)
     examined = 0
-    for n in place_sides.grid_counts(page):
-        column = place_order._column(page, order, n)
-        plain = place_sides.around(page, column)
+    for order_ids in (place.compute(page, all_cards=True).order, place_order.grid_order(page)):
+        order = tuple(next(r for r in page.regions if r.id == i) for i in order_ids)
+        column = place_order._column(page, order)
+        plain = place_sides.around(page, column, place_sides.KEPT)
         before = place.score(place.apply(page, plain))
         was = (before.collisions, before.refused)
         laid = place_order._clear_sides(page, replace(plain, order=order_ids), True)
         assert laid.score is not None
         got = (laid.score.collisions, laid.score.refused)
-        assert got < was if any(was) else got == was, (n, got, was)
+        assert got < was if any(was) else got == was, (order_ids, got, was)
         examined += any(was)
         _no_move_left(page, column, laid)
     assert examined >= 1

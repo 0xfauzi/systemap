@@ -19,21 +19,28 @@ column at the left of the frame. This rule moves each actor to a side of the fra
   at each other side with free room (`moved`, `place_order`). It keeps the move that gives
   the fewest collisions and refused routes, then the smallest map, while a move removes a
   collision or a refused route (N5 in bench/jev/README.md).
-- The placer lays out the frame with each count of region columns from 2 to the count of
-  its regions (`grid_counts`). It keeps the layout with the fewest collisions and refused
-  routes, then the largest fit of the atlas page at 1440 x 900 (`fit_rank`, ROOMS). The fit
-  also ranks the region orders of one count. When that layout has more collisions or more
-  refused routes than the column layout, the placer keeps the column layout
-  (`kept_or_column`). N6 and N7 in bench/jev/README.md measure this form of the rule.
+- The frame keeps its regions in REGION_COLUMNS columns, as each other map. More columns
+  make the map wider, and the phone opens a map at a zoom of 0.5 at its top left part
+  (rule "Phone" of docs/design/atlas.md): then regions and neighbours are outside the
+  phone view (P6 in bench/jev/README.md). The placer keeps the layout with the fewest
+  collisions and refused routes, then the actors at three sides or more (`few_sides`),
+  then the smallest area of the map, then the score (`size_rank`). The area also selects
+  the region orders that the placer routes and moves. The rule uses no size of a screen.
+  When that layout has more collisions or more refused routes than the column layout, the
+  placer keeps the column layout (`kept_or_column`). Thus acceptance 1 of N4 (no more
+  collisions and refused routes than the column) is always met by construction. N6 to N9
+  in bench/jev/README.md measure this form of the rule.
 - The actor container becomes a box around the frame and the actors, so that each actor
   stays in its container. The form (`Form`) gives the space between the frame and an
   actor, the space inside the edge of that box, and whether the box keeps the room for
   its label above the actors. BOX keeps that room. STUDY does not, as the design study
-  (docs/design/atlas/tools/sides.py.txt), where the actors have no box.
+  (docs/design/atlas/tools/sides.py.txt), where the actors have no box. ATLAS, the form of
+  the commands from N8, does not keep it either: the atlas page draws no label for the
+  actor container of a nested map (`drawBoxes` in atlas_draw.py), thus that room was empty.
 
 A map that does not have this shape keeps the column layout.
 
-`place.compute(model, nested=True)` gives the form BOX (`KEPT`), and
+`place.compute(model, nested=True)` gives the form ATLAS (`KEPT`), and
 `place.compute(model, nested="study")` gives the form STUDY, for the measurements. N1
 (BOX, SIDE_GAP 48), N2 (STUDY) and N4 (BOX, SIDE_GAP 44) failed. N3 passed with two
 acceptance values that were changed after the results were known. N5 added the moves to a
@@ -52,7 +59,6 @@ from systemap.model import CARD_H, CARD_W, Box, Container, Model
 from systemap.place_layout import (
     CANVAS_MARGIN,
     CONTAINER_PAD,
-    REGION_COLUMNS,
     Placement,
     Score,
     container_top,
@@ -67,12 +73,6 @@ ACTOR_GAP = 26
 ACTOR_H = CARD_H["actor"]
 
 Point = tuple[float, float]
-# The two rooms of a nested map at the fit of the atlas page on a screen of 1440 x 900, in
-# CSS px (`mapFit` in atlas_input.py): with the headline at the left of the map, and with
-# the headline above the map. The page uses the room that gives the larger scale.
-# FIT_LIMIT is the largest scale of that fit.
-ROOMS = ((1086, 745), (1396, 659))
-FIT_LIMIT = 1.6
 
 
 def frame_of(model: Model) -> tuple[str, str] | None:
@@ -274,9 +274,12 @@ class Form:
 # the cards (CANVAS_MARGIN and 12).
 BOX = Form(gap=SIDE_GAP, pad=CONTAINER_PAD, labelled=True)
 STUDY = Form(gap=70, pad=28 - CANVAS_MARGIN, labelled=False)
-FORMS = {"box": BOX, "study": STUDY}
-# The form of the commands: `place.compute(model, nested=True)`.
-KEPT = BOX
+# ATLAS is the form BOX with no room for the label of the actor container, because the
+# atlas page draws that label only in the top map (`drawBoxes` in atlas_draw.py).
+ATLAS = Form(gap=SIDE_GAP, pad=CONTAINER_PAD, labelled=False)
+FORMS = {"box": BOX, "study": STUDY, "atlas": ATLAS}
+# The form of the commands: `place.compute(model, nested=True)`. It was BOX until N8.
+KEPT = ATLAS
 
 
 @dataclass(frozen=True)
@@ -378,34 +381,52 @@ def around(
     )
 
 
-def grid_counts(model: Model) -> tuple[int, ...]:
-    """Give the counts of region columns that the placer tries for a nested map: from
-    REGION_COLUMNS to the count of regions in the frame. A map that does not have the shape
-    of a nested map gets only REGION_COLUMNS."""
+def area(laid: Placement) -> int:
+    """Give the area of the map of a layout, in square map units."""
+    return laid.canvas[0] * laid.canvas[1]
+
+
+def few_sides(model: Model, laid: Placement) -> int:
+    """Give 1 when the actors of a nested map are at fewer than three sides of the frame
+    (fewer than the count of actors when it is less than three), else 0. The rule
+    "Neighbours of a nested map" puts them around the frame, not in one column or two
+    (docs/design/atlas.md, acceptance 26 of tests/test_atlas_browser.py)."""
     found = frame_of(model)
-    if found is None:
-        return (REGION_COLUMNS,)
-    regions = sum(1 for r in model.regions if r.container == found[0])
-    return tuple(range(REGION_COLUMNS, max(REGION_COLUMNS, regions) + 1))
+    if found is None or found[0] not in laid.containers:
+        return 0
+    fx, fy, fw, fh = laid.containers[found[0]]
+    used: set[str] = set()
+    for c in model.components:
+        if c.kind != "actor" or c.id not in laid.positions:
+            continue
+        x, y = laid.positions[c.id]
+        w, h = CARD_W, CARD_H[c.kind]
+        used.update(
+            side
+            for side, yes in (
+                ("left", x + w <= fx),
+                ("right", x >= fx + fw),
+                ("top", y + h <= fy),
+                ("bottom", y >= fy + fh),
+            )
+            if yes
+        )
+    actors = sum(1 for c in model.components if c.kind == "actor")
+    return int(len(used) < min(3, actors))
 
 
-def shown(canvas: tuple[int, int]) -> float:
-    """Give the scale of the fit of a map of this size in the better of ROOMS, to FIT_LIMIT
-    or less."""
-    w, h = max(canvas[0], 1), max(canvas[1], 1)
-    return min(FIT_LIMIT, max(min(rw / w, rh / h) for rw, rh in ROOMS))
-
-
-def fit_rank(laid: Placement) -> tuple[int, int, float, Score]:
+def size_rank(model: Model, laid: Placement) -> tuple[int, int, int, int, Score]:
     """Give the rank of a layout of a nested map: the label collisions, the refused routes,
-    then the largest scale of the fit (`shown`), then the score."""
+    then the actors at fewer than three sides (`few_sides`), then the area of the map
+    (`area`), then the score."""
     score = laid.score or Score(0, 0, 0, 0)
-    return (score.collisions, score.refused, -shown(laid.canvas), score)
+    return (score.collisions, score.refused, few_sides(model, laid), area(laid), score)
 
 
 def kept_or_column(sides: Placement, column: Placement) -> Placement:
     """Give the sides layout, or the column layout when the sides layout has more label
-    collisions or more refused routes than the column layout (N7 in bench/jev/README.md)."""
+    collisions or more refused routes than the column layout (N7 in bench/jev/README.md).
+    Thus the result never has more of them than the column layout."""
     a, b = sides.score, column.score
     if a is None or b is None or (a.collisions <= b.collisions and a.refused <= b.refused):
         return sides

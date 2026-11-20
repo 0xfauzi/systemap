@@ -87,6 +87,15 @@ and the lines of one neighbour with one artifact show one label (`labelKey` in
 `atlas_lines`). The acceptance values do not change: each value must pass for self,
 workspace and the M11 tree.
 
+From the repair of stage 2 of the open faults (written on 2026-11-20 before the run of
+B26): the nested map Page has a new layout (two region columns, 928 x 772, N8), and the
+test hook `linesState` gives the width of each label and the counts of `seatWhy`. The
+acceptance values do not change: each value must pass for self, workspace and the M11
+tree.
+
+Before the run of B27 (written on 2026-11-20): the nested map Page has the layout of N9
+(928 x 860). The acceptance values do not change.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

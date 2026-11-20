@@ -21,7 +21,7 @@ section "Map view: the rules" of docs/design/atlas.md:
   own line before and after its part do not go through it (`ownCrossed`): thus a label is
   not on a corner of its line. The halo of a label has the color of the ground under it,
   the surface of a container or the ground of the map (`groundOf`). A label at rest shows
-  the full artifact. It is not cut, thus a long artifact needs a long free part of its line.
+  the full artifact. It is not cut, thus a long artifact must have a long free part of its line.
   In a nested map, the lines of one neighbour with one artifact in one direction are the
   parts of one flow of the map above, and they show one label (`labelKey`): the first line
   in the order below that has a place. Only the boards of the Sequences view cut an artifact

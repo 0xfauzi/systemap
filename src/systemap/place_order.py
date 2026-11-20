@@ -311,30 +311,42 @@ def _swaps(model: Model, try_order: Callable[[tuple[Region, ...]], Estimate]) ->
         groups = [[r for r in current if r.container == group[0].container] for group in groups]
 
 
+def _shortlist(
+    model: Model,
+    seen: dict[tuple[str, ...], tuple[Estimate, Placement]],
+    listed: tuple[str, ...],
+    nested: bool | str,
+) -> list[tuple[str, ...]]:
+    """This function gives the ROUTED best orders of the estimate and the listed order. In a
+    nested map with the side rule, a smaller area of the map comes before the estimate."""
+
+    def first(ids: tuple[str, ...]) -> tuple[object, ...]:
+        key, laid = seen[ids]
+        return (place_sides.area(laid), *key) if nested else key
+
+    shortlist = sorted(seen, key=first)[:ROUTED]
+    if listed not in shortlist:
+        shortlist.append(listed)
+    return shortlist
+
+
 def _routed(
     model: Model,
     seen: dict[tuple[str, ...], tuple[Estimate, Placement]],
     listed: tuple[str, ...],
-    nested: bool | str = False,
 ) -> Placement:
     """This function routes the ROUTED best orders of the estimate and the listed order,
-    and gives the layout with the smallest score. In a nested map with the side rule, the
-    rank is `place_sides.fit_rank`: a larger fit comes before a smaller score.
+    and gives the layout with the smallest score.
     """
-    ranked = sorted(seen, key=lambda ids: seen[ids][0])
-    shortlist = ranked[:ROUTED]
-    if listed not in shortlist:
-        shortlist.append(listed)
-    winner: tuple[tuple[object, ...], Score, tuple[str, ...]] | None = None
+    shortlist = _shortlist(model, seen, listed, False)
+    winner: tuple[Score, int, tuple[str, ...]] | None = None
     for ids in shortlist:
         key, laid = seen[ids]
-        got_score = score(apply(model, laid))
-        rank = place_sides.fit_rank(replace(laid, score=got_score)) if nested else ()
-        got = ((*rank, got_score, key[2]), got_score, ids)
-        if winner is None or got[0] < winner[0]:
+        got = (score(apply(model, laid)), key[2], ids)
+        if winner is None or got < winner:
             winner = got
     assert winner is not None
-    _rank, best_score, best_ids = winner
+    best_score, _index, best_ids = winner
     return replace(
         seen[best_ids][1],
         order=best_ids,
@@ -344,25 +356,53 @@ def _routed(
     )
 
 
+def _routed_sides(
+    model: Model,
+    seen: dict[tuple[str, ...], tuple[Estimate, Placement]],
+    listed: tuple[str, ...],
+    nested: bool | str,
+) -> Placement:
+    """This function routes the shortlist of a nested map with the side rule. The side moves
+    (`_clear_sides`) can change the collisions and the area. Thus it does the moves on each
+    layout in the order of the area, the collisions, the refused routes and the score. It
+    stops at the first result with no collision, no refused route, actors at three sides or
+    more and the area before the moves, because no later layout has a smaller area. It
+    gives the result with the smallest `place_sides.size_rank`.
+    """
+    shortlist = _shortlist(model, seen, listed, nested)
+    scored = []
+    for ids in shortlist:
+        laid = replace(seen[ids][1], order=ids, tried=len(seen), routed=len(shortlist))
+        got = score(apply(model, laid))
+        scored.append((place_sides.area(laid), got.collisions, got.refused, got, ids, laid))
+    scored.sort(key=lambda t: t[:4])
+    best: Placement | None = None
+    for size, _c, _r, got, _ids, laid in scored:
+        done = _clear_sides(model, replace(laid, score=got), nested)
+        if best is None or place_sides.size_rank(model, done) < place_sides.size_rank(model, best):
+            best = done
+        if place_sides.size_rank(model, done)[:4] == (0, 0, 0, size):
+            break
+    assert best is not None
+    return best
+
+
 def _search(model: Model, nested: bool | str = False) -> Placement:
     """This function selects the layout with the smallest measured routing score. In a
-    nested map with the side rule, it does the search for each count of region columns of
-    `place_sides.grid_counts`, and keeps the result with the smallest `place_sides.fit_rank`.
-    It gives the column layout when that result has more label collisions or refused routes
+    nested map with the side rule, it selects the smallest `place_sides.size_rank`, and it
+    gives the column layout when that result has more label collisions or refused routes
     (`place_sides.kept_or_column`).
     """
-    counts = place_sides.grid_counts(model) if nested else (REGION_COLUMNS,)
-    found = min((_search_grid(model, nested, n) for n in counts), key=place_sides.fit_rank)
+    found = _search_grid(model, nested)
     if not nested or place_sides.frame_of(model) is None:
         return found
-    return place_sides.kept_or_column(found, _search_grid(model, False, REGION_COLUMNS))
+    return place_sides.kept_or_column(found, _search_grid(model, False))
 
 
-def _search_grid(model: Model, nested: bool | str, columns: int) -> Placement:
-    """This function selects the layout with the smallest measured routing score, with
-    `columns` columns of regions."""
+def _search_grid(model: Model, nested: bool | str) -> Placement:
+    """This function selects the layout of the best region order."""
     if len(model.regions) <= 1:
-        laid = _laid(model, model.regions, nested, columns)
+        laid = _laid(model, model.regions, nested)
         placed = apply(model, laid)
         laid = replace(laid, order=tuple(r.id for r in model.regions), score=score(placed))
         return _clear_sides(model, laid, nested)
@@ -376,7 +416,7 @@ def _search_grid(model: Model, nested: bool | str, columns: int) -> Placement:
         ids = tuple(r.id for r in order)
         if ids in seen:
             return seen[ids][0]
-        laid = _laid(model, order, nested, columns)
+        laid = _laid(model, order, nested)
         bends, length = estimate(apply(model, laid))
         key = (bends, length, len(seen))
         seen[ids] = (key, laid)
@@ -389,23 +429,23 @@ def _search_grid(model: Model, nested: bool | str, columns: int) -> Placement:
         try_order(grouped)
         _swaps(model, try_order)
     listed = tuple(r.id for r in grouped)
-    return _clear_sides(model, _routed(model, seen, listed, nested), nested)
+    if nested and place_sides.frame_of(model) is not None:
+        return _routed_sides(model, seen, listed, nested)
+    return _routed(model, seen, listed)
 
 
 def _listed(model: Model, nested: bool | str = False) -> Placement:
     """This function sets the layout in the model region order for --keep-order. In a
-    nested map with the side rule, it keeps the count of region columns with the smallest
-    `place_sides.fit_rank`, or the column layout as `_search` does."""
-    counts = place_sides.grid_counts(model) if nested else (REGION_COLUMNS,)
-    found = min((_listed_grid(model, nested, n) for n in counts), key=place_sides.fit_rank)
+    nested map with the side rule, it gives the column layout as `_search` does."""
+    found = _listed_grid(model, nested)
     if not nested or place_sides.frame_of(model) is None:
         return found
-    return place_sides.kept_or_column(found, _listed_grid(model, False, REGION_COLUMNS))
+    return place_sides.kept_or_column(found, _listed_grid(model, False))
 
 
-def _listed_grid(model: Model, nested: bool | str, columns: int) -> Placement:
-    """This function sets the layout in the model region order with `columns` columns."""
-    laid = _laid(model, model.regions, nested, columns)
+def _listed_grid(model: Model, nested: bool | str) -> Placement:
+    """This function sets the layout in the model region order."""
+    laid = _laid(model, model.regions, nested)
     laid = replace(laid, order=tuple(r.id for r in model.regions), score=score(apply(model, laid)))
     return _clear_sides(model, laid, nested)
 
