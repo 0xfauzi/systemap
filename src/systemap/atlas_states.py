@@ -39,8 +39,9 @@ study (docs/design/atlas/study-script.html, `drawMachine`):
   click does. Esc removes it. The arrow keys do not move the map.
 - The board is in the free part of the screen: at the right of the list on a wide screen,
   under the row of the list on a phone, and above the reading line. Its scale is SM_MAX or
-  less, as in the study: at a larger scale, a label is more than 12 px from its line
-  (tests/test_atlas_states_browser.py). Its scale is SM_MIN or
+  less, as in the study. The distance of a label box to its line grows with the scale. At
+  SM_MAX it is already more than 12 px on 4 of 7 machines (17.0, 17.5, 17.5 and 49.3 px,
+  record C4 of T0 in bench/jev/README.md, bench/jev/t0_states_T0.txt). Its scale is SM_MIN or
   more, so that its text can be read: on a phone the symbol of a state has a larger font, so
   that each text is 7 px high or more at SM_MIN. When the board does not fit at SM_MIN and
   the board with the columns as rows gives a larger scale (a phone), the columns go down
