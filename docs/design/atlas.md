@@ -94,8 +94,9 @@ state machine, History needs commit data.
   pointer. It is a live region for a screen reader.
 - **Selecting a card.** The details open at the side and the map moves to keep its full
   frame in view. On a phone the details are a sheet at the bottom, and the selected card
-  goes to the part of the screen above the sheet. Each flow row in the details lights its
-  flow on the map.
+  goes to the part of the screen above the sheet. While the sheet is open, the headline does
+  not show: that part of the screen is too short for the map, and the headline must not cover
+  a card. Each flow row in the details lights its flow on the map.
 - **The details keep the content of the canvas page:** the description, the assurance
   level and the freshness, the flows in and out with the evidence state, the source
   modules, the source records, and the sequences that use the card. The rules of the map

@@ -6,7 +6,8 @@ rules are the section "Map view: the rules" of docs/design/atlas.md:
 - Selecting a card. A click, a tap or Enter selects a card. The details open at the side,
   and the map moves to keep its full frame in view (`sideRight` in the fit of
   `atlas_input`). On a phone (720 px or less), the details are a sheet at the bottom, and
-  the selected card goes to the part of the screen above the sheet (`showAbove`). A click
+  the selected card goes to the part of the screen above the sheet (`showAbove`). While the
+  sheet is open, the headline does not show, because the map goes under it. A click
   with a mouse opens the details after OPEN_MS ms, so that a double-click goes into a
   card and opens no details. With reduced motion, they open at once, except for a card that
   opens a map: it keeps the wait, because the camera goes to the selection at once, and the
@@ -138,7 +139,7 @@ body:has(#atlas-say.on) .key{visibility:hidden}
 .side{top:auto;height:62%;width:100%;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;transform:translateY(104%)}
 .say{bottom:max(60px,env(safe-area-inset-bottom,0px))}
 body.open .say{bottom:calc(62% + 12px)}
-body.open .ask__q{font-size:15px}
+body.open .ask{visibility:hidden}
 }
 @media (pointer:coarse){.tool,.side__k button{width:44px;height:44px}.row{min-height:44px}.side summary{min-height:44px}}
 """
@@ -185,9 +186,15 @@ function select(c, how) {
   if (how.wait && (!reduced() || c.child)) OPEN_WAIT = setTimeout(go, OPEN_MS); else go();
 }
 // On a phone: move the selected card to the middle of the part of the screen between the
-// headline and the sheet, at a scale of 0.62 or more.
+// bars at the top and the sheet, at a scale of 0.62 or more. That part is too short for the
+// map, thus other cards go above the selected card. The headline is HTML text over the
+// canvas, and it does not show while the sheet is open (`body.open .ask`). Thus no text
+// covers a card. The bars at the top are the header, the strip of the layer tabs and the
+// bar of a nested map: each has the color of the surface. In the Sequences view the row of
+// the list of the sequences is also at the top (`RAIL` in `atlas_sequences`).
 function showAbove(c) {
-  var b = worldBox(c), top = ASK_EL ? ASK_EL.getBoundingClientRect().bottom + 8 : HEAD_H + 8, low = SIDE.offsetTop - 8;
+  var rail = VIEW.mode === 'seq' && shownEl(RAIL) ? RAIL.getBoundingClientRect().bottom : 0;
+  var b = worldBox(c), top = Math.max(HEAD_H + tabStrip() + insideH(c.map), rail) + 8, low = SIDE.offsetTop - 8;
   var k = clamp(Math.max(cam.k, 0.62 / c.map.T.s), KMIN, Math.min((W - 32) / b[2], Math.max(1, low - top) / b[3], KMAX));
   var cx = W / 2, cy = (top + low) / 2;
   fly({x: b[0] + b[2] / 2 - cx / k, y: b[1] + b[3] / 2 - cy / k, k: k});
