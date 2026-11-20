@@ -420,7 +420,7 @@ requestAnimationFrame(function () { setTimeout(buildTree, 0); });
 // The screen boxes of the labels at rest of map m in the layer of the frame.
 function restLabels(m) {
   var v = view(m), s = seatsOf(m, shownLayer(m), v.a);
-  return s ? s.list.map(function (x) { return {s: x.e.s, f: x.e.f.i, x: v.ox + v.a * x.x, y: v.oy + v.a * x.y, hide: !!x.hide, box: labelBox(x.box, v.a, v.ox, v.oy)}; }) : [];
+  return s ? s.list.map(function (x) { return {s: x.e.s, f: x.e.f.i, x: v.ox + v.a * x.x, y: v.oy + v.a * x.y, mx: x.x, my: x.y, hide: !!x.hide, box: labelBox(x.box, v.a, v.ox, v.oy)}; }) : [];
 }
 function linesState(id) {
   var m = MAPS[id], L = linesOf(m, shownLayer(m)), labels = L.dense ? [] : restLabels(m), S = L.seats;
@@ -428,14 +428,16 @@ function linesState(id) {
     lanes: L.list.map(function (e) { return {f: e.f.i, q: e.q, w: S ? unitWidth(e.s, 500) * S.fs + 8 : null, why: S ? seatWhy(m, e, S) : null}; })};
 }
 // For the measurements: why each part of line e gives no place for its label at rest (the
-// tests of `seat`, with the places of all labels at rest as the taken boxes). The counts
-// are of the places on the parts that are long enough.
+// tests of `seat`, with the places of all labels at rest as the taken boxes). `short` and
+// `upright` count parts; the other counts are of the places on the parts that are long
+// enough.
 function seatWhy(m, e, S) {
   var w = unitWidth(e.s, 500) * S.fs + 8, hh = S.fs * 1.35, q = e.q, wall = walls(m), list = linesOf(m, shownLayer(m)).list, taken = S.list.filter(function (x) { return x.e !== e; }).map(function (x) { return x.box; });
-  var out = {short: 0, wall: 0, taken: 0, crossed: 0, own: 0, free: 0};
+  var out = {short: 0, upright: 0, wall: 0, taken: 0, crossed: 0, own: 0, free: 0}, seq = linesOf(m, shownLayer(m)).seq;
   for (var i = 0; i + 1 < q.length; i++) {
     var flat = Math.abs(q[i][1] - q[i + 1][1]) < 0.01;
     if (segLen(q, i) < (flat ? w : hh) + 18) { out.short++; continue; }
+    if (!seq && !flat && w > UPRIGHT_MAX * hh) { out.upright++; continue; }
     SEAT_T.forEach(function (t) {
       var cx = q[i][0] + (q[i + 1][0] - q[i][0]) * t, cy = q[i][1] + (q[i + 1][1] - q[i][1]) * t, box = [cx - w / 2, cy - hh / 2, cx + w / 2, cy + hh / 2];
       var k = wall.some(function (c) { return over(box, c); }) ? 'wall' : taken.some(function (c) { return over(box, c); }) ? 'taken' : crossed(box, list, e) ? 'crossed' : ownCrossed(box, q, i) ? 'own' : 'free';

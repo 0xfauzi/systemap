@@ -30,7 +30,9 @@ section "Map view: the rules" of docs/design/atlas.md:
   in the order below that has a place. Only the boards of the Sequences view cut an artifact
   of more than LABEL_MAX characters, with "..." after it (`shortText`). A label of a sequence that has no place on one ground can cross such an edge, so that it
   still shows (`m._walls0`). A horizontal part of the line comes first, then the longest
-  part. The label has a constant size on the screen (`labelPx`). The short lines get their
+  part. Outside the Sequences view, a vertical part takes a label only when the label is
+  UPRIGHT_MAX label heights wide or less: a long label across a vertical line does not show
+  which line it names. The label has a constant size on the screen (`labelPx`). The short lines get their
   places first. A line with no such place has no label at rest (`seatsOf`).
 - Sequences. In the layer of a sequence (`atlas_sequences`), the label of each line has the
   numbers of its steps before the artifact, and the busy layer rule does not apply. A label
@@ -217,13 +219,17 @@ var SEAT_T = (function () {
   return out.concat(more);
 })();
 // A place for the label of line e at the font size fs (in units of the map), or null.
-function seat(e, fs, wall, taken, list) {
+// With `across`, a vertical part takes the label only when the label is UPRIGHT_MAX label
+// heights wide or less: a long label across a vertical line does not show which line it
+// names.
+var UPRIGHT_MAX = 8;
+function seat(e, fs, wall, taken, list, across) {
   var w = unitWidth(e.s, 500) * fs + 8, hh = fs * 1.35, q = e.q, best = null;
   function flat(i) { return Math.abs(q[i][1] - q[i + 1][1]) < 0.01; }
   var order = q.slice(0, -1).map(function (p, i) { return i; }).sort(function (a, b) { return (flat(b) - flat(a)) || segLen(q, b) - segLen(q, a); });
   for (var o = 0; o < order.length && !best; o++) {
     var i = order[o], a = q[i], b = q[i + 1];
-    if (segLen(q, i) < (flat(i) ? w : hh) + 18) continue;
+    if (segLen(q, i) < (flat(i) ? w : hh) + 18 || (across && !flat(i) && w > UPRIGHT_MAX * hh)) continue;
     SEAT_T.forEach(function (t) {
       if (best) return;
       var cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, box = [cx - w / 2, cy - hh / 2, cx + w / 2, cy + hh / 2];
@@ -307,7 +313,7 @@ function seatsOf(m, id, a) {
     // The lines of one flow of the map above show one label (`labelKey`).
     var key = L.seq ? null : labelKey(m, e);
     if (key !== null && shown[key]) return;
-    var at = seat(e, fs, wall, taken, L.list) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) || seqSeat(e, fs, m._walls0, taken, L.list) : null);
+    var at = seat(e, fs, wall, taken, L.list, !L.seq) || (L.seq ? seqSeat(e, fs, wall, taken, L.list) || seqSeat(e, fs, m._walls0, taken, L.list) : null);
     if (!at) { if (L.seq) later.push(e); return; }
     if (key !== null) shown[key] = true;
     taken.push(at.box); out.push({e: e, x: at.x, y: at.y, box: at.box});

@@ -88,6 +88,11 @@ N5 passed and before these tests ran. Acceptance 18 is now for the commands with
     label collision or a refused route, the placer makes the best such move. The change of
     the count of region columns (N6, N7) changed the layout of Page, and the value changed
     with it, but the rule did not change.
+    Acceptance 21b also does not keep the two conditions "its actors are at three sides or
+    more" and "no side has all the actors" (added to this text on 2026-11-20, after a
+    review). They are values of the layout of Page, not of the rule of the side moves that
+    acceptance 21 stands for, and acceptance 26 of tests/test_atlas_browser.py holds them
+    on the layout of map/page.py. Thus the check is not lost: it is in one test.
 
 Acceptance values 21b to 23, written on 2026-11-20 for stage 2 of the open faults of the
 atlas page, before these tests ran:

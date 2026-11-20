@@ -19,6 +19,7 @@ A layer is a filtered view of the map.
 
 ### Atlas page
 
+- A long label at rest does not go across a vertical part of its line. Outside the Sequences view, a vertical part takes a label only when the label is 8 label heights wide or less. The label shows when the reader points at the line.
 - No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
 
 ### Changes that can break a script or a CI job

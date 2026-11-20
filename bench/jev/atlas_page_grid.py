@@ -181,9 +181,7 @@ def lines_values(html: Path, page: dict[str, Any]) -> tuple[bool, float]:
             )
             ends = abs(q[-1][0] - q[0][0]) + abs(q[-1][1] - q[0][1])
             a, b = cards[f["s"]]["b"], cards[f["t"]]["b"]
-            middle = abs(a[0] + a[2] / 2 - b[0] - b[2] / 2) + abs(
-                a[1] + a[3] / 2 - b[1] - b[3] / 2
-            )
+            middle = abs(a[0] + a[2] / 2 - b[0] - b[2] / 2) + abs(a[1] + a[3] / 2 - b[1] - b[3] / 2)
             worst = max(worst, length / max(ends, 1e-9), length / max(middle, 1e-9))
     return full, worst
 

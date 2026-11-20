@@ -23,6 +23,15 @@ E1. On #Page at 1440 x 900, in each layer tab, no part of a line is on an edge o
     value of an edge, and that overlaps the range of that edge by more than 2 map units, is
     on the edge. The frame is the box of the container `part` of the page data.
 
+Acceptance value L3, written on 2026-11-20 for the third repair of stage 2 of the open faults,
+before the first run of its test. A review saw the full label of the lines of Judgement,
+"uncovered entry points, assurance levels, boundary findings", across a vertical part of one
+of its lines below the frame, with no visible attachment to one line:
+
+L3. On #Page at 1440 x 900, in each layer tab, a label at rest whose centre is on a vertical
+    part of its line has a screen box that is 8 times its height wide or less. The test also
+    holds that the box of each label at rest has its centre on its own line.
+
 How the test reads these values (written before the first run of this test):
 
 - P1: a label at rest is an item of `labels` of `systemapCanvas.lines('Page')` in each layer
@@ -175,3 +184,27 @@ def test_no_line_is_on_the_edge_of_the_frame(
             assert not _on_edge(lane["q"], frame), (layer["id"], lane["f"], lane["q"])
             parts += len(lane["q"]) - 1
     assert parts > 0
+
+
+def _part_at(q: list[list[float]], x: float, y: float) -> str | None:
+    """Give "flat" or "upright" for the part of line q through the point, or None."""
+    for a, b in zip(q, q[1:], strict=False):
+        if abs(a[1] - b[1]) < 0.01 and abs(y - a[1]) < 0.5:
+            if min(a[0], b[0]) - 0.5 <= x <= max(a[0], b[0]) + 0.5:
+                return "flat"
+        if abs(a[0] - b[0]) < 0.01 and abs(x - a[0]) < 0.5:
+            if min(a[1], b[1]) - 0.5 <= y <= max(a[1], b[1]) + 0.5:
+                return "upright"
+    return None
+
+
+def test_a_long_label_is_not_across_a_vertical_line(run: dict[str, Any]) -> None:
+    """L3."""
+    for layer in run["layers"]:
+        lanes = {lane["f"]: lane["q"] for lane in layer["lanes"]}
+        for label in layer["labels"]:
+            part = _part_at(lanes[label["f"]], label["mx"], label["my"])
+            assert part is not None, (layer["id"], label)
+            x0, y0, x1, y1 = label["box"]
+            if part == "upright":
+                assert x1 - x0 <= 8 * (y1 - y0), (layer["id"], label)

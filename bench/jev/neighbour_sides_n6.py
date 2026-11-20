@@ -70,6 +70,17 @@ the column step on a second line with no acceptance value. The text of the six v
 not change. N7, N8 and N9 were not run again with this change: their output files have the
 `rule` rows, and bench/jev/README.md gives value 1 from those rows.
 
+The third review of the repair of stage 2 of the open faults (2026-11-20) found that the
+corrected value 1 of N7, N8 and N9 had no output of a run. Thus, before these runs, the
+three records are run again with this script and no change of the six values (records
+N7r, N8r and N9r of bench/jev/README.md). Each run uses the seed of its record and the
+rule of its record. N7r: the source of the commit 8ed658e, seed 7. N9r: the source of the
+commit 610dddf (the rule of N9 with no change), seed 9. The rule of N8 was never in a
+commit. N8r uses the source of 610dddf with `place_sides.few_sides` replaced by a function
+that gives 0 for each layout, which is the rule of N8 as the record of N9 gives it (option
+`--no-few-sides`). These runs are not blind tests: the maps of these seeds were measured
+before. They give the output of value 1 as the script now reads it.
+
 Run from the repository root:
     uv run python bench/jev/neighbour_sides_n6.py [--seed N]
 
@@ -261,6 +272,10 @@ def _without_column_step(model: Model) -> dict[str, Any]:
 
 def main(argv: list[str]) -> int:
     seed = int(argv[argv.index("--seed") + 1]) if "--seed" in argv else 6
+    if "--no-few-sides" in argv:
+        from systemap import place_sides  # noqa: PLC0415
+
+        place_sides.few_sides = lambda _model, _laid: 0
     models = generate(seed)
     results: dict[str, dict[str, dict[str, Any]]] = {}
     print(f"seed {seed}")

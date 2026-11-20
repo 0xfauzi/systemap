@@ -104,6 +104,13 @@ before its first run: the script runs three times, with no other heavy command o
 and B28 passes only if each of the three runs passes each value. A failed run is not run
 again, and the three results are all recorded.
 
+Before the runs of B29 (written on 2026-11-20, after the third review of stage 2 of the open
+faults): outside the Sequences view, a vertical part of a line takes a label at rest only
+when the label is 8 label heights wide or less (`UPRIGHT_MAX` in `atlas_lines`). The
+acceptance values do not change. The rule of B28 applies with no change: three runs, with no
+other heavy command on the host, B29 passes only if each run passes each value, and a failed
+run is not run again.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

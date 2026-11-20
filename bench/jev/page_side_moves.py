@@ -59,7 +59,7 @@ def collisions(model: Model) -> list[str]:
             continue
         f = model.flows[i]
         out.append(
-            f"  {f.src} -> {f.dst}, \"{f.artifact}\", label {widths[i]:.0f} units wide, "
+            f'  {f.src} -> {f.dst}, "{f.artifact}", label {widths[i]:.0f} units wide, '
             f"cost {seat.cost:.2f}, touches {', '.join(seat.hits) or 'nothing named'}"
         )
     return out

@@ -8542,3 +8542,135 @@ This work does not change the layout of the M11 tree. It adds 776 bytes of scrip
 atlas page (B27: 1,274,704 bytes for the M11 tree, B28: 1,275,480). The budget after this
 change is not met by the rule of B28, and the cause of the dive time is not known. A
 measurement of the dive with and without `offEdges` on the same host is necessary.
+
+## N7r, N8r and N9r: the records N7, N8 and N9 run again with the corrected value 1 (2026-11-20)
+
+Script: `bench/jev/neighbour_sides_n6.py`. The third review of the repair of stage 2 of the
+open faults found that the corrected value 1 of N7, N8 and N9 (the corrections after the
+second review, above) came from the recorded rows and had no output of a run. The plan of
+these runs is in the docstring of the script, written before the runs. The six acceptance
+values did not change. These runs are not blind tests: the maps of seeds 7, 8 and 9 were
+measured before.
+
+- N7r: the source of the commit 8ed658e (the rule of N7), seed 7. Full output:
+  `bench/jev/neighbour_sides_N7r.txt`.
+- N8r: the source of the commit 610dddf with `place_sides.few_sides` replaced by a function
+  that gives 0 (option `--no-few-sides`), seed 8. The rule of N8 was never in a commit, thus
+  this is a reconstruction. Each `column` and `sides` row and the values 2 to 6 are the same
+  as in `bench/jev/neighbour_sides_N8.txt`. Full output: `bench/jev/neighbour_sides_N8r.txt`.
+- N9r: the source of the commit 610dddf (the rule of N9 with no change), seed 9. Each
+  `column` and `sides` row and the values 2 to 6 are the same as in
+  `bench/jev/neighbour_sides_N9.txt`. Full output: `bench/jev/neighbour_sides_N9r.txt`.
+
+| Run | 1 (without the column step) | 2 | 3 | 4 | 5 | 6 | Result |
+|---|---|---|---|---|---|---|---|
+| N7r | FAIL (gen 7.9) | PASS (428 / 457) | PASS (69,521 / 113,127) | PASS (3,437 / 6,704) | PASS (0.812, gen 7.6) | PASS | FAIL |
+| N8r | PASS | FAIL (481 / 480) | PASS (70,542 / 116,668) | FAIL (3,382 / 6,579) | PASS (0.816, gen 8.9) | PASS | FAIL |
+| N9r | PASS | PASS (390 / 440) | PASS (60,734 / 104,243) | PASS (3,392 / 6,149) | FAIL (0.735, gen 9.4) | PASS | FAIL |
+
+The runs agree with the values that the corrections after the second review gave from the
+recorded rows. In N7r the column step gave the column layout on gen 7.9. In N8r and N9r it
+gave the column layout on no input. Thus N6, N7, N8 and N9 each fail one value or more, and
+no form of the side rule has a blind pass. This work made no change of the side rule and ran
+no new seed.
+
+## L3: a long label across a vertical part of its line (2026-11-20)
+
+Test: `test_a_long_label_is_not_across_a_vertical_line` of
+`tests/test_atlas_page_layout_browser.py`. The acceptance value L3 is in its docstring,
+written before the first run. The third review saw the full label of the lines of
+Judgement, "uncovered entry points, assurance levels, boundary findings", below the frame
+of Page at 1440 x 900, across the vertical part of the line Judgement -> CanvasPage, with no
+visible attachment to one line.
+
+Change: outside the Sequences view, a vertical part of a line takes a label at rest only when
+the label is 8 label heights wide or less (`UPRIGHT_MAX` in `atlas_lines`). The test hook
+`seatWhy` counts such parts as `upright`.
+
+- With `UPRIGHT_MAX` set to 1000 (no limit), L3 FAILS on the label of Judgement.
+- With the change, L3 PASSES, and P1, P2 and E1 of the same file PASS. P3 still FAILS
+  (87 percent), as before.
+
+The label of Judgement now does not show at rest on #Page. The screenshots of #Page at
+1440 x 900, light and dark, show no label below the frame. The labels "layers" and "name,
+paths" show as before.
+
+## D1: the cause of the dive time of the M11 tree (2026-11-20)
+
+Script: `bench/jev/atlas_dive_cause.py`. The two acceptance values D1a and D1b are in its
+docstring, written before the first run. The script measures the dive of the M11 tree at 4
+times CPU slowdown, in 10 rounds, on the canvas page, the atlas page, and the atlas page
+built with no call of `offEdges`. Each round runs the three pages one time each, in turns.
+No other heavy command ran on the host. The full output is in
+`bench/jev/atlas_dive_cause_D1.txt`.
+
+The first run failed before a measurement: the script removed the call from the text of the
+built page, but the content policy of the page has the hash of the script. Thus the browser
+did not run the script, and the first dive timed out after 30 s
+(`page.waitForFunction: Timeout 30000ms exceeded`). The script now builds the page again
+with the changed script (`atlas_page._SCRIPT`). The acceptance values did not change.
+
+| Page | p95 of the 10 runs (ms) | Median (ms) |
+|---|---|---|
+| canvas | 49.9, 33.4, 33.4, 33.4, 33.4, 49.9, 33.4, 50.0, 33.4, 50.0 | 33.4 |
+| atlas | 33.4, 33.4, 33.4, 33.4, 50.0, 50.0, 33.4, 50.0, 33.4, 50.0 | 33.4 |
+| atlas without `offEdges` | 33.4, 33.4, 33.4, 33.4, 50.0, 33.4, 33.4, 50.0, 33.4, 33.4 | 33.4 |
+
+D1a: `offEdges` is not a cause (the medians are the same, and the page with the call has 2
+runs more at 50 ms or more, but not a larger median). D1b: PASS, 9 of 10 rounds meet the
+budget value (round 6: canvas 49.9, atlas 50.0 meets it; round 5: canvas 33.4, atlas 50.0
+does not). The count "at 50 ms or more" of the script does not count the canvas runs at 49.9
+ms: the canvas page has 4 runs at 49.9 or 50.0 ms, the atlas page 4, and the atlas page
+without `offEdges` 2.
+
+Conclusion: the p95 of a dive is 33.4 or 50.0 ms on each of the three pages: one frame more
+in the 95th percentile changes the value by one step of 16.7 ms. The canvas page has the
+same steps. The failed run 2 of B28 is one such round, and its cause is not a change of the
+atlas page. The rule of B28 (three runs, each must pass) fails in about 1 run of 10 for this
+value on this host. The acceptance values of the budget did not change.
+
+## B29: the performance budget after the third repair of stage 2 of the open faults (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py`, with no change to the acceptance values. The note of
+B29 and the rule of B28 (three runs, B29 passes only if each run passes each value, no run
+again) are in the docstring, written before the first run. No other heavy command ran on
+the host. The full outputs are in `bench/jev/atlas_budget_B29_run1.txt`, `_run2.txt` and
+`_run3.txt`.
+
+| Run | self: dive p95 canvas / atlas (ms) | M11 tree: dive p95 canvas / atlas (ms) | Point time self / workspace / M11 (ms) | Result |
+|---|---|---|---|---|
+| 1 | 50.0 / 33.4 | 33.4 / 49.9 (fail) | 76 / 83 / 89 | fail |
+| 2 | 50.0 / 33.4 | 33.4 / 33.4 | 72 / 66 / 63 | pass |
+| 3 | 50.0 / 33.4 | 33.4 / 33.4 | 79 / 86 / 80 | pass |
+
+Each other value passed in each run (first frame, pan, page size: atlas 438,208 bytes for
+self, 1.20 of the canvas page). Result: FAIL (run 1, the dive p95 of the M11 tree on the
+atlas page, 49.9 ms against 33.4 ms for the canvas page). This is the value of B28 run 2 and
+of the first run of B26. D1 above measured it: the dive p95 is 33.4 or 50.0 ms on the canvas
+page and on the atlas page, with or without `offEdges`, and the median of each page is 33.4
+ms. D1 used the source of this work, with `UPRIGHT_MAX`. The
+budget, read with the rule of B28, is not met. A decision of the maintainer is necessary:
+the rule of three runs with a value that is a step of 16.7 ms, or a different form of the
+dive value. This work did not change the rule or the values.
+
+## The open items after the third review of stage 2 of the open faults (2026-11-20)
+
+- P3 (`test_the_fit_of_page_is_large`): FAIL, 87 percent, frame 0.560 of the screen width.
+  The layout of Page did not change in this work. P9 gives the measured cause.
+- P4 (acceptance 22, `test_each_neighbour_is_at_the_nearest_side`): FAIL on Judgement
+  (bottom, right is nearest: 307.2 against 210.2). M1 gives the measured cause.
+- The side rule has no blind pass (N6, N7r, N8r, N9r), and the commands keep it against
+  the gate of N4. This work made no change of the rule and ran no new seed, because the
+  brief permits one change after N6 only, and that permission was used for N7.
+- At 390 x 844 the seven neighbours at the right of the frame of Page show 7 percent of
+  their width (P7). At 1440 x 900 the map is at the right of the headline with a large
+  free area at the left: the fit is 87 percent, and the height of the map (860) sets it.
+- B29: FAIL in run 1 (D1 above).
+
+The cause of the first four items is one conflict, measured in P9: P3 needs a map of 960
+map units or more in width at a height of 830 or less, a third side of neighbours
+(acceptance 26) adds a row to the height of a frame with two region columns, and with three
+or four region columns, neighbours go to the right of the frame, outside the phone view of
+stage 11 (the phone opens a map at a zoom of 0.5 at its top left part: 752 map units of
+width). A decision of the maintainer is necessary: which of P3, P4, acceptance 26 and the
+phone test of stage 11 the layout of Page must meet.

@@ -78,7 +78,11 @@ state machine, History needs commit data.
   the screen. A label at rest shows the full artifact, or it does not show: it is not cut
   with "...". In a nested map, the lines of one neighbour with one artifact are the parts of
   one flow of the map above, and they show one label at most (stage 2 of the open faults,
-  2026-11-20).
+  2026-11-20). Outside the Sequences view, a vertical part of a line takes a label only
+  when the label is 8 label heights wide or less (`UPRIGHT_MAX` in `atlas_lines`). A long
+  label across a vertical line does not show which line it names. Thus on #Page the label
+  of the lines of Judgement does not show at rest. It shows when the reader points at
+  Judgement or at one of its lines (L3 in tests/test_atlas_page_layout_browser.py).
 - **Busy layers.** With many flows, the lines go light and the labels do not show at rest.
   The dot and the arrowhead stay.
 - **Pointing at a card.** The flows of the card get the color of their kind and draw one
@@ -171,7 +175,10 @@ state machine, History needs commit data.
   each layout of the rule with 2, 3 and 4 region columns and each region order (118
   layouts): no layout meets P1 to P4, acceptance 26 and the phone test of stage 11
   together. P3 and the phone test hold together only with two region columns and two
-  sides. A decision of the maintainer is necessary.
+  sides. A decision of the maintainer is necessary. N7r, N8r and N9r ran N7, N8 and N9
+  again with value 1 read before the column step: each fails one value or more. The
+  label of the lines of Judgement no longer shows at rest across a vertical line (L3), but
+  the layout of Page did not change.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced
