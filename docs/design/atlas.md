@@ -179,6 +179,10 @@ state machine, History needs commit data.
   again with value 1 read before the column step: each fails one value or more. The
   label of the lines of Judgement no longer shows at rest across a vertical line (L3), but
   the layout of Page did not change.
+  Decision of the maintainer (2026-11-20): the rule stays on for its look, although no form
+  of it has a blind pass (N6, N7r, N8r, N9r). It can give a worse layout on a nested map that
+  it was not made on. See "The decision of the maintainer on the side rule" in
+  bench/jev/README.md.
 - **Phone.** The map opens at a zoom of 0.5 or more at its top left part. The Fit control
   still shows the whole map.
 - **Motion.** A motion shows a direction or an order and occurs one time. With reduced

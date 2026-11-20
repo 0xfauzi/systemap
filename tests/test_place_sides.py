@@ -630,16 +630,36 @@ def _nearest(model: Model) -> list[tuple[str, str, dict[str, float]]]:
     return out
 
 
+# A neighbour that a side move put off its nearest side to remove label collisions. Each item
+# names the record that measured the collisions. Only the maintainer adds an item.
+MOVED = {"Judgement": Path("bench/jev/page_side_moves_M1.txt")}
+
+
 def test_each_neighbour_is_at_the_nearest_side() -> None:
-    """Acceptance 22."""
+    """Acceptance 22.
+
+    Changed on 2026-11-20, after its measurement, by a decision of the maintainer. Judgement on
+    Page is at the bottom, not at its nearest side (the right). M1
+    (bench/jev/page_side_moves_M1.txt) measured that the side move removes 2 label collisions,
+    and every layout that meets this test and acceptance 26 with no collision fails the phone
+    test Z4d (P9). The maintainer chose the layout that looks better, judged by the coordinator to be the side
+    rule. Thus a neighbour in MOVED
+    may be off its nearest side, if its record shows collisions before the move and none
+    after. Each other neighbour must be at its nearest side.
+    """
     maps = [_page()] + [
         _laid(model_of(s), nested=True) for s in (test_nested.GATEWAY, test_nested.STYLE)
     ]
     checked = 0
     for model in maps:
         for actor, side, far in _nearest(model):
-            assert far[side] <= min(far.values()), (actor, side, far)
             checked += 1
+            if far[side] <= min(far.values()):
+                continue
+            assert actor in MOVED, (actor, side, far)
+            record = (Path(__file__).resolve().parent.parent / MOVED[actor]).read_text("utf-8")
+            assert f"Side moves: {actor} " in record, record
+            assert "0 label collisions" in record.split("After the side moves:")[1], record
     assert checked >= 12
 
 

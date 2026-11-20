@@ -8674,3 +8674,28 @@ or four region columns, neighbours go to the right of the frame, outside the pho
 stage 11 (the phone opens a map at a zoom of 0.5 at its top left part: 752 map units of
 width). A decision of the maintainer is necessary: which of P3, P4, acceptance 26 and the
 phone test of stage 11 the layout of Page must meet.
+
+## The decision of the maintainer on the side rule (2026-11-20)
+
+After the third review of stage 2 of the open faults, the coordinator showed the maintainer
+two pictures of Page at 1440 x 900 and 390 x 844, made with the same code at f8e78e2^ (610dddf):
+the side rule (fit 87 percent, neighbours at three sides) and the column layout
+(`place.SIDES_IN_COMMANDS = False`, `systemap place --all --map Page`: fit 73 percent, all ten
+neighbours in one column at the left, about 30 lines in one gap, two labels on top of each
+other). The maintainer chose "the more visually appealing option". From the two pictures, the
+coordinator judged that to be the side rule, and sent the pictures with that judgement to
+the maintainer. Thus:
+
+- The commands keep the side rule (`place.SIDES_IN_COMMANDS = True`). This is a decision
+  against the gate of N4, which says to keep the rule only if a blind run passes all six
+  values. No form of the rule has a blind pass (N6, N7r, N8r, N9r). The rule can give a
+  worse layout on a nested map that it was not made on. This is a known risk.
+- P3 changes after its measurement to the measured values of the side rule: a fit of 87
+  percent or more and a frame of 0.55 of the width or more
+  (`tests/test_atlas_page_layout_browser.py`).
+- Acceptance 22 changes after its measurement: a neighbour may be off its nearest side when a
+  record shows that its side move removes label collisions (Judgement, M1)
+  (`tests/test_place_sides.py`, `MOVED`).
+- Still open: at 390 x 844 the seven neighbours at the right of Page show about 7 percent of
+  their width. The phone opening view is part of the next work, with targets from
+  measurements.

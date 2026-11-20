@@ -27,6 +27,10 @@ six values of N4, with no change (bench/jev/neighbour_sides_n4.py). No input of 
 is named `page`, thus value 5 is 80 percent or more on each input. The commands keep the
 rule (`place.SIDES_IN_COMMANDS = True`) only if all of them hold.
 
+Result and decision (2026-11-20): no form of the rule passed all six values on a blind set
+(N6, N7r, N8r, N9r). The maintainer chose to keep the rule for its look on Page, against this
+gate. See "The decision of the maintainer on the side rule" in bench/jev/README.md.
+
 1. On each input, `refused` and `collisions` of `sides` are not more than those of
    `column`.
 2. The total `bends` of `sides` over all inputs is not more than that of `column`.
