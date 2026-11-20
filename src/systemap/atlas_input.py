@@ -361,7 +361,10 @@ function button(id, f) { var b = document.getElementById(id); if (b) b.addEventL
 button('atlas-zo', function () { fly(zoomed(0.8), 200); });
 button('atlas-zi', function () { fly(zoomed(1.25), 200); });
 button('atlas-zf', function () { fitCurrent(true); });
-window.addEventListener('hashchange', function () { goTo(hashGoal()); });
+// A hash change opens the Map view of the map or the card that the hash names. A different
+// view keeps its own map (`viewMap`), and that map can have no sequence, no machine or no
+// history. Thus a hash change in a different view first opens the Map view.
+window.addEventListener('hashchange', function () { if (VIEW.mode !== 'map') setMode('map'); goTo(hashGoal()); });
 function measure() {
   var r = cv.getBoundingClientRect();
   W = Math.max(1, r.width); H = Math.max(1, r.height);

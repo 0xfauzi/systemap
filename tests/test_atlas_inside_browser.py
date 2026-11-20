@@ -91,6 +91,8 @@ How the test reads these values (written before the first run of these tests):
   headline, a list or a board. The ground of the canvas is `--inside`, and so is the
   background of the page where the canvas does not show. A click on Back opens the Map view
   of the map above with the card of the nested map selected.
+- H1 (written before the repair on 2026-11-20): after a change of location.hash to #Page in
+  each view of the top map, the page shows the Map view of Page with the bar.
 """
 
 from __future__ import annotations
@@ -493,6 +495,26 @@ def test_each_view_of_a_nested_map_shows_the_bar_and_the_ground(
     assert all(r["shows"] == "" for r in history)
     for r in [r for r in runs if r["has"]]:
         assert r["body"] == _rgb(r["inside"] if r["shows"] else r["top"]), (r["view"], r["id"])
+
+
+def test_a_hash_change_in_each_view_opens_the_map_view_with_the_bar(
+    views_pages: dict[str, Path],
+) -> None:
+    """H1: a hash change in a view other than the Map view gave a hidden bar."""
+    runs = _drive("--hash", str(views_pages["self"]), "Page")["runs"]
+    assert [r["view"] for r in runs if r["has"]] == [
+        "map",
+        "seq-map",
+        "seq-diagram",
+        "states",
+        "focus",
+        "history",
+    ]
+    for r in runs:
+        where = r["view"]
+        assert (r["mode"], r["current"], r["shows"]) == ("map", "Page", "Page"), (where, r)
+        assert r["bar"] and not r["hidden"], (where, r)
+        assert "Back to " in r["back"] and "Inside Page" in r["back"], (where, r)
 
 
 def _rgb(color: str) -> str:

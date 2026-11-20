@@ -120,6 +120,8 @@ state machine, History needs commit data.
      one more level after the movement: each level has its own movement, and the last one
      selects its card. In a view other than the Map view, Back and Esc open the Map view of
      the map above with the card of the nested map selected.
+     A change of the URL hash in a view other than the Map view opens the Map view of the
+     map that the hash names, with the bar when that map is a nested map.
   2. *The zoom movement.* A move into a nested map goes from the box of its card on the map
      above to the fit of the nested map. A move out goes back to that card, and the card is
      then selected. Each movement takes 360 ms (250 ms to 450 ms). The last frame of a move

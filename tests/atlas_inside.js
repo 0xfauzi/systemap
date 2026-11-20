@@ -35,6 +35,9 @@
 // - --totals PAGE MAP: 1440 x 900. On the top map: the reading line for the card MAP and the
 //   text of the button of its details that goes in. Then in the map MAP: the counts of the
 //   headline in each layer tab.
+// - --hash PAGE MAP: 1440 x 900. Each view (as for --views) on the top map, then a change of
+//   location.hash to the nested map MAP. The state after it: the view, the map that the view
+//   shows, the current map, and the bar.
 // Each mode prints one JSON object. `errors` has the script errors of the page.
 'use strict';
 const fs = require('fs');
@@ -316,6 +319,26 @@ async function views(browser, file, map) {
   return { runs, errors };
 }
 
+async function hashMode(browser, file, map) {
+  const runs = [], errors = [];
+  for (const view of ['map', 'seq-map', 'seq-diagram', 'states', 'focus', 'history']) {
+    const o = await open(browser, file, '', WIDE);
+    const has = await toView(o.page, view, '');
+    await o.page.waitForTimeout(600);
+    await o.page.evaluate((map) => { location.hash = '#' + map; }, map);
+    await o.page.waitForTimeout(1300);
+    const st = await o.page.evaluate(() => {
+      const s = window.systemapCanvas, i = s.inside(), bar = document.getElementById('atlas-inside');
+      return { mode: document.body.getAttribute('data-mode'), shows: i.view, current: s.current(), bar: !!i.bar, hidden: !bar || bar.hidden,
+        back: bar && !bar.hidden ? bar.textContent : '' };
+    });
+    runs.push({ view, has, ...st });
+    errors.push(...o.errors);
+    await o.page.close();
+  }
+  return { runs, errors };
+}
+
 async function totals(browser, file, map) {
   const o = await open(browser, file, '', WIDE);
   await o.page.evaluate((map) => window.systemapCanvas.pointAt('', map), map);
@@ -350,7 +373,8 @@ async function totals(browser, file, map) {
       '--path': () => pathMode(browser, file, arg),
       '--zooms': () => zooms(browser, file, arg),
       '--views': () => views(browser, file, arg),
-      '--totals': () => totals(browser, file, arg)
+      '--totals': () => totals(browser, file, arg),
+      '--hash': () => hashMode(browser, file, arg)
     }[mode];
     process.stdout.write(JSON.stringify(await run()));
   } finally {
