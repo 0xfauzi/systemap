@@ -4,7 +4,12 @@ label of the canvas.
 `atlas_script` joins this part after the image part (`atlas_image`). It is a fork of the
 tree part of the canvas page (`page_canvas_tree`). The page keeps a text list of the map
 tree for a screen reader (`buildTree`): the maps, the cards in reading order and the flows.
-Each link of the list moves the camera to its item. The URL hash holds the camera target:
+Each link of the list moves the camera to its item. The links are not in the order of Tab
+(`tabindex` -1): the canvas gives Tab to the cards and the lines of the current map
+(`tabOrder` in `atlas_keys`), and a screen reader reads the links of the list in its own
+order. Without this, Tab went through each card and flow of each map a second time after
+the canvas, as links that do not show. The link of a neighbour of a nested map goes out to
+its card in the map above (`upCard`), as a selection on the canvas and a result of Find do. The URL hash holds the camera target:
 the ID of the open map, for example `#Gateway`, or the ID of a card in a map, for example
 `#Gateway/Routes`. A card fits its map and is selected when the camera stops (`goTo`), as
 after the result of a card in Find. The label of the canvas and the live region give the open map and its layer.
@@ -87,9 +92,10 @@ function factsText(c) {
   out.push(markWords(c));
   return out.filter(Boolean).join(' ');
 }
-// A link of the list: `at` gives the data attributes of its map and its card or flow.
+// A link of the list: `at` gives the data attributes of its map and its card or flow. The
+// link is not in the order of Tab: a screen reader reads the list.
 function treeLink(hash, at, text) {
-  return el('a', Object.assign({href: hash || '#'}, at), text);
+  return el('a', Object.assign({href: hash || '#', tabindex: '-1'}, at), text);
 }
 // The lists of the cards and of the flows of a map. The cards are in the reading order of
 // Tab (`readingOrder` in `page_canvas_keys`). The item of a card that opens a map holds the
@@ -97,7 +103,7 @@ function treeLink(hash, at, text) {
 function mapLists(m) {
   var name = mapName(m);
   return [el('ul', {'aria-label': 'Cards of ' + name}, readingOrder(m).map(function (c) {
-    return el('li', null, treeLink(hashOf(cardId(c)), {'data-m': m.oi, 'data-c': c.i}, c.id), ' ' + factsText(c),
+    return el('li', null, treeLink(hashOf(cardId(upCard(c) || c)), {'data-m': m.oi, 'data-c': c.i}, c.id), ' ' + factsText(c),
       c.child ? mapLists(c.child) : null);
   })), m.flows.length ? el('ul', {'aria-label': 'Flows of ' + name}, m.flows.map(function (f) {
     return el('li', null, treeLink(hashOf(m.id), {'data-m': m.oi, 'data-f': f.i}, 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a));
@@ -124,8 +130,10 @@ function union(a, b) {
 // The camera goal of a map, a card or a flow: a world box and the margin of its fit. A
 // card that opens a map has the goal of that map. A card that opens no map has the fit of
 // its map, and `card` is the card to select when the camera stops there (`goTo`). A deep
-// zoom into the card does not occur, because an atlas card shows only its name.
+// zoom into the card does not occur, because an atlas card shows only its name. The goal of
+// a neighbour of a nested map is its card in the map above (`upCard`).
 function goalOf(m, c, f) {
+  if (c && !c.child && upCard(c)) c = upCard(c);
   if (f) {
     var s = m.byId[f.s], t = m.byId[f.t];
     return s && t ? {box: union(worldBox(s), worldBox(t)), pad: 0.2} : {box: frameOf(m), pad: FIT};

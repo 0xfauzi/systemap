@@ -229,7 +229,8 @@ These are not in the study. They are necessary.
 - **Large maps.** Build the elements of a nested map only when the camera is near it.
   Remove them when it is far. The gate below gives the limits.
 - **Access.** Each card, line and control works with the keyboard and has a name for a
-  screen reader. The page keeps a text list of the map tree for a screen reader. The
+  screen reader. The page keeps a text list of the map tree for a screen reader. The links of
+  the list are not in the order of Tab: the canvas gives Tab to the cards and the lines. The
   contrast of each text and mark has a row in a contrast test. The page passes axe-core.
 - **Parity.** Find, the URL hash of a card or a map, the theme control (device, light,
   dark), the Reduce motion control, the keyboard help, the live page (`systemap live`),

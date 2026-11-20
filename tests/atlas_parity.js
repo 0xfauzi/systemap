@@ -338,7 +338,9 @@ async function treeMode(browser, file) {
   out.links = await page.$$eval('#atlas-tree a', (a) => a.map((x) => ({ text: x.textContent, href: x.getAttribute('href'), m: x.getAttribute('data-m'), c: x.getAttribute('data-c'), f: x.getAttribute('data-f') })));
   out.lists = await page.$$eval('#atlas-tree ul[aria-label]', (u) => u.map((x) => x.getAttribute('aria-label')));
   out.text = await page.textContent('#atlas-tree');
-  const card = out.links.find((l) => l.c !== null && l.m !== '0');
+  // A part of the nested map: its link stays in the nested map. The link of a neighbour goes
+  // out to its card in the map above (tests/test_atlas_faults_browser.py).
+  const card = out.links.find((l) => l.c !== null && l.m !== '0' && l.href.indexOf('/') > 0);
   if (card) {
     await page.focus('#atlas-tree a[data-c="' + card.c + '"][data-m="' + card.m + '"]');
     await page.keyboard.press('Enter');

@@ -12,6 +12,12 @@ Acceptance values, written on 2026-11-20 before the first run of these tests:
    not an actor (the details sheet is open), no card box on the screen is under the
    visible box of the headline, and the selected card is fully between the bottom of the
    bars at the top and the top of the sheet. No run has a script error.
+2. At 1440 x 900, Tab from the canvas goes to no link of the list of the tree, and the
+   focus comes back to a button that it had before. Tab still goes to each card of the top
+   map on the canvas (the canvas keeps the focus for 9 Tab steps or more). The link of the
+   list for the neighbour Auth of the nested map Orchestration has the address "#Auth".
+   A click on it opens the top map with the card Auth selected, as a selection of that
+   neighbour on the canvas does. No run has a script error.
 """
 
 from __future__ import annotations
@@ -48,8 +54,7 @@ def _top() -> str:
         f'("Orchestration", "{n}"): "The orchestration calls the {n.lower()}.", ' for n in NAMES
     )
     return (
-        HEAD
-        + 'CONTAINERS = (Container(id="system", label="SYSTEM", box=(0, 0, 0, 0), '
+        HEAD + 'CONTAINERS = (Container(id="system", label="SYSTEM", box=(0, 0, 0, 0), '
         'tone="server"),)\n'
         'REGIONS = (Region(id="work", label="WORK", box=(0, 0, 0, 0), container="system"),)\n'
         "COMPONENTS = (\n"
@@ -149,9 +154,28 @@ def test_on_a_phone_the_headline_covers_no_card_while_the_sheet_is_open(
         assert run["selected"] == run["id"]
         ask = run["ask"]
         for card in run["cards"]:
-            box = [card["b"][0], card["b"][1], card["b"][0] + card["b"][2], card["b"][1] + card["b"][3]]
+            box = [
+                card["b"][0],
+                card["b"][1],
+                card["b"][0] + card["b"][2],
+                card["b"][1] + card["b"][3],
+            ]
             assert not (ask and _over(ask, box)), (run["id"], card["id"], ask, box)
         sel = run["box"]
         assert sel[1] >= run["bars"] - 0.5, run
         assert sel[1] + sel[3] <= run["sheet"] + 0.5, run
 
+
+def test_tab_goes_to_no_link_of_the_list_and_a_neighbour_link_goes_out(
+    shape_page: Path,
+) -> None:
+    """Acceptance 2."""
+    out = _run(str(shape_page), "keys")
+    assert out["errors"] == []
+    seen = out["seen"]
+    assert [x for x in seen if x["tree"]] == []
+    assert seen[-1]["tag"] == "BUTTON"
+    assert sum(1 for x in seen if x["id"] == "canvas") >= len(NAMES) + 1
+    assert out["link"] == {"href": "#Auth", "tabindex": "-1"}
+    assert out["after"]["current"] == ""
+    assert out["after"]["sel"] == {"map": "", "id": "Auth"}
