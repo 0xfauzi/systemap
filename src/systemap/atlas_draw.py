@@ -357,16 +357,30 @@ function cardText(c, x, y, w, h, alpha, qv) {
     if (DLOG) logged({t: 'tag', id: c.id, s: tag});
   }
   var mid = y + h / 2, base = mid - 1.5 * u + (1 - far * (1 - qv)) * 6 * u, up = upCard(c);
-  if (up) { upTag(up, x + pad, mid, h, u, right, t * (1 - 0.4 * qv)); base = mid - 0.5 * u; far = 0; }
+  if (up) { ns = Math.max(ns, upSize(ns, h)); base = upTag(up, x + pad, mid, ns, h, right, t * (1 - 0.4 * qv)); far = 0; }
   text(fit(c.id, ns, right, 600), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600);
   if (c.p && far > 0) text(fit(c.p, q(10 * u), right, 400), x + pad, mid + 13 * u, q(10 * u), C['--ink-3'], t * far * (1 - qv) * (1 - HIDE));
 }
+// The size of the line of a neighbour for a name of size ns on a card h high: 10 px while
+// the card is 24 px high or more, and 0.75 times the name or more. The name of a neighbour
+// is not smaller than its line.
+function upSize(ns, h) { return q(Math.max(0.75 * ns, Math.min(10, 0.42 * h))); }
 // The line of a neighbour of a nested map below its name: "on" and the name of the map
-// above, so that a reader expects a selection to go out (`atlas_inside`).
-function upTag(up, x, mid, h, u, width, alpha) {
-  var s = q(Math.max(8.5 * u, Math.min(7.5, h * 0.3))), words = 'on ' + mapTitle(up.map);
-  if (DLOG) logged({t: 'up', id: up.id, s: words, size: s});
-  caps(fit(words.toUpperCase(), s, width, 500, true), x, mid + 4 * u + s, s, C['--ink-3'], alpha, 0.06);
+// above, so that a reader expects a selection to go out (`atlas_inside`). The name and the
+// line are in the middle of the card. Give the base of the name.
+function upTag(up, x, mid, ns, h, width, alpha) {
+  var s = upSize(ns, h), gap = 0.15 * s, words = 'on ' + mapTitle(up.map);
+  // The capitals of the name are 0.72 of its size high, and a descender is 0.24 of a size.
+  var block = 0.96 * ns + gap + 0.99 * s, base = mid - block / 2 + 0.72 * ns, at = base + 0.24 * ns + gap + 0.75 * s;
+  var shown = fit(words, s, width, 500);
+  text(shown, x, at, s, C['--ink-3'], alpha, 500);
+  // The tests read the box of the line, and if the name and the line draw (`text`).
+  if (DLOG) {
+    var drawn = s >= textMin() && alpha > 0.02 && !!shown;
+    logged({t: 'up', id: up.id, s: words, size: s, line: shown, box: drawn ? drawnText(shown, x, at, s, alpha, 500).box : null,
+      name: ns, named: ns >= textMin() && alpha > 0.02, color: C['--ink-3'], ground: C['--map'], alpha: alpha});
+  }
+  return base;
 }
 // A weight that follows the zoom: the value while the camera moves, and 0 or 1 in the full
 // drawing at rest. Thus a text at rest is not partly transparent.

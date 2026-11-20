@@ -301,13 +301,15 @@ function placeLabels(pos, items) {
 // The free part of the screen: at the right of the list on a wide screen, under the row of
 // the list on a phone, and above the reading line.
 function smFree() {
+  // The bar of a nested map is under the header (`insideSync` in `atlas_inside`).
+  var head = insideSync();
   askBottom();
-  var top = HEAD_H + 16, left = 16, bottom = H - (W > WIDE ? 96 : 120);
+  var top = head + 16, left = 16, bottom = H - (W > WIDE ? 96 : 120);
   if (shownEl(SRAIL)) {
     var r = SRAIL.getBoundingClientRect();
     if (W > WIDE) left = r.right + 14; else top = r.bottom + 10;
   }
-  if (W > 1180) top = Math.max(top, HEAD_H + 24);
+  if (W > 1180) top = Math.max(top, head + 24);
   else if (W > WIDE && ASK_EL) top = Math.max(top, ASK_EL.getBoundingClientRect().bottom + 16);
   return {x0: left, y0: top, x1: W - 16, y1: Math.max(top + 1, bottom)};
 }
@@ -460,6 +462,8 @@ var SM_KEYS = {ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1, Home: 0,
 // The keys of the view (`atlas_input`): give true for a key of the view.
 function smKey(e) {
   if (VIEW.mode !== 'states' || !(e.key in SM_KEYS) || !SM.items.length) return false;
+  // With no light and no keyboard focus in the board, Esc goes out of a nested map (`goOut`).
+  if (e.key === 'Escape' && !SM.pin && !SBOARD.contains(document.activeElement) && insideMap()) { goOut(); return true; }
   if (e.key === 'Escape') { SM.pin = null; if (SBOARD.contains(document.activeElement)) document.activeElement.blur(); smPoint(null); return true; }
   var at = -1, n = SM.items.length;
   SM.items.forEach(function (o, i) { if (o.g === document.activeElement) at = i; });

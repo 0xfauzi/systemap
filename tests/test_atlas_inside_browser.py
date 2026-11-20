@@ -41,6 +41,56 @@ How the test reads these values (written before the first run of this test):
   canvas at the bottom middle of the screen: the mean of one channel differs by 3 or more
   between the top map and the nested map.
 - A7: the title text of the frame of the current map in the frame log (`drawn`).
+
+Acceptance values of the repair of the zoomed-in view, written by the coordinator before the
+work on 2026-11-20, with no change. Probes of the drivers ran before this text, but the values
+below do not come from them:
+
+Z1. The "on <map>" line of a neighbour card: on #Page at the fit at 1440 x 900, the text of the
+    line is 10 CSS px or more, its contrast against the card ground is 4.5:1 or more in light
+    and dark, and it stays inside its card box. At each zoom where the card name draws, the
+    line is 0.7 times the size of the card name or more. The same holds at the three depths
+    of the M11 tree.
+Z2. When the layer uses fewer components (parts) than the map has, the headline says "N of T
+    components" ("N of T parts" in a nested map). When it uses all, it says "T components".
+    T in the headline of a nested map is the same number as in the "See its T parts" button
+    and in the reading-line hint of its card. The same rule for actors and neighbours. Tested
+    on Page and on the top map (tests/test_atlas_browser.py, acceptance 24 and 27).
+Z3. Three Esc presses 80 ms apart from #P0/Q0/Deep end at the top map with P0 selected. Two
+    presses end in P0 with Q0 selected. The same for clicks on the Back button. No frame
+    jumps: between two frames, the camera moves less than the largest step of a normal leave
+    movement plus 8 px.
+Z4. a. Reduced motion: the camera of each frame changes exactly one time for an enter and for
+       a leave.
+    b. Each name in the path at depth 2 or more goes to that map: from #P0/Q0/Deep, a click on
+       "P0" gives the current map P0 with Q0 selected, and a click on the top name gives the
+       top map with P0 selected, no bar and no locator.
+    c. The last frame of the leave movement shows the frame of the nested map at the box of
+       its card within 8 px.
+    d. Sign 5 ("on <map>") at the M11 depths and at 390 x 844.
+Z5. In each view that shows a nested map, the bar (with Back and Esc) shows, and the ground is
+    the inside ground. In each view of the top map, neither shows. Each view is tested.
+
+How the test reads these values (written before the first run of these tests):
+
+- Z1: the mark `up` of the frame log gives the size of the line and of the name, the box of
+  the line, the color of the line, the ground of the card and the alpha. The contrast is
+  that of the color on the ground. "Each zoom" is the camera at the fit times 0.35, 0.5, 0.7,
+  1, 1.4, 2 and 3 (`--zooms`): where the name draws, the line draws, in its card box.
+- Z3: the camera step between two frames is the largest distance on the screen that a corner
+  of the viewport moves. The normal leave movements are one Esc in P0/Q0/Deep, in P0/Q0 and in
+  P0, in the same run of the driver.
+- Z4d: at 390 x 844 the size of 10 px does not apply (Z1 gives it at 1440 x 900). The line
+  shows for each neighbour, in its card box, with a contrast of 4.5:1 or more.
+- Z5: a view shows a nested map when its map (`viewMap`) is a nested map: the camera map in
+  the Map view, the map of the sequence, of the machine or of the card in the middle, and the
+  top map in the History view. The views come from the fixture of tests/canvas_sequenced.py
+  with a state machine in each map (the Map view, the Sequences view in its two forms and the
+  States view on the nested map Gateway), and from the map of this repository (the Focus view
+  on Page, and the History view). The bar has "Back to" and "Esc", and it does not cover the
+  headline, a list or a board. The ground of the canvas is `--inside`, and so is the
+  background of the page where the canvas does not show. A click on Back opens the Map view
+  of the map above with the card of the nested map selected.
 """
 
 from __future__ import annotations
@@ -56,6 +106,7 @@ from test_canvas_access import no_axe
 from test_canvas_browser import browser
 
 from systemap import atlas_data, atlas_page, canvas_page, config, facts_file, nest
+from systemap.cli import main
 
 ROOT = Path(__file__).resolve().parent
 DRIVER = ROOT / "atlas_inside.js"
@@ -190,6 +241,8 @@ def _check_moves(steps: list[dict[str, Any]], card: str, parent: str, reduced: b
         ms = move["t1"] - move["t0"]
         if reduced:
             assert ms == 0, st
+            changes = sum(a != b for a, b in zip(st["cams"], st["cams"][1:], strict=False))
+            assert changes == 1, (st["step"], changes)
         else:
             assert 250 <= ms <= 450, (st["step"], ms)
         if st["step"].startswith("leave"):
@@ -197,6 +250,8 @@ def _check_moves(steps: list[dict[str, Any]], card: str, parent: str, reduced: b
             assert st["current"] == parent, st
             assert st["sel"] == {"map": parent, "id": card}, st
             assert st["bar"] == bool(parent), st
+            if not reduced:
+                _at_card_box(move["last"])
         else:
             assert move["kind"] == "enter"
             if not reduced:
@@ -243,3 +298,219 @@ def test_axe_finds_no_violation_in_a_nested_map(self_page: Path, m11_page: Path)
         assert len(out["runs"]) == 4
         for r in out["runs"]:
             assert r["current"] == map_id and r["violations"] == [] and r["errors"] == [], r
+
+
+# ---- the repair of the zoomed-in view (Z1 to Z5) ---------------------------------------
+
+
+def _lum(color: str) -> float:
+    c = [int(color.lstrip("#")[i : i + 2], 16) / 255 for i in (0, 2, 4)]
+    f = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
+    return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]
+
+
+def _contrast(fg: str, bg: str) -> float:
+    a, b = _lum(fg), _lum(bg)
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
+
+
+def _in_box(inner: list[float], b: list[float]) -> bool:
+    return (
+        inner[0] >= b[0]
+        and inner[1] >= b[1]
+        and inner[2] <= b[0] + b[2]
+        and inner[3] <= b[1] + b[3]
+    )
+
+
+@pytest.fixture(scope="module")
+def zooms(self_page: Path, m11_page: Path) -> list[dict[str, Any]]:
+    out = []
+    for name, page, maps in (("self", self_page, "Page"), ("m11", m11_page, M11_PATH)):
+        out += [{**r, "page": name} for r in _drive("--zooms", str(page), maps)["runs"]]
+    return out
+
+
+def test_the_line_of_a_neighbour_is_readable_at_the_fit(zooms: list[dict[str, Any]]) -> None:
+    """Z1 and Z4d."""
+    fits = [r for r in zooms if r["f"] == 1]
+    assert {(r["id"], r["width"]) for r in fits} == {
+        (m, w) for m in ["Page", *M11_PATH.split(",")] for w in (1440, 390)
+    }
+    for r in fits:
+        where = (r["scheme"], r["width"], r["id"])
+        assert r["current"] == r["id"] and r["ups"], where
+        cards = {c["id"]: c["b"] for c in r["cards"]}
+        assert {u["id"] for u in r["ups"]} == set(cards), where
+        for u in r["ups"]:
+            assert u["box"] is not None and u["s"] == "on " + (
+                "systemap" if r["page"] == "self" else _up_name(r["id"])
+            ), (where, u)
+            if r["width"] == 1440:
+                assert u["size"] >= 10, (where, u)
+            assert u["alpha"] == 1, (where, u)
+            assert _contrast(u["color"], u["ground"]) >= 4.5, (where, u)
+            assert _in_box(u["box"], cards[u["id"]]), (where, u, cards[u["id"]])
+
+
+def _up_name(map_id: str) -> str:
+    parts = map_id.split("/")
+    return parts[-2] if len(parts) > 1 else "fifty maps"
+
+
+def test_the_line_of_a_neighbour_keeps_its_size_at_each_zoom(zooms: list[dict[str, Any]]) -> None:
+    """Z1: at each zoom where the name of a neighbour draws, the line draws in the card box."""
+    named = 0
+    for r in zooms:
+        cards = {c["id"]: c["b"] for c in r["cards"]}
+        for u in r["ups"]:
+            if not u["named"]:
+                continue
+            named += 1
+            where = (r["scheme"], r["width"], r["id"], r["f"], u["id"])
+            assert u["box"] is not None, where
+            assert u["size"] >= 0.7 * u["name"], (where, u["size"], u["name"])
+            assert _in_box(u["box"], cards[u["id"]]), (where, u["box"], cards[u["id"]])
+    assert named >= 200
+
+
+def _step(a: dict[str, float], b: dict[str, float], size: list[int]) -> float:
+    """The largest distance on the screen that a corner of the viewport moves."""
+    out = 0.0
+    for px, py in ((0, 0), (size[0], 0), (0, size[1]), (size[0], size[1])):
+        qx = (a["x"] + px / a["k"] - b["x"]) * b["k"]
+        qy = (a["y"] + py / a["k"] - b["y"]) * b["k"]
+        out = max(out, ((qx - px) ** 2 + (qy - py) ** 2) ** 0.5)
+    return out
+
+
+def _largest(run: dict[str, Any]) -> float:
+    cams = run["cams"]
+    return max(_step(a, b, run["size"]) for a, b in zip(cams, cams[1:], strict=False))
+
+
+def test_esc_during_a_move_out_goes_out_one_more_level(m11_page: Path) -> None:
+    """Z3."""
+    out = _drive("--queue", str(m11_page), M11_PATH)
+    normal = [r for r in out["runs"] if r["n"] == 1]
+    assert [r["from"] for r in normal] == ["P0/Q0/Deep", "P0/Q0", "P0"]
+    for r in normal:
+        assert r["sel"]["id"] == r["from"].split("/")[-1], r["sel"]
+    limit = max(_largest(r) for r in normal) + 8
+    want = {2: ("P0", {"map": "P0", "id": "Q0"}), 3: ("", {"map": "", "id": "P0"})}
+    runs = [r for r in out["runs"] if r["n"] > 1]
+    assert sorted((r["how"], r["n"]) for r in runs) == [
+        ("click", 2),
+        ("click", 3),
+        ("esc", 2),
+        ("esc", 3),
+    ]
+    for r in runs:
+        where = (r["how"], r["n"])
+        assert (r["current"], r["sel"]) == want[r["n"]], where
+        assert r["bar"] == (r["n"] == 2) and r["loc"] == (r["n"] == 2), where
+        assert [m["kind"] for m in r["moves"]] == ["leave"] * r["n"], where
+        assert _largest(r) < limit, (where, _largest(r), limit)
+
+
+def test_each_name_in_the_path_goes_to_its_map(m11_page: Path) -> None:
+    """Z4b."""
+    out = _drive("--path", str(m11_page), M11_PATH)
+    assert out["names"] == ["fifty maps", "P0", "Q0", "Deep"]
+    by = {s["name"]: s for s in out["steps"]}
+    assert set(by) == {"fifty maps", "P0", "Q0"}
+    top = by["fifty maps"]
+    assert top["current"] == "" and top["sel"] == {"map": "", "id": "P0"}, top
+    assert not top["bar"] and not top["loc"], top
+    assert by["P0"]["current"] == "P0" and by["P0"]["sel"] == {"map": "P0", "id": "Q0"}
+    assert by["Q0"]["current"] == "P0/Q0" and by["Q0"]["sel"] == {"map": "P0/Q0", "id": "Deep"}
+
+
+@pytest.fixture(scope="module")
+def views_pages(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
+    """The nested fixture with a state machine in each map, and the self-map with history."""
+    import canvas_sequenced  # noqa: PLC0415
+    from conftest import write_tree  # noqa: PLC0415
+    from test_atlas_history_browser import _history  # noqa: PLC0415
+    from test_atlas_states_browser import INNER_MACHINE, TOP_MACHINE  # noqa: PLC0415
+
+    root = tmp_path_factory.mktemp("views")
+    write_tree(root, canvas_sequenced.files())
+    for command in ("place", "extract", "render"):
+        assert main(["--root", str(root), command]) == 0
+    cfg = config.load(root)
+    tree = nest.load(cfg)
+    data = atlas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    data["maps"][0]["sm"] = [TOP_MACHINE]
+    data["maps"][1]["sm"] = [INNER_MACHINE]
+    nested = root / "atlas.html"
+    nested.write_text(atlas_page.build(canvas_page.tree_theme(cfg, tree), data), encoding="utf-8")
+    cfg = config.load(REPO)
+    tree = nest.load(cfg)
+    data = atlas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))
+    own = root / "self.html"
+    own.write_text(
+        atlas_page.build(canvas_page.tree_theme(cfg, tree), data, _history()), encoding="utf-8"
+    )
+    return {"nested": nested, "self": own}
+
+
+def _clear(bar: list[float], boxes: dict[str, list[float]]) -> bool:
+    return all(b[1] >= bar[3] for b in boxes.values())
+
+
+def test_each_view_of_a_nested_map_shows_the_bar_and_the_ground(
+    views_pages: dict[str, Path],
+) -> None:
+    """Z5."""
+    runs = _drive("--views", str(views_pages["nested"]), "Gateway")["runs"]
+    runs += _drive("--views", str(views_pages["self"]), "Page")["runs"]
+    shown = {(r["view"], r["shows"], r["width"]) for r in runs if r["has"]}
+    for view in ("map", "seq-map", "seq-diagram", "states"):
+        assert {(view, "Gateway", w) for w in (1440, 390)} <= shown, view
+    for view in ("map", "seq-map", "seq-diagram", "states", "focus", "history"):
+        assert {(view, "", w) for w in (1440, 390)} <= shown, view
+    assert {("focus", "Page", w) for w in (1440, 390)} <= shown
+    for r in [r for r in runs if r["has"]]:
+        where = (r["view"], r["id"], r["width"], r["shows"])
+        if r["shows"]:
+            assert r["bar"] is not None, where
+            assert "Back to " in r["bar"]["text"] and "Esc" in r["bar"]["text"], where
+            assert f"Inside {r['shows']}" in r["bar"]["text"], where
+            assert r["ground"] == r["inside"] != r["top"] and r["attr"], where
+            assert _clear(r["barBox"], r["boxes"]), (where, r["barBox"], r["boxes"])
+            assert r["back"] == {
+                "mode": "map",
+                "current": "",
+                "sel": {"map": "", "id": r["shows"]},
+                "bar": False,
+            }, where
+        else:
+            assert r["bar"] is None and r["barBox"] is None, where
+            assert r["ground"] == r["top"] and not r["attr"], where
+    history = [r for r in runs if r["view"] == "history" and r["has"]]
+    assert {r["id"] for r in history} == {"Page", ""}
+    assert all(r["shows"] == "" for r in history)
+    for r in [r for r in runs if r["has"]]:
+        assert r["body"] == _rgb(r["inside"] if r["shows"] else r["top"]), (r["view"], r["id"])
+
+
+def _rgb(color: str) -> str:
+    c = [int(color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)]
+    return f"rgb({c[0]}, {c[1]}, {c[2]})"
+
+
+def test_a_total_is_the_total_of_the_map(self_page: Path) -> None:
+    """Z2 on Page: the total of the parts agrees with the button and the reading line."""
+    import re  # noqa: PLC0415
+
+    out = _drive("--totals", str(self_page), "Page")
+    parts = int(re.search(r"its (\d+) parts", out["button"]).group(1))
+    assert parts == 11
+    assert f"double-click to see its {parts} parts" in out["say"], out["say"]
+    shown = [h for h in out["heads"] if "flow" in h["counts"]]
+    assert shown
+    for h in shown:
+        found = re.search(r"(?:(\d+) of )?(\d+) parts", h["counts"])
+        assert found and int(found.group(2)) == parts, h
+        assert re.search(r"(?:\d+ of )?10 neighbours", h["counts"]), h

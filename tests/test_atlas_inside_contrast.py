@@ -15,6 +15,11 @@ Acceptance values, written on 2026-11-19 before the first run:
    of the locator) has a ratio of its floor or more in the two schemes, and its code is in
    the page.
 3. The ground `--inside` is a different color from `--map` in each scheme.
+
+Changed on 2026-11-20 in the repair of the zoomed-in view (Z1), before the run: the row of the
+line of a neighbour has the ground `inside`, not `card`. A neighbour is an actor card, and the
+fill of an actor card is the ground of the map (`FILL` in `atlas_draw`), which is `--inside` in
+a nested map. The line has its own font (500, not uppercase), thus its code changed.
 """
 
 from __future__ import annotations
@@ -58,7 +63,13 @@ INSIDE = (
         ".inside__path button{color:var(--ink-2)",
     ),
     ("title of the frame", "ink", "surface", TEXT, "ts, C['--ink'], alpha, 600"),
-    ("line of a neighbour", "ink-3", "card", TEXT, "s, C['--ink-3'], alpha, 0.06"),
+    (
+        "line of a neighbour",
+        "ink-3",
+        "inside",
+        TEXT,
+        "text(shown, x, at, s, C['--ink-3'], alpha, 500)",
+    ),
     ("marked card of the locator", "focus", "map", MARK, "g.fillStyle = C['--focus']"),
 )
 

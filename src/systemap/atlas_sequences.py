@@ -556,10 +556,11 @@ function boardDraw() {
   var m = SEQ.m, j = seqJ(), parts = boardParts(m, j), wide = W > 1180, had = BOARD.contains(document.activeElement) ? document.activeElement.getAttribute('data-step') : null;
   BWORLD.replaceChildren(); BWORLD.setAttribute('class', SEQ.step >= 0 ? 'stepping' : '');
   var NW = 150, NH = 40, RH = 56, TOPY = 86, CW = Math.max(120, Math.min(210, 1000 / Math.max(1, parts.length)));
-  var bw = Math.max(0, parts.length - 1) * CW + NW, bh = TOPY + j.s.length * RH + 10, g = seqFree();
+  // The bar of a nested map is under the header (`insideSync` in `atlas_inside`).
+  var head = insideSync(), bw = Math.max(0, parts.length - 1) * CW + NW, bh = TOPY + j.s.length * RH + 10, g = seqFree();
   // A wide screen: at the right of the list. A middle screen: at the right of the list and
   // under the headline. A phone: under the row of the list.
-  var left = W > WIDE ? Math.max(g.x0, wide ? 350 : 0) : 16, top = wide ? HEAD_H + 40 : W > WIDE ? ASK_EL.getBoundingClientRect().bottom + 16 : g.y0 + 8;
+  var left = W > WIDE ? Math.max(g.x0, wide ? 350 : 0) : 16, top = wide ? head + 40 : W > WIDE ? ASK_EL.getBoundingClientRect().bottom + 16 : g.y0 + 8;
   var aw = Math.max(1, W - left - (W > WIDE ? 30 : 16)), ah = Math.max(1, g.y1 - top - 8);
   // The scale includes the margins of the content (12 at each side, 4 at the bottom), so that
   // the diagram scrolls only at BOARD_MIN. The 1 px keeps the rounded size in the box.

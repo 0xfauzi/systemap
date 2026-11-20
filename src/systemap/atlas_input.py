@@ -103,18 +103,21 @@ function fly(to, ms) {
   var c0 = [from.x + W / 2 / from.k, from.y + (HEAD_H + Hs / 2) / from.k], c1 = [to.x + W / 2 / to.k, to.y + (HEAD_H + Hs / 2) / to.k];
   var big = Math.abs(Math.log(to.k / from.k));
   ms = ms || 320 + Math.min(520, big * 190);
-  var t0 = performance.now();
+  var t0 = performance.now(), me = {to: to};
   function step(now) {
     var t = clamp((now - t0) / ms, 0, 1), e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     var k = from.k * Math.pow(to.k / from.k, e), w = big > 0.05 ? (1 / from.k - 1 / k) / (1 / from.k - 1 / to.k) : e;
     var cx = c0[0] + (c1[0] - c0[0]) * w, cy = c0[1] + (c1[1] - c0[1]) * w;
     cam = {x: cx - W / 2 / k, y: cy - (HEAD_H + Hs / 2) / k, k: k};
-    // `each` follows the movement (`zoomMove` in `atlas_inside`).
-    if (flight.each) flight.each(e, t >= 1);
+    // `each` follows the movement (`zoomMove` in `atlas_inside`). The frame of the last step
+    // can start a new flight (`morphDone`): then this flight stops here.
+    if (me.each) me.each(e, t >= 1);
     moved(true);
-    if (t < 1) flight.raf = requestAnimationFrame(step); else flight = null;
+    if (flight !== me) return;
+    if (t < 1) me.raf = requestAnimationFrame(step); else flight = null;
   }
-  flight = {raf: requestAnimationFrame(step), to: to};
+  me.raf = requestAnimationFrame(step);
+  flight = me;
 }
 // A zoom by `f` at the screen point px, py. The world point at that point goes to the
 // screen point qx, qy (by default px, py).
@@ -190,6 +193,7 @@ function draw() {
   insideSync(m);
   if (SIDE_ON) sideSync();
   zoomShown();
+  morphDone();
   if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, hide: HIDE, images: LAYERS, morph: MORPH ? MORPH.p : null});
   if (SPEED_FADING || VIEW_FADING) fadeLater();
   lightSharp();
@@ -257,9 +261,14 @@ function enter(px, py) {
   if (c && c.child) dive(c);
 }
 // Esc and the Back button go out one level, with the zoom movement to the card of the map
-// (`leaveTo` in `atlas_inside`). The card is then selected.
+// (`leaveTo` in `atlas_inside`). The card is then selected. During a move out, the next
+// level goes in the queue (`OUT_TO`): each level has its own movement, and the last one
+// selects its card. In a different view of a nested map, the page goes out to the Map view
+// of the map above (`outTo`).
 function goOut() {
-  var n = CHAIN.length;
+  if (leaving()) { if (OUT_TO && OUT_TO.owner) OUT_TO = OUT_TO.owner.map; return; }
+  var m = insideMap(), n = CHAIN.length;
+  if (m && VIEW.mode !== 'map') { outTo(m.owner.map); return; }
   if (!n) { flyTo(topFrame(), FIT); return; }
   leaveTo(CHAIN[n - 1].map);
 }

@@ -113,6 +113,9 @@ values only:
     with no systemap code (`_text_counts`): the flows of the layer by their kind (each
     flow with a neighbour for Neighbours), the neighbours and the parts that these flows
     touch, and for Structure the components and the regions.
+    Changed on 2026-11-20 by the decision of the maintainer "a total is always the total"
+    (Z2 in tests/test_atlas_inside_browser.py), before the run: when a layer touches fewer
+    neighbours or parts than the map has, the count is "N of T", and else "T".
 25. With the keyboard, on #Page: Tab on the canvas to each neighbour gives the keyboard
     focus to that card of Page, and Enter goes out to the top map and selects the card of
     the top map with the same name.
@@ -122,6 +125,12 @@ values only:
     is at a side when its screen box is fully outside the box of the parts at that side.
     The chain is Page, the dark scheme has a dark ground, and the page has no horizontal
     scroll.
+
+Acceptance value 27, written on 2026-11-20 from Z2 of the coordinator, before the first run:
+
+27. On the top map, in each layer tab with flows, the counts of the headline give the totals
+    of the map: "N of T components" when the layer touches N of the T components, and "T
+    components" when it touches all. The same rule for the actors.
 """
 
 from __future__ import annotations
@@ -629,7 +638,45 @@ def _text_counts(layer: str) -> str:
     else:
         chosen = [f for f in flows if layer == "all" or f[2] == layer]
     ends = {e for f in chosen for e in f[:2]}
-    return f"{len(ends & actors)} neighbours · {len(ends - actors)} parts · {len(chosen)} flows"
+    parts = text.count("Component(") - len(actors)
+    return (
+        f"{_of_all(len(ends & actors), len(actors), 'neighbour')} · "
+        f"{_of_all(len(ends - actors), parts, 'part')} · {len(chosen)} flows"
+    )
+
+
+def _of_all(n: int, total: int, word: str) -> str:
+    """The count rule of the headline (Z2): "N of T words", or "T words" when N is T."""
+    words = f"{total} {word}" + ("" if total == 1 else "s")
+    return words if n == total else f"{n} of {words}"
+
+
+def test_the_counts_of_the_top_map_give_the_totals(
+    self_page: tuple[Path, dict[str, Any]], self_rest: dict[str, Any]
+) -> None:
+    """Acceptance 27."""
+    top = self_page[1]["maps"][0]
+    kinds = {c["id"]: c["k"] for c in top["cards"]}
+    actors = {i for i, k in kinds.items() if k == "actor"}
+    checked = 0
+    for one in self_rest["layers"]:
+        view = one["view"]
+        lid = view["layer"]
+        edges = (
+            list(range(len(top["flows"])))
+            if lid == "all"
+            else next(lay["e"] for lay in top["layers"] if lay["id"] == lid)
+        )
+        if not edges:
+            continue
+        ends = {top["flows"][i][k] for i in edges for k in ("s", "t")}
+        want = f"{_of_all(len(ends - actors), len(kinds) - len(actors), 'component')} · "
+        want += f"{len(edges)} flow" + ("" if len(edges) == 1 else "s")
+        if ends & actors:
+            want = f"{_of_all(len(ends & actors), len(actors), 'actor')} · {want}"
+        assert view["counts"].startswith(want), (lid, view["counts"], want)
+        checked += 1
+    assert checked >= 2
 
 
 def test_the_nested_map_page_has_its_parts_and_neighbours(page_run: dict[str, Any]) -> None:

@@ -61,7 +61,9 @@ border-radius:8px;background:var(--surface);box-shadow:var(--shadow);overflow:hi
 .loc:hover{border-color:var(--ink-3)}
 :root[data-inside][data-inside]{--ink-3:var(--ink-3-in)}
 :root[data-inside] .ask::before{background:radial-gradient(closest-side,var(--inside) 62%,transparent)}
-@media (max-width:720px){.inside{top:86px}}
+:root[data-inside] body{background:var(--inside)}
+:root[data-inside] :is(.rail,.srail,.frail,.board,.sboard,.fboard){--map:var(--inside)}
+@media (max-width:720px){body[data-mode="map"] .inside{top:86px}}
 @media (pointer:coarse){.inside__back,.inside__path button{min-height:44px}}
 """
 
@@ -70,8 +72,12 @@ INSIDE = r"""
 var BAR_IN = document.getElementById('atlas-inside'), BAR_FOR = '', BAR_HS = Object.create(null);
 // The name of map m in a path: the ID of its card, or the name of the system.
 function mapTitle(m) { return m.owner ? m.owner.id : (DATA.name || 'map'); }
-// The bar shows only in the Map view of a nested map.
-function insideOn(m) { return !!m.owner && VIEW.mode === 'map'; }
+// The nested map that the view shows (`viewMap` in `atlas_view`), or null. The History view
+// shows the top map.
+function insideMap() { var m = viewMap(); return m.owner ? m : null; }
+// True when the camera of the view shows map m with the bar: the Map view and the map form of
+// the Sequences view. The fit of a nested map keeps the height of the bar free.
+function insideOn(m) { return !!m.owner && (VIEW.mode === 'map' || (VIEW.mode === 'seq' && SEQ.form !== 'diagram')); }
 function inBarWrite(m) {
   var key = m.oi + '|' + W;
   if (BAR_FOR === key) return;
@@ -86,7 +92,7 @@ function inBarWrite(m) {
     var path = el('span', {'class': 'inside__path', role: 'group', 'aria-label': 'Path'});
     chain.forEach(function (x, i) {
       var last = i === chain.length - 1, b = el('button', {type: 'button', 'aria-current': last ? 'page' : null, title: 'Go to the map ' + mapTitle(x)}, mapTitle(x));
-      b.addEventListener('click', function () { cv.focus({preventScroll: true}); if (last) fitCurrent(); else leaveTo(x); });
+      b.addEventListener('click', function () { cv.focus({preventScroll: true}); if (last && VIEW.mode === 'map') fitCurrent(); else outTo(last ? null : x); });
       if (i) path.append(el('span', {'aria-hidden': 'true'}, '/'));
       path.append(b);
     });
@@ -104,7 +110,7 @@ function svgBack() {
 // The height of the bar of map m on this screen, or 0 when map m has no bar. The fit of a
 // nested map keeps it free, also before the bar shows.
 function insideH(m) {
-  if (!BAR_IN || !insideOn(m)) return 0;
+  if (!BAR_IN || !m.owner) return 0;
   var key = m.oi + '|' + W, h = BAR_HS[key];
   if (h !== undefined) return h;
   var was = BAR_IN.hidden;
@@ -115,27 +121,29 @@ function insideH(m) {
   return h;
 }
 var SHOWN_IN = null, IN_KEY = '';
-// Show the bar and the locator of the current map m. The bar changes only when its map or
-// the screen width changes.
+// Show the bar of the nested map that the view shows (`insideMap`), and the locator of the
+// current map m in the Map view. The bar changes only when its map or the screen width
+// changes. Give the bottom of the bar on the screen, or the bottom of the header.
 function insideSync(m) {
-  var on = insideOn(m), was = SHOWN_IN, key = on ? m.oi + '|' + W : '';
-  SHOWN_IN = on ? m : null;
+  var n = insideMap(), on = !!n, was = SHOWN_IN, key = on ? n.oi + '|' + W : '';
+  SHOWN_IN = n;
   if (BAR_IN && key !== IN_KEY) {
     IN_KEY = key;
-    if (on) inBarWrite(m);
+    if (on) inBarWrite(n);
     BAR_IN.hidden = !on; BAR_IN.classList.remove('off');
-    document.documentElement.style.setProperty('--ih', (on ? insideH(m) : 0) + 'px');
+    document.documentElement.style.setProperty('--ih', (on ? insideH(n) : 0) + 'px');
     if (was && !on && BAR_IN.contains(document.activeElement)) cv.focus({preventScroll: true});
   }
-  locSync(m);
+  locSync(m || currentMap());
+  return on ? BAR_IN.getBoundingClientRect().bottom : HEAD_H;
 }
 
 // ---- the ground --------------------------------------------------------------------
-// The ground of the canvas is `--inside` while the camera is in a nested map in the Map
-// view or the Sequences view. The images of a large map have the ground, thus a change of
-// the ground makes them again (EPOCH).
+// The ground of the canvas is `--inside` while the view shows a nested map (`insideMap`),
+// in each view. The images of a large map have the ground, thus a change of the ground
+// makes them again (EPOCH).
 function groundSync() {
-  var on = CHAIN.length > 0 && (VIEW.mode === 'map' || VIEW.mode === 'seq'), want = on ? C['--inside'] : C.mapTop;
+  var on = !!insideMap(), want = on ? C['--inside'] : C.mapTop;
   if (C['--map'] === want) return;
   // The ground --inside is darker in the light scheme. Thus the text in --ink-3 has the
   // darker tone --ink-3-in, so that its contrast stays 4.5 or more.
@@ -202,20 +210,35 @@ function zoomMove(c, into, box) {
   // last box, and the camera follows the frame (`zoomBox`).
   var p0 = into ? 0 : 1, b0 = onScreen(frameAt(c, p0), cam), b1 = onScreen(frameAt(c, 1 - p0), {x: flight.to.x, y: flight.to.y, k: flight.to.k});
   flight.into = into ? c.child : null;
+  // The last frame of the movement draws the nested map at the end of its place: at the box
+  // of its card for a move out. The movement ends after that frame (`morphDone`).
   flight.each = function (e, done) {
-    if (done) { morphEnd(); move.t1 = performance.now(); if (!into && document.activeElement === cv) setFocus(c, toldLater(c)); return; }
     if (!MORPH) return;
-    MORPH.p = into ? e : 1 - e; retree(c.map);
+    MORPH.p = into ? e : 1 - e; MORPH.done = done; retree(c.map);
     var f = frameOf(c.child), b = zoomBox(b0, b1, e), k = b[2] / f[2];
     cam = {x: f[0] - b[0] / k, y: f[1] - b[1] / k, k: k};
   };
 }
-// The first frame of a movement: the screen frame of the nested map and the screen box of
-// its card (the tests read them).
+// The first frame and the last frame of a movement: the screen frame of the nested map and
+// the screen box of its card (the tests read them).
 function morphFrame() {
-  if (!MORPH || MORPH.move.first) return;
-  var c = MORPH.c, f = frameOf(c.child), b = screenBox(c);
-  MORPH.move.first = {frame: [(f[0] - cam.x) * cam.k, (f[1] - cam.y) * cam.k, f[2] * cam.k, f[3] * cam.k], card: b};
+  if (!MORPH) return;
+  var c = MORPH.c, f = frameOf(c.child), at = {frame: [(f[0] - cam.x) * cam.k, (f[1] - cam.y) * cam.k, f[2] * cam.k, f[3] * cam.k], card: screenBox(c)};
+  if (!MORPH.move.first) MORPH.move.first = at;
+  MORPH.move.last = at;
+}
+// After the last frame of a movement: the nested map goes back to its own place. After a
+// move out, the next move out of the queue starts (`goOut`), or the keyboard focus goes to
+// the card.
+function morphDone() {
+  if (!MORPH || !MORPH.done) return;
+  var c = MORPH.c, into = MORPH.into, up = c.map.owner;
+  MORPH.move.t1 = performance.now();
+  morphEnd(); request();
+  if (into) return;
+  if (OUT_TO && OUT_TO !== c.map && up) { var to = OUT_TO; leaveTo(up.map); OUT_TO = to; return; }
+  OUT_TO = null;
+  if (document.activeElement === cv) setFocus(c, toldLater(c));
 }
 // The ground of the nested map in a movement: the card becomes the frame of the map.
 function morphGround() {
@@ -229,13 +252,32 @@ function morphGround() {
 // Go out to map x, an ancestor of the current map. The card of x on the way to the current
 // map is selected when the camera stops, or the card `sel` (a neighbour goes out to its
 // card).
+// OUT_TO is the map where the move out ends, also after the moves in the queue.
+var OUT_TO = null;
 function leaveTo(x, sel, keyed) {
   var c = null;
   CHAIN.forEach(function (o) { if (o.map === x) c = o; });
   select(null, {keep: true});
-  AFTER = sel || c; AFTER_KEY = !!keyed;
+  AFTER = sel || c; AFTER_KEY = !!keyed; OUT_TO = c ? x : null;
   if (!c) { flyTo(frameOf(x), FIT); return; }
   zoomMove(c, false, frameOf(x));
+}
+// True while a move out of a nested map is on the screen.
+function leaving() { return !!(MORPH && !MORPH.into && flight); }
+// Go out to map x in the Map view, from the nested map that the view shows, or with x null
+// to that nested map. The card of x on the way to the nested map is selected. When the
+// camera is in the nested map, the zoom movement goes out (`leaveTo`).
+function outTo(x) {
+  var m = insideMap();
+  if (!m) return;
+  if (VIEW.mode !== 'map') setMode('map');
+  if (!x) { if (currentMap() !== m) flyTo(frameOf(m), FIT); return; }
+  if (currentMap() === m) { leaveTo(x); return; }
+  var c = null;
+  for (var y = m; y.owner; y = y.owner.map) if (y.owner.map === x) c = y.owner;
+  select(null, {keep: true});
+  AFTER = c; AFTER_KEY = false; OUT_TO = null;
+  flyTo(frameOf(x), FIT);
 }
 
 // ---- the locator ----------------------------------------------------------------------
@@ -268,7 +310,7 @@ function locSpot(m) {
 }
 function locSync(m) {
   if (!LOC) return;
-  var on = insideOn(m) && !flight, key = on ? [m.oi, W, H, EPOCH, layerOf(m), sideRight(m)].join('|') : '';
+  var on = VIEW.mode === 'map' && insideOn(m) && !flight, key = on ? [m.oi, W, H, EPOCH, layerOf(m), sideRight(m)].join('|') : '';
   if (key === LOC_KEY) return;
   LOC_KEY = key;
   var spot = on ? locSpot(m) : null;
@@ -299,7 +341,7 @@ function locDraw(m, spot) {
 // The state of the signs of a nested map for the tests.
 function insideState() {
   var m = currentMap(), r = BAR_IN ? BAR_IN.getBoundingClientRect() : null;
-  return {map: m.id, bar: BAR_IN && !BAR_IN.hidden ? {box: [r.left, r.top, r.width, r.height], text: BAR_IN.textContent} : null,
+  return {map: m.id, view: viewMap().id, bar: BAR_IN && !BAR_IN.hidden ? {box: [r.left, r.top, r.width, r.height], text: BAR_IN.textContent} : null,
     loc: LOC && !LOC.hidden ? LOC_AT : null, ground: C['--map'], top: C.mapTop, inside: C['--inside'], moves: MOVES.slice(), morph: !!MORPH};
 }
 """

@@ -158,13 +158,22 @@ var ASK_Q = document.getElementById('atlas-ask-q'), ASK_N = document.getElementB
 var TABS = document.getElementById('atlas-tabs'), KEY = document.getElementById('atlas-key'), ZOOM_V = document.getElementById('atlas-zv');
 var SYNCED = '', ASK_TIMER = 0;
 // The counts of the headline: the actors (neighbours in a nested map), the components (parts)
-// and the flows of the layer, or the cards and the regions for a layer with no flow.
+// and the flows of the layer, or the cards and the regions for a layer with no flow. A total
+// is always the total of the map: when the layer uses fewer actors or components than the
+// map has, the count is "N of T". The total of the parts is the count of the button "See its
+// T parts" and of the reading line of the card (`partsOf` in `atlas_lit`).
 function countWords(m, id) {
-  var lf = layerFlags(m, id), actors = 0, comps = 0;
+  var lf = layerFlags(m, id), actors = 0, comps = 0, allActors = 0;
   if (!lf.n) return counted(m.cards.length, 'card') + ' in ' + counted(m.regions.length, 'region');
-  m.cards.forEach(function (c) { if (lf.used[c.id]) { if (c.k === 'actor') actors++; else comps++; } });
-  return (actors ? counted(actors, m.owner ? 'neighbour' : 'actor') + ' · ' : '') + counted(comps, m.owner ? 'part' : 'component') + ' · ' + counted(lf.n, 'flow');
+  m.cards.forEach(function (c) {
+    if (c.k === 'actor') allActors++;
+    if (lf.used[c.id]) { if (c.k === 'actor') actors++; else comps++; }
+  });
+  return (actors ? ofAll(actors, allActors, m.owner ? 'neighbour' : 'actor') + ' · ' : '') +
+    ofAll(comps, m.cards.length - allActors, m.owner ? 'part' : 'component') + ' · ' + counted(lf.n, 'flow');
 }
+// "N of T words", or "T words" when N is T.
+function ofAll(n, total, word) { return (n < total ? n + ' of ' : '') + counted(total, word); }
 // The path of map m in the headline. Each part above m is a button that goes to that map.
 // `go` (optional) gives the action of the button for a map, or null: then the part is text.
 function pathButtons(m, go) {
@@ -227,8 +236,11 @@ function writeKey(m, id) {
 }
 // Write the headline, the tabs and the key of the current map when they change. `soft`
 // fades the headline out and in (a change of the layer or of the map).
+// The map that the view shows: the map of the sequence, of the machine or of the card in the
+// middle, the top map in the History view, and else the current map of the camera.
+function viewMap() { return seqShown() ? SEQ.m : smOn() ? SM.m : fcOn() ? FC.m : hsOn() ? TOP : currentMap(); }
 function headSync(soft) {
-  var seq = seqShown(), sm = smOn(), fc = fcOn(), hs = hsOn(), m = seq ? SEQ.m : sm ? SM.m : fc ? FC.m : hs ? TOP : currentMap(), id = layerOf(m);
+  var seq = seqShown(), sm = smOn(), fc = fcOn(), hs = hsOn(), m = viewMap(), id = layerOf(m);
   var key = m.oi + '|' + id + '|' + VIEW.mode + (sm ? '|' + SM.k : '') + (fc ? '|' + FC.id : '');
   if (key === SYNCED) return;
   var first = !SYNCED;

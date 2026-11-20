@@ -51,7 +51,12 @@ state machine, History needs commit data.
 
 - **Headline.** The name of the layer, the question of the layer and the counts are type
   on the ground, not in a plate. The headline is beside the map or above it. The page
-  uses the position that gives the larger map.
+  uses the position that gives the larger map. A total is always the total of the map:
+  when the layer uses fewer components than the map has, the count is "N of T
+  components", and else "T components" (`countWords` in `atlas_view`). The same rule
+  applies to the actors, and in a nested map to the parts and the neighbours. T parts in
+  the headline of a nested map is the count of the button "See its T parts" and of the
+  reading line of its card.
 - **Cards.** A card shows its name. Its short name shows below when the zoom is 0.95 or
   more. An actor has round ends. A card that is not a component and not an actor has a
   small tag with its kind. A card with no flow in the layer keeps a faint outline.
@@ -91,17 +96,25 @@ state machine, History needs commit data.
   the path, and each part of the path goes to that map. Esc goes out one level.
 - **Inside a nested map.** The page shows five signs, so that a reader cannot think that a
   nested map is the top map. They apply to each nested map at each depth, in the Map view
-  (`atlas_inside`). The top map has none of them.
+  (`atlas_inside`). The top map has none of them. A reader must always see that the page
+  shows a nested map: the bar (sign 1) and the ground `--inside` (sign 4) also show in each
+  other view that shows a nested map. That is the Sequences view for a sequence of a nested
+  map, the States view for a machine of a nested map, and the Focus view for a card of a
+  nested map. The History view shows the top map, thus it has no sign.
   1. *The bar.* A bar at the top of the map area gives "Inside" and the name of the map,
      and the button "Back to" and the name of the map above, with the key Esc. At depth 2
      or more, the bar also gives the path, for example "systemap / P0 / Q0", and each name
      in the path goes to that map. The bar is fully on the screen at the fit, its text is
      14 px or more, and the contrast of its text is 4.5 or more. The fit keeps the height of
-     the bar free, and the headline is below the bar.
+     the bar free, and the headline is below the bar. Esc or Back during a move out goes out
+     one more level after the movement: each level has its own movement, and the last one
+     selects its card. In a view other than the Map view, Back and Esc open the Map view of
+     the map above with the card of the nested map selected.
   2. *The zoom movement.* A move into a nested map goes from the box of its card on the map
      above to the fit of the nested map. A move out goes back to that card, and the card is
-     then selected. Each movement takes 360 ms (250 ms to 450 ms). With reduced motion, the
-     camera goes to the end at once.
+     then selected. Each movement takes 360 ms (250 ms to 450 ms). The last frame of a move
+     out shows the nested map at the box of its card. With reduced motion, the camera goes
+     to the end at once, in one frame.
   3. *The locator.* A small picture of the map above, with the card of the nested map
      marked, is in a corner of the screen where it covers no card and no label at rest of
      the nested map at the fit. When no corner is free, the locator does not show. A click
@@ -111,7 +124,10 @@ state machine, History needs commit data.
      `--inside`, which is different from the ground of the top map in the light scheme and
      in the dark scheme.
   5. *The neighbours.* A neighbour card has the line "on" and the name of the map above
-     below its name, so that a reader expects a selection to go out.
+     below its name, so that a reader expects a selection to go out. The line is 10 px or
+     more at the fit of a wide screen, its contrast is 4.5 or more, and it stays in the
+     card. At each zoom, it is 0.75 times the size of the name or more (`upTag` in
+     `atlas_draw`).
 - **Neighbours of a nested map.** They sit around the frame of the nested map, each near
   the parts that it has flows with, not in one column. A neighbour is a card of the map
   above: selecting it goes out to that card.
@@ -376,6 +392,14 @@ branch `views-prototype`. No stage makes a pull request.
     the top map. They come from the placer and the router, which the canvas page and the
     linked page also use, and from the positions in `map/model.py`. A change needs a
     decision of the maintainer.
+
+13. **The repair of the zoomed-in view** (2026-11-20). This stage repairs five faults that
+    stayed open after stage 12. tests/test_atlas_inside_browser.py holds the acceptance
+    values Z1 to Z5: the line of a neighbour is readable (Z1), a total in the headline is
+    the total of the map (Z2), Esc and Back during a move out go out one more level (Z3),
+    the tests that the review of stage 11 asked for (Z4), and the bar and the ground in each
+    view that shows a nested map (Z5). Acceptance 27 of tests/test_atlas_browser.py holds
+    the counts of the top map.
 
 ## What is not decided
 

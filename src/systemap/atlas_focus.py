@@ -255,13 +255,15 @@ function fcHide() { FC.hot = null; FC.pin = null; if (SAY) { SAY.classList.remov
 // The free part of the screen: at the right of the list on a wide screen, under the row of
 // the list on a phone, and above the reading line.
 function fcFree() {
+  // The bar of a nested map is under the header (`insideSync` in `atlas_inside`).
+  var head = insideSync();
   askBottom();
-  var top = HEAD_H + 16, left = 16, bottom = H - (W > WIDE ? 70 : 84);
+  var top = head + 16, left = 16, bottom = H - (W > WIDE ? 70 : 84);
   if (shownEl(FRAIL)) {
     var r = FRAIL.getBoundingClientRect();
     if (W > WIDE) left = r.right + 14; else top = r.bottom + 10;
   }
-  if (W > 1180) top = Math.max(top, HEAD_H + 24);
+  if (W > 1180) top = Math.max(top, head + 24);
   else if (W > WIDE && ASK_EL) top = Math.max(top, ASK_EL.getBoundingClientRect().bottom + 16);
   return {x0: left, y0: top, x1: W - 16, y1: Math.max(top + 1, bottom)};
 }
@@ -453,6 +455,8 @@ function fcNext(from, key) {
 // The keys of the view (`atlas_input`): give true for a key of the view.
 function fcKey(e) {
   if (VIEW.mode !== 'focus' || !(e.key in FC_KEYS) || !FC.items.length) return false;
+  // With no light and no keyboard focus in the board, Esc goes out of a nested map (`goOut`).
+  if (e.key === 'Escape' && !FC.pin && !FBOARD.contains(document.activeElement) && insideMap()) { goOut(); return true; }
   if (e.key === 'Escape') { FC.pin = null; if (FBOARD.contains(document.activeElement)) document.activeElement.blur(); fcPoint(null); return true; }
   var from = null;
   FC.items.forEach(function (o) { if (o.kind === 'n' && o.g === document.activeElement) from = o; });

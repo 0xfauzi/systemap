@@ -75,6 +75,12 @@ color of the ground under it (`groundOf` in `atlas_lines`). The ring of a card o
 page is on the pixel grid of the screen (`ringRect` in page_canvas_view). The acceptance
 values do not change: each value must pass for self, workspace and the M11 tree.
 
+From the repair of the zoomed-in view (written on 2026-11-20 before the run of B24): the
+line of a neighbour has a new size and font (`upTag` in `atlas_draw`), the last frame of a
+move out draws the nested map at the box of its card (`morphDone` in `atlas_inside`), and the
+bar and the inside ground show in each view of a nested map. The acceptance values do not
+change: each value must pass for self, workspace and the M11 tree.
+
 Run from the repository root (Node and the Playwright package must be installed):
     uv run python bench/jev/atlas_budget.py
 """

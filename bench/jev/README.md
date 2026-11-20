@@ -7911,3 +7911,72 @@ it, and the ring of a card on the canvas page is on the pixel grid. The full out
 | M11 tree | 392 / 510 (pass) | 16.7 / 16.7 (pass) | 33.4 / 33.3 (pass) | 1,223,599 / 1,270,721 = 1.04 (pass) | 65 (pass) |
 
 Result: PASS for each value.
+
+## Z1 to Z5: the repair of the zoomed-in view of the atlas page (2026-11-20)
+
+Test: `tests/test_atlas_inside_browser.py` with `tests/atlas_inside.js`,
+`tests/test_atlas_inside_contrast.py`, and acceptance 24 and 27 of
+`tests/test_atlas_browser.py`. The coordinator wrote the acceptance values Z1 to Z5 before the
+work. The docstring of the test gives them with no change, and it gives how the test reads
+each value. Inputs: the map of this repository (the nested map Page), the generated M11 tree
+(P0, P0/Q0 and P0/Q0/Deep), and the fixture of `tests/canvas_sequenced.py` with a state machine
+in each map. axe-core was on NODE_PATH.
+
+Result of the run of `tests/test_atlas*.py` after the work: 478 passed, 8 skipped. The 8 skips
+are the tests of `tests/test_atlas_sequences_browser.py` that apply to one screen size only.
+The first run of `tests/test_atlas_inside_browser.py` had one failure: the driver read the
+reading line in the same task as the pointer move, before the page wrote it. The driver now
+waits 400 ms. The page did not change for this failure.
+
+The values below come from a separate run of the drivers after the test run.
+
+| Value | Result |
+|---|---|
+| Z1 line of a neighbour at the fit, 1440 x 900 | pass. 10 px on Page (the name is 10.5 px) and 10 px at the three M11 depths (the name is 10 px). Before the work, the line was 7.5 px on Page and 7 px on the M11 tree. Contrast 4.77 (light) and 5.76 (dark) on the ground of the card. The line is in its card box. |
+| Z1 at each zoom where the name draws | pass. The lowest ratio of the line to the name is 0.741, in 166 neighbour cards on Page and 48 on the M11 tree (zooms 0.35 to 3 times the fit, 1440 x 900 and 390 x 844, light and dark). |
+| Z2 totals | pass. Page: "10 neighbours · 9 of 11 parts · 32 flows" (Neighbours), "8 of 10 neighbours · 11 parts · 54 flows" (Data flow), "2 of 10 neighbours · 4 of 11 parts · 5 flows" (Control flow). The button gives "See its 11 parts" and the reading line gives "double-click to see its 11 parts". The top map holds the rule in each layer with flows (acceptance 27). |
+| Z3 Esc and Back during a move out | pass. Two presses end in P0 with Q0 selected, three presses end at the top map with P0 selected, for Esc and for the Back button. The largest camera step between two frames: 1127.4 px for three presses, 624.6 px for two presses, against 1281.9 px for the normal move out of P0 (the largest normal step). In an earlier driver run the values were 1348.6 px (three clicks) against 1418.0 px. The step depends on the frame times of the browser. |
+| Z4a reduced motion | pass. The camera changed exactly one time for each enter and each leave, on Page and on the M11 tree. |
+| Z4b the names of the path | pass. From #P0/Q0/Deep: "fifty maps" gives the top map with P0 selected, no bar and no locator; "P0" gives P0 with Q0 selected; "Q0" gives P0/Q0 with Deep selected. |
+| Z4c the last frame of a move out | pass. P0/Q0 to P0: the frame is at [49.9, 359.0, 59.0, 12.8] and the card at [49.9, 354.4, 59.0, 22.0]. |
+| Z4d the line at 390 x 844 | pass. 9 px at the fit at the three M11 depths and on Page, in the card box, with the same contrast. Z1 gives 10 px only for 1440 x 900. |
+| Z5 the bar and the ground in each view | pass. The Map view, the Sequences view (on the map and as a diagram) and the States view on Gateway, and the Focus view on Page, show the bar and the ground `--inside`, also as the background of the page. The top map in each view, and the History view with Page open, show neither. Back opens the Map view of the map above with the card of the nested map selected. |
+
+Before the work, the States view and the diagram of the Sequences view of a nested map had
+the ground of the top map, because the canvas does not show in these views. The repair gives
+the page background the color `--inside` in a nested map. On a phone, the bar of a view other
+than the Map view is directly under the header, because only the Map view has the strip of
+the layer tabs.
+
+## B24: the performance budget of the atlas page, repair of the zoomed-in view (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py` and `bench/jev/atlas_point.js`, with no change to the
+acceptance values. Before the run, the docstring got one note: the line of a neighbour, the
+last frame of a move out, and the signs in each view of a nested map. The full output is in
+`bench/jev/atlas_budget_B24.txt`. At 4 times CPU slowdown, 1440 x 900, device pixel ratio 1,
+with no other command on the host:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 347 / 367 (pass) | 33.4 / 33.3 (pass) | 50.0 / 50.0 (pass) | 364,713 / 435,117 = 1.19 (pass) | 66 (pass) |
+| workspace | 309 / 380 (pass) | 33.3 / 33.3 (pass) | 49.9 / 33.4 (pass) | 268,951 / 321,814 = 1.20 (pass) | 87 (pass) |
+| M11 tree | 419 / 477 (pass) | 16.8 / 33.4 (pass) | 33.4 / 33.5 (pass) | 1,223,599 / 1,273,043 = 1.04 (pass) | 61 (pass) |
+
+Result: PASS for each value. The frame times of the canvas page are also higher than in B23
+(pan 33.4 ms against 16.8 ms, dive 50.0 ms against 33.4 ms on `self`). Thus the host was
+slower in this run for the two pages. The pan of the M11 tree is 33.4 ms against 16.8 ms for
+the canvas page: this passes by the limit of 35 ms, not by the ratio (1.99). The dive of
+`self` (50.0 ms) passes by the ratio to the canvas page (1.0), not by the limit of 35 ms. The
+cause of the slower host was not measured.
+
+A second run with the same code, directly after the first, also gave PASS for each value. Its
+full output is in `bench/jev/atlas_budget_B24_second.txt`:
+
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 351 / 380 (pass) | 33.4 / 33.3 (pass) | 50.0 / 33.4 (pass) | 364,713 / 435,117 = 1.19 (pass) | 87 (pass) |
+| workspace | 328 / 346 (pass) | 33.3 / 16.8 (pass) | 33.4 / 33.4 (pass) | 268,951 / 321,814 = 1.20 (pass) | 66 (pass) |
+| M11 tree | 480 / 681 (pass) | 33.3 / 33.4 (pass) | 49.9 / 33.4 (pass) | 1,223,599 / 1,273,043 = 1.04 (pass) | 87 (pass) |
+
+In this run the pan of the M11 tree is 33.3 ms for the canvas page and 33.4 ms for the atlas
+page. Thus the difference of the first run is not a stable difference of the two pages.
