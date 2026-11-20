@@ -212,7 +212,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=644,
-            source_review="850dccaa7b8d6ef397f696e2dc2876370e4c5de6e00985b38fe3eb76290d3676",
+            source_review="01f9c1a1dbe1a4239efd8cea703e0e2a2cd9b2fffbc39636a193298be3e782b9",
         ),
         Component(
             id='CanvasPage',

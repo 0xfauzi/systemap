@@ -428,7 +428,8 @@ var VIEW_BTNS = Array.prototype.slice.call(document.querySelectorAll('#atlas-hea
 // The selection, the pin and the pointed item go.
 function setMode(mode) {
   if (mode === VIEW.mode || (mode === 'seq' && !SEQ_MAPS.length) || (mode === 'states' && !SM_MAPS.length) || (mode === 'focus' && !FC_MAPS.length) || (mode === 'history' && !HS_DATA)) return false;
-  var from = viewNow();
+  // The selection goes at a change of the view. The Focus view keeps the selected card.
+  var from = viewNow(), chosen = SEL;
   select(null, {keep: true});
   if (VIEW.mode === 'states') smHide();
   if (VIEW.mode === 'focus') fcHide();
@@ -448,7 +449,7 @@ function setMode(mode) {
   } else if (mode === 'focus') {
     var from2 = FC_FROM;
     FC_FROM = null;
-    fcShow(from2);
+    fcShow(from2, chosen);
   } else if (mode === 'history') {
     hsShow();
   } else {

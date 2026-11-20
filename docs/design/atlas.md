@@ -209,7 +209,8 @@ state machine, History needs commit data.
 - **Focus.** The headline gives the counts and the reach, for example "a change here can
   reach 16 of 27 cards". Reach is the count of cards on a path of flows from the card. A
   column shows nine cards at most and then the count of the others. Selecting a card
-  focuses on it. On a narrow screen the view shows one step at each side.
+  focuses on it. The view opens on the selected card of the Map view when that card has a
+  flow. On a narrow screen the view shows one step at each side.
 - **History.** One row for each component with a change, one column for each of 12 equal
   parts of the time. The opacity of a cell is the square root of the changed lines of the
   cell divided by the largest cell. A dot marks a cell with a new source module. Bars at

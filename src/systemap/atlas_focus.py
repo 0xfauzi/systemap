@@ -34,7 +34,8 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   headline. The current card has aria-current "true".
 - Selecting a card of the board or of the list focuses on it. The view opens on the card
   with the most flows, or on the card of the details: the details of a card with a flow
-  have the button "Focus on this card" (`atlas_details`). After that button and after a
+  have the button "Focus on this card" (`atlas_details`). The button Focus of the header
+  opens the view on the selected card of the Map view, when that card has a flow in the view. After that button and after a
   part of the path, the keyboard focus is on the middle card. The current button of the
   list moves into view (with no smooth scroll when the motion is reduced).
 - On a screen of 1180 px or less the view shows one step at each side.
@@ -229,13 +230,15 @@ function fcChoose(m, id, keyed) {
   say(fcWords());
 }
 // Show the view (`setMode` in `atlas_sequences`): the card of the details (`fcEnter`), else
-// the card on show in the current map, else the card with the most flows of the current
-// map, else of the map on show before, else of the first map with flows. The card of the
-// details gets the keyboard focus.
-function fcShow(c) {
-  var m = c ? c.map : currentMap();
+// the selected card `sel` of the Map view when it has a flow in the view, else the card on
+// show in the current map, else the card with the most flows of the current map, else of
+// the map on show before, else of the first map with flows. The card of the details gets
+// the keyboard focus. Before, the button Focus of the header did not use the selected card,
+// and the view showed the card with the most flows.
+function fcShow(c, sel) {
+  var pick = c || (sel && fcDegree(sel.map)[sel.id] ? sel : null), m = pick ? pick.map : currentMap();
   if (FC_MAPS.indexOf(m) < 0) m = FC.m || FC_MAPS[0];
-  var id = c && c.map === m ? c.id : FC.m === m && FC.id ? FC.id : fcRanked(m)[0].id;
+  var id = pick && pick.map === m ? pick.id : FC.m === m && FC.id ? FC.id : fcRanked(m)[0].id;
   cv.tabIndex = -1; SAID_KEY = '';
   fcChoose(m, id, !!c);
 }

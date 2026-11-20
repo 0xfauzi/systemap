@@ -17,6 +17,8 @@
 // - states: at 1440 x 900 in the States view, the IDs of the states and, for each transition,
 //   the distance of its start and of its end to the nearest state outline, and the states
 //   that its line goes into by more than 2 units, other than its two ends.
+// - focus: at 1440 x 900, the card of the Focus view after a selection of the card Cache and
+//   a click on the button Focus of the header.
 // The driver gives one JSON object. `errors` has the script errors of the page.
 'use strict';
 const { chromium } = require('playwright');
@@ -132,10 +134,21 @@ async function states(browser, file) {
   return { ...out, errors };
 }
 
+async function focus(browser, file) {
+  const { page, errors } = await open(browser, file, WIDE);
+  await page.evaluate(() => window.systemapCanvas.select('', 'Cache'));
+  await page.waitForTimeout(800);
+  await page.click('button[data-mode="focus"]');
+  await page.waitForTimeout(800);
+  const selected = await page.evaluate(() => ({ map: window.systemapCanvas.focus().map, id: 'Cache', focus: window.systemapCanvas.focus().id }));
+  await page.close();
+  return { selected, errors };
+}
+
 (async () => {
   const [mode, file] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const modes = { sheet, keys, names, states };
+  const modes = { sheet, keys, names, states, focus };
   const out = await modes[mode](browser, file);
   await browser.close();
   process.stdout.write(JSON.stringify(out));

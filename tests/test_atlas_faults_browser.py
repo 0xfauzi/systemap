@@ -26,6 +26,9 @@ Acceptance values, written on 2026-11-20 before the first run of these tests:
    state: 8 units or less from it (3 at the start, and 7 before the arrowhead at the end).
    No transition goes more than 2 units into a state that is not one of its two ends. Each
    state shows its full ID, with no "...". No run has a script error.
+5. At 1440 x 900, after a selection of the card Cache on the Map view (the card with the
+   most flows is Orchestration), the button Focus of the header opens the Focus view on
+   Cache. No run has a script error.
 """
 
 from __future__ import annotations
@@ -228,3 +231,10 @@ def test_each_transition_starts_and_ends_on_its_states(shape_page: Path) -> None
     for edge in out["edges"]:
         assert edge["start"] <= 8 and edge["end"] <= 8, edge
         assert edge["through"] == [], edge
+
+
+def test_the_focus_view_opens_on_the_selected_card(shape_page: Path) -> None:
+    """Acceptance 5."""
+    out = _run(str(shape_page), "focus")
+    assert out["errors"] == []
+    assert out["selected"] == {"map": "", "id": "Cache", "focus": "Cache"}
