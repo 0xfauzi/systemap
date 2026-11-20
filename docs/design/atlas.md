@@ -102,8 +102,9 @@ state machine, History needs commit data.
   modules, the source records, and the sequences that use the card. The rules of the map
   (invariants and import rules) stay available.
 - **Nested maps.** A card that opens a map has a second edge behind it and a small picture
-  of its parts. The reader goes in with zoom, with a double-click, or with a button in
-  the details. The map above fades as the nested map takes the screen. The headline shows
+  of its parts. The small picture is at the right, below the line of the name. Thus the
+  name has the full width of the card, as on each other card. The reader goes in with zoom,
+  with a double-click, or with a button in the details. The map above fades as the nested map takes the screen. The headline shows
   the path, and each part of the path goes to that map. Esc goes out one level.
 - **Inside a nested map.** The page shows five signs, so that a reader cannot think that a
   nested map is the top map. They apply to each nested map at each depth, in the Map view

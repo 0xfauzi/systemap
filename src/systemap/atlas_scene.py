@@ -7,8 +7,10 @@ the page data (`atlas_data`) and calculates no layout of a map: each box and eac
 point comes from the data.
 
 Placement. The top map has its own coordinates. A map that a card opens is a small picture
-in the right part of that card, as in the design study (`layout`). The scale fits the map
-in the height of the card. Thus the small picture of a map and the open map have the same
+in the right part of that card, below the line of the name of the card (`layout`). The
+scale fits the map in that part of the card. Thus the name of the card has the full width of
+the card, as the name of each other card has. In the design study the picture had the full
+height of the card, and the name had only the part of the card at the left of the picture. Thus the small picture of a map and the open map have the same
 positions, and a zoom into the picture goes into the map. Each nested map keeps its place in
 the coordinates of the map above (`L`). The zoom movement of `atlas_inside` moves that place
 from the box of the card to `L` (`retree`).
@@ -93,11 +95,14 @@ function pointsBox(p) {
   return p.length ? [x0 - 12, y0 - 12, x1 - x0 + 24, y1 - y0 + 24] : null;
 }
 // The place of the map that a card opens, in the coordinates of the map of the card: a small
-// picture in the right part of the card. Its scale makes it fit the height of the card, and
-// it is 44 units wide or less (docs/design/atlas/study-script.html, `prepare`).
+// picture in the right part of the card, from PIC_TOP below the middle of the card to 6 units
+// above its bottom. The name of the card is above it (`cardText` in `atlas_draw`). The scale
+// makes the picture fit that part, and it is 44 units wide or less (the width of the design
+// study, docs/design/atlas/study-script.html, `prepare`).
+var PIC_TOP = 4;
 function layout(b, size) {
-  var s = Math.min((b[3] - 12) / size[1], 44 / size[0]);
-  return {s: s, at: [b[0] + b[2] - 9 - size[0] * s, b[1] + (b[3] - size[1] * s) / 2]};
+  var top = b[3] / 2 + PIC_TOP, room = b[3] - top - 6, s = Math.min(room / size[1], 44 / size[0]);
+  return {s: s, at: [b[0] + b[2] - 9 - size[0] * s, b[1] + top + (room - size[1] * s) / 2]};
 }
 function place(m, x, y, s, depth, owner) {
   m.T = {x: x, y: y, s: s}; m.depth = depth; m.owner = owner; m.byId = Object.create(null);

@@ -337,6 +337,10 @@ function cardBox(c, x, y, w, h, alpha, qv) {
 }
 // The text of a card: the name, the short name below it at a scale of 0.95 or more, the
 // tag of the kind, and in the Sequences view the tag of its part in the step (`seqTag`). The sizes follow the scale `a` of the map, to a limit.
+// The name has the full width of each card. The small picture of a card that opens a map is
+// below the line of the name (`layout` in `atlas_scene`): thus the name of such a card stays
+// at the place that the short name makes for it, and only the lower line, the short name and
+// the step tag, has the width at the left of the picture (`low`).
 function cardText(c, x, y, w, h, alpha, qv) {
   var lit = litOf(c.map);
   if (lit || c === SEL || HOT.c === c) { alpha *= backCard(lit, c); if (inkCard(c)) qv = 0; }
@@ -345,10 +349,10 @@ function cardText(c, x, y, w, h, alpha, qv) {
   var a = h / c.b[3], u = Math.min(a, 1.6), actor = c.k === 'actor', pad = (actor ? 20 : 13) * u;
   // A small card keeps a name of 7.5 px or more while the card is high enough for it.
   var ns = q(Math.max(13.5 * u, Math.min(7.5, h * 0.3))), far = rest(smooth(0.9, 0.95, a)), thumb = c.child ? c.child.size[0] * c.child.T.s / c.map.T.s * a + 10 * u : 0;
-  var right = w - pad - 8 * u - thumb;
+  var right = w - pad - 8 * u, low = right - thumb;
   if (c.k !== 'actor' && c.k !== 'component') {
     var ks = q(8.5 * u), kw = (unitWidth(c.k.toUpperCase(), 500, true) + 0.09 * c.k.length) * ks;
-    caps(c.k, x + w - 9 * u - thumb - kw, y + 14 * u, ks, C['--ink-3'], t * (1 - 0.5 * qv), 0.09);
+    caps(c.k, x + w - 9 * u - kw, y + 14 * u, ks, C['--ink-3'], t * (1 - 0.5 * qv), 0.09);
   }
   var tag = seqTag(c);
   if (tag) {
@@ -356,10 +360,10 @@ function cardText(c, x, y, w, h, alpha, qv) {
     caps(tag, x + w - 9 * u - thumb - gw, y + h - 9 * u, gs, tag === 'acts' ? C['--ink'] : C['--ink-2'], t, 0.09);
     if (DLOG) logged({t: 'tag', id: c.id, s: tag});
   }
-  var mid = y + h / 2, base = mid - 1.5 * u + (1 - far * (1 - qv)) * 6 * u, up = upCard(c);
+  var mid = y + h / 2, base = mid - 1.5 * u + (c.child ? 0 : (1 - far * (1 - qv)) * 6 * u), up = upCard(c);
   if (up) { ns = Math.max(ns, upSize(ns, h)); base = upTag(up, x + pad, mid, ns, h, right, t * (1 - 0.4 * qv)); far = 0; }
   text(fit(c.id, ns, right, 600), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600);
-  if (c.p && far > 0) text(fit(c.p, q(10 * u), right, 400), x + pad, mid + 13 * u, q(10 * u), C['--ink-3'], t * far * (1 - qv) * (1 - HIDE));
+  if (c.p && far > 0) text(fit(c.p, q(10 * u), low, 400), x + pad, mid + 13 * u, q(10 * u), C['--ink-3'], t * far * (1 - qv) * (1 - HIDE));
 }
 // The size of the line of a neighbour for a name of size ns on a card h high: 10 px while
 // the card is 24 px high or more, and 0.75 times the name or more. The name of a neighbour

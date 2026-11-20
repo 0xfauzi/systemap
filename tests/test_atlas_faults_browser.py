@@ -18,6 +18,10 @@ Acceptance values, written on 2026-11-20 before the first run of these tests:
    list for the neighbour Auth of the nested map Orchestration has the address "#Auth".
    A click on it opens the top map with the card Auth selected, as a selection of that
    neighbour on the canvas does. No run has a script error.
+3. At 1440 x 900 and at 390 x 844, in the All layer at the fit of the whole top map, the
+   name of each card of the top map shows in full, with no "...". This includes the long
+   name of the card Orchestration, which opens a map. The box of that name is in the box of
+   its card, and it is not on the small picture of the map of the card.
 """
 
 from __future__ import annotations
@@ -179,3 +183,17 @@ def test_tab_goes_to_no_link_of_the_list_and_a_neighbour_link_goes_out(
     assert out["link"] == {"href": "#Auth", "tabindex": "-1"}
     assert out["after"]["current"] == ""
     assert out["after"]["sel"] == {"map": "", "id": "Auth"}
+
+
+def test_the_name_of_a_card_that_opens_a_map_shows_in_full(shape_page: Path) -> None:
+    """Acceptance 3."""
+    out = _run(str(shape_page), "names")
+    assert out["errors"] == []
+    for run in out["runs"]:
+        drawn = {t["s"]: t["box"] for t in run["texts"]}
+        assert [s for s in drawn if s.endswith("...")] == [], run["width"]
+        assert {"Orchestration", *NAMES} <= set(drawn), run["width"]
+        name, c, p = drawn["Orchestration"], run["card"], run["picture"]
+        assert c[0] <= name[0] and name[2] <= c[0] + c[2], run["width"]
+        assert c[1] <= name[1] and name[3] <= c[1] + c[3], run["width"]
+        assert not _over(name, [p[0], p[1], p[0] + p[2], p[1] + p[3]]), (run["width"], name, p)

@@ -11,6 +11,9 @@
 //   until the focus comes back to the first element of the page, and the current map and
 //   the selected card after a click on the link of the list of the neighbour Auth of the
 //   nested map Orchestration.
+// - names: at 1440 x 900 and at 390 x 844, in the All layer at the fit of the whole top map,
+//   the drawn texts, the screen box of the card Orchestration, and the screen frame of the
+//   small picture of its map.
 // The driver gives one JSON object. `errors` has the script errors of the page.
 'use strict';
 const { chromium } = require('playwright');
@@ -82,10 +85,26 @@ async function keys(browser, file) {
   return { seen, link, after, errors };
 }
 
+async function names(browser, file) {
+  const out = { runs: [], errors: [] };
+  for (const opts of [WIDE, PHONE]) {
+    const { page, errors } = await open(browser, file, opts);
+    await page.evaluate(() => { const S = window.systemapCanvas; S.setLayer('all'); S.view(S.fit('', true)); });
+    await page.waitForTimeout(600);
+    out.runs.push(await page.evaluate(() => {
+      const S = window.systemapCanvas;
+      return { width: innerWidth, texts: S.drawn().texts.map((t) => ({ s: t.s, box: t.box })), card: S.box('', 'Orchestration'), picture: S.frame('Orchestration') };
+    }));
+    out.errors.push(...errors);
+    await page.close();
+  }
+  return out;
+}
+
 (async () => {
   const [mode, file] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const modes = { sheet, keys };
+  const modes = { sheet, keys, names };
   const out = await modes[mode](browser, file);
   await browser.close();
   process.stdout.write(JSON.stringify(out));

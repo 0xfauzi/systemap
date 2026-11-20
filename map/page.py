@@ -175,7 +175,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=552,
-            source_review="390ae1945b1109b63fa75621d8642245f07d43af6e9d88ac2a854bee1afaf59d",
+            source_review="9c21dadfdf132c6352fe2828acdf3bee88c71b29afaebedc095b768ced86918a",
         ),
         Component(
             id='AtlasDrawing',
@@ -195,7 +195,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=460,
-            source_review="1cb5012f84144a532113cd13a61d93f43da5188074d2c7c0750f9d72b865bab0",
+            source_review="82016ceed575d855379b5ac7f0b210af1027a6cd3fc593d3851d182de24616f3",
         ),
         Component(
             id='AtlasViews',
@@ -322,8 +322,8 @@ MODEL = Model(
              source_refs=('systemap.canvas_sequences@af17734f0c2050047f18d0594d2558e2e663617dfa25a97e03c217bda5f37951', 'systemap.atlas_data@cf0dbcb2c6af1f949bafb53f3fd3366983b68428b57f739263a991e9f9b6c56b', 'systemap.canvas_changes@546f174ae2b2cc4e8e8ffddc2c75a03f8ad3d663eeb559f1b15ea7374390394e', 'systemap.page_sequences@fca8451cf2ad76b3818c52c68081a9a6dd004e89cf390633ec3cad3a3c2f5369', 'systemap.page_changes@35133119c0e2717371cedb9ad60770ff6fe3f655cd87dad0d6f7815cc11b5efa',),
              review_digest="04a67b8d293723df18dda243641b932279bbf26639c65751f9c51180814bedd7"),
         Flow('AtlasDrawing', 'AtlasPage', 'drawing script', 'data',
-             source_refs=('systemap.atlas_script@f7b8b2aab77e0d9843790c76a4f4237d5532c3a1ce1d6d15f2d77d5ce7951245', 'systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_draw@7b4b3b390c3829b92ac3bdc8dde41a66ac2fbb3ca80dd0225ba2e248a4c0b065', 'systemap.atlas_marks@5f1e3409355cf1e6ad06f20061cf5ff542038de36d833615788bf09a758dba42',),
-             review_digest="8e31c2084ff310b1a7fe767a77cc256640b38a220d812fae447906907dc19b46"),
+             source_refs=('systemap.atlas_script@f7b8b2aab77e0d9843790c76a4f4237d5532c3a1ce1d6d15f2d77d5ce7951245', 'systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_draw@f50377f4d8406e54743e9e71d4d12843be9e3198abc657f4402ffcf99fdabd48', 'systemap.atlas_marks@5f1e3409355cf1e6ad06f20061cf5ff542038de36d833615788bf09a758dba42',),
+             review_digest="8a197a745621dba99b30fc34021e328820ba69ca3acd77d9bad04da08c58dc3d"),
         Flow('AtlasViews', 'AtlasPage', 'view parts', 'data',
              source_refs=('systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_script@f7b8b2aab77e0d9843790c76a4f4237d5532c3a1ce1d6d15f2d77d5ce7951245', 'systemap.atlas_view@cc154e9b5c403b5150f6540da7264f8b52c22f797db443560a3898678da0c2df', 'systemap.atlas_details@05c19a3662a1a0c6fbef605726a974a029cbecaacb2f84f8b6433ef0e2394bf5',),
              review_digest="967f737cdd6261a0d405880bcf6734dfd1e5e8d755cfb8a38d024269f59ac087"),
