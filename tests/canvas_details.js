@@ -119,10 +119,17 @@ async function tools(file) {
   const a = await cardPoint(page, 0);
   // Each record starts before the input, so its first frames have the value before it.
   await page.evaluate((id) => { window.__want = id; }, a.id);
-  let rec = framesOf(page, selAlpha, 600);
+  // The frame log of the page (`record`) gives the time and the alpha of each frame of the
+  // page, also of a frame that a record of framesOf misses under load.
+  await page.evaluate(() => window.systemapCanvas.record());
   await page.waitForTimeout(80);
   await page.mouse.click(a.x, a.y);
-  out.fadeOff = await rec;
+  await page.waitForTimeout(600);
+  out.fadeOff = await page.evaluate((id) => window.systemapCanvas.recorded().map((f) => {
+    const e = f.sel.find((x) => x[0] === id);
+    return [f.at, e ? e[1] : 0];
+  }), a.id);
+  let rec;
   out.selected = a.id;
   await page.click('#reduce-motion');
   out.motion = await page.evaluate(() => ({ attr: document.documentElement.getAttribute('data-reduce-motion'),

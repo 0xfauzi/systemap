@@ -8948,3 +8948,12 @@ Which measure separates the two pages:
 - C2: a rule "no step label crosses an edge" and a rule "each step label shows on its line".
   Only 4 of 12 (self) and 2 of 6 (workspace) of the crossing labels have a free place on their
   line.
+
+## B30: the performance budget with the new dive value (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py`. Value 3 is now the median over 5 rounds of the share of
+frame intervals over 20 ms (docstring, written before the run). One run. Output:
+`bench/jev/atlas_budget_B30.txt`. The busy processes of the load tests stopped before the
+run. The 1-minute load average was still 4.04 at the start, but no other process used the CPU.
+Dive share canvas / atlas: self 0.461 / 0.150, workspace 0.200 / 0.156, M11 tree 0.239 /
+0.161. Each other value passed (point 85 / 89 / 77 ms). Result: pass.

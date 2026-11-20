@@ -17,6 +17,12 @@ the same machine, at 4 times CPU slowdown (`Emulation.setCPUThrottlingRate`):
    bench/jev/canvas_frames.py: a zoom from the top fit into the deepest map below the first
    card that opens a map, and back out. A map with no nested map zooms into its middle
    card. The atlas value is 1.25 times the canvas value or less, or 35 ms or less.
+   Changed before the run of B30 (written on 2026-11-20): the value is the median over
+   DIVE_RUNS rounds of the share of the frame intervals over 20 ms (the driver
+   bench/jev/t0_dive.js, the same scenario). The atlas value is 1.25 times the canvas value
+   or less, or 0.05 or less. The rule changed because the 95th percentile comes in steps of
+   16.7 ms, thus one frame can change the result. In the record T0 (t0_dive_T0.txt), the
+   share over 20 ms put the two pages in the same order in 29 of 30 rounds.
 4. `point`: the time from a pointer move onto a card to the lit paths on the screen,
    100 ms or less. The canvas page has no equal measure. Stage 1 had no lit paths, and
    the stage 1 records give "not measured". From stage 2 (written on 2026-11-18 before
@@ -134,6 +140,9 @@ FIRST_LIMIT = 1500.0
 FRAME_FACTOR = 1.25
 FRAME_LIMIT = 35.0
 SIZE_FACTOR = 1.5
+DIVE_RUNS = 5
+DIVE_OVER = 20.0
+DIVE_LIMIT = 0.05
 
 
 def _self_history() -> dict[str, Any] | None:
@@ -261,11 +270,36 @@ def _median(page: Path, mode: str) -> float:
     return statistics.median(float(canvas_frames.run(page, mode, RATE)[key]) for _ in range(RUNS))
 
 
+def _over(page: Path) -> float:
+    """Give the share of the frame intervals over DIVE_OVER ms in one run of the dive."""
+    import canvas_frames  # noqa: PLC0415
+
+    found = canvas_frames.node()
+    if found is None:
+        raise RuntimeError(canvas_frames.missing())
+    proc = subprocess.run(
+        [found, str(HERE / "t0_dive.js"), str(page), str(RATE)],
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr or proc.stdout)
+    gaps = [float(g) for g in json.loads(proc.stdout)["gaps"]]
+    return sum(1 for g in gaps if g > DIVE_OVER) / len(gaps)
+
+
+def _dive(canvas: Path, atlas: Path) -> tuple[float, float]:
+    """Give the medians of the share over DIVE_OVER ms. Each round runs the two pages."""
+    rounds = [(_over(canvas), _over(atlas)) for _ in range(DIVE_RUNS)]
+    return statistics.median(r[0] for r in rounds), statistics.median(r[1] for r in rounds)
+
+
 def measure(canvas: Path, atlas: Path) -> dict[str, tuple[float, float]]:
     """Give the canvas value and the atlas value of each timed measure and of the size."""
-    out = {
-        mode: (_median(canvas, mode), _median(atlas, mode)) for mode in ("load", "pan-fit", "dive")
-    }
+    out = {mode: (_median(canvas, mode), _median(atlas, mode)) for mode in ("load", "pan-fit")}
+    out["dive"] = _dive(canvas, atlas)
     out["size"] = (float(canvas.stat().st_size), float(atlas.stat().st_size))
     out["point"] = (0.0, _point(atlas))
     return out
@@ -281,7 +315,7 @@ def verdicts(found: dict[str, tuple[float, float]]) -> dict[str, bool]:
     return {
         "first": first[1] <= FIRST_FACTOR * first[0] and first[1] <= FIRST_LIMIT,
         "pan": frames(pan),
-        "dive": frames(dive),
+        "dive": dive[1] <= FRAME_FACTOR * dive[0] or dive[1] <= DIVE_LIMIT,
         "size": size[1] <= SIZE_FACTOR * size[0],
         "point": found["point"][1] <= POINT_LIMIT,
     }
@@ -297,11 +331,8 @@ def row(name: str, found: dict[str, tuple[float, float]]) -> str:
     cells = []
     for key, label in (("load", "first"), ("pan-fit", "pan"), ("dive", "dive")):
         c, a = found[key]
-        cells.append(
-            f"{c:.0f} / {a:.0f} ({_word(v[label])})"
-            if key == "load"
-            else f"{c:.1f} / {a:.1f} ({_word(v[label])})"
-        )
+        form = {"load": ".0f", "pan-fit": ".1f", "dive": ".3f"}[key]
+        cells.append(f"{c:{form}} / {a:{form}} ({_word(v[label])})")
     c, a = found["size"]
     cells.append(f"{c:,.0f} / {a:,.0f} = {a / c:.2f} ({_word(v['size'])})")
     point = found["point"][1]
@@ -318,7 +349,7 @@ def main() -> int:
     ok = True
     print(
         "| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | "
-        "Dive p95 canvas / atlas (ms) | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |"
+        "Dive share over 20 ms canvas / atlas | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |"
     )
     print("|---|---|---|---|---|---|")
     with tempfile.TemporaryDirectory() as tmp:

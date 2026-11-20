@@ -193,7 +193,7 @@ function draw() {
   if (HUD) drawHud(began, !sharp);
   frameShown();
   drawn++;
-  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS});
+  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS, sel: SELS.map(function (e) { return [e.c.id, e.a]; })});
   if (FADING || SPEED_FADING || SEL_FADING || VIEW_FADING) fadeLater();
 }
 // A boundary flow that fades asks for more frames (`FADING`), and so does a fade of the image

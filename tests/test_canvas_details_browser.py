@@ -19,6 +19,9 @@ tests/test_canvas_details.py.
    selection goes from 0 to 1 in one frame. Before the button, with no system setting, the
    alpha changes by 0.25 or less in each frame, and the fade takes 160 ms or more
    (acceptance 13 of tests/test_canvas_browser.py also stays).
+   Changed on 2026-11-20, with the same rule: the test reads the time of each frame of the
+   page (the frame log), and a change counts for each 60 Hz frame of that time
+   (`_page_fade`). The count of the records of animation frames failed under load.
 3. The ? key opens the keys sheet with the keys of `page_canvas_details.KEYS`, and the
    focus goes to its Close button. A key under the sheet does not operate. Escape closes
    it, and the focus goes back to the canvas. The F key moves the camera to the fit of the
@@ -85,6 +88,7 @@ from __future__ import annotations
 
 import functools
 import json
+import math
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -142,6 +146,39 @@ def _steps(frames: list[list[float]], rate: bool = False) -> tuple[float, float,
     return most, span, len(moved)
 
 
+FRAME_MS = 1000 / 60
+
+
+def _page_fade(records: list[list[float]]) -> tuple[float, float]:
+    """Give the largest change of the alpha in one 60 Hz frame and the time of the fade.
+
+    Each record is one frame of the page (the frame log `record`): its time and the alpha.
+    A change between two frames counts for each FRAME_MS of the time between them, and for
+    one frame when the time is shorter. The first change counts for one frame, because the
+    frame before it can be much earlier. The time of the fade is from the frame before the
+    first change to the last frame with a change. The frame before counts for two frames
+    or less (also when the log does not have it), because the page can be at rest before
+    the click. Thus the rule is for the time of the frames: under load the page draws
+    fewer frames."""
+    # A first frame at minus infinity has the alpha 0 before the click.
+    frames = [[-math.inf, 0.0], *records]
+    moved = [i for i in range(1, len(frames)) if frames[i][1] != frames[i - 1][1]]
+    if not moved:
+        return 0.0, 0.0
+    most = (
+        max(
+            abs(frames[i][1] - frames[i - 1][1])
+            / max(1.0, (frames[i][0] - frames[i - 1][0]) / FRAME_MS)
+            for i in moved[1:]
+        )
+        if len(moved) > 1
+        else 0.0
+    )
+    most = max(most, abs(frames[moved[0]][1] - frames[moved[0] - 1][1]))
+    start = max(frames[moved[0] - 1][0], frames[moved[0]][0] - 2 * FRAME_MS)
+    return most, frames[moved[-1]][0] - start
+
+
 @pytest.fixture(scope="module")
 def tools(self_page: Path) -> dict[str, Any]:
     return _drive("--tools", str(self_page))
@@ -164,8 +201,8 @@ def test_the_reduce_motion_button(tools: dict[str, Any]) -> None:
     # in the same frames, and the record gives the alpha of the new selection.
     on = [v for _t, v in tools["fadeOn"]]
     assert on[0] == 0 and on[-1] == 1 and _steps(tools["fadeOn"])[2] == 1, on
-    most, span, frames = _steps(tools["fadeOff"])
-    assert most <= 0.25 + 1e-9 and frames >= 5 and span >= 160 - 17, (most, span, frames)
+    most, span = _page_fade(tools["fadeOff"])
+    assert most <= 0.25 + 1e-9 and span >= 160 - 17, (most, span)
 
 
 def test_the_keys_sheet_and_the_fit(tools: dict[str, Any]) -> None:
