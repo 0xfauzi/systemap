@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 
 from systemap.card_names import PAGE_NAME
+from systemap.page_canvas_finish import GRID_TILE_PART
 
 DRAW = r"""
 // ---- batches of boxes ----------------------------------------------------------
@@ -129,7 +130,16 @@ function drawGrid() {
   var raw = GRID_PITCH * cam.k;
   if (!(raw > 0) || !window.DOMMatrix) return;
   var pitch = raw / Math.pow(2, Math.floor(Math.log(raw / GRID_MIN) / Math.LN2)), d = dpr() * (sharp ? 1 : 0.5);
-  var size = Math.max(4, Math.round(pitch * d)), p = gridPattern(size, d, C['--line-2']);
+  var color = C['--line-2'];
+  ctx.globalAlpha = 1;
+  // While the camera moves, a tile at a scale of 1 (`tileFill` in `page_canvas_finish`).
+  if (!sharp) {
+    tileFill(pitch, d, color + d, function (g, x, y) {
+      g.fillStyle = color; g.globalAlpha = 0.6; g.beginPath(); g.arc(x + GRID_R * d + 0.5, y + GRID_R * d + 0.5, GRID_R * d, 0, 2 * Math.PI); g.fill();
+    }, -cam.x * cam.k - GRID_R, -cam.y * cam.k - GRID_R, HEAD_H);
+    return;
+  }
+  var size = Math.max(4, Math.round(pitch * d)), p = gridPattern(size, d, color);
   if (!p || !p.setTransform) return;
   var s = pitch / size;
   // The offset is taken modulo the cell. A deep zoom has a large offset, and the pattern
@@ -497,4 +507,4 @@ function boxOnScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > HEAD_H && r[0]
 """
 
 # The page reads the size and the room of a card name from the check values (`card_names`).
-DRAW = DRAW.replace("PAGE_NAME_JSON", json.dumps(PAGE_NAME))
+DRAW = GRID_TILE_PART + DRAW.replace("PAGE_NAME_JSON", json.dumps(PAGE_NAME))

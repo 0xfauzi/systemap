@@ -11,7 +11,8 @@ selection.
   empty area. The cell on the screen stays from 16 px to 32 px: it divides by 2 each time
   the zoom doubles, and the dots of the smaller cell fade in. Thus a deep zoom makes no
   large pattern. The page draws the grid as two pattern fills in each frame, and it keeps
-  the pattern of each cell size.
+  the pattern of each cell size. While the camera moves, a frame draws only the larger
+  cell, from a tile of cells at a scale of 1 (`GRID_TILE_PART`, also on the atlas page).
 - The legend. A plate at the bottom right gives one line sample and the name for each flow
   kind that the current map shows in the Map view, and the count of the flows. When the
   plate does not fit at the right of the help line, it gives only the count. With the
@@ -31,7 +32,40 @@ selection.
 
 from __future__ import annotations
 
-FINISH = r"""
+# The dot grid of a frame while the camera moves. The atlas page (`atlas_draw`) and the canvas
+# page use this part.
+GRID_TILE_PART = r"""
+// ---- the dot grid of a moving frame (page_canvas_finish) -----------------------------
+// A pattern fill at a scale that is not 1 costs much time, because the browser samples the
+// pattern at each pixel. The dive of a map of 400 cards at 4 times CPU slowdown failed its
+// frame limit for this cause. Thus a frame while the camera moves fills the grid from a tile
+// of GRID_TILE by GRID_TILE cells in device pixels, at a scale of 1. A dot of the tile is on
+// the exact dot nearest to the middle of the screen. The other dots are 4 device pixels or
+// less from their exact places on a screen of 1,440 px. `dot(g, x, y)` draws one dot of
+// the tile. The page keeps the last GRID_TILES tiles, so that a dive makes few new tiles:
+// with 16 cells in a tile, a new tile in each frame kept the dive over its limit.
+var GRID_TILE = 8, GRID_TILES = 72, TILES = new Map();
+function tileFill(pitch, d, key, dot, ox, oy, top) {
+  var t = Math.max(4, Math.round(GRID_TILE * pitch * d)), k = key + '|' + t, p = TILES.get(k);
+  if (p === undefined) {
+    if (TILES.size >= GRID_TILES) TILES.delete(TILES.keys().next().value);
+    var cvs = document.createElement('canvas'), g = cvs.getContext('2d');
+    cvs.width = cvs.height = t;
+    for (var i = 0; i < GRID_TILE; i++) {
+      for (var j = 0; j < GRID_TILE; j++) dot(g, Math.round(i * t / GRID_TILE), Math.round(j * t / GRID_TILE));
+    }
+    p = ctx.createPattern(cvs, 'repeat'); TILES.set(k, p || null);
+  }
+  if (!p || !p.setTransform) return;
+  var x = ox + Math.round((W / 2 - ox) / pitch) * pitch, y = oy + Math.round((H / 2 - oy) / pitch) * pitch;
+  p.setTransform(new DOMMatrix([1 / d, 0, 0, 1 / d, Math.round(x * d) / d, Math.round(y * d) / d]));
+  ctx.fillStyle = p; ctx.fillRect(0, top, W, H - top);
+}
+"""
+
+FINISH = (
+    GRID_TILE_PART
+    + r"""
 // ---- the finish (page_canvas_finish): the dot grid, the legend and the dot of a step ----
 var GRID = {made: new Map(), color: ''}, GRID_PITCH = 24, GRID_MIN = 16;
 // The pattern of one dot in a cell of `size` device pixels. The sizes are in a small range,
@@ -64,9 +98,15 @@ function drawGrid() {
   if (!(raw > 0) || !window.DOMMatrix) return;
   var pitch = raw / Math.pow(2, Math.floor(Math.log(raw / GRID_MIN) / Math.LN2));
   var d = dpr() * (sharp ? 1 : 0.5), color = C['--grid'] || C['--line'];
-  gridFill(pitch, d, color, 1);
   // While the camera moves, a frame draws only the larger cell: a pattern fill of the screen is not free.
-  if (sharp) gridFill(pitch / 2, d, color, smooth(GRID_MIN * 1.25, GRID_MIN * 2, pitch));
+  if (!sharp) {
+    var r = Math.max(1, Math.round(d));
+    ctx.globalAlpha = 1;
+    tileFill(pitch, d, color + r, function (g, x, y) { g.fillStyle = color; g.fillRect(x, y, r, r); }, -cam.x * cam.k, -cam.y * cam.k, HEAD_H);
+    return;
+  }
+  gridFill(pitch, d, color, 1);
+  gridFill(pitch / 2, d, color, smooth(GRID_MIN * 1.25, GRID_MIN * 2, pitch));
 }
 
 // The legend: the kinds of the flows that the Map view shows in the current map, and their count.
@@ -229,3 +269,4 @@ function finishState() {
   return {grid: GRID.made.size, legend: {box: LEGEND.box, kinds: LEGEND.box && LEGEND.full ? LEGEND.kinds.slice() : [], n: LEGEND.n}, dot: DOT.f ? DOT.f.i : -1};
 }
 """
+)
