@@ -8957,3 +8957,13 @@ frame intervals over 20 ms (docstring, written before the run). One run. Output:
 run. The 1-minute load average was still 4.04 at the start, but no other process used the CPU.
 Dive share canvas / atlas: self 0.461 / 0.150, workspace 0.200 / 0.156, M11 tree 0.239 /
 0.161. Each other value passed (point 85 / 89 / 77 ms). Result: pass.
+
+## B31: the performance budget after the grid tile of a moving frame (2026-11-20)
+
+Script: `bench/jev/atlas_budget.py`, one run after 8be3793 (the dot grid of a moving frame
+from a tile at a scale of 1, on the two pages). Output: `bench/jev/atlas_budget_B31.txt`.
+The 1-minute load average was 0.88 at the start, and no other heavy process ran.
+Dive share canvas / atlas: self 0.333 / 0.111, workspace 0.139 / 0.050, M11 tree 0.067 /
+0.089. The M11 tree fails value 3: 1.33 times the canvas value and more than 0.05. Against
+B30, the two pages are faster on the M11 tree (canvas 0.239, atlas 0.161). Each other value
+passed (point 65 / 90 / 88 ms). Result: fail.

@@ -1,0 +1,8 @@
+warning: The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead.
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive share over 20 ms canvas / atlas | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 369 / 452 (pass) | 16.8 / 16.8 (pass) | 0.333 / 0.111 (pass) | 367,728 / 442,767 = 1.20 (pass) | 65 (pass) |
+| workspace | 314 / 378 (pass) | 16.8 / 16.8 (pass) | 0.139 / 0.050 (pass) | 270,096 / 327,393 = 1.21 (pass) | 90 (pass) |
+| M11 tree | 457 / 524 (pass) | 16.7 / 16.8 (pass) | 0.067 / 0.089 (fail) | 1,225,038 / 1,278,916 = 1.04 (pass) | 88 (pass) |
+budget: fail
+exit=1
