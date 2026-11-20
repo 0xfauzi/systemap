@@ -82,9 +82,17 @@ def git(root: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
-def committed(root: Path) -> str:
-    """Write the three-level tree in a new Git repository. Give the base commit."""
-    write_tree(root, three_levels.files())
+def committed(root: Path, page: str = "") -> str:
+    """Write the three-level tree in a new Git repository. Give the base commit.
+
+    With `page`, the configuration has `[render] page = <page>` before `systemap place`. The
+    side rule of nested maps applies only to the atlas page (`place.sides_for`), so a test of
+    the canvas page gives "canvas" to get the positions that a person with that page gets.
+    """
+    files = three_levels.files()
+    if page:
+        files["systemap.toml"] += f'[render]\npage = "{page}"\n'
+    write_tree(root, files)
     for command in ("place", "extract"):
         assert main(["--root", str(root), command]) == 0
     git(root, "init", "-q")

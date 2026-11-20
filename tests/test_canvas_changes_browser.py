@@ -54,6 +54,12 @@ with a part of a pixel, a ring of 1 px had no pixel with its full color, and acc
 failed after the side rule (place.SIDES_IN_COMMANDS) moved the cards. The values of the
 acceptance do not change.
 
+Changed on 2026-11-20 after the final repair: the side rule applies only to the atlas page
+(`place.sides_for`), but this test placed its tree with the default page, which is now the
+atlas page, and then drew the canvas page. Base was then on the screen at the fit of P0, and
+acceptance 5 failed. The tree is now placed with `[render] page = "canvas"`, as a person with
+the canvas page places it. The values of the acceptance do not change.
+
 Changes at the merge with the header part (step 4): the header gives the words of the view
 ("View: Changes." in place of "Changes view."). The ring is 3 px outside the card, so the
 pixels of acceptance 1 are on that line. In acceptance 3, the steps of the zoom start at the
@@ -88,7 +94,7 @@ def _pages() -> tuple[Path, Path]:
     """Write the canvas page of the tree with a comparison and without one."""
     out = Path(tempfile.mkdtemp(prefix="canvas-changes-"))
     root = out / "repo"
-    rev = fixture.committed(root)
+    rev = fixture.committed(root, page="canvas")
     fixture.model_change(root)
     fixture.source_change(root)
     cfg, tree, facts, changes = fixture.changed(root, rev)
