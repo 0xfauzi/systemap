@@ -1,0 +1,77 @@
+processes with the most CPU at the start: %CPU COMMAND | 4.9 python3 | 2.3 claude | 1.5 uv | 0.0 process_api | 0.0 environment-man
+CPUs: 4
+
+self: load average before (1, 5, 15 min): 0.15 0.58 0.71
+| Round | canvas p95 / mean / over 20 | atlas p95 / mean / over 20 |
+|---|---|---|
+| 1 | 50.1 / 30.37 / 0.589 | 33.4 / 22.41 / 0.300 |
+| 2 | 50.0 / 28.05 / 0.533 | 50.0 / 24.54 / 0.367 |
+| 3 | 66.6 / 30.65 / 0.550 | 33.4 / 19.81 / 0.161 |
+| 4 | 83.3 / 31.76 / 0.533 | 49.9 / 23.98 / 0.356 |
+| 5 | 83.4 / 39.72 / 0.717 | 50.0 / 23.61 / 0.339 |
+| 6 | 50.1 / 35.00 / 0.822 | 50.0 / 27.22 / 0.506 |
+| 7 | 50.0 / 31.85 / 0.700 | 33.4 / 23.52 / 0.339 |
+| 8 | 50.0 / 26.48 / 0.472 | 49.9 / 24.17 / 0.356 |
+| 9 | 50.1 / 28.05 / 0.517 | 33.5 / 23.98 / 0.350 |
+| 10 | 50.0 / 28.89 / 0.567 | 33.4 / 24.54 / 0.417 |
+self: load average after: 1.58 1.05 0.88
+  canvas p95 (ms): min 50.000, median 50.100, max 83.400, stdev 14.147
+  canvas mean (ms): min 26.480, median 30.508, max 39.721, stdev 3.888
+  canvas share over 20 ms: min 0.472, median 0.558, max 0.822, stdev 0.110
+  canvas p95 values and counts: {50.0: 4, 50.1: 3, 66.6: 1, 83.3: 1, 83.4: 1}
+  atlas p95 (ms): min 33.400, median 41.700, max 50.000, stdev 8.717
+  atlas mean (ms): min 19.814, median 23.981, max 27.221, stdev 1.854
+  atlas share over 20 ms: min 0.161, median 0.353, max 0.506, stdev 0.087
+  atlas p95 values and counts: {33.4: 4, 33.5: 1, 49.9: 2, 50.0: 3}
+  rounds that meet value 3 of the budget (p95): 10 of 10
+  mean atlas / mean canvas in each round: 0.738, 0.875, 0.647, 0.755, 0.594, 0.778, 0.738, 0.913, 0.855, 0.849
+
+workspace: load average before (1, 5, 15 min): 1.58 1.05 0.88
+| Round | canvas p95 / mean / over 20 | atlas p95 / mean / over 20 |
+|---|---|---|
+| 1 | 50.0 / 22.78 / 0.261 | 50.0 / 23.61 / 0.344 |
+| 2 | 33.5 / 22.59 / 0.294 | 33.4 / 20.09 / 0.200 |
+| 3 | 50.0 / 29.35 / 0.644 | 33.4 / 21.67 / 0.289 |
+| 4 | 50.0 / 23.61 / 0.322 | 33.4 / 20.93 / 0.228 |
+| 5 | 49.9 / 23.15 / 0.317 | 33.4 / 20.65 / 0.228 |
+| 6 | 49.9 / 25.09 / 0.433 | 33.4 / 21.11 / 0.239 |
+| 7 | 50.0 / 26.39 / 0.489 | 33.4 / 21.02 / 0.261 |
+| 8 | 50.0 / 21.85 / 0.233 | 33.4 / 19.54 / 0.161 |
+| 9 | 50.0 / 23.80 / 0.339 | 33.4 / 21.39 / 0.250 |
+| 10 | 49.9 / 23.42 / 0.344 | 33.4 / 20.55 / 0.194 |
+workspace: load average after: 1.21 1.08 0.91
+  canvas p95 (ms): min 33.500, median 50.000, max 50.000, stdev 5.207
+  canvas mean (ms): min 21.851, median 23.517, max 29.351, stdev 2.223
+  canvas share over 20 ms: min 0.233, median 0.331, max 0.644, stdev 0.123
+  canvas p95 values and counts: {33.5: 1, 49.9: 3, 50.0: 6}
+  atlas p95 (ms): min 33.400, median 33.400, max 50.000, stdev 5.249
+  atlas mean (ms): min 19.537, median 20.971, max 23.610, stdev 1.090
+  atlas share over 20 ms: min 0.161, median 0.233, max 0.344, stdev 0.052
+  atlas p95 values and counts: {33.4: 9, 50.0: 1}
+  rounds that meet value 3 of the budget (p95): 10 of 10
+  mean atlas / mean canvas in each round: 1.037, 0.889, 0.738, 0.886, 0.892, 0.841, 0.796, 0.894, 0.899, 0.877
+
+M11 tree: load average before (1, 5, 15 min): 1.14 1.07 0.92
+| Round | canvas p95 / mean / over 20 | atlas p95 / mean / over 20 |
+|---|---|---|
+| 1 | 33.4 / 21.11 / 0.233 | 33.4 / 22.87 / 0.133 |
+| 2 | 50.0 / 26.20 / 0.472 | 33.4 / 26.11 / 0.233 |
+| 3 | 33.4 / 21.94 / 0.300 | 33.4 / 23.05 / 0.206 |
+| 4 | 50.0 / 25.37 / 0.428 | 49.9 / 24.35 / 0.239 |
+| 5 | 50.0 / 27.96 / 0.567 | 50.0 / 26.11 / 0.244 |
+| 6 | 50.0 / 26.39 / 0.472 | 50.1 / 30.65 / 0.450 |
+| 7 | 50.0 / 26.94 / 0.533 | 33.5 / 26.57 / 0.344 |
+| 8 | 50.0 / 25.55 / 0.472 | 33.4 / 24.07 / 0.261 |
+| 9 | 50.0 / 26.48 / 0.472 | 33.4 / 24.07 / 0.228 |
+| 10 | 49.9 / 25.00 / 0.450 | 49.9 / 25.83 / 0.339 |
+M11 tree: load average after: 1.29 1.15 0.97
+  canvas p95 (ms): min 33.400, median 50.000, max 50.000, stdev 6.994
+  canvas mean (ms): min 21.110, median 25.878, max 27.962, stdev 2.164
+  canvas share over 20 ms: min 0.233, median 0.472, max 0.567, stdev 0.101
+  canvas p95 values and counts: {33.4: 2, 49.9: 1, 50.0: 7}
+  atlas p95 (ms): min 33.400, median 33.450, max 50.100, stdev 8.551
+  atlas mean (ms): min 22.869, median 25.091, max 30.647, stdev 2.276
+  atlas share over 20 ms: min 0.133, median 0.242, max 0.450, stdev 0.088
+  atlas p95 values and counts: {33.4: 5, 33.5: 1, 49.9: 2, 50.0: 1, 50.1: 1}
+  rounds that meet value 3 of the budget (p95): 10 of 10
+  mean atlas / mean canvas in each round: 1.083, 0.996, 1.051, 0.960, 0.934, 1.161, 0.986, 0.942, 0.909, 1.033

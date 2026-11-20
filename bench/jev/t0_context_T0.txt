@@ -1,0 +1,399 @@
+
+## self
+
+### today
+fit zoom 0.892, map 1174 x 892 units, frame 1048 px of 1440 px, labels at rest in all tabs 21 ({'system': 8, 'structure': 0, 'data': 0, 'control': 8, 'judge': 5, 'all': 0})
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.892; actors 5 of 5; frame systemap; band 186.0 to 310.0 units (124.0 units, 111 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 1.78 px, <4: 1, <6: 3, <8: 9, <10: 12
+    across: <4: 0, <6: 1, <8: 1, <10: 2
+    along: <4: 1, <6: 2, <8: 8, <10: 10
+    the closest pairs: along flows [72, 79] 1.78 px; across flows [28, 72] 4.02 px; along flows [26, 69] 4.46 px; along flows [1, 28] 7.14 px; along flows [28, 29] 7.14 px; along flows [68, 70] 7.14 px
+(b) labels at rest in the band 4 of 8 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 37.2 px from the centre, 16.2 px from the box (label height 15.8 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 77.6 px from the centre, 67.1 px from the box (label height 15.8 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 81) 12.1 px from the centre, 4.2 px from the box (label height 15.8 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 63.4 px from the centre, 55.5 px from the box (label height 15.8 px)
+no band (below): {'side': 'below', 'a': 0.8923766816143498, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [310, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### gap+60
+fit zoom 0.880, map 1234 x 892 units, frame 1086 px of 1440 px, labels at rest in all tabs 26 ({'system': 12, 'structure': 0, 'data': 0, 'control': 8, 'judge': 6, 'all': 0})
+labels lost against today (negative: more labels): {'system': -4, 'judge': -1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.880; actors 5 of 5; frame systemap; band 186.0 to 370.0 units (184.0 units, 162 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 1.76 px, <4: 2, <6: 3, <8: 9, <10: 11
+    across: <4: 1, <6: 1, <8: 1, <10: 1
+    along: <4: 1, <6: 2, <8: 8, <10: 10
+    the closest pairs: along flows [72, 79] 1.76 px; across flows [28, 72] 3.96 px; along flows [26, 69] 4.40 px; along flows [1, 28] 7.04 px; along flows [28, 29] 7.04 px; along flows [68, 70] 7.04 px
+(b) labels at rest in the band 8 of 12 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 1
+    flow 75 'corrections': own 0.0 px, nearest other (flow 67) 14.1 px from the centre, 6.3 px from the box (label height 15.5 px)
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 21.4 px from the centre, 0.7 px from the box (label height 15.5 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 73.9 px from the centre, 66.2 px from the box (label height 15.5 px)
+    flow 72 'procedure': own 0.0 px, nearest other (flow 1) 46.1 px from the centre, 14.2 px from the box (label height 15.5 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 81) 11.9 px from the centre, 4.2 px from the box (label height 15.5 px)
+    flow 81 'jev lines': own 0.0 px, nearest other (flow 68) 32.6 px from the centre, 24.8 px from the box (label height 15.5 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 62.5 px from the centre, 54.7 px from the box (label height 15.5 px)
+    flow 0 'commands': own 0.0 px, nearest other (flow 29) 34.4 px from the centre, 13.9 px from the box (label height 15.5 px)
+no band (below): {'side': 'below', 'a': 0.880064829821718, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [370, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### gap+120
+fit zoom 0.839, map 1294 x 892 units, frame 1086 px of 1440 px, labels at rest in all tabs 25 ({'system': 12, 'structure': 0, 'data': 0, 'control': 9, 'judge': 4, 'all': 0})
+labels lost against today (negative: more labels): {'system': -4, 'control': -1, 'judge': 1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.839; actors 5 of 5; frame systemap; band 186.0 to 430.0 units (244.0 units, 205 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 1.68 px, <4: 2, <6: 3, <8: 9, <10: 11
+    across: <4: 1, <6: 1, <8: 1, <10: 1
+    along: <4: 1, <6: 2, <8: 8, <10: 10
+    the closest pairs: along flows [72, 79] 1.68 px; across flows [28, 72] 3.78 px; along flows [26, 69] 4.20 px; along flows [1, 28] 6.71 px; along flows [28, 29] 6.71 px; along flows [68, 70] 6.71 px
+(b) labels at rest in the band 8 of 12 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 1
+    flow 75 'corrections': own 0.0 px, nearest other (flow 67) 13.4 px from the centre, 4.9 px from the box (label height 17.0 px)
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 26.5 px from the centre, 4.3 px from the box (label height 17.0 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 70.5 px from the centre, 62.0 px from the box (label height 17.0 px)
+    flow 72 'procedure': own 0.0 px, nearest other (flow 1) 52.5 px from the centre, 18.1 px from the box (label height 17.0 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 72) 25.5 px from the centre, 1.4 px from the box (label height 17.0 px)
+    flow 81 'jev lines': own 0.0 px, nearest other (flow 68) 31.1 px from the centre, 22.6 px from the box (label height 17.0 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 59.6 px from the centre, 51.1 px from the box (label height 17.0 px)
+    flow 0 'commands': own 0.0 px, nearest other (flow 29) 28.5 px from the centre, 18.2 px from the box (label height 17.0 px)
+no band (below): {'side': 'below', 'a': 0.839258114374034, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [430, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### lane=9
+fit zoom 0.892, map 1174 x 892 units, frame 1048 px of 1440 px, labels at rest in all tabs 21 ({'system': 8, 'structure': 0, 'data': 0, 'control': 8, 'judge': 5, 'all': 0})
+labels lost against today (negative: more labels): none
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.892; actors 5 of 5; frame systemap; band 186.0 to 310.0 units (124.0 units, 111 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 1.78 px, <4: 1, <6: 2, <8: 9, <10: 12
+    across: <4: 0, <6: 0, <8: 1, <10: 2
+    along: <4: 1, <6: 2, <8: 8, <10: 10
+    the closest pairs: along flows [72, 79] 1.78 px; along flows [26, 69] 4.46 px; across flows [28, 72] 6.34 px; along flows [1, 28] 7.14 px; along flows [28, 29] 7.14 px; along flows [68, 70] 7.14 px
+(b) labels at rest in the band 4 of 8 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 37.2 px from the centre, 16.2 px from the box (label height 15.8 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 77.6 px from the centre, 67.1 px from the box (label height 15.8 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 81) 12.1 px from the centre, 4.2 px from the box (label height 15.8 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 63.4 px from the centre, 55.5 px from the box (label height 15.8 px)
+no band (below): {'side': 'below', 'a': 0.8923766816143498, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [310, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### least=9
+fit zoom 0.892, map 1174 x 892 units, frame 1048 px of 1440 px, labels at rest in all tabs 23 ({'system': 9, 'structure': 0, 'data': 0, 'control': 9, 'judge': 5, 'all': 0})
+labels lost against today (negative: more labels): {'system': -1, 'control': -1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.892; actors 5 of 5; frame systemap; band 186.0 to 310.0 units (124.0 units, 111 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 6.34 px, <4: 0, <6: 0, <8: 4, <10: 14
+    across: <4: 0, <6: 0, <8: 1, <10: 2
+    along: <4: 0, <6: 0, <8: 3, <10: 12
+    the closest pairs: across flows [28, 72] 6.34 px; along flows [78, 81] 7.44 px; along flows [72, 78] 7.73 px; along flows [78, 79] 7.73 px; across flows [28, 72] 8.03 px; along flows [1, 28] 8.03 px
+(b) labels at rest in the band 4 of 9 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 1
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 8.0 px from the centre, 0.2 px from the box (label height 15.8 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 77.2 px from the centre, 66.6 px from the box (label height 15.8 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 81) 12.5 px from the centre, 4.7 px from the box (label height 15.8 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 63.4 px from the centre, 55.5 px from the box (label height 15.8 px)
+no band (below): {'side': 'below', 'a': 0.8923766816143498, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [310, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### least=12
+fit zoom 0.892, map 1174 x 892 units, frame 1048 px of 1440 px, labels at rest in all tabs 23 ({'system': 9, 'structure': 0, 'data': 0, 'control': 9, 'judge': 5, 'all': 0})
+labels lost against today (negative: more labels): {'system': -1, 'control': -1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.892; actors 5 of 5; frame systemap; band 186.0 to 310.0 units (124.0 units, 111 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 31
+(a) parallel pairs 290 ({'across': 13, 'along': 277}), smallest 0.00 px, <4: 2, <6: 4, <8: 8, <10: 10
+    across: <4: 1, <6: 2, <8: 2, <10: 2
+    along: <4: 1, <6: 2, <8: 6, <10: 8
+    the closest pairs: across flows [78, 79] 0.00 px; along flows [26, 79] 2.34 px; along flows [78, 81] 4.76 px; across flows [28, 72] 5.00 px; along flows [27, 74] 6.25 px; along flows [67, 75] 6.36 px
+(b) labels at rest in the band 4 of 9 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 1
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 10.7 px from the centre, 2.8 px from the box (label height 15.8 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 75.9 px from the centre, 65.3 px from the box (label height 15.8 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 81) 13.9 px from the centre, 6.0 px from the box (label height 15.8 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 63.4 px from the centre, 55.5 px from the box (label height 15.8 px)
+no band (below): {'side': 'below', 'a': 0.8923766816143498, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [310, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### clear=4
+fit zoom 0.892, map 1174 x 892 units, frame 1048 px of 1440 px, labels at rest in all tabs 20 ({'system': 7, 'structure': 0, 'data': 0, 'control': 8, 'judge': 5, 'all': 0})
+labels lost against today (negative: more labels): {'system': 1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.892; actors 5 of 5; frame systemap; band 186.0 to 310.0 units (124.0 units, 111 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 1.78 px, <4: 1, <6: 3, <8: 9, <10: 12
+    across: <4: 0, <6: 1, <8: 1, <10: 2
+    along: <4: 1, <6: 2, <8: 8, <10: 10
+    the closest pairs: along flows [72, 79] 1.78 px; across flows [28, 72] 4.02 px; along flows [26, 69] 4.46 px; along flows [1, 28] 7.14 px; along flows [28, 29] 7.14 px; along flows [68, 70] 7.14 px
+(b) labels at rest in the band 4 of 7 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 37.2 px from the centre, 16.2 px from the box (label height 15.8 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 76.1 px from the centre, 67.1 px from the box (label height 15.8 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 81) 12.1 px from the centre, 4.2 px from the box (label height 15.8 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 63.4 px from the centre, 55.5 px from the box (label height 15.8 px)
+no band (below): {'side': 'below', 'a': 0.8923766816143498, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [310, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### clear=8
+fit zoom 0.892, map 1174 x 892 units, frame 1048 px of 1440 px, labels at rest in all tabs 19 ({'system': 7, 'structure': 0, 'data': 0, 'control': 8, 'judge': 4, 'all': 0})
+labels lost against today (negative: more labels): {'system': 1, 'judge': 1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.892; actors 5 of 5; frame systemap; band 186.0 to 310.0 units (124.0 units, 111 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 32
+(a) parallel pairs 289 ({'across': 12, 'along': 277}), smallest 1.78 px, <4: 1, <6: 3, <8: 9, <10: 12
+    across: <4: 0, <6: 1, <8: 1, <10: 2
+    along: <4: 1, <6: 2, <8: 8, <10: 10
+    the closest pairs: along flows [72, 79] 1.78 px; across flows [28, 72] 4.02 px; along flows [26, 69] 4.46 px; along flows [1, 28] 7.14 px; along flows [28, 29] 7.14 px; along flows [68, 70] 7.14 px
+(b) labels at rest in the band 4 of 7 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 37.2 px from the centre, 16.2 px from the box (label height 15.8 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 76.1 px from the centre, 67.1 px from the box (label height 15.8 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 68) 16.2 px from the centre, 8.4 px from the box (label height 15.8 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 63.4 px from the centre, 55.5 px from the box (label height 15.8 px)
+no band (below): {'side': 'below', 'a': 0.8923766816143498, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [310, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### gap+120 least=12
+fit zoom 0.839, map 1294 x 892 units, frame 1086 px of 1440 px, labels at rest in all tabs 26 ({'system': 11, 'structure': 0, 'data': 0, 'control': 10, 'judge': 5, 'all': 0})
+labels lost against today (negative: more labels): {'system': -3, 'control': -2}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.839; actors 5 of 5; frame systemap; band 186.0 to 430.0 units (244.0 units, 205 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 31
+(a) parallel pairs 290 ({'across': 13, 'along': 277}), smallest 0.00 px, <4: 2, <6: 5, <8: 9, <10: 9
+    across: <4: 1, <6: 1, <8: 1, <10: 1
+    along: <4: 1, <6: 4, <8: 8, <10: 8
+    the closest pairs: across flows [78, 79] 0.00 px; along flows [26, 79] 2.20 px; along flows [78, 81] 4.48 px; along flows [27, 74] 5.87 px; along flows [67, 75] 5.98 px; along flows [72, 78] 7.27 px
+(b) labels at rest in the band 8 of 11 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 1
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 10.1 px from the centre, 1.6 px from the box (label height 17.0 px)
+    flow 72 'procedure': own 0.0 px, nearest other (flow 1) 54.1 px from the centre, 19.7 px from the box (label height 17.0 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 68.8 px from the centre, 60.3 px from the box (label height 17.0 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 28) 27.4 px from the centre, 4.5 px from the box (label height 17.0 px)
+    flow 81 'jev lines': own 0.0 px, nearest other (flow 68) 29.4 px from the centre, 20.9 px from the box (label height 17.0 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 59.6 px from the centre, 51.1 px from the box (label height 17.0 px)
+    flow 28 'questions': own 0.0 px, nearest other (flow 1) 44.0 px from the centre, 11.2 px from the box (label height 17.0 px)
+    flow 0 'commands': own 0.0 px, nearest other (flow 29) 26.9 px from the centre, 18.4 px from the box (label height 17.0 px)
+no band (below): {'side': 'below', 'a': 0.839258114374034, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [430, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+### gap+120 least=12 clear=4
+fit zoom 0.839, map 1294 x 892 units, frame 1086 px of 1440 px, labels at rest in all tabs 25 ({'system': 11, 'structure': 0, 'data': 0, 'control': 9, 'judge': 5, 'all': 0})
+labels lost against today (negative: more labels): {'system': -3, 'control': -1}
+band of the actors at the left of the frame:
+system layer: 17 lines, busy False, scale 0.839; actors 5 of 5; frame systemap; band 186.0 to 430.0 units (244.0 units, 205 px) on axis x
+(c) lines in the band 17, vertical tracks 6, vertical parts 9, horizontal parts 26, crossings 31
+(a) parallel pairs 290 ({'across': 13, 'along': 277}), smallest 0.00 px, <4: 2, <6: 5, <8: 9, <10: 9
+    across: <4: 1, <6: 1, <8: 1, <10: 1
+    along: <4: 1, <6: 4, <8: 8, <10: 8
+    the closest pairs: across flows [78, 79] 0.00 px; along flows [26, 79] 2.20 px; along flows [78, 81] 4.48 px; along flows [27, 74] 5.87 px; along flows [67, 75] 5.98 px; along flows [72, 78] 7.27 px
+(b) labels at rest in the band 8 of 11 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 68 'the fix': own 0.0 px, nearest other (flow 70) 26.5 px from the centre, 4.3 px from the box (label height 17.0 px)
+    flow 72 'procedure': own 0.0 px, nearest other (flow 1) 54.1 px from the centre, 19.7 px from the box (label height 17.0 px)
+    flow 66 'diagram measurements': own 0.0 px, nearest other (flow 70) 68.8 px from the centre, 60.3 px from the box (label height 17.0 px)
+    flow 70 'verdict': own 0.0 px, nearest other (flow 28) 27.4 px from the centre, 4.5 px from the box (label height 17.0 px)
+    flow 81 'jev lines': own 0.0 px, nearest other (flow 68) 29.4 px from the centre, 20.9 px from the box (label height 17.0 px)
+    flow 1 'check': own 0.0 px, nearest other (flow 0) 59.6 px from the centre, 51.1 px from the box (label height 17.0 px)
+    flow 28 'questions': own 0.0 px, nearest other (flow 1) 44.0 px from the centre, 11.2 px from the box (label height 17.0 px)
+    flow 0 'commands': own 0.0 px, nearest other (flow 29) 26.9 px from the centre, 18.4 px from the box (label height 17.0 px)
+no band (below): {'side': 'below', 'a': 0.839258114374034, 'n': 17, 'dense': False, 'actorsAll': 5, 'frame': {'id': 'systemap', 'b': [430, 16, 848, 860]}, 'actors': 0, 'axis': -1}
+
+## workspace
+
+### today
+fit zoom 0.776, map 1800 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 26 ({'system': 2, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 6})
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 1 of 3; frame server; band 186.0 to 230.0 units (44.0 units, 34 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 3.10 px, <4: 1, <6: 1, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 1, <6: 1, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 3.10 px; along flows [0, 1] 6.20 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 68 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 47.31 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 47.3 px from the centre, 18.4 px from the box (label height 15.7 px)
+
+### gap+60
+fit zoom 0.751, map 1860 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 26 ({'system': 2, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 6})
+labels lost against today (negative: more labels): none
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.751; actors 1 of 3; frame server; band 186.0 to 290.0 units (104.0 units, 78 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 3.00 px, <4: 1, <6: 1, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 1, <6: 1, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 3.00 px; along flows [0, 1] 6.00 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.751; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 66 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 45.78 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 45.8 px from the centre, 17.8 px from the box (label height 15.2 px)
+
+### gap+120
+fit zoom 0.727, map 1920 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 26 ({'system': 2, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 6})
+labels lost against today (negative: more labels): none
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.727; actors 1 of 3; frame server; band 186.0 to 350.0 units (164.0 units, 119 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 2.91 px, <4: 1, <6: 2, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 1, <6: 2, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 2.91 px; along flows [0, 1] 5.82 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.727; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 64 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 44.35 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 44.4 px from the centre, 17.2 px from the box (label height 14.7 px)
+
+### lane=9
+fit zoom 0.776, map 1800 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 27 ({'system': 2, 'structure': 0, 'data': 9, 'control': 5, 'agents': 3, 'context': 1, 'tools': 1, 'all': 6})
+labels lost against today (negative: more labels): {'control': -1}
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 1 of 3; frame server; band 186.0 to 230.0 units (44.0 units, 34 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 3.10 px, <4: 1, <6: 1, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 1, <6: 1, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 3.10 px; along flows [0, 1] 6.20 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 68 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 47.31 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 47.3 px from the centre, 18.4 px from the box (label height 15.7 px)
+
+### least=9
+fit zoom 0.776, map 1800 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 28 ({'system': 2, 'structure': 0, 'data': 9, 'control': 5, 'agents': 3, 'context': 1, 'tools': 1, 'all': 7})
+labels lost against today (negative: more labels): {'control': -1, 'all': -1}
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 1 of 3; frame server; band 186.0 to 230.0 units (44.0 units, 34 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 6.20 px, <4: 0, <6: 0, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 6.20 px; along flows [0, 1] 6.98 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 68 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 47.31 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 47.3 px from the centre, 18.4 px from the box (label height 15.7 px)
+
+### least=12
+fit zoom 0.776, map 1800 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 28 ({'system': 3, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 7})
+labels lost against today (negative: more labels): {'system': -1, 'all': -1}
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 1 of 3; frame server; band 186.0 to 230.0 units (44.0 units, 34 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 6.20 px, <4: 0, <6: 0, <8: 1, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 1, <10: 2
+    the closest pairs: along flows [0, 1] 6.20 px; along flows [0, 1] 9.31 px
+(b) labels at rest in the band 0 of 3 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 68 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 47.31 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 3 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 47.3 px from the centre, 18.4 px from the box (label height 15.7 px)
+
+### clear=4
+fit zoom 0.776, map 1800 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 26 ({'system': 2, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 6})
+labels lost against today (negative: more labels): none
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 1 of 3; frame server; band 186.0 to 230.0 units (44.0 units, 34 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 3.10 px, <4: 1, <6: 1, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 1, <6: 1, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 3.10 px; along flows [0, 1] 6.20 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 68 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 47.31 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 47.3 px from the centre, 18.4 px from the box (label height 15.7 px)
+
+### clear=8
+fit zoom 0.776, map 1800 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 24 ({'system': 2, 'structure': 0, 'data': 8, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 5})
+labels lost against today (negative: more labels): {'data': 1, 'all': 1}
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 1 of 3; frame server; band 186.0 to 230.0 units (44.0 units, 34 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 3.10 px, <4: 1, <6: 1, <8: 2, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 1, <6: 1, <8: 2, <10: 2
+    the closest pairs: along flows [0, 1] 3.10 px; along flows [0, 1] 6.20 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.776; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 68 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 47.31 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 47.3 px from the centre, 18.4 px from the box (label height 15.7 px)
+
+### gap+120 least=12
+fit zoom 0.727, map 1920 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 30 ({'system': 4, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 8})
+labels lost against today (negative: more labels): {'system': -2, 'all': -2}
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.727; actors 1 of 3; frame server; band 186.0 to 350.0 units (164.0 units, 119 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 5.82 px, <4: 0, <6: 1, <8: 1, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 1, <8: 1, <10: 2
+    the closest pairs: along flows [0, 1] 5.82 px; along flows [0, 1] 8.72 px
+(b) labels at rest in the band 1 of 4 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 1
+    flow 0 'request': own 0.0 px, nearest other (flow 1) 8.7 px from the centre, 1.4 px from the box (label height 14.7 px)
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.727; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 64 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 44.35 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 4 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 44.4 px from the centre, 17.2 px from the box (label height 14.7 px)
+
+### gap+120 least=12 clear=4
+fit zoom 0.727, map 1920 x 720 units, frame 1396 px of 1440 px, labels at rest in all tabs 28 ({'system': 2, 'structure': 0, 'data': 9, 'control': 4, 'agents': 3, 'context': 1, 'tools': 1, 'all': 8})
+labels lost against today (negative: more labels): {'all': -2}
+band of the actors at the left of the frame:
+system layer: 6 lines, busy False, scale 0.727; actors 1 of 3; frame server; band 186.0 to 350.0 units (164.0 units, 119 px) on axis x
+(c) lines in the band 2, vertical tracks 1, vertical parts 1, horizontal parts 3, crossings 0
+(a) parallel pairs 2 ({'across': 0, 'along': 2}), smallest 5.82 px, <4: 0, <6: 1, <8: 1, <10: 2
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 1, <8: 1, <10: 2
+    the closest pairs: along flows [0, 1] 5.82 px; along flows [0, 1] 8.72 px
+(b) labels at rest in the band 0 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+band of the actors below the frame:
+system layer: 6 lines, busy False, scale 0.727; actors 2 of 3; frame server; band 536.0 to 624.0 units (88.0 units, 64 px) on axis y
+(c) lines in the band 2, vertical tracks 0, vertical parts 0, horizontal parts 2, crossings 0
+(a) parallel pairs 1 ({'across': 0, 'along': 1}), smallest 44.35 px, <4: 0, <6: 0, <8: 0, <10: 0
+    across: <4: 0, <6: 0, <8: 0, <10: 0
+    along: <4: 0, <6: 0, <8: 0, <10: 0
+    the closest pairs:
+(b) labels at rest in the band 1 of 2 in the layer; nearer to a different line than to their own: 0; box less than 4 px from a different line: 0
+    flow 17 'response': own 0.0 px, nearest other (flow 16) 44.4 px from the centre, 17.2 px from the box (label height 14.7 px)

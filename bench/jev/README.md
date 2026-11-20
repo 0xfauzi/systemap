@@ -8699,3 +8699,252 @@ the maintainer. Thus:
 - Still open: at 390 x 844 the seven neighbours at the right of Page show about 7 percent of
   their width. The phone opening view is part of the next work, with targets from
   measurements.
+
+## T0: baselines for the targets of stages 3 and 4 of the open faults
+
+Date: 2026-11-20. HEAD 87ad4d4 on the branch views-prototype. These measurements have no
+acceptance value. They give the values of today and the values of some changes, so that the
+coordinator can write the targets of stages 3 and 4 from data. Each script has a docstring
+that says what it measures. The scripts change no product code. A script writes a temporary
+page with one more line at the end of the page script (`window.__T0`, `t0_common.py`), so
+that it can read values that `window.systemapCanvas` does not give. A scratch change of a
+measurement is a change of the text or of the data of that temporary page only.
+
+The inputs are the map of this repository (self) and the workspace fixture
+(`tests/fixture_workspace.py`, with the positions of the placer, as `workspace_page` of
+`tests/test_atlas_browser.py`). C3 also uses the M11 tree for the test Z1. All pixel values
+are CSS px in the Chromium of Playwright. The self page comes from `atlas_data.build` and
+`atlas_page.build`, as `self_page` of `tests/test_atlas_browser.py` makes it. It is the page
+that `systemap render` writes, but with no history data. The History view is not in these
+measurements.
+
+The file `~/.claude/WRITING.md` that AGENTS.md names is not on this host. Thus this record
+uses only the language policy of the project.
+
+### C1: the lines between the actor column and the system frame
+
+Script: `bench/jev/t0_context.py` (driver `t0_context.js`). Output:
+`bench/jev/t0_context_T0.txt`. The layer is System context at the fit of 1440 x 900. The band
+is the space between the right edge of the actor column and the left edge of the system
+frame. A pair is two parallel parts of two different lines in the band with an overlap of
+more than 0.5 map units. An "across" pair has two vertical parts. An "along" pair has two
+parts that go through the band.
+
+Today:
+
+| Value | Self | Workspace |
+|---|---|---|
+| Actors in the band / all actors | 5 / 5 | 1 / 3 (two actors are below the frame) |
+| Lines of the layer / lines in the band | 17 / 17 | 6 / 2 |
+| Vertical tracks in the band | 6 | 1 |
+| Band width | 124 units, 111 px at a zoom of 0.892 | 44 units, 34 px at a zoom of 0.776 |
+| (a) Parallel pairs (across, along) | 289 (12, 277) | 2 (0, 2) |
+| (a) Smallest distance | 1.78 px (along, flows 72 and 79) | 3.10 px (along, flows 0 and 1) |
+| (a) Pairs under 4 / 6 / 8 / 10 px | 1 / 3 / 9 / 12 | 1 / 1 / 2 / 2 |
+| (a) Of these, along pairs | 1 / 2 / 8 / 10 | 1 / 1 / 2 / 2 |
+| (b) Labels at rest in the band / in the layer | 4 / 8 | 0 / 2 |
+| (b) Labels nearer to a different line than to their own | 0 | 0 |
+| (b) Smallest distance of a label box to a different line | 4.2 px (verdict) | no label |
+| (c) Crossings in the band | 32 | 0 |
+
+Each label at rest is on its own line (distance 0 px from its centre). Thus value (b) "nearer
+to a different line" is 0 on the two maps. The distance of the box to a different line is
+the value that changes. The band of the workspace below the frame has 2 actors, 2 lines,
+1 pair at 47.3 px and 0 crossings.
+
+The close pairs are mostly along pairs: 8 of the 9 pairs under 8 px on self. These are lines
+that go through the band at near y values. A wider band does not move them apart. The
+vertical tracks are not the limit: 7 gaps of 8 px (6 tracks) need 56 px, and the band has
+111 px. If each of the 17 lines had its own vertical track, 17 gaps of 8 px would need 136 px.
+
+The changes (self, then workspace):
+
+| Change | Zoom at the fit | Map width (units) / frame (px) | Smallest pair (px) | Pairs under 4 / 6 / 8 / 10 px | Crossings | Labels at rest, all tabs (today 21 / 26) |
+|---|---|---|---|---|---|---|
+| today | 0.892 / 0.776 | 1174, 1048 / 1800, 1396 | 1.78 / 3.10 | 1, 3, 9, 12 / 1, 1, 2, 2 | 32 / 0 | 21 / 26 |
+| gap+60 | 0.880 / 0.751 | 1234, 1086 / 1860, 1396 | 1.76 / 3.00 | 2, 3, 9, 11 / 1, 1, 2, 2 | 32 / 0 | 26 / 26 |
+| gap+120 | 0.839 / 0.727 | 1294, 1086 / 1920, 1396 | 1.68 / 2.91 | 2, 3, 9, 11 / 1, 2, 2, 2 | 32 / 0 | 25 / 26 |
+| lane=9 | 0.892 / 0.776 | no change | 1.78 / 3.10 | 1, 2, 9, 12 / 1, 1, 2, 2 | 32 / 0 | 21 / 27 |
+| least=9 | 0.892 / 0.776 | no change | 6.34 / 6.20 | 0, 0, 4, 14 / 0, 0, 2, 2 | 32 / 0 | 23 / 28 |
+| least=12 | 0.892 / 0.776 | no change | 0.00 / 6.20 | 2, 4, 8, 10 / 0, 0, 1, 2 | 31 / 0 | 23 / 28 |
+| clear=4 | 0.892 / 0.776 | no change | 1.78 / 3.10 | no change | 32 / 0 | 20 / 26 |
+| clear=8 | 0.892 / 0.776 | no change | 1.78 / 3.10 | no change | 32 / 0 | 19 / 24 |
+| gap+120 least=12 | 0.839 / 0.727 | 1294, 1086 / 1920, 1396 | 0.00 / 5.82 | 2, 5, 9, 9 / 0, 1, 1, 2 | 31 / 0 | 26 / 30 |
+| gap+120 least=12 clear=4 | 0.839 / 0.727 | 1294, 1086 / 1920, 1396 | 0.00 / 5.82 | 2, 5, 9, 9 / 0, 1, 1, 2 | 31 / 0 | 25 / 28 |
+
+The changes:
+
+- gap+D: the band at the left of the frame is D map units wider, with the same routes.
+- lane=N: the lanes of one shared line are N units apart (today 4.5).
+- least=N: parallel parts less than N units apart are one group, with lanes N units apart.
+  Today only parts on the same axis value are a group.
+- clear=G: a label takes a place on its line only with no other line in G units of its box.
+
+Results:
+
+- The best measured change is least=9. The smallest pair goes from 1.78 px to 6.34 px on self
+  and from 3.10 px to 6.20 px on the workspace. No pair is under 6 px. The zoom and the map
+  width do not change, and the maps have 2 labels at rest more. But 4 pairs on self are still
+  under 8 px, and 14 pairs are under 10 px (12 today).
+- least=12 is worse than least=9. Its groups are a chain of parts, and on self two vertical
+  parts got the same x (0.00 px, flows 78 and 79). A different group rule is necessary for a
+  larger minimum.
+- A wider gap does not increase the smallest pair. It adds 4 labels at rest in the System
+  context layer of self (8 to 12). It costs zoom: 0.892 to 0.880 (+60) and 0.839 (+120).
+- lane=9 changes only the lanes on one axis value. The close pairs are on different axis
+  values, thus the smallest pair does not change.
+- clear=4 and clear=8 do not move a line. They lose 1 and 2 labels at rest on self.
+- No change removes the crossings: 32 on self (31 with least=12). The crossings come from the
+  routes and the order of the lines, not from the spaces between them.
+- Not measured: whether the parts that least=N moves still end on their cards, and whether
+  they keep 7 units from the edges of a surface (`offEdges` runs after the lanes). A
+  measurement is necessary before least=N is a target.
+
+### C2: the step labels that cross the edge of a region or a surface
+
+Script: `bench/jev/t0_steps.py` (driver `t0_steps.js`). Output: `bench/jev/t0_steps_T0.txt`.
+At 1440 x 900, with reduced motion, for each sequence, each step and the whole route. Only
+the top maps have sequences (Page has none). A free place is a place on the full line of the
+label, at each half map unit, on the line or beside it. It must be on one ground, with no
+card, no name and no other label of that frame. A clean place also has no other line in it.
+
+| Value | Self | Workspace |
+|---|---|---|
+| Sequences / frames (steps and whole routes) | 16 / 85 | 7 / 44 |
+| Labels that show, all frames | 398 | 255 |
+| Labels that cross an edge, all frames | 70 | 43 |
+| Of these, with a free place on the full line | 28 | 19 |
+| Of these, with a clean place | 21 | 6 |
+| Of these, with no free place | 42 | 24 |
+| Different crossing labels (map, sequence, flow) | 12 | 6 |
+| Different labels with a free place in each frame | 4 | 2 |
+| Different labels with no free place in any frame | 8 | 4 |
+
+Thus a full-line search can move 4 of 12 different labels on self and 2 of 6 on the
+workspace to one ground. The other 8 and 4 have no free place on their line, and these need
+a plate or a different solution. No label had a free place in some frames and no free place
+in others. On self, the free places of a label are few: for example, 19 of 219 places for
+"3 public surfaces" (flow 41). The page today tries only 23 places on each part of a line
+(`SEAT_T`) and 10 places beside it (`near`). Thus it does not find them.
+
+### C3: the phone opening view
+
+Script: `bench/jev/t0_phone.py` (driver `t0_phone.js`). Output: `bench/jev/t0_phone_T0.txt`.
+At 390 x 844 with a touch screen. The map area is from the bottom of the headline to the
+bottom of the screen. An empty row has no card and no line of the layer on the screen. The
+left column is the cards that share the x range of the leftmost card column.
+
+The rules:
+
+- today: a zoom of 0.5 at the top left part (when the fit is below 0.5).
+- height: the zoom that fills the height of the map area with the map.
+- name11: the zoom that gives a card name of 11 px.
+- cols2: the zoom that shows the left two card columns in the width of the screen.
+
+| Map | Rule | Zoom | Card name (px) | Empty rows | Left column on the screen | Acceptance 9 | Z1 at 390 x 844 |
+|---|---|---|---|---|---|---|---|
+| self top | today | 0.500 | 7.0 to 7.5 | 0.46 (bottom run 242 px) | 5 of 5 | pass | not tested |
+| self top | height | 0.709 | 9.5 | 0.24 | 5 of 5 | fail | not tested |
+| self top | name11 | 0.815 | 11.0 | 0.15 | 5 of 5 | fail | not tested |
+| self top | cols2 | 0.724 | 10.0 | 0.22 | 5 of 5 | fail | not tested |
+| #Page | today | 0.500 | 7.5 to 9.0 | 0.36 (bottom run 190 px) | 2 of 2 | not tested | pass (10 of 10) |
+| #Page | height | 0.666 | 9.0 to 10.0 | 0.14 | 2 of 2 | not tested | fail (3 of 10) |
+| #Page | name11 | 0.815 | 11.0 | 0.06 | 2 of 2 | not tested | fail (2 of 10) |
+| #Page | cols2 | 0.550 | 7.5 to 10.0 | 0.29 | 2 of 2 | not tested | fail (3 of 10) |
+| workspace top | today | 0.500 | 7.0 to 7.5 | 0.80 | 1 of 1 | not tested | not tested |
+| workspace top | height | 0.878 | 12.0 | 0.72 | 1 of 1 | not tested | not tested |
+| workspace top | name11 | 0.815 | 11.0 | 0.73 | 1 of 1 | not tested | not tested |
+| workspace top | cols2 | 0.862 | 11.5 | 0.73 | 1 of 1 | not tested | not tested |
+
+The two tests:
+
+- Acceptance 9 of `tests/test_atlas_point_browser.py` taps the card SecondOpinion at the
+  opening view. With each other rule, that card is not on the screen, thus the tap cannot
+  select it.
+- Z1 (`test_the_line_of_a_neighbour_is_readable_at_the_fit`) at 390 x 844 must find the line
+  of each neighbour. The page draws, and thus logs, the line only for a card on the screen.
+  With each other rule, 7 or 8 of the 10 neighbours of Page are not on the screen. On the
+  maps P0, P0/Q0 and P0/Q0/Deep of the M11 tree, all four rules pass (1 neighbour each).
+
+Results: each other rule makes the empty band smaller on self and on Page, and gives names of
+9.5 px to 11 px. But each other rule fails acceptance 9 and Z1 as they are written. On the
+workspace the empty band stays 0.72 or more with each rule, because the map is 1800 x 720
+units: the height of the map is not the cause there.
+
+### C4: the board of the States view
+
+Script: `bench/jev/t0_states.py` (driver `t0_states.js`). Output: `bench/jev/t0_states_T0.txt`.
+At 1440 x 900. The scale of the board is the smallest of SM_MAX, the width fit and the height
+fit (`smDraw`). The fill is the board size over the free part of the screen. The label value
+is the largest distance of a label box to its own line in the machine.
+
+| Machine | Binds at 1.25 | Scale at 1.25 | Fill W / H at 1.25 | Scale at 2.0 and with no cap | Fill W / H at 2.0 | Label to line at 1.25 / 1.4 / 1.6 / 2.0 (px) |
+|---|---|---|---|---|---|---|
+| Source review of a component (self) | cap | 1.250 | 0.60 / 0.40 | 1.798 (width) | 0.87 / 0.57 | 17.5 / 19.6 / 22.4 / 25.2 |
+| Review of a flow (self) | width | 1.217 | 0.91 / 0.39 | 1.217 (width) | 0.91 / 0.39 | 17.0 at each cap |
+| Life of a job | cap | 1.250 | 0.72 / 0.69 | 1.540 (width) | 0.89 / 0.85 | 17.5 / 19.6 / 21.6 / 21.6 |
+| A row | width | 1.217 | 0.91 / 0.32 | 1.217 (width) | 0.91 / 0.32 | 10.6 at each cap |
+| Many lines | width | 1.217 | 0.91 / 0.41 | 1.217 (width) | 0.91 / 0.41 | 49.3 at each cap |
+| Life of a token | cap | 1.250 | 0.60 / 0.11 | 1.798 (width) | 0.87 / 0.15 | 11.0 / 12.8 / 14.2 / 16.6 |
+| Life of a request | width | 1.217 | 0.91 / 0.31 | 1.217 (width) | 0.91 / 0.31 | 10.6 at each cap |
+
+Results:
+
+- The width binds on 4 of 7 machines at today's cap. For them, a larger cap changes nothing.
+- On the 3 machines that the cap binds, a cap of 2.0 gives the width fit (1.540 or 1.798).
+  The width fill goes from 0.60 or 0.72 to 0.87 or 0.89. The largest width fill is 0.91,
+  because the fit keeps 80 units of margin.
+- The height binds on no machine. The height fill at the largest scale is 0.15 to 0.85.
+- The label distance is in proportion to the scale. At today's cap it is already more than
+  12 px on 4 of 7 machines (17.0, 17.5, 17.5 and 49.3 px). The docstring of `atlas_states`
+  says that a label is more than 12 px from its line only at a scale over SM_MAX. This
+  measurement does not agree with that claim.
+
+### Dive: the spread of value 3 of the budget
+
+Script: `bench/jev/t0_dive.py` (driver `t0_dive.js`, the same camera path, 180 frames and 4
+times CPU slowdown as the scenario `dive`). Output: `bench/jev/t0_dive_T0.txt`. The budget
+script did not change. 10 rounds for each input, each round the canvas page and then the
+atlas page. Before the first run the host had no other heavy process (the processes with the
+most CPU: python3 4.9 percent, claude 2.3 percent). The load average (1 minute) was 0.15
+before the first input and 1.14 to 1.58 during the runs, from the runs. The host has 4 CPUs.
+
+| Input | Page | p95 (ms): values and counts | Mean (ms): min, median, max | Over 20 ms: min, median, max |
+|---|---|---|---|---|
+| self | canvas | 50.0 4, 50.1 3, 66.6 1, 83.3 1, 83.4 1 | 26.48, 30.51, 39.72 | 0.472, 0.558, 0.822 |
+| self | atlas | 33.4 4, 33.5 1, 49.9 2, 50.0 3 | 19.81, 23.98, 27.22 | 0.161, 0.353, 0.506 |
+| workspace | canvas | 33.5 1, 49.9 3, 50.0 6 | 21.85, 23.52, 29.35 | 0.233, 0.331, 0.644 |
+| workspace | atlas | 33.4 9, 50.0 1 | 19.54, 20.97, 23.61 | 0.161, 0.233, 0.344 |
+| M11 tree | canvas | 33.4 2, 49.9 1, 50.0 7 | 21.11, 25.88, 27.96 | 0.233, 0.472, 0.567 |
+| M11 tree | atlas | 33.4 5, 33.5 1, 49.9 2, 50.0 1, 50.1 1 | 22.87, 25.09, 30.65 | 0.133, 0.242, 0.450 |
+
+Each of the 30 rounds meets value 3 of the budget in this run. The mean of the atlas page
+over the mean of the canvas page is 0.594 to 0.913 (self), 0.738 to 1.037 (workspace) and
+0.909 to 1.161 (M11 tree) in a round.
+
+Which measure separates the two pages:
+
+- The p95 takes only the steps 33.4 and 50.0 ms on the atlas page, and one round can change
+  it by one step. It is not a stable measure.
+- The mean changes by about 0.09 ms for one frame more (16.7 ms over 180 frames). Its spread
+  in 10 runs of one page is 1.1 to 3.9 ms (standard deviation). The atlas mean is lower in
+  10 of 10 rounds (self), 9 of 10 (workspace) and 6 of 10 (M11 tree). Thus on the M11 tree
+  the mean does not separate the pages: they are equal in this run.
+- The share of intervals over 20 ms changes by 0.0056 for one frame. The atlas share is
+  lower in 29 of 30 rounds (not round 1 of the workspace). It is the measure that separates
+  the two pages best in this run, also on the M11 tree.
+- A limit on the mean ratio of 1.25 or less passes in 30 of 30 rounds (largest 1.161).
+
+### The values that cannot be reached together
+
+- C3: a larger opening zoom on the phone (each of the 3 rules) and acceptance 9 and Z1, as
+  they are written. Z1 needs each neighbour of Page on the screen at the opening, and only
+  the zoom of 0.5 gives that. The workspace keeps an empty band of 0.72 or more with each rule.
+- C1: a larger band gap and a larger fit zoom. The gap adds labels but not distance between
+  lines. least=9 gives 6.34 px with no cost in zoom, but a minimum of 8 px needs a different
+  group rule (least=12 made an overlap).
+- C4: a larger board scale and a label 12 px or less from its line. The label distance is in
+  proportion to the scale, and 4 of 7 machines are over 12 px at today's cap.
+- C2: a rule "no step label crosses an edge" and a rule "each step label shows on its line".
+  Only 4 of 12 (self) and 2 of 6 (workspace) of the crossing labels have a free place on their
+  line.
