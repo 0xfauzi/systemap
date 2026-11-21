@@ -219,7 +219,9 @@ def role_records(
             "from": c.source,
             "to": c.target,
             "state": states[line],
-            "modules": [{"module": u, "role": module_use.unit_role(u, picked)} for u in c.units],
+            "modules": [
+                {"module": u, "role": module_use.accepted_role(u, picked)} for u in c.units
+            ],
             "rows": (
                 [module_use.handoff_row(c, picked.accepted)]
                 if states[line] == module_use.OPEN and any(u in picked.accepted for u in c.units)

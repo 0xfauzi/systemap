@@ -28,7 +28,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import import_forms, judgement_evidence, nest
+from systemap import config_answers, import_forms, judgement_evidence, nest
 from systemap.config_answers import Answer
 from systemap.crossing import crossing_imports, crossing_line, crossing_pairs
 from systemap.evidence import owners, ref_module
@@ -504,10 +504,7 @@ def roles(
         if unit is None or answer.evidence != unit_evidence.get(unit.module):
             continue
         refs = flow_refs(tree, facts) if refs is None else refs
-        issue = symbol_issue(answer, unit)
-        cause = "symbol"
-        if issue is None:
-            issue, cause = flow_issue(answer, unit, refs, found.components), "flow_source"
+        issue, cause = _issue(answer, unit, refs, found.components)
         if issue is None:
             accepted.setdefault(unit.module, answer)
             continue
@@ -522,6 +519,45 @@ def roles(
             }
         )
     return Roles(accepted, refused)
+
+
+def _issue(
+    answer: Answer, unit: Unit, refs: Iterable[Ref], components: Mapping[str, Any]
+) -> tuple[str | None, str]:
+    """Give the text and the cause of a refused module role answer, or None and `""`."""
+    issue = symbol_issue(answer, unit)
+    if issue is not None:
+        return issue, "symbol"
+    issue = flow_issue(answer, unit, refs, components)
+    return (issue, "flow_source") if issue is not None else (None, "")
+
+
+def check_role(
+    answer_like: Answer | Mapping[str, Any],
+    found: Index,
+    unit_evidence: Mapping[str, str],
+    tree: nest.Tree,
+    facts: dict[str, Any],
+) -> str | None:
+    """Give the text of a module role answer that the rules refuse, or None.
+
+    The answer can be an entry of `[judgement] answered`. Then the static rules of the
+    answer form apply first, and the text has no location. Then the rules of `roles`
+    apply. An answer that is inactive or pending is not refused. An answer with no
+    evidence digest has the digest of its unit."""
+    if not isinstance(answer_like, Answer):
+        try:
+            answer_like = config_answers.answer_entry(answer_like, "")
+        except ValueError as error:
+            return str(error).strip()
+    module = role_answer(answer_like)
+    unit = found.units.get(module) if module else None
+    if unit is None:
+        return None
+    current = unit_evidence.get(unit.module)
+    if answer_like.evidence and answer_like.evidence != current:
+        return None
+    return _issue(answer_like, unit, flow_refs(tree, facts), found.components)[0]
 
 
 # ---- import crossing states (section 10) -------------------------------------------------
@@ -631,6 +667,12 @@ def closes_import(
 
 
 # ---- rows and counts ---------------------------------------------------------------------
+
+
+def accepted_role(module: str, picked: Roles) -> str:
+    """Give the accepted module role of a unit, or `none`. A refused answer gives `none`."""
+    answer = picked.accepted.get(module)
+    return answer.role if answer is not None else NONE
 
 
 def unit_role(module: str, picked: Roles) -> str:

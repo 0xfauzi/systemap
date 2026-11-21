@@ -30,7 +30,7 @@ A layer is a filtered view of the map.
 
 - The facts format is 15. Each module record can have `import_forms` and `dynamic_imports`, and the facts have `import_details`.
   `import_forms` gives the import form of each target module with a form other than `load`: `call` (in a function body) or `type` (only for type checks).
-  `dynamic_imports` gives each import by a string value. These records do not change `uses`, and the evidence digests of the recorded answers do not contain them.
+  `dynamic_imports` gives each import by a string value. These records do not change `uses`. Only the evidence digest of a `module use` line contains them: it contains the `import_forms` and the `dynamic_imports` of its module. The evidence digests of the other lines do not contain them.
   A facts file of format 14 is stale. Then `check` and `extract --check` exit 1. Run `systemap refresh` one time and commit the output.
 - `judgement` refuses a family answer for a `crossing import` or `declared flow` line. A family answer is an answer with `kind`, `crossing`, `crossing_into`, or `crossing_from`.
   It also refuses an answer with two or more items when one item is a `crossing import` or `declared flow` line.

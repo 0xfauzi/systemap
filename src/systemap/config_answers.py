@@ -164,6 +164,11 @@ def judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
     )
 
 
+def answer_entry(entry: Any, location: str) -> Answer:
+    """Read one entry of `[judgement] answered`. Raise ValueError for a bad entry."""
+    return _answer_entry(entry, location)
+
+
 def _answer_entry(entry: Any, location: str) -> Answer:
     if not isinstance(entry, dict):
         raise ValueError(f"{location} must be a table with item (or items) and reason.")

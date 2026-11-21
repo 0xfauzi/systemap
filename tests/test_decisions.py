@@ -335,6 +335,20 @@ def test_the_store_identity_of_a_judgement_line_is_its_kind_and_names(
         assert len(same) == 3 and all(lines[line] == line for line in same)
 
 
+def test_the_store_identity_of_a_module_use_line_is_the_line() -> None:
+    """Acceptance 9: a module use line names one module, and its module role answer
+    applies only to that module. Thus its identity is the full line, also when the facts
+    give the module."""
+    from systemap import module_use
+    from systemap.model import Meaning, Model
+
+    empty = Model((800, 600), (), (), (), (), ("data",))
+    m = nest.Map("", Path("map/model.py"), "map/model.py", empty, Meaning(plain={}), {})
+    facts = {"components": {"pkg.reader": {"file": "pkg/reader.py"}}}
+    line = module_use.module_line("pkg.reader")
+    assert decisions._subject(m, line, facts) == line
+
+
 def test_insufficient_evidence_makes_the_request_unknown(
     project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

@@ -18,6 +18,7 @@ Acceptance values (section 19, stage 4a, of the module role specification):
    import form, and a new import by a string value.
 5. `roles` gives each text of section 9.2, accepts the permitted answers, and neither
    accepts nor refuses an answer with a different digest. An inactive answer is not stale.
+   `check_role` gives the same texts for one answer, and also the texts of the answer form.
 6. The flow source rule refuses a helper answer for a cited unit, also through a facade,
    and a mixed answer whose cited name is not in `handoff`. It never refuses `handoff`.
 7. `crossing_states` gives `open`, `waiting` and `closed` by section 10.1. In 200 random
@@ -316,12 +317,16 @@ def test_the_evidence_of_a_unit() -> None:
     for change in (
         {"names": [*base_components()["lib.h"]["names"], {"name": "strip", "kind": "function"}]},
         {"uses": {"core.thing": ["Thing"]}},
-        {"import_forms": {"core.thing": ["call"]}, "uses": {"core.thing": ["Thing"]}},
         {"dynamic_imports": [{"call": "import_module", "text": "x", "target": "", "line": 3}]},
     ):
         changed = base_components()
         changed["lib.h"].update(change)
         assert digest_of(changed) != before, change
+    used = base_components()
+    used["lib.h"]["uses"] = {"core.thing": ["Thing"]}
+    formed = base_components()
+    formed["lib.h"].update(uses={"core.thing": ["Thing"]}, import_forms={"core.thing": ["call"]})
+    assert digest_of(formed) != digest_of(used)  # a new form of an import that stays
 
 
 # ---- 5. roles ----------------------------------------------------------------------------
@@ -398,6 +403,33 @@ def test_a_pending_answer_is_neither_accepted_nor_refused() -> None:
     comps = base_components()
     found = picked(comps, role(comps, role="helper", symbol="nope", evidence="0" * 64))
     assert not found.accepted and not found.refused
+
+
+def test_check_role_gives_the_text_of_one_refused_answer() -> None:
+    """`check_role` applies the rules of the answer form and of `roles` to one answer."""
+    comps = base_components()
+    tree = one_map(model(CARDS, (flow("lib.h@abc"),)))
+    facts = {"components": comps}
+    found = module_use.index(tree, facts)
+    digests = module_use.evidence(found)
+
+    def check(entry: dict[str, Any]) -> str | None:
+        given = {"item": LINE_H, "reason": "a test", **entry}
+        return module_use.check_role(given, found, digests, tree, facts)
+
+    assert check({"role": "handoff"}) is None
+    assert (
+        check({"role": "handoff", "symbol": "nope"}) == f"'{LINE_H}': nope is not a name of lib.h."
+    )
+    flow_text = str(check({"role": "helper", "symbol": "escape"}))
+    assert flow_text.startswith(f"'{LINE_H}': the flow L -> C (a message) cites lib.h.")
+    assert check({"role": "bad"}) == 'role must be "helper", "handoff", or "mixed".'
+    pending = {"role": "handoff", "symbol": "nope", "evidence": "0" * 64}
+    assert check(pending) is None  # a pending answer is not refused
+    answer = role(comps, role="handoff", symbol="nope")
+    assert module_use.check_role(answer, found, digests, tree, facts) == check(
+        {"role": "handoff", "symbol": "nope"}
+    )
 
 
 def test_an_inactive_answer_is_not_stale() -> None:
@@ -645,6 +677,29 @@ def test_a_waiting_answer_is_not_stale_and_a_refused_answer_blocks(three: Path) 
     rows = judgement_json.role_fields(refused)
     assert rows["module_roles"] == {"helper": 0, "handoff": 0, "mixed": 0, "refused": 1, "none": 1}
     assert rows["import_crossings"]["waiting"] == 2
+    # In an import crossing, a module with a refused answer has no module role.
+    roles = {
+        unit["module"]: unit["role"]
+        for crossing in rows["import_crossings"]["crossings"]
+        for unit in crossing["modules"]
+    }
+    assert roles == {"pkg.reader": "none", "pkg.writer": "none"}
+
+
+def test_the_report_gives_the_count_rows_of_the_import_crossings_and_the_module_roles(
+    three: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from systemap.cli import main
+
+    main(["--root", str(three), "judgement", "--brief"])
+    out = capsys.readouterr().out.splitlines()
+    assert (
+        "import crossings: 2 have no flow. 0 are open. 2 wait for module roles. 0 are closed "
+        "by module roles."
+    ) in out
+    assert (
+        "module roles: 2 modules. 0 helper, 0 handoff, 0 mixed, 0 refused, 2 with no module role."
+    ) in out
 
 
 def test_a_run_with_map_accepts_the_same_answers() -> None:

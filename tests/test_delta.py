@@ -515,18 +515,34 @@ def test_the_seed_is_the_card_with_the_most_changed_modules() -> None:
     assert delta._seed({"pkg.d"}, owner) == "", "an unclaimed module seeds nothing"
 
 
-@pytest.mark.parametrize(("role", "shown"), [("helper", False), ("handoff", True)])
+@pytest.mark.parametrize(
+    ("role", "symbol", "current", "shown"),
+    [
+        ("helper", "parse_all", True, False),
+        ("handoff", "", True, True),
+        ("helper", "parse_all", False, True),
+        ("helper", "not_imported", True, True),
+    ],
+    ids=["helper", "handoff", "stale digest", "bad symbol"],
+)
 def test_a_helper_module_role_stops_the_new_crossing_import_line(
-    repo: Path, capsys: pytest.CaptureFixture[str], role: str, shown: bool
+    repo: Path,
+    capsys: pytest.CaptureFixture[str],
+    role: str,
+    symbol: str,
+    current: bool,
+    shown: bool,
 ) -> None:
     """A helper module role of pkg.parser closes the new import of Ledger. A handoff module
-    role does not close it."""
+    role does not close it. A helper answer with a different evidence digest, or with a
+    symbol that the users do not import, does not close it."""
     from systemap import extract, judgement_evidence, module_use
 
     components = extract.build(config.load(repo))["components"]
     digest = judgement_evidence.digest(judgement_evidence.use_state(components, "pkg.parser"))
+    digest = digest if current else "0" * 64
     line = module_use.module_line("pkg.parser")
-    symbol = ', symbol = "parse_all"' if role == "helper" else ""
+    symbol = f', symbol = "{symbol}"' if symbol else ""
     toml = repo / "systemap.toml"
     toml.write_text(
         toml.read_text(encoding="utf-8").replace(
