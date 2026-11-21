@@ -11,8 +11,8 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   the parts and the flows between two parts: the list, the board, the counts and the
   reach. It does not follow the flows of the map above. Thus a nested map with flows only
   to its neighbours has no Focus view, and the button Focus then shows the map above. The
-  counts of a nested map count parts, for example "a change here can reach 1 of 1 other
-  part: 1 through flows, 0 through imports with no flow".
+  counts of a nested map count parts, for example "through flows, a change here can reach
+  1 of 1 other part · 0 other parts import this part directly".
 - The headline of a nested map gives the path. A part of the path is a button only when
   that map has the Focus view: the button focuses on the card of that map with the most
   flows. Each other part of the path is text.
@@ -23,19 +23,20 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   the lines between the outer columns.
 - A column shows FC_MAX (nine) cards at most, and then the text "+ N more" with the count
   of the other cards of that step.
-- The reach is the set of the other cards on a path of flows and imports from a card
-  (`reachOf` and `fcImports`). An import goes from the imported card to the importing card:
-  a change of the imported card can reach the importing card. The page computes the
-  imports from the module imports of the facts that the Uses and Used by lists of the
-  details use. It reads no answer. A card is not in its own reach, also when a path goes
-  back to it (a cycle). The board shows only the flows.
+- The reach (`reachOf`) is the set of the other cards on a path of flows from a card, each
+  with its count of steps. A card is not in its own reach, also when a path of flows goes
+  back to it (a cycle). The importers are the other cards with a module that imports a
+  module of the card directly, one step only (`fcImports`). The page computes them from the
+  module imports of the facts that the Uses and Used by lists of the details use. It reads
+  no answer. A path of imports with more steps is not counted: on a framework it gets to
+  almost each card, and thus it does not inform the reader. The two counts have different
+  meanings, thus the page does not add them. The board shows only the flows.
 - The headline gives "Focus", the question "What does X use, and what uses X?", and the
-  counts: the cards that the card receives from, the cards that it gives to, and the
-  reach with the two parts of it, for example "a change here can reach 18 of 36 other
-  cards: 4 through flows, 14 through imports with no flow". The first part is the cards on
-  a path of flows only. The second part is the other cards of the reach. The total is the
-  count of the cards of the map less one, as the headline of the Map view counts them
-  (`countWords` in `atlas_view`). On a phone the headline also gives the counts.
+  counts: the cards that the card receives from, the cards that it gives to, the reach and
+  the importers, for example "through flows, a change here can reach 15 of 36 other cards ·
+  18 other cards import this card directly". The total is the count of the cards of the map
+  less one, as the headline of the Map view counts them (`countWords` in `atlas_view`). On
+  a phone the headline also gives the counts.
 - The list at the left gives the cards of the map that have a flow, with their count of
   flows, the largest count first. On a narrow screen the list is a row of names under the
   headline. The current card has aria-current "true".
@@ -195,32 +196,32 @@ function fcRanked(m) {
 // gives to, each with its count of steps.
 function fcReach(c) {
   var memo = c.map._fr || (c.map._fr = Object.create(null));
-  if (!memo[c.id]) {
-    var fl = fcFlows(c.map);
-    memo[c.id] = {up: reachOf(fl, c.id, 't', 's'), dn: reachOf(fl, c.id, 's', 't'), all: reachOf(fl.concat(fcImports(c.map)), c.id, 's', 't')};
-  }
+  if (!memo[c.id]) memo[c.id] = {up: reachOf(fcFlows(c.map), c.id, 't', 's'), dn: reachOf(fcFlows(c.map), c.id, 's', 't')};
   return memo[c.id];
 }
-// The reach counts the cards on a path of flows and imports. `flows` is the part that a path
-// of flows only reaches, and `imports` is the part that only a path with an import reaches.
+// `reach` is the count of the cards on a path of flows from c. `imports` is the count of the
+// other cards that import c directly. The two counts have different meanings: the page does
+// not add them.
 function fcCounts(c) {
-  var r = fcReach(c), reach = Object.keys(r.all).length, flows = Object.keys(r.dn).length;
-  return {from: atSteps(r.up, 1).length, to: atSteps(r.dn, 1).length, reach: reach, flows: flows, imports: reach - flows, of: fcParts(c.map) - 1};
+  var r = fcReach(c), by = fcImports(c.map).filter(function (x) { return x.s === c.id; }).length;
+  return {from: atSteps(r.up, 1).length, to: atSteps(r.dn, 1).length, reach: Object.keys(r.dn).length, imports: by, of: fcParts(c.map) - 1};
 }
+// The two parts of the reach sentence: the reach through flows and the direct importers.
 function fcReachWords(c, n) {
-  return 'can reach ' + n.reach + ' of ' + n.of + ' other ' + fcNoun(c.map) + (n.of === 1 ? '' : 's') + ': ' + n.flows + ' through flows, ' +
-    n.imports + ' through imports with no flow';
+  var w = fcNoun(c.map);
+  return ['through flows, a change here can reach ' + n.reach + ' of ' + n.of + ' other ' + w + (n.of === 1 ? '' : 's'),
+    n.imports + ' other ' + w + (n.imports === 1 ? ' imports this ' : 's import this ') + w + ' directly'];
 }
 function fcHead() {
-  var c = fcCard(), n = fcCounts(c);
+  var c = fcCard(), n = fcCounts(c), r = fcReachWords(c, n);
   return {k: 'Focus', q: 'What does ' + c.id + ' use, and what uses ' + c.id + '?',
-    n: 'receives from ' + n.from + ' · gives to ' + n.to + ' · a change here ' + fcReachWords(c, n)};
+    n: 'receives from ' + n.from + ' · gives to ' + n.to + ' · ' + r[0] + ' · ' + r[1]};
 }
 function fcWords() {
-  var c = fcCard(), n = fcCounts(c);
+  var c = fcCard(), n = fcCounts(c), r = fcReachWords(c, n);
   var w = fcNoun(c.map);
   return 'Focus on ' + c.id + '. It receives from ' + counted(n.from, w) + ' and gives to ' + counted(n.to, w) +
-    '. A change here ' + fcReachWords(c, n) + '. Map: ' + mapName(c.map) + '.';
+    '. T' + r[0].slice(1) + '. ' + r[1] + '. Map: ' + mapName(c.map) + '.';
 }
 
 // ---- the list ----------------------------------------------------------------------------

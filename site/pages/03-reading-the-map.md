@@ -138,7 +138,7 @@ The reading line is a live region. It also gives the new map, view, and layer.
 
 - One card is in the middle. The cards that give to it are at the left, and the cards that it gives to are at the right, two steps deep.
 - On a narrow screen, the view shows one step at each side.
-- The headline gives the counts and the reach, for example "a change here can reach 18 of 36 other cards: 4 through flows, 14 through imports with no flow". The reach is the count of the other cards on a path of flows and imports from the card. A change of a card can reach each card that imports it.
+- The headline gives the counts, the reach and the importers, for example "through flows, a change here can reach 15 of 36 other cards · 18 other cards import this card directly". The reach is the count of the other cards on a path of flows from the card. The importers are the other cards that import a module of the card directly. A change of a card can also reach each of these cards.
 - A column shows nine cards at most and then the count of the other cards.
 - Select a card to put it in the middle. The list at the left gives the cards with flows.
 - In a nested map, the view uses only the parts of the map and the flows between them.

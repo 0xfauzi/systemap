@@ -225,14 +225,15 @@ state machine, History needs commit data.
   outer sides. Each transition starts and ends on the outline of its states, and it goes
   through no other state. A state is as wide as its full ID. The reading line gives the
   cause of a transition, and the meaning of a state.
-- **Focus.** The headline gives the counts and the reach, for example "a change here can
-  reach 18 of 36 other cards: 4 through flows, 14 through imports with no flow". Reach is
-  the count of the other cards on a path of flows and imports from the card. An import goes
-  from the imported card to the importing card. The imports are the module imports of the
-  facts that the Uses and Used by lists use. The first part is the cards on a path of flows
-  only, and the second part is the other cards of the reach. Before, the reach counted only
-  the flows. On a draft map of Django, it gave 4 cards for Orm, but 18 components import
-  Orm. A
+- **Focus.** The headline gives the counts, the reach and the importers, for example
+  "through flows, a change here can reach 15 of 36 other cards · 18 other cards import
+  this card directly". Reach is the count of the other cards on a path of flows from the
+  card. The importers are the other cards with a module that imports a module of the card
+  directly, from the module imports of the facts that the Uses and Used by lists use. Before,
+  the headline gave only the reach. On a draft map of Django, it gave 4 cards for Orm, but
+  18 components import Orm. The importers are one step only, because a path of imports with
+  more steps gets to almost each card of a framework (34 of 36 for Orm). The two counts
+  have different meanings, thus the page does not add them. A
   column shows nine cards at most and then the count of the others. Selecting a card
   focuses on it. The view opens on the selected card of the Map view when that card has a
   flow. On a narrow screen the view shows one step at each side.

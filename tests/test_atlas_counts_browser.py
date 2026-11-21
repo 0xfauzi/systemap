@@ -1,8 +1,9 @@
-"""The counts of the atlas page agree, and the Focus reach counts the imports, in a browser.
+"""The counts of the atlas page agree, and Focus gives the direct importers, in a browser.
 
 The headline of each layer, the Structure layer and the Focus view must give the same number
-with the same noun for the same thing. A card is an actor or a component. The Focus reach
-counts the other cards on a path of flows and imports (`fcImports` in `atlas_focus`). The
+with the same noun for the same thing. A card is an actor or a component. The Focus headline
+gives the reach through flows and, as a separate count, the other cards that import the card
+directly (`fcImports` in `atlas_focus`). The
 test drives the atlas page in the Chromium of Playwright (tests/atlas_counts.js). The test
 skips when Node or the Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS
 is "required". Then it fails.
@@ -14,16 +15,30 @@ R1. On the map of the card Core with flows to F1 and F2, the cards I1, I2 and I3
     headline of Core ends with "a change here can reach 5 of 6 other cards: 2 through
     flows, 3 through imports with no flow". The live region gives the same reach in a
     sentence.
+    Changed on 2026-11-21 by the decision of the maintainer after the first run: the import
+    count is one step only, and it is not added to the reach. A path of imports with more
+    steps gets to almost each card of a framework (on Django, Orm got 34 of 36), so it does
+    not inform the reader, and the two counts have different meanings. The new value: the
+    card J imports I1 and has no flow. The Focus headline of Core ends with "through flows,
+    a change here can reach 2 of 7 other cards · 3 other cards import this card directly"
+    (J is not an importer of Core), and the live region gives "Through flows, a change here
+    can reach 2 of 7 other cards. 3 other cards import this card directly."
 R2. On the same map, the headline of the layer All gives "1 actor · 6 components · 3 flows",
     and a layer with no flow gives "7 cards in 1 region: 1 actor and 6 components". Thus
     7 cards = 1 actor + 6 components, and the Focus total is 7 - 1 = 6 other cards.
     Changed after the first run: the value for All was wrong. The flows of All touch only
     Core, F1 and F2 of the 6 components, thus the rule "N of T" of the headline gives "1 actor
     · 3 of 6 components · 3 flows". The page was correct.
+    Changed with R1 on 2026-11-21: the card J makes 7 components and 8 cards. Thus All gives
+    "1 actor · 3 of 7 components · 3 flows" and a layer with no flow gives "8 cards in 1
+    region: 1 actor and 7 components".
 R3. On the map of this repository, the Focus total of Model is the count of the cards less
     one, and the headline of each layer with flows gives totals of actors and components
     whose sum is the count of the cards. The reach of Model is the reach in Python on the
     flows and the imports of the page data, with the same split.
+    Changed with R1 on 2026-11-21: the reach of Model is the reach in Python on the flows,
+    and the importers are the other cards with a module that imports a module of Model
+    directly, from the page data.
 """
 
 from __future__ import annotations
@@ -61,28 +76,30 @@ def core(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
         **{f"pkg/f{n}.py": run for n in (1, 2)},
         **{f"pkg/i{n}.py": "from pkg import core\n\n" + run for n in (1, 2, 3)},
         "pkg/user.py": run,
+        "pkg/j.py": "from pkg import i1\n\n" + run,
     }
     more = {"User": "kind='actor', implemented_by=('pkg.user',), entry='run'"}
-    cards = ["Core", "F1", "F2", "I1", "I2", "I3", "User"]
+    cards = ["Core", "F1", "F2", "I1", "I2", "I3", "J", "User"]
     flows = [("Core", "F1", "a"), ("Core", "F2", "b"), ("User", "Core", "c")]
     html = page(tmp_path, sources, cards, flows, more)
     capsys.readouterr()
     return drive(html, "Core")
 
 
-def test_the_reach_counts_the_flows_and_the_imports(core: dict[str, Any]) -> None:
+def test_focus_gives_the_reach_and_the_direct_importers(core: dict[str, Any]) -> None:
     """R1."""
-    reach = "can reach 5 of 6 other cards: 2 through flows, 3 through imports with no flow"
-    assert core["focus"]["counts"].endswith("a change here " + reach)
-    assert "A change here " + reach + "." in core["focus"]["said"]
+    reach = "flows, a change here can reach 2 of 7 other cards"
+    importers = "3 other cards import this card directly"
+    assert core["focus"]["counts"].endswith(f"through {reach} · {importers}")
+    assert f"Through {reach}. {importers}." in core["focus"]["said"]
 
 
 def test_the_headline_and_focus_give_the_same_cards(core: dict[str, Any]) -> None:
     """R2."""
     layers = core["layers"]
-    assert layers["all"] == "1 actor · 3 of 6 components · 3 flows"
+    assert layers["all"] == "1 actor · 3 of 7 components · 3 flows"
     flat = [t for t in layers.values() if "region" in t]
-    assert flat and all(t == "7 cards in 1 region: 1 actor and 6 components" for t in flat)
+    assert flat and all(t == "8 cards in 1 region: 1 actor and 7 components" for t in flat)
 
 
 def reach_set(edges: list[tuple[str, str]], card: str) -> set[str]:
@@ -93,6 +110,15 @@ def reach_set(edges: list[tuple[str, str]], card: str) -> set[str]:
         seen.update(nxt)
         edge = list(dict.fromkeys(nxt))
     return seen
+
+
+def focus_words(reach: int, others: int, importers: int) -> str:
+    """The end of the Focus headline of a card of the top map."""
+    verb = "card imports" if importers == 1 else "cards import"
+    return (
+        f"through flows, a change here can reach {reach} of {others} other "
+        f"card{'' if others == 1 else 's'} · {importers} other {verb} this card directly"
+    )
 
 
 def import_links(top: dict[str, Any]) -> list[tuple[str, str]]:
@@ -122,13 +148,9 @@ def test_the_counts_of_the_self_map_agree(self_page: tuple[Path, dict[str, Any]]
     total = len(ids)
     flows = [(f["s"], f["t"]) for f in top["flows"] if f["s"] != f["t"] and {f["s"], f["t"]} <= ids]
     by_flow = reach_set(flows, "Model")
-    reach = reach_set(flows + import_links(top), "Model")
-    want = (
-        f"can reach {len(reach)} of {total - 1} other cards: {len(by_flow)} through flows, "
-        f"{len(reach) - len(by_flow)} through imports with no flow"
-    )
-    assert got["focus"]["counts"].endswith(want)
-    assert len(reach) > len(by_flow)
+    importers = {b for a, b in import_links(top) if a == "Model"}
+    assert importers
+    assert got["focus"]["counts"].endswith(focus_words(len(by_flow), total - 1, len(importers)))
     both = 0
     for text in got["layers"].values():
         nums = re.findall(r"(\d+) (?:actors?|components?)\b", text)
