@@ -20,6 +20,7 @@ from systemap import (
     judgement_evidence,
     nest,
     nest_join,
+    refused_answers,
     review_policy,
     source_facts,
 )
@@ -57,6 +58,11 @@ class Judged:
     claims: list[assurance.Claim] = field(default_factory=list)
     boundary: Mapping[str, dict[str, Any]] = field(default_factory=dict)
     found: Mapping[str, nest_join.Finding] = field(default_factory=dict)
+
+    @property
+    def blocking(self) -> bool:
+        """Tell if `judgement --strict` exits 1: a line is open, or an answer is refused."""
+        return bool(self.result.open or self.result.refused)
 
     def import_rows(self, tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
         """Give the import rows of each crossing-import line and `boundary import` line."""
@@ -125,6 +131,7 @@ def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     given = answer_migrations.current_lines(given, lines)
     evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
     result = judgement.apply_answers(lines, given, evidence)
+    result.refused.extend(row["text"] for row in refused_answers.texts(given, lines))
     renamed = answer_migrations.renamed_items(cfg.judgement_answered)
     result.stale.extend(item for item in renamed if item not in result.stale)
     causes = line_causes(lines, facts)

@@ -583,8 +583,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     """Print the possible map errors that the maintainer must examine.
 
     Exact answers must have the printed line and correct evidence. Family answers must
-    have an explicit policy. The command gives stale answers but does not reject them.
-    With `--strict`, an open line gives exit code 1. `--json` writes one JSON object.
+    have an explicit policy. The command gives stale answers and refused answers. With
+    `--strict`, an open line or a refused answer gives exit code 1. `--json` gives JSON.
     """
     p = _project(args)
     p = Project(providers.chosen(p.cfg, args.provider), p.tree)
@@ -622,7 +622,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
-    if args.strict and result.open:
+    if args.strict and judged.blocking:
         say(STRICT_ACTION)
         return STALE
     return OK
@@ -645,7 +645,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     say(json.dumps(cli_scope.payload(obj, p.tree, entry_coverage="not examined"), indent=2))
     warn(*notes, *cli_scope.notes(p.tree, cli_scope.ENTRY_NOTE))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
-    if args.strict and judged.result.open:
+    if args.strict and judged.blocking:
         warn(STRICT_ACTION)
         return STALE
     return OK
@@ -1136,12 +1136,12 @@ def build_parser() -> argparse.ArgumentParser:
             "and source evidence. An answer in [judgement] answered can accept an exact line "
             "or a family of lines. Exact answers must have source evidence. Family answers "
             "must have policy=true. The command exits 0, or 1 with --strict if a line "
-            "remains open."
+            "remains open or an answer is refused."
         ),
     )
     add_root(s)
     s.add_argument(
-        "--strict", action="store_true", help="Exit 1 if a line remains open. Use for CI."
+        "--strict", action="store_true", help="Exit 1 for an open line or a refused answer."
     )
     s.add_argument(
         "--kind",

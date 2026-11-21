@@ -178,7 +178,7 @@ For each finding, change the model or record the reason for its stored state.
 | boundary import | Only in a nested map. A module of an internal component imports a module of the component X outside the map. X is not an actor of the nested map, for example `Gateway: boundary import: Routes imports Auth, and Auth is not an actor of the map inside Gateway`. Or, no nested flow connects the component and the actor X, for example `Gateway: boundary import: Routes imports Auth, and no flow connects Routes and actor Auth`. X is the component that claims the imported module in the nearest map above the nested map. A `count:` row below the line gives the importing modules, and `--verbose` lists the imports. |
 
 Without `--strict`, the report exits 0.
-With `--strict`, it exits 1 while a finding is open.
+With `--strict`, it exits 1 while a finding is open or an answer is refused.
 
 Each source component has one review state:
 `missing` (no `source_review`), `stale` (`source_review` is not the current digest), or `current`.
@@ -1373,9 +1373,12 @@ A line after the findings counts the component source reviews by state: current,
 Then one row gives each flow with the label "review earlier than source tracking". These rows are not findings.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
+The report refuses a family answer for `crossing import` and `declared flow` findings, and an answer with two or more items when one item is such a finding.
+A `refused answer:` row gives each refused answer and its cause. The findings of a refused answer stay open.
+An import only for type checks gives no `crossing import` finding.
 The first finding of each kind has rows about its effect and necessary action.
 
-- `--strict` exits 1 while a finding is open. If not, the exit code is 0.
+- `--strict` exits 1 while a finding is open or an answer is refused. If not, the exit code is 0.
   A model without components also gives exit 1 with `--strict`, as `systemap check` does.
 
 - `--kind KIND` prints one kind.

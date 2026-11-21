@@ -34,6 +34,7 @@ Acceptance values:
 13. A component that imports a module of the part is an actor of the part.
 14. With the top model in the root folder, the file prefix has no `./`.
 15. `--stub --json` writes one JSON object.
+16. An import only for type checks gives no import crossing in the plan.
 """
 
 from __future__ import annotations
@@ -518,6 +519,28 @@ def test_an_importer_of_the_part_is_an_actor(tmp_path: Path) -> None:
     found = parts_plan.boundary(nest.Tree((*tree.maps, child)), child, facts)
     assert found["actors"] == [{"id": "App", "because": ["crossing import into the part"]}]
     assert found["boundary_imports"] == []
+
+
+def test_an_import_only_for_type_checks_is_not_in_the_plan(tmp_path: Path) -> None:
+    """Acceptance 16: App imports Gate only for type checks. The plan has no import
+    crossing for it, so App is not an actor of the part."""
+    root = _gate(
+        tmp_path,
+        GATE_MODEL.replace('FLOWS = (Flow("App", "Gate", "request", "control"),)', "FLOWS = ()"),
+    )
+    (root / "pkg/app.py").write_text(
+        "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n"
+        "    from pkg.gate.api import handler\n\n\ndef start() -> str:\n    return ''\n",
+        encoding="utf-8",
+    )
+    assert run(root, "extract") == 0
+    cfg = config.load(root)
+    tree = nest.load(cfg)
+    facts = json.loads(cfg.facts_path.read_text(encoding="utf-8"))
+    child = nest.Map("Gate", tree.top.path, "", tree.top.model, tree.top.meaning, {}, "", "Gate")
+    whole = nest.Tree((*tree.maps, child))
+    assert parts_plan.pairs_of(whole, child, facts) == {}
+    assert parts_plan.boundary(whole, child, facts)["actors"] == []
 
 
 def test_the_file_prefix_has_no_dot_folder(

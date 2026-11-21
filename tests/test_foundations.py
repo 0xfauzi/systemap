@@ -223,6 +223,16 @@ def test_explain_prints_one_entry_whole_and_names_the_kinds_it_knows() -> None:
     assert "there is no line kind" in missing[0] and "crossing import" in missing[1]
 
 
+def test_the_new_crossing_import_lesson_asks_for_an_exact_answer() -> None:
+    """A family answer cannot close a crossing import line. Thus the lesson does not tell
+    the reader to record why no flow is necessary."""
+    lesson = explain.LESSONS["new crossing import"]
+    assert lesson.do == (
+        "If the connection is correct, add the flow and its description. Otherwise, change "
+        "the code, or give an exact answer for the crossing import line."
+    )
+
+
 # ---- the teaching, under the lines and on its own ----------------------------------
 
 

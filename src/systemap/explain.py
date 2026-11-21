@@ -334,7 +334,7 @@ DELTA = {
         why=("The code now has a connection that the map does not show."),
         do=(
             "If the connection is correct, add the flow and its description. Otherwise, "
-            "change the code or record why no flow is necessary."
+            "change the code, or give an exact answer for the crossing import line."
         ),
     ),
     "evidence lost": Lesson(

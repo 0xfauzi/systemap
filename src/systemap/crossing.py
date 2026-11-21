@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from systemap import nest
+from systemap import import_forms, nest
 from systemap.evidence import owners
 from systemap.model import Model
 
@@ -19,12 +19,15 @@ Pair = tuple[str, str]
 
 
 def crossing_pairs(
-    components: dict[str, Any], owner: dict[str, str]
+    components: dict[str, Any], owner: dict[str, str], runtime_only: bool = True
 ) -> dict[Pair, list[tuple[str, str]]]:
     """This function indexes module imports across distinct component pairs.
 
     It uses source facts and an owner table so the delta can use the same rule at
-    another commit.
+    another commit. With `runtime_only`, a component pair whose imports all operate only
+    for type checks is not in the result (`import_forms.runtime`). A pair in the result
+    keeps all its imports, also the imports for type checks, because the evidence digest
+    of an exact answer contains them.
     """
     out: dict[Pair, list[tuple[str, str]]] = {}
     for module in sorted(components):
@@ -35,7 +38,19 @@ def crossing_pairs(
             q = owner.get(target)
             if q and q != p:
                 out.setdefault((p, q), []).append((module, target))
-    return out
+    if not runtime_only:
+        return out
+    return {
+        pair: edges
+        for pair, edges in out.items()
+        if any(import_forms.runtime(components[m], t) for m, t in edges)
+    }
+
+
+def runtime_targets(record: dict[str, Any]) -> list[str]:
+    """Give the sorted targets of the imports of a module record that can operate at run
+    time. The delta and the `boundary import` rule ignore an import only for type checks."""
+    return [t for t in sorted(record.get("uses", {})) if import_forms.runtime(record, t)]
 
 
 def crossing_line(p: str, q: str) -> str:
@@ -68,11 +83,43 @@ def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[s
 
 
 def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
-    """This function indexes imports by their full printed crossing-import diagnostic."""
-    return {
-        prefix + crossing_line(p, q): [f"{m} imports {t}" for m, t in imports]
-        for (p, q), imports in crossing_imports(model, facts).items()
-    }
+    """This function indexes imports by their full printed crossing-import diagnostic.
+
+    After the import rows, the rows give each import that operates only in a function
+    body, and each import by a string value in a module of the source component. If the
+    language adapter does not find imports for type checks, a row tells it."""
+    components = facts.get("components", {})
+    owner = owners(model, facts)
+    details = facts.get("import_details")
+    no_type = isinstance(details, list) and import_forms.TYPE not in details
+    out: dict[str, list[str]] = {}
+    for (p, q), imports in crossing_imports(model, facts).items():
+        rows = [f"{m} imports {t}" for m, t in imports]
+        rows += [
+            f"{m} imports {t} only in a function body."
+            for m, t in imports
+            if import_forms.deferred(components.get(m), t)
+        ]
+        rows += _dynamic_rows(components, owner, p)
+        out[prefix + crossing_line(p, q)] = rows + ([NO_TYPE_ROW] if no_type else [])
+    return out
+
+
+NO_TYPE_ROW = (
+    "The language adapter does not find imports for type checks. Thus each import counts "
+    "as an import at run time."
+)
+
+
+def _dynamic_rows(components: dict[str, Any], owner: dict[str, str], p: str) -> list[str]:
+    """Give one row for each import by a string value in a module of the component `p`."""
+    return [
+        f"{module} imports a module by a string value at line {record.get('line')}: "
+        f"{record.get('call')}({record.get('text') or 'a value'})."
+        for module in sorted(components)
+        if owner.get(module) == p
+        for record in import_forms.dynamic_records(components[module])
+    ]
 
 
 def crossing_counts(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int]:

@@ -4,12 +4,14 @@ The report includes component grouping, flow descriptions, layer contents, entry
 coverage, imports, and source evidence. Each line has a stable kind prefix. The
 configuration can answer an exact line or a family of lines. Exact answers must have an
 evidence digest. Family answers must have an explicit policy. The report shows unmatched
-answers as stale.
+answers as stale. It refuses a family answer and an answer with two or more items for the
+kinds of `refused_answers.NO_FAMILY_KINDS`.
 
 Each nested diagnostic has its map ID as a prefix. Exact answers include this prefix.
-family selectors use the diagnostic after the prefix. Entry point and SDK questions
+Family selectors use the diagnostic after the prefix. Entry point and SDK questions
 belong to the deepest applicable map. Sequences from all maps supply entry coverage. The
-CLI exits 1 with --strict if a line remains open. otherwise, the report exits 0.
+CLI exits 1 with --strict if a line remains open or an answer is refused. Otherwise, the
+report exits 0.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ from systemap import (
     judgement_evidence,
     nest,
     nest_join,
+    refused_answers,
     step_refs,
     unknown_causes,
 )
@@ -539,7 +542,8 @@ def answers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
 @dataclass(frozen=True)
 class Answered:
     """This record contains open diagnostics, accepted counts, stale answers, pending
-    reviews, policy notices, and the accepted answers.
+    reviews, policy notices, the accepted answers, and the texts of the refused answers
+    (`refused_answers`).
     """
 
     open: list[str]
@@ -548,6 +552,7 @@ class Answered:
     pending: list[str] = field(default_factory=list)
     policies: list[str] = field(default_factory=list)
     accepted: list[Answer] = field(default_factory=list)
+    refused: list[str] = field(default_factory=list)
 
 
 def apply_answers(
@@ -579,6 +584,8 @@ def _accepted_answers(
     accepted: list[Answer] = []
     present = set(lines)
     for a in given:
+        if refused_answers.form(a) is not None:
+            continue
         matches = [line for line in lines if answers(a, line, present)]
         if not matches:
             continue
@@ -619,7 +626,7 @@ def _answer_issue(answer: Answer, evidence: Mapping[str, str] | None) -> str | N
 def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
     stale: list[str] = []
     present = set(lines)
-    for answer in given:
+    for answer in (a for a in given if refused_answers.form(a) is None):
         if answer.items:
             stale.extend(
                 item
@@ -669,6 +676,7 @@ def report(
     out += [f"  stale answer: {answer_migrations.stale(item)}" for item in result.stale]
     out += [f"  pending answer: {printable(item)}" for item in result.pending or []]
     out += [f"  policy answer: {printable(item)}" for item in result.policies or []]
+    out += [f"  refused answer: {printable(item)}" for item in result.refused]
     return out
 
 

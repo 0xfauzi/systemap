@@ -54,6 +54,12 @@ Two earlier forms need the current lines. `current_lines` reads them:
 
 `judgement` gives no line about a test file. `retired` gives the cause for an item of such
 a line. The report gives the item as a stale answer with this cause.
+
+From this release, a family answer or an answer with two or more items for a
+`crossing import`, `module use`, or `declared flow` line is a refused answer
+(`refused_answers.form`). The report does not apply it, and it gives the cause. This is a
+change of the answer rules, not of a line form: the `crossing import` line form does not
+change, so this module has no pattern for it.
 """
 
 from __future__ import annotations

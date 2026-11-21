@@ -272,13 +272,13 @@ def test_judgement_prints_one_line_per_declared_edge(sample: Sample) -> None:
     assert judgement.declared_flows(sample.model, sample.meaning, {}) == [], (
         "no facts: nothing is observed and nothing is asked"
     )
-    # The bulk answer form covers the kind, and the exact line answers one.
+    # A family answer cannot close a declared flow line, and the exact line answers one.
     assert "declared flow" in config.LINE_KINDS
     answered = judgement.apply_answers(
         declared,
         [Answer((), "the parser calls the writer through a callback", kind="declared flow")],
     )
-    assert answered.open == [] and answered.answered == 2
+    assert answered.open == declared and answered.answered == 0
     answered = judgement.apply_answers(declared, [Answer((declared[0],), "a callback")])
     assert answered.open == [declared[1]] and answered.answered == 1
 

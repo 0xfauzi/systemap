@@ -28,6 +28,7 @@ from systemap import (
 from systemap import moves as moves_mod
 from systemap.check import interface_head, interface_problem, names_not_known
 from systemap.config import Config
+from systemap.crossing import runtime_targets
 from systemap.judgement import apply_answers, crossing_line, crossing_pairs
 from systemap.judgement_evidence import crossing_state, digest
 from systemap.model import (
@@ -419,7 +420,7 @@ def compute(
         p = owner_head.get(module)
         if not p:
             continue
-        for target in sorted(h[module].get("uses", {})):
+        for target in runtime_targets(h[module]):
             q = owner_head.get(target)
             if not q or q == p or frozenset((p, q)) in joined or (module, target) in before:
                 continue

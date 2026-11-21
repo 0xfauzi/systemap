@@ -32,6 +32,18 @@ A layer is a filtered view of the map.
   `import_forms` gives the import form of each target module with a form other than `load`: `call` (in a function body) or `type` (only for type checks).
   `dynamic_imports` gives each import by a string value. These records do not change `uses`, and the evidence digests of the recorded answers do not contain them.
   A facts file of format 14 is stale. Then `check` and `extract --check` exit 1. Run `systemap refresh` one time and commit the output.
+- `judgement` refuses a family answer for a `crossing import` or `declared flow` line. A family answer is an answer with `kind`, `crossing`, `crossing_into`, or `crossing_from`.
+  It also refuses an answer with two or more items when one item is a `crossing import` or `declared flow` line.
+  The report does not apply a refused answer. It gives a `refused answer:` row with the cause, after the `policy answer:` rows. The lines of the answer are open again.
+  An answer that selects no line now is also a refused answer, not a stale answer. The configuration still reads these answers with no error.
+  `judgement --strict` exits 1 when there is one or more refused answers. Remove each refused answer. Then give one exact answer for each line.
+  `delta` also does not apply these answers. Thus a `kind = "crossing import"` answer does not stop a `new crossing import` line.
+  The `crossing import` line form does not change, and an exact answer for one line keeps its evidence digest.
+- An import only for type checks does not make a `crossing import`, `new crossing import`, or `boundary import` line.
+  A `crossing import` line opens only when one or more of its imports can operate at run time. The evidence digest of the line still contains all its imports.
+  A `boundary import` line with only imports for type checks goes away, and its exact answer is stale. The evidence of a `boundary import` line contains only the imports that can operate at run time. Thus an exact answer for a `boundary import` line with imports for type checks must have a new evidence digest.
+  With `--verbose`, the rows below a `crossing import` line also give each import only in a function body and each import by a string value.
+- Known limit: `judgement` still applies a family answer for a `boundary import` line. Thus one such answer can hide an import that must have a flow across the boundary of a nested map.
 - `render`, `refresh`, and `live` write the atlas page by default (`[render] page = "atlas"`, stage 9 of `docs/design/atlas.md`). Before, the default was the canvas page.
   `canvas = true` also gives the atlas page. The redirect pages of the nested maps do not change.
   `systemap check` and `render --check` report the earlier page as stale one time.
