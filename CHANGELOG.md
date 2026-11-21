@@ -20,6 +20,10 @@ A layer is a filtered view of the map.
 ### Atlas page
 
 - A long label at rest does not go across a vertical part of its line. Outside the Sequences view, a vertical part takes a label only when the label is 8 label heights wide or less. The label shows when the reader points at the line.
+- `systemap check` gives a warning line for each card name that the atlas page cuts. The line starts with `warning: card ID: name does not fit on the atlas page`.
+  The check and the page use one measure of a card name (`card_names`): the same font widths, the same size, and the same room.
+  In this release, the warning does not change the exit code of `check` or `figure`. Thus a map that passed the check before the upgrade also passes it after the upgrade.
+  A later release will give an error for such a name. The detail JSON of a drawing with such a name gives these lines in `_meta.page_names`, not in `_meta.collisions`.
 - No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
 
 ### Changes that can break a script or a CI job

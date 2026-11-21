@@ -168,7 +168,8 @@ Leave positions unset. Run `systemap place`.
 
 Card names and short descriptions have measured text limits.
 The atlas page shows a card name on one line.
-The checker gives an error for a name that the atlas page cuts.
+The checker gives a warning for a name that the atlas page cuts.
+In this release, the warning does not change the exit code. A later release will give an error.
 The SVG diagram can show a long CamelCase name of a component, agent, or tool on two lines.
 Other kinds use one name line.
 The short description uses two lines except for actors or a component with a two-line name.

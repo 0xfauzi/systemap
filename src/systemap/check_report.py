@@ -31,6 +31,10 @@ STALE_AFTER_REFRESH_FIX = (
 )
 
 
+# The start of a line that does not reject the map.
+WARNING = "warning: "
+
+
 def plural(n: int, noun: str) -> str:
     return f"{n} {noun}{'s' if n != 1 else ''}"
 
@@ -129,6 +133,7 @@ def _report(model: Model, result: Result, model_file: str) -> list[str]:
     out += contract_report(result.contract)
     out += _model_groups(result.problems, model_file)
     out += _layout(model, result.problems, model_file)
+    out += page_name_report(result.page_names, model_file)
     out += report_stale(result.stale)
     return out
 
@@ -237,4 +242,18 @@ def contract_report(findings: Sequence[str]) -> list[str]:
         *out,
         "  fix: In the contract file of the map, write the reason of each rule. Use the code, "
         "the documentation, or the history of the repository.",
+    ]
+
+
+def page_name_report(findings: Sequence[str], model_file: str) -> list[str]:
+    """Give one warning line for each card name that the atlas page cuts, and the fix line.
+
+    In this release, these lines do not reject the map. A later release will give an error for
+    such a name."""
+    if not findings:
+        return []
+    return [
+        *(f"{WARNING}{line}" for line in findings),
+        f"  fix: In {model_file}, select a different literal name with fewer or narrower "
+        "letters. A later release of systemap will give an error for such a name.",
     ]

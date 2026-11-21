@@ -62,9 +62,11 @@ state machine, History needs commit data.
   small tag with its kind. A card with no flow in the layer keeps a faint outline.
 - **Card names.** A card name is on one line, in Inter at weight 600 with no kerning. The
   check and the page use one measure of a name (`card_names`): the same font widths, the
-  same size and the same room. Thus `systemap check` gives an error for each name that the
-  page cuts. When the page makes a name larger than its base size, for example on a small
-  card, it makes the name smaller again until it fits, but not smaller than the base size.
+  same size and the same room. Thus `systemap check` gives a warning for each name that the
+  page cuts. In this release, the warning does not change the exit code. A later release
+  will give an error. When the page makes a name larger than its base size, for example on
+  a small card, it makes the name smaller again until it fits, but not smaller than the
+  base size.
   Thus a name that the check accepts always shows in full.
 - **No dashed border.** A container that holds only actors is a label, not a surface. A
   region is a faint tint with a number in a ring and a name. Adjacent regions do not

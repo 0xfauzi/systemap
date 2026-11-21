@@ -698,6 +698,9 @@ class Result:
     inventory_causes: tuple[str, ...] = ()
     # The contract rules without a reason (`contract.unreasoned`). They do not reject the map.
     contract: list[str] = field(default_factory=list)
+    # The card names that the atlas page cuts (`card_names`). In this release, they give a
+    # warning and do not reject the map. A later release will give an error for them.
+    page_names: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -728,6 +731,7 @@ def run(
     """
     problems = model_problems(model, meaning)
     through = across = 0
+    page_names: list[str] = []
     if not problems:
         svg, detail = render_schematic(model, meaning, t, facts, observed_by=observed_by)
         meta = json.loads(detail)["_meta"]
@@ -735,6 +739,7 @@ def run(
         problems += route_problems
         problems += check_labels(meta)
         problems += check_type_size(svg)
+        page_names = list(meta.get("page_names", []))
     problems += states.symbol_problems(meaning.machines, facts)
     counted = check_coverage(model, facts, ignores) if coverage else NOT_COUNTED
     unknown = source_facts.unknown_fact_causes(facts) if coverage else []
@@ -752,6 +757,7 @@ def run(
         unknown_rows=source_facts.unknown_rows(facts) if coverage else {},
         inventory_causes=tuple(dict.fromkeys(cause for _line, cause in unread)),
         contract=unreasoned(model),
+        page_names=page_names,
     )
 
 

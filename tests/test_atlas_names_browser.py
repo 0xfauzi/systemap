@@ -13,8 +13,10 @@ Acceptance values, written on 2026-11-20 before the first run of this test:
 N1. The check accepts the card name ManageCommands (127 units), and the atlas page shows it in
     full at the fit and at each zoom in ZOOMS, with each card in the middle of the screen: no
     drawn text is the name cut with three dots.
-N2. The check refuses the card name ManagementCommands (160 units, 18 characters), and the
-    atlas page cuts it at a zoom of 1 or less: the same measure gives the same result.
+N2. The check gives a warning for the card name ManagementCommands (160 units, 18
+    characters), and the atlas page cuts it at a zoom of 1 or less: the same measure gives
+    the same result. In this release, the warning does not change the exit code (0). The
+    maintainer changed N2 on 2026-11-21: before, the check refused the name with exit code 1.
 N3. The page width of each character from 32 to 126 at weight 600 and 100 px with no
     kerning is the width that `NAME_ADVANCES` gives, with a difference of 0.001 px or less.
 """
@@ -105,10 +107,11 @@ def test_check_reports_the_name_that_the_page_cuts(
     page = two_cards(tmp_path, CUT)
     assert len(CUT) <= 20
     capsys.readouterr()
-    assert main(["--root", str(tmp_path), "check"]) == 1
+    assert main(["--root", str(tmp_path), "refresh"]) == 0, capsys.readouterr().out
+    assert main(["--root", str(tmp_path), "check"]) == 0
     out = capsys.readouterr().out
     assert (
-        f"card {CUT}: name does not fit on the atlas page (component cards on that page show a "
+        f"warning: card {CUT}: name does not fit on the atlas page (component cards on that page show a "
         "name of 129 units or less on one line, and this one is 160 units)"
     ) in out
     got = drive(page)
