@@ -881,7 +881,8 @@ answered = [
         # Only the two module role answers are answered.
         assert out.split("\n", 1)[0].endswith(" to examine, 2 answered"), form
         assert into_reader in out and into_writer in out, form
-        assert f"  refused answer: {form} selects {selected} lines. A family answer" in out
+        noun = "line" if selected == 1 else "lines"
+        assert f"  refused answer: {form} selects {selected} {noun}. A family answer" in out
     cfg = config.load(tmp_path)
     assert cfg.judgement_answered[-1].crossing == ("Reader", "Extra")
 

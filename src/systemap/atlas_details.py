@@ -113,6 +113,7 @@ scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
 .more{color:var(--ink-3);font-size:12px;text-decoration:underline;text-underline-offset:3px;justify-self:start;margin-top:-16px}
 .more:hover{color:var(--ink)}
 .side__body>.more:first-child,.sec .more{margin-top:0}
+.sec .more+.side__d{margin-top:8px}
 .enter{justify-self:start;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:9px;
 background:var(--ink);color:var(--surface);font:600 12.5px/1 var(--fs);transition:transform .12s}
 .enter:hover{transform:translateY(-1px)}

@@ -98,8 +98,9 @@ def texts(given: Iterable[Answer], lines: list[str]) -> list[dict[str, Any]]:
         cause, kind = found
         count = sum(_selects(answer, line, present) for line in lines)
         if cause == "family":
+            noun = "line" if count == 1 else "lines"
             text = (
-                f"{answer.label} selects {count} lines. A family answer cannot close a {kind} "
+                f"{answer.label} selects {count} {noun}. A family answer cannot close a {kind} "
                 "line. Remove the answer. Then give one exact answer for each line."
             )
             if kind == CROSSING_KIND:
