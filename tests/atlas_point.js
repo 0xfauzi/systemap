@@ -175,7 +175,7 @@ async function labels(browser, file) {
 const sideText = () => {
   const s = document.getElementById('atlas-side');
   return { kicker: document.getElementById('atlas-side-k').textContent, title: document.getElementById('atlas-side-h').textContent,
-    rows: Array.prototype.map.call(s.querySelectorAll('.row'), (r) => ({ f: +r.getAttribute('data-f'), text: r.textContent })),
+    rows: Array.prototype.map.call(s.querySelectorAll('.row[data-f]'), (r) => ({ f: +r.getAttribute('data-f'), text: r.textContent })),
     heads: Array.prototype.map.call(s.querySelectorAll('.sec h3'), (h) => h.firstChild.textContent),
     text: s.textContent, enter: (s.querySelector('[data-go]') || { textContent: null }).textContent,
     state: document.getElementById('atlas-side-s').textContent, short: document.getElementById('atlas-side-p').textContent,
@@ -195,7 +195,7 @@ async function select(browser, file, card) {
   const out = { errors, state: await page.evaluate(state), frame: await page.evaluate(() => window.systemapCanvas.frame('')),
     size: [1440, 900], details: await page.evaluate(sideText) };
   out.marks = (await page.evaluate(() => window.systemapCanvas.drawn())).marks.filter((m) => m.t === 'selected');
-  const row = await page.$('#atlas-side .row');
+  const row = await page.$('#atlas-side .row[data-f]');
   if (row) {
     await row.hover();
     await page.waitForTimeout(300);
