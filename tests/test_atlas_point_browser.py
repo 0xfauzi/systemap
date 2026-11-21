@@ -30,13 +30,18 @@ Acceptance values, written before the first run on 2026-11-18:
 6. A card with no flow in the layer has no light that makes the map go back: the light has
    no flow and the value DIM is 0.
 7. A click selects the card: after 1.6 s the details are open at the right, 380 px wide,
-   with the name of the card. The frame of the map is fully at the left of the details and
+   with the name of the card. The selected card is fully at the left of the details and
    under the header. The selection ring is drawn. The details have one row for each flow
    of the card in the layer, with its relation sentence and its evidence state, and the
    sections Sequences and Rules, and Source modules for a card with modules.
+   Changed on 2026-11-21 before the run, for the fault F1 of the second user test: a
+   selection does not fit the map (tests/test_atlas_select_browser.py). Thus the value
+   examines the box of the selected card, not the frame of the map.
 8. A pointer on a row lights the flow of that row only. A click on the row selects the card
    at the other end of the flow. Esc closes the details: no card is selected, and the frame
    of the map uses the full width again.
+   Changed on 2026-11-21 before the run, for the fault F1: Esc also does not move the
+   camera.
 9. On a phone of 390 x 844 px, a tap selects the card. The details are a sheet at the
    bottom, and the box of the card is fully between the headline and the top of the sheet.
    The page has no horizontal scroll.
@@ -86,8 +91,11 @@ the new checks:
     flow. Esc with the keyboard focus in the details closes them. Esc and F operate while a
     button of the page has the keyboard focus.
 19. Reduced motion also applies to the details and the camera: 50 ms after a click, the
-    details are open and the camera is at its end. Without reduced motion, the camera is not
-    at its end after 50 ms.
+    details are open and the camera is at its end. Without reduced motion, the details are
+    not open after 50 ms.
+    Changed on 2026-11-21 before the run, for the fault F1: the click on a card that the
+    details do not cover does not move the camera. Thus in each run the camera after 50 ms
+    is equal to the camera after 1.5 s.
 20. On a phone, a tap on a line pins it, and the reading line gives it.
 21. Nested maps: after a double-click on the pointed card, after a zoom of the camera into
     the map while the pointer stays on the card, and after Shift+Enter on the focused card,
@@ -349,8 +357,8 @@ def test_a_click_selects_the_card_and_opens_the_details(
     side = select_run["state"]["side"]
     assert side["on"] is True and side["sel"] == {"map": "", "id": card}
     assert side["box"][0] == pytest.approx(1440 - 380) and side["box"][2] == pytest.approx(380)
-    frame = select_run["frame"]
-    assert frame[0] >= 0 and frame[0] + frame[2] <= 1440 - 380 and frame[1] >= 48
+    box = select_run["box"]
+    assert box[0] >= 0 and box[0] + box[2] <= 1440 - 380 and box[1] >= 48
     assert [m["id"] for m in select_run["marks"]] == [card]
     details = select_run["details"]
     assert details["title"] == card
@@ -482,6 +490,7 @@ def test_a_row_lights_its_flow_and_esc_closes_the_details(
     closed = select_run["closed"]
     assert closed["state"]["side"]["sel"] is None and closed["state"]["side"]["on"] is False
     assert closed["frame"][0] + closed["frame"][2] > 1440 - 380
+    assert closed["camera"] == closed["open"]
 
 
 def test_a_phone_has_the_details_as_a_sheet(
@@ -587,8 +596,8 @@ def test_reduced_motion_draws_no_line(
         assert soon["side"]["on"] is True and soon["shown"] is True
         assert soon["camera"] == pytest.approx(late["camera"])
     plain = out["plain"]["select"]
-    assert plain["soon"]["camera"] != pytest.approx(plain["late"]["camera"])
-    assert plain["late"]["side"]["on"] is True
+    assert plain["soon"]["camera"] == pytest.approx(plain["late"]["camera"])
+    assert plain["soon"]["side"]["on"] is False and plain["late"]["side"]["on"] is True
 
 
 def test_the_nested_map_affordances(nested_page: Path) -> None:  # noqa: F811

@@ -25,6 +25,7 @@ A layer is a filtered view of the map.
   In this release, the warning does not change the exit code of `check` or `figure`. Thus a map that passed the check before the upgrade also passes it after the upgrade.
   A later release will give an error for such a name. The detail JSON of a drawing with such a name gives these lines in `_meta.page_names`, not in `_meta.collisions`.
 - The details of a card that is not an actor have the lists "Uses" and "Used by": the other cards that the modules of the card import, and the other cards with modules that import it. Each row tells the first flow between the two cards, or "no flow". A click on a row selects the card. The lists include imports for type checks. The page calculates the lists from the page data that it had before. The canvas page does not have these lists in this release.
+- A selection of a card keeps the zoom and the place of the reader. Before, a selection with the details closed and a close of the details fitted the full map. Now the camera moves only when the details would cover the selected card: it moves the smallest distance that keeps the card out from under the details. Find and a link with the hash of a card still fit the map of the card.
 - No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
 
 ### Changes that can break a script or a CI job

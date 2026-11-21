@@ -13,7 +13,8 @@
   top left part. The Fit control still shows the whole map.
 - The details. While the details of a selected card are open on a wide screen, the fit
   of the map of the card keeps the width of the details free (`sideRight` in
-  `atlas_details`).
+  `atlas_details`). A selection does not fit the map: it moves the camera only when the
+  details would cover the card (`clearSide` in `atlas_details`).
 - Pan, zoom and pinch. The wheel and a pinch zoom at the pointer, and a drag moves the
   map. A double-click with a mouse goes into the map that a card opens. A click or a tap
   selects a card or pins a line (`clickAt` and `tapAt` in `atlas_keys`). Esc closes the
@@ -382,6 +383,9 @@ window.addEventListener('resize', function () {
   var m = currentMap(), fitted = !flight && atFit(m), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
   var aim = flight && flight.box ? flight : null;
   measure();
+  // A selection does not fit the map. Thus the headline can still be beside the map of an
+  // earlier fit: on a screen too narrow for that place, it goes above the map.
+  if (W - 24 <= 1180) ASK_EL.classList.remove('beside');
   if (SIDE_ON && SEL && SEL.map === m && W <= WIDE) showAbove(SEL);
   else if (aim) flyTo(aim.box, aim.pad, aim.whole);
   else if (fitted) { var f = fitBox(frameOf(m), FIT); ASK_EL.classList.toggle('beside', !!f.beside); cam = {x: f.x, y: f.y, k: f.k}; }

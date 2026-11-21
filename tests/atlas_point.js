@@ -193,7 +193,7 @@ async function select(browser, file, card) {
   await page.mouse.click(at[0], at[1]);
   await page.waitForTimeout(1600);
   const out = { errors, state: await page.evaluate(state), frame: await page.evaluate(() => window.systemapCanvas.frame('')),
-    size: [1440, 900], details: await page.evaluate(sideText) };
+    box: await boxOf(page, '', card), size: [1440, 900], details: await page.evaluate(sideText) };
   out.marks = (await page.evaluate(() => window.systemapCanvas.drawn())).marks.filter((m) => m.t === 'selected');
   const row = await page.$('#atlas-side .row[data-f]');
   if (row) {
@@ -204,9 +204,11 @@ async function select(browser, file, card) {
     await page.waitForTimeout(1600);
     out.rowClick = await page.evaluate(state);
   }
+  const shown = await page.evaluate(() => window.systemapCanvas.camera());
   await page.keyboard.press('Escape');
   await page.waitForTimeout(1600);
-  out.closed = { state: await page.evaluate(state), frame: await page.evaluate(() => window.systemapCanvas.frame('')) };
+  out.closed = { state: await page.evaluate(state), frame: await page.evaluate(() => window.systemapCanvas.frame('')),
+    open: shown, camera: await page.evaluate(() => window.systemapCanvas.camera()) };
   await page.close();
   return out;
 }

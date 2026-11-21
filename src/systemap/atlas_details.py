@@ -3,9 +3,12 @@
 `atlas_script` joins the script of this part after the keyboard part (`atlas_keys`). The
 rules are the section "Map view: the rules" of docs/design/atlas.md:
 
-- Selecting a card. A click, a tap or Enter selects a card. The details open at the side,
-  and the map moves to keep its full frame in view (`sideRight` in the fit of
-  `atlas_input`). On a phone (720 px or less), the details are a sheet at the bottom, and
+- Selecting a card. A click, a tap or Enter selects a card. The details open at the side.
+  The camera keeps its zoom, and it moves only when the details would cover the card: then
+  it moves the smallest distance that keeps the card, and the cards of its flows that were
+  on the screen, out from under the details (`clearSide`). A close of the details does not
+  move the camera. A result of Find and a hash still fit the map of the card with the space
+  of the details (`goTo` in `atlas_tree`). On a phone (720 px or less), the details are a sheet at the bottom, and
   the selected card goes to the part of the screen above the sheet (`showAbove`). While the
   sheet is open, the headline does not show, because the map goes under it. A click
   with a mouse opens the details after OPEN_MS ms, so that a double-click goes into a
@@ -176,21 +179,17 @@ function sideRight(m) {
 function select(c, how) {
   how = how || {};
   clearTimeout(OPEN_WAIT);
-  var was = SIDE_ON;
   SEL = c || null; PIN = null;
   speak(); lightMoved();
-  if (!c) {
-    sideShow(false);
-    if (was && !how.keep) fitCurrent();
-    return;
-  }
+  // A close of the details does not move the camera: the reader keeps the place.
+  if (!c) { sideShow(false); return; }
   var go = function () {
     if (SEL !== c) return;
     sideSync(); sideShow(true);
     say('Selected: ' + c.id + '. The details are open.');
     if (how.focus) document.getElementById('atlas-side-h').focus({preventScroll: true});
     if (how.keep) return;
-    if (W <= WIDE) showAbove(c); else if (!was) fitCurrent();
+    if (W <= WIDE) showAbove(c); else clearSide(c);
   };
   if (NOTE_EL) NOTE_EL.classList.add('gone');
   if (how.wait && (!reduced() || c.child)) OPEN_WAIT = setTimeout(go, OPEN_MS); else go();
@@ -208,6 +207,35 @@ function showAbove(c) {
   var k = clamp(Math.max(cam.k, 0.62 / c.map.T.s), KMIN, Math.min((W - 32) / b[2], Math.max(1, low - top) / b[3], KMAX));
   var cx = W / 2, cy = (top + low) / 2;
   fly({x: b[0] + b[2] / 2 - cx / k, y: b[1] + b[3] / 2 - cy / k, k: k});
+}
+// On a wide screen: the smallest move of the camera that keeps the selected card out from
+// under the details. The cards at the other end of its flows in the layer that were fully on
+// the screen stay in the free part when that is possible, the nearest first. A card fully in
+// the free part gives no move. Thus a selection keeps the zoom and the place of the reader.
+function freeBox() { return [16, HEAD_H + 16, W - 16 - SIDE_W, H - 16]; }
+function fullyShown(r) { return r[0] >= 0 && r[1] >= HEAD_H && r[0] + r[2] <= W && r[1] + r[3] <= H; }
+// The shifts on one axis that put the length n at lo between a and b, or null.
+function sideRange(lo, n, a, b) { return n > b - a ? null : [lo + n - b, lo - a]; }
+function sideBoth(u, v) { var lo = Math.max(u[0], v[0]), hi = Math.min(u[1], v[1]); return lo <= hi ? [lo, hi] : null; }
+function sideShift(c, near, i) {
+  var f = freeBox(), r = screenBox(c), got = sideRange(r[i], r[i + 2], f[i], f[i + 2]);
+  if (!got) return r[i] - f[i];
+  near.forEach(function (q) { var s = sideRange(q[i], q[i + 2], f[i], f[i + 2]), w = s && sideBoth(got, s); if (w) got = w; });
+  return clamp(0, got[0], got[1]);
+}
+function sideNear(c) {
+  var fl = layerFlags(c.map, shownLayer(c.map)).flow, me = screenBox(c), out = [];
+  c.ins.concat(c.outs).forEach(function (f) {
+    var o = fl[f.i] ? c.map.byId[f.s === c.id ? f.t : f.s] : null, r = o && o !== c ? screenBox(o) : null;
+    if (r && fullyShown(r)) out.push(r);
+  });
+  function far(r) { return Math.abs(r[0] - me[0]) + Math.abs(r[1] - me[1]); }
+  return out.sort(function (a, b) { return far(a) - far(b); });
+}
+function clearSide(c) {
+  var near = sideNear(c), dx = sideShift(c, near, 0), dy = sideShift(c, near, 1);
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+  fly({x: cam.x + dx / cam.k, y: cam.y + dy / cam.k, k: cam.k}, 260);
 }
 function sideShow(on) {
   if (!SIDE || on === SIDE_ON) return;

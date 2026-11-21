@@ -100,8 +100,14 @@ state machine, History needs commit data.
   the artifact and the relation sentence of the model.
 - **The reading line.** One line of text at the bottom of the map for the thing under the
   pointer. It is a live region for a screen reader.
-- **Selecting a card.** The details open at the side and the map moves to keep its full
-  frame in view. On a phone the details are a sheet at the bottom, and the selected card
+- **Selecting a card.** The details open at the side. The camera keeps its zoom and its
+  place: a selection of a card that is fully on the screen and not under the details does
+  not move the camera. When the details would cover the card, the camera moves the
+  smallest distance that keeps the card out from under the details. The cards at the other
+  end of the flows of the card that were on the screen stay out from under the details when
+  that is possible. A close of the details does not move the camera. A result of Find and a
+  link with the hash of a card fit the map of the card with the space of the details,
+  because that card can be in a different part of the map or in a different map. On a phone the details are a sheet at the bottom, and the selected card
   goes to the part of the screen above the sheet. While the sheet is open, the headline does
   not show: that part of the screen is too short for the map, and the headline must not cover
   a card. Each flow row in the details lights its flow on the map.
