@@ -15,8 +15,8 @@ Acceptance values, written before the first run on 2026-11-19:
    and "receives from N · gives to M · a change here can reach R of T cards" with the
    counts of `_reach`.
    Changed on 2026-11-21 before the run, for the fault F2 of the second user test: the
-   headline gives "through flows, a change here can reach R of T other cards · I other
-   cards import this card directly", where I is the count of the direct importers
+   headline gives "through flows, a change here can reach R of T other cards · modules of I
+   other cards import modules of this card", where I is the count of the direct importers
    (tests/test_atlas_counts_browser.py).
 2. At 1440 x 900 the board has four columns: "Two steps before", "Gives to Model", "Model
    gives to" and "Two steps after", in that order from left to right. Each column has the
@@ -84,7 +84,8 @@ Acceptance values added for the repair of stage 5, written before the first run 
     with the map Gateway current, Focus shows the map Gateway. The list has only the parts
     Routes and Views, not the neighbours Auth and Store. The view opens on Routes, and the
     counts are "receives from 0 · gives to 1 · through flows, a change here can reach 1 of 1
-    other part · 0 other parts import this part directly" (changed on 2026-11-21 for F2). The
+    other part · modules of 0 other parts import modules of this part" (changed on
+    2026-11-21 for F2). The
     path of the headline has the button "join". A click on it shows the top map, on the card
     Gateway, with the keyboard focus on the middle card. The details of Routes have the
     button "Focus on this card". Changed after the first run: the value also said that the
@@ -516,7 +517,7 @@ def test_a_nested_map(nested_page: Path) -> None:
     assert {c["id"] for c in _cards(out["shown"])} == {"Routes", "Views"}
     assert out["shown"]["view"]["counts"] == (
         "receives from 0 · gives to 1 · through flows, a change here can reach 1 of 1 other "
-        "part · 0 other parts import this part directly"
+        "part · modules of 0 other parts import modules of this part"
     )
     assert out["path"][0] == ["BUTTON", "join"]
     assert ["B", "Gateway"] in out["path"]

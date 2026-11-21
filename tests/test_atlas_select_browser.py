@@ -8,13 +8,13 @@ except when SYSTEMAP_BROWSER_TESTS is "required". Then it fails.
 
 Acceptance values, written on 2026-11-21 before the first run of this test:
 
-C1. The camera is at 1.5 times the zoom of the fit. A mouse click on a card that is fully on
+C1. The camera is at 1.5 times the scale of the fit. A mouse click on a card that is fully on
     the screen and not under the area of the details selects the card and moves the camera
     by 0 px: the camera after 1.5 s is equal to the camera before the click. Esc then
     closes the details and the camera moves by 0 px again.
 C2. A mouse click on a card with its right edge at 1340 px, under the area of the details,
     moves the camera only as far as necessary: 1340 - 1044 = 296 px to the left (within
-    1 px), with the same zoom and no vertical move. After the move the right edge of the card
+    1 px), with the same scale and no vertical move. After the move the right edge of the card
     is at 1044 px (within 1 px). The card at the other end of its flow was on the screen
     before the click and it is fully in the free part of the screen after the move.
 C3. Find still brings a card that is off the screen into view: after the camera puts the card

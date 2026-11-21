@@ -247,7 +247,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | baseline | The source revision used for a comparison. |
 | branch | A Git reference to a sequence of commits. |
 | cache | Stored results that a later call can use again. |
-| card | The visual representation of one map component. |
+| card | The visual representation of one component or one actor of a map. |
 | CI | Automated repository checks after a push or pull request. |
 | CLI | The command-line interface of a program. |
 | choice question | A question to a decision provider that selects one option from a list. |
@@ -314,7 +314,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | TSX | TypeScript syntax that includes JSX elements. |
 | viewport | The visible area in which the browser shows a map. |
 | writing profile | The configuration value that selects the writing rules for map text: `plain` or `asd-ste100`. |
-| actor | A map component outside the system source boundary. |
+| actor | A person or a system outside the system source boundary that a map shows as a card. An actor is not a component. The schema records an actor as `Component` with `kind='actor'`. |
 | alias | An alternative source name for an import or public symbol. |
 | AUC | The area under a measured threshold curve (category 7). |
 | barycenter | The weighted mean position used by the layout procedure (category 7). |

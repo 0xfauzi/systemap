@@ -318,7 +318,7 @@ function locSync(m) {
     if (LOC_AT) locWrite(m, LOC_AT);
   }
   // The place comes from the fit, but the camera can be at a different place: the camera does
-  // not move for a selection (`clearSide` in `atlas_details`), a drag or a zoom. The locator
+  // not move for a selection (`clearSide` in `atlas_details`), a drag or a change of the scale. The locator
   // must not take a click meant for a card. Thus it hides while it covers a card at the
   // current camera.
   var show = !!LOC_AT && !locCovers(m, LOC_AT);

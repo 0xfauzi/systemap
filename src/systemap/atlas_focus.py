@@ -12,7 +12,7 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   reach. It does not follow the flows of the map above. Thus a nested map with flows only
   to its neighbours has no Focus view, and the button Focus then shows the map above. The
   counts of a nested map count parts, for example "through flows, a change here can reach
-  1 of 1 other part · 0 other parts import this part directly".
+  1 of 1 other part · modules of 0 other parts import modules of this part".
 - The headline of a nested map gives the path. A part of the path is a button only when
   that map has the Focus view: the button focuses on the card of that map with the most
   flows. Each other part of the path is text.
@@ -34,7 +34,7 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
 - The headline gives "Focus", the question "What does X use, and what uses X?", and the
   counts: the cards that the card receives from, the cards that it gives to, the reach and
   the importers, for example "through flows, a change here can reach 15 of 36 other cards ·
-  18 other cards import this card directly". The total is the count of the cards of the map
+  modules of 18 other cards import modules of this card". The total is the count of the cards of the map
   less one, as the headline of the Map view counts them (`countWords` in `atlas_view`). On
   a phone the headline also gives the counts.
 - The list at the left gives the cards of the map that have a flow, with their count of
@@ -210,7 +210,7 @@ function fcCounts(c) {
 function fcReachWords(c, n) {
   var w = fcNoun(c.map);
   return ['through flows, a change here can reach ' + n.reach + ' of ' + n.of + ' other ' + w + (n.of === 1 ? '' : 's'),
-    n.imports + ' other ' + w + (n.imports === 1 ? ' imports this ' : 's import this ') + w + ' directly'];
+    'modules of ' + n.imports + ' other ' + w + (n.imports === 1 ? '' : 's') + ' import modules of this ' + w];
 }
 function fcHead() {
   var c = fcCard(), n = fcCounts(c), r = fcReachWords(c, n);
@@ -221,7 +221,7 @@ function fcWords() {
   var c = fcCard(), n = fcCounts(c), r = fcReachWords(c, n);
   var w = fcNoun(c.map);
   return 'Focus on ' + c.id + '. It receives from ' + counted(n.from, w) + ' and gives to ' + counted(n.to, w) +
-    '. T' + r[0].slice(1) + '. ' + r[1] + '. Map: ' + mapName(c.map) + '.';
+    '. T' + r[0].slice(1) + '. M' + r[1].slice(1) + '. Map: ' + mapName(c.map) + '.';
 }
 
 // ---- the list ----------------------------------------------------------------------------

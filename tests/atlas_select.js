@@ -27,7 +27,7 @@ const box = (page, id) => page.evaluate((c) => window.systemapCanvas.box('', c),
 const sel = (page) => page.evaluate(() => window.systemapCanvas.side().sel);
 const boxes = (page) => page.evaluate(() => window.systemapCanvas.boxes(''));
 
-// Put the middle of card `id` at the screen point x, y with the zoom k.
+// Put the middle of card `id` at the screen point x, y with the scale k.
 async function place(page, id, x, y, k) {
   const c = await cam(page), b = await box(page, id);
   const wx = c.x + (b[0] + b[2] / 2) / c.k, wy = c.y + (b[1] + b[3] / 2) / c.k;

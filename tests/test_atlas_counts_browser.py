@@ -23,6 +23,10 @@ R1. On the map of the card Core with flows to F1 and F2, the cards I1, I2 and I3
     a change here can reach 2 of 7 other cards · 3 other cards import this card directly"
     (J is not an importer of Core), and the live region gives "Through flows, a change here
     can reach 2 of 7 other cards. 3 other cards import this card directly."
+    Changed on 2026-11-21 after a review, before the run: "import" takes modules as its
+    object in the glossary. Thus the words are "modules of 3 other cards import modules of
+    this card" in the headline, and "Modules of 3 other cards import modules of this card."
+    in the live region.
 R2. On the same map, the headline of the layer All gives "1 actor · 6 components · 3 flows",
     and a layer with no flow gives "7 cards in 1 region: 1 actor and 6 components". Thus
     7 cards = 1 actor + 6 components, and the Focus total is 7 - 1 = 6 other cards.
@@ -89,9 +93,9 @@ def core(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> dict[str, Any]:
 def test_focus_gives_the_reach_and_the_direct_importers(core: dict[str, Any]) -> None:
     """R1."""
     reach = "flows, a change here can reach 2 of 7 other cards"
-    importers = "3 other cards import this card directly"
-    assert core["focus"]["counts"].endswith(f"through {reach} · {importers}")
-    assert f"Through {reach}. {importers}." in core["focus"]["said"]
+    importers = "odules of 3 other cards import modules of this card"
+    assert core["focus"]["counts"].endswith(f"through {reach} · m{importers}")
+    assert f"Through {reach}. M{importers}." in core["focus"]["said"]
 
 
 def test_the_headline_and_focus_give_the_same_cards(core: dict[str, Any]) -> None:
@@ -114,10 +118,10 @@ def reach_set(edges: list[tuple[str, str]], card: str) -> set[str]:
 
 def focus_words(reach: int, others: int, importers: int) -> str:
     """The end of the Focus headline of a card of the top map."""
-    verb = "card imports" if importers == 1 else "cards import"
     return (
         f"through flows, a change here can reach {reach} of {others} other "
-        f"card{'' if others == 1 else 's'} · {importers} other {verb} this card directly"
+        f"card{'' if others == 1 else 's'} · modules of {importers} other "
+        f"card{'' if importers == 1 else 's'} import modules of this card"
     )
 
 
