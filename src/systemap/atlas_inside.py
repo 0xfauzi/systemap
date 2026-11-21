@@ -16,8 +16,9 @@ rules are the section "Map view: the rules" of docs/design/atlas.md ("Inside a n
   the camera goes to the end at once.
 - The locator (`atlas-loc`). A small picture of the map above with the card of the nested
   map marked, in a corner of the screen where it covers no card and no label at rest of the
-  nested map at its fit (`locSpot`). When no corner is free, the locator does not show. A
-  click on it goes out.
+  nested map at its fit (`locSpot`). When no corner is free, the locator does not show. The
+  locator also does not show while it covers a card at the current camera (`locCovers`), so
+  that it never takes a click meant for a card. A click on it goes out.
 - The ground. While the camera is in a nested map, the ground of the canvas has the color
   `--inside`, not `--map` (`groundSync`). The frame of a nested map has its name as a title
   (`drawBoxes` in `atlas_draw`).
@@ -311,18 +312,30 @@ function locSpot(m) {
 function locSync(m) {
   if (!LOC) return;
   var on = VIEW.mode === 'map' && insideOn(m) && !flight, key = on ? [m.oi, W, H, EPOCH, layerOf(m), sideRight(m)].join('|') : '';
-  if (key === LOC_KEY) return;
-  LOC_KEY = key;
-  var spot = on ? locSpot(m) : null;
-  LOC_AT = spot;
-  if (!spot) { LOC.hidden = true; return; }
+  if (key !== LOC_KEY) {
+    LOC_KEY = key;
+    LOC_AT = on ? locSpot(m) : null;
+    if (LOC_AT) locWrite(m, LOC_AT);
+  }
+  // The place comes from the fit, but the camera can be at a different place: the camera does
+  // not move for a selection (`clearSide` in `atlas_details`), a drag or a zoom. The locator
+  // must not take a click meant for a card. Thus it hides while it covers a card at the
+  // current camera.
+  var show = !!LOC_AT && !locCovers(m, LOC_AT);
+  if (LOC.hidden === show) LOC.hidden = !show;
+}
+// True when the locator at `spot`, with a gap of 6 px, covers a card of map m on the screen.
+function locCovers(m, spot) {
+  var pad = [spot.x - 6, spot.y - 6, spot.x + spot.w + 6, spot.y + spot.h + 6];
+  return m.cards.some(function (c) { var b = screenBox(c); return over(pad, [b[0], b[1], b[0] + b[2], b[1] + b[3]]); });
+}
+function locWrite(m, spot) {
   var up = m.owner.map, st = LOC.style;
   st.setProperty('--lx', spot.x + 'px'); st.setProperty('--ly', spot.y + 'px');
   st.setProperty('--lw', (spot.w - 2) + 'px'); st.setProperty('--lh', (spot.h - 2) + 'px');
   LOC.setAttribute('aria-label', 'Back to ' + mapTitle(up) + '. The picture shows the card ' + m.owner.id + ' on the map ' + mapTitle(up) + '.');
   LOC.title = 'Back to ' + mapTitle(up) + ' (Esc)';
   locDraw(m, spot);
-  LOC.hidden = false;
 }
 function locDraw(m, spot) {
   var up = m.owner.map, d = dpr(), w = spot.w - 2, h = spot.h - 2, g;

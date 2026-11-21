@@ -49,8 +49,8 @@ INPUT = r"""
 var FIT = 0.04, WIDE = 720, ASK_EL = document.getElementById('atlas-ask');
 // The fit of a box. The frame of a map (`frameOf`) has the rule of the headline. `whole`
 // shows the whole map also on a phone.
-function mapFit(b, whole) {
-  var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24 + sideRight(m), g = seqRoom(), bottom = g.bottom, lo = g.left;
+function mapFit(b, whole, side) {
+  var m = b.m, Hs = H - HEAD_H, wide = W > WIDE, right = 24 + (side === undefined ? sideRight(m) : side), g = seqRoom(), bottom = g.bottom, lo = g.left;
   function fitK(left, top) { return Math.min((W - left - right) / b[2], (Hs - top - bottom) / b[3], 1.6 / m.T.s); }
   // `kBeside` and `kAbove` are the two fits for the tests: beside the headline (0 when the
   // screen is too narrow) and below it.
@@ -79,8 +79,10 @@ function tabStrip() {
   var t = W > WIDE ? null : document.getElementById('atlas-tabs');
   return t && getComputedStyle(t).position === 'fixed' ? t.offsetHeight : 0;
 }
-function fitBox(b, pad, whole) {
-  if (b.m) return mapFit(b, whole);
+// `side` (optional) is the width of the details for the fit, else the width of the details
+// that are open (`sideRight`).
+function fitBox(b, pad, whole, side) {
+  if (b.m) return mapFit(b, whole, side);
   pad = pad === undefined ? 0.2 : pad;
   var Hs = H - HEAD_H, k = clamp(Math.min(W * (1 - 2 * pad) / b[2], Hs * (1 - 2 * pad) / b[3]), KMIN, KMAX);
   return {x: b[0] + b[2] / 2 - W / 2 / k, y: b[1] + b[3] / 2 - (HEAD_H + Hs / 2) / k, k: k};
@@ -375,12 +377,14 @@ function measure() {
 // again. Each other camera keeps the world point at the middle of the screen. On a phone
 // with the details open, the selected card goes above the sheet (`showAbove`), as after a
 // selection on a phone.
-function atFit(m) {
-  var f = fitBox(frameOf(m), FIT);
+function atFit(m, side) {
+  var f = fitBox(frameOf(m), FIT, false, side);
   return Math.abs(cam.k / f.k - 1) < 1e-3 && Math.abs(cam.x - f.x) * cam.k < 1 && Math.abs(cam.y - f.y) * cam.k < 1;
 }
 window.addEventListener('resize', function () {
-  var m = currentMap(), fitted = !flight && atFit(m), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
+  // A selection does not move the camera from the fit without the details (`clearSide` in
+  // `atlas_details`). Thus that camera is also at a fit, and a resize fits the map again.
+  var m = currentMap(), fitted = !flight && (atFit(m) || atFit(m, 0)), w = W, h = H, cx = cam.x + W / 2 / cam.k, cy = cam.y + H / 2 / cam.k;
   var aim = flight && flight.box ? flight : null;
   measure();
   // A selection does not fit the map. Thus the headline can still be beside the map of an

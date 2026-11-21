@@ -4,9 +4,10 @@
 rules are the section "Map view: the rules" of docs/design/atlas.md:
 
 - Selecting a card. A click, a tap or Enter selects a card. The details open at the side.
-  The camera keeps its zoom, and it moves only when the details would cover the card: then
-  it moves the smallest distance that keeps the card, and the cards of its flows that were
-  on the screen, out from under the details (`clearSide`). A close of the details does not
+  A card fully in the free part of the screen gives no move of the camera, always. When the
+  details would cover the card, the camera keeps its scale and moves the smallest distance
+  that keeps the card out from under the details. That move also keeps the cards of its
+  flows that were on the screen out from under the details when it can (`clearSide`). A close of the details does not
   move the camera. A result of Find and a hash still fit the map of the card with the space
   of the details (`goTo` in `atlas_tree`). On a phone (720 px or less), the details are a sheet at the bottom, and
   the selected card goes to the part of the screen above the sheet (`showAbove`). While the
@@ -208,10 +209,11 @@ function showAbove(c) {
   var cx = W / 2, cy = (top + low) / 2;
   fly({x: b[0] + b[2] / 2 - cx / k, y: b[1] + b[3] / 2 - cy / k, k: k});
 }
-// On a wide screen: the smallest move of the camera that keeps the selected card out from
-// under the details. The cards at the other end of its flows in the layer that were fully on
-// the screen stay in the free part when that is possible, the nearest first. A card fully in
-// the free part gives no move. Thus a selection keeps the zoom and the place of the reader.
+// On a wide screen: a selected card that is fully in the free part of the screen gives no
+// move, always. Else the camera moves the smallest distance that puts the card in the free
+// part. Only then do the partner cards count: the cards at the other end of its flows in the
+// layer that were fully on the screen stay in the free part when that is possible, the
+// nearest first. Thus a selection keeps the scale and the place of the reader.
 function freeBox() { return [16, HEAD_H + 16, W - 16 - SIDE_W, H - 16]; }
 function fullyShown(r) { return r[0] >= 0 && r[1] >= HEAD_H && r[0] + r[2] <= W && r[1] + r[3] <= H; }
 // The shifts on one axis that put the length n at lo between a and b, or null.
@@ -220,6 +222,7 @@ function sideBoth(u, v) { var lo = Math.max(u[0], v[0]), hi = Math.min(u[1], v[1
 function sideShift(c, near, i) {
   var f = freeBox(), r = screenBox(c), got = sideRange(r[i], r[i + 2], f[i], f[i + 2]);
   if (!got) return r[i] - f[i];
+  if (got[0] <= 0 && got[1] >= 0) return 0;
   near.forEach(function (q) { var s = sideRange(q[i], q[i + 2], f[i], f[i + 2]), w = s && sideBoth(got, s); if (w) got = w; });
   return clamp(0, got[0], got[1]);
 }
