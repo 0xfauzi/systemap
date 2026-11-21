@@ -16,6 +16,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from systemap.import_forms import ImportFacts
+
 # The adapter for each value of the `language` key, as "module:object". The modules
 # load only when a command asks for the adapter.
 REPOSITORIES = {
@@ -97,6 +99,11 @@ class RepositoryAdapter(Protocol):
 class LanguageAdapter(RepositoryAdapter, Protocol):
     """This protocol specifies the source operations for extraction and change analysis."""
 
+    # The import details that `import_facts` gives: a subset of `import_forms.DETAILS`.
+    # An adapter without import details gives an empty set and `import_forms.NONE`. Then
+    # each import counts as an import at load.
+    import_details: frozenset[str]
+
     def source_paths(
         self,
         root: Path,
@@ -158,6 +165,22 @@ class LanguageAdapter(RepositoryAdapter, Protocol):
         paths: dict[str, Path] | None = None,
         context: Any = None,
     ) -> dict[str, set[str]]: ...
+
+    def import_facts(
+        self,
+        raw: str,
+        module: str,
+        prefixes: set[str],
+        known: set[str],
+        is_package: bool = False,
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
+        context: Any = None,
+    ) -> ImportFacts:
+        """Give the import forms and the imports by a string value of one module
+        (`import_forms`). The adapter gives the form `type` only for an import that can
+        never operate at run time. When the adapter is not sure, it gives `load`."""
+        ...
 
     def call_sites(
         self,

@@ -24,6 +24,7 @@ from systemap import (
     facts_shape,
     file_names,
     git_command,
+    import_forms,
     repo_files,
     source_text,
     unknown_causes,
@@ -59,8 +60,10 @@ from systemap.source_facts import WHOLE_MODULE, entry_label
 # record has the count in `count`. Format 14: the Python syntax digest and the `api`
 # fingerprints come from the syntax text of systemap (`syntax_text`), and the signatures,
 # the constant values and the class bases come from the source text (`source_segment`).
-# Thus they are the same on each supported Python version (issue 136).
-FORMAT = 14
+# Thus they are the same on each supported Python version (issue 136). Format 15: each
+# module record can have `import_forms` and `dynamic_imports`, and the facts have
+# `import_details`.
+FORMAT = 15
 TESTS_KEPT = 25
 
 
@@ -197,15 +200,54 @@ def _import_facts(
         if record["completeness"]["parsed"]
         else None
     )
+    _write_import_forms(language, (cfg.root, *source), record, known_names, context)
     return uses
+
+
+def _write_import_forms(
+    language: LanguageAdapter,
+    source: tuple[Path, str, Path, str],
+    record: dict[str, Any],
+    known_names: tuple[set[str], set[str], dict[str, Path]],
+    context: Any,
+) -> None:
+    """Write the `import_forms` and `dynamic_imports` facts of one module.
+
+    The function writes each key only when its value is not empty. A step that goes above the
+    recursion limit or the memory writes neither key. Then each import counts as an
+    import at load."""
+    repo, module, path, raw = source
+    prefixes, known, paths = known_names
+    try:
+        found = language.import_facts(
+            raw,
+            module,
+            prefixes,
+            known,
+            is_package=language.is_package_module(path),
+            repo=repo,
+            paths=paths,
+            context=context,
+        )
+    except unknown_causes.DEPTH_ERRORS:
+        return
+    forms = import_forms.normal(found, record["uses"])
+    dynamic = import_forms.stored_dynamic(found)
+    if forms:
+        record["import_forms"] = forms
+    if dynamic:
+        record["dynamic_imports"] = dynamic
 
 
 def refuse_depth(record: dict[str, Any]) -> None:
     """Record that a step of one module went above the recursion limit or the memory.
 
     The module stays in the facts with an unknown record of the cause DEPTH. Its call
-    sites are then not known. Thus one module does not stop the extraction.
+    sites are then not known. The record gets no import forms and no imports by a string
+    value. Thus one module does not stop the extraction.
     """
+    record.pop("import_forms", None)
+    record.pop("dynamic_imports", None)
     problem = {"line": 0, "reason": unknown_causes.DEPTH_REASON, "cause": unknown_causes.DEPTH}
     record.setdefault("unknown", []).append(problem)
     record["completeness"] = {**parse_state(problem), "unresolved_imports": None}
@@ -469,6 +511,7 @@ def _facts_file(
         "version": FORMAT,
         "built_at_commit": head_commit(cfg.root)[0],
         "packages": sorted(prefixes),
+        "import_details": sorted(language.import_details),
         "provenance": _provenance(cfg, language, context),
         "tests_dirs": list(tests_dirs),
         "spec_sections": spec_sections(cfg.root, cfg.spec_path),
@@ -657,6 +700,8 @@ def _component_drift(
     out: list[str] = []
     derived = (
         "uses",
+        "import_forms",
+        "dynamic_imports",
         "imports",
         "imported_by",
         "external",

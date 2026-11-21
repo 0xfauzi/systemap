@@ -24,10 +24,10 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
     (
         "facts",
         "version",
-        "The facts format is 14, with portable syntax hashes, compiler provenance, "
+        "The facts format is 15, with portable syntax hashes, compiler provenance, "
         "the digests of the configuration values that extraction reads, "
         "module completeness, the folder package in `package`, `call_sites`, `types`, "
-        "`type_only`, `same_as`, and decorators in the `api` fingerprints. "
+        "`type_only`, `same_as`, the import forms, and decorators in the `api` fingerprints. "
         "Each re-export has `defined_in` and `defined_as`. Each unknown record has a "
         "`cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, "
         "`declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. "
@@ -43,6 +43,12 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "prints `facts from <sha>`. Extraction occurs before the commit that records the facts",
     ),
     ("facts", "packages", "The import names of package roots"),
+    (
+        "facts",
+        "import_details",
+        "The import details that the language adapter gives: `call`, `dynamic`, and `type`. "
+        "If `type` is not in the list, each import counts as an import at run time",
+    ),
     (
         "facts",
         "provenance",
@@ -212,6 +218,22 @@ FIELDS: tuple[tuple[str, str, str], ...] = (
         "module",
         "uses",
         "Imported local modules with the names taken from each. `*` means the full module",
+    ),
+    (
+        "module",
+        "import_forms",
+        "The time at which the imports of each target module operate, for each target with "
+        "a form other than `load`: `load` (when the module loads), `call` (in a function "
+        "body), or `type` (only for type checks). A target that is not in this map has the "
+        "form `load`",
+    ),
+    (
+        "module",
+        "dynamic_imports",
+        "Each import by a string value that the language adapter finds: the called name in "
+        "`call`, the fixed string in `text` (empty for a different value), the module of the "
+        "facts in `target` (empty if there is no such module), and the line. These records "
+        "do not change `uses`",
     ),
     (
         "module",

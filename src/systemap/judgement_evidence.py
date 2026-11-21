@@ -133,10 +133,14 @@ def _without_location(record: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in record.items() if key not in _LOCATION}
 
 
+# The module keys that 2.0.0 did not write, or that the 2.0.0 evidence does not contain.
+_NOT_EARLIER = frozenset({"syntax_sha", "api", "import_forms", "dynamic_imports"})
+
+
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
     """Give the module record of the 2.0.0 evidence: the record without the
-    parser-specific syntax fingerprints."""
-    stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}
+    parser-specific syntax fingerprints, and without the import facts of format 15."""
+    stable = {key: value for key, value in record.items() if key not in _NOT_EARLIER}
     stable["api"] = [
         {key: value for key, value in item.items() if key != "fingerprint"}
         for item in record.get("api", [])

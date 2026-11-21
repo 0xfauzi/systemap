@@ -28,6 +28,10 @@ A layer is a filtered view of the map.
 
 ### Changes that can break a script or a CI job
 
+- The facts format is 15. Each module record can have `import_forms` and `dynamic_imports`, and the facts have `import_details`.
+  `import_forms` gives the import form of each target module with a form other than `load`: `call` (in a function body) or `type` (only for type checks).
+  `dynamic_imports` gives each import by a string value. These records do not change `uses`, and the evidence digests of the recorded answers do not contain them.
+  A facts file of format 14 is stale. Then `check` and `extract --check` exit 1. Run `systemap refresh` one time and commit the output.
 - `render`, `refresh`, and `live` write the atlas page by default (`[render] page = "atlas"`, stage 9 of `docs/design/atlas.md`). Before, the default was the canvas page.
   `canvas = true` also gives the atlas page. The redirect pages of the nested maps do not change.
   `systemap check` and `render --check` report the earlier page as stale one time.

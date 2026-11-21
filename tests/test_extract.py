@@ -518,9 +518,11 @@ def test_facts_fields_are_the_documented_ones(tmp_path: Path) -> None:
     }
     for record in facts["components"].values():
         assert set(record) <= facts_file.fields_of("module"), record["id"]
-        assert facts_file.fields_of("module") - set(record) == {"unknown", "parse_error"}, record[
-            "id"
-        ]
+        # Extraction writes the import forms and the imports by a string value only when
+        # they have values.
+        sparse = {"unknown", "parse_error", "import_forms", "dynamic_imports"}
+        assert facts_file.fields_of("module") - set(record) <= sparse, record["id"]
+        assert {"unknown", "parse_error"} <= facts_file.fields_of("module") - set(record)
     assert facts["entry_points"], "the tree has entry points to compare"
     for point in facts["entry_points"]:
         assert set(point) <= facts_file.fields_of("entry point")

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from conftest import TINY_PACKAGE, init_two_cards, write_tree
 
-from systemap import check, config, extract, reexports, skill, source_facts
+from systemap import check, config, extract, facts_shape, reexports, skill, source_facts
 from systemap import facts as facts_mod
 from systemap.cli import main
 from systemap.model import Component, Model, defines_entry, public_names
@@ -137,13 +137,65 @@ def test_facts_format_and_an_older_file_is_stale(tmp_path: Path) -> None:
     write_tree(tmp_path, TINY_PACKAGE)
     cfg = config.load(tmp_path)
     fresh = extract.build(cfg)
-    assert fresh["version"] == extract.FORMAT == 14
+    assert fresh["version"] == extract.FORMAT == 15
     older = {**fresh, "version": 1}
     assert extract.drift(fresh, older) == [
-        "facts format 1 is older than the extractor's 14; the file records less than the "
+        "facts format 1 is older than the extractor's 15; the file records less than the "
         "extractor reads"
     ]
     assert extract.drift(fresh, fresh) == []
+
+
+def _module_with(key: str, value: object) -> dict[str, object]:
+    record = {
+        "file": "pkg/a.py",
+        "functions": [],
+        "classes": [],
+        "errors": [],
+        "tests_total": 0,
+        "tests_primary": 0,
+        "sha": "",
+        "uses": {"pkg.b": ["*"]},
+        key: value,
+    }
+    return {"components": {"pkg.a": record}}
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "problem"),
+    [
+        ("import_forms", {"pkg.b": []}, "must not be an empty list"),
+        ("import_forms", {"pkg.b": ["runtime"]}, 'must be "call", "load", or "type"'),
+        ("import_forms", {"pkg.b": ["type", "load"]}, "must be a sorted list without duplicates"),
+        ("import_forms", {"pkg.b": ["load", "load"]}, "must be a sorted list without duplicates"),
+        (
+            "dynamic_imports",
+            [{"call": "import", "text": "a\nb", "target": "", "line": 1}],
+            "must not contain a control character",
+        ),
+        (
+            "dynamic_imports",
+            [{"call": "import", "text": "", "target": "", "line": -1}],
+            "must be an integer of 0 or more",
+        ),
+        ("dynamic_imports", [{"call": "import", "text": ""}], 'has no "target" key'),
+    ],
+)
+def test_the_shape_check_refuses_incorrect_import_facts(
+    key: str, value: object, problem: str
+) -> None:
+    found = facts_shape.problem(_module_with(key, value))
+    assert found is not None and found.endswith(problem), found
+
+
+def test_the_shape_check_accepts_the_import_facts_of_format_15() -> None:
+    record = _module_with("import_forms", {"pkg.b": ["load", "type"]})
+    record["import_details"] = ["call", "dynamic", "type"]
+    assert facts_shape.problem(record) is None
+    record["import_details"] = ["call", "runtime"]
+    assert facts_shape.problem(record) == (
+        'the value at ["import_details"][1] must be "call", "dynamic", or "type"'
+    )
 
 
 # ---- systemap facts ----------------------------------------------------------------

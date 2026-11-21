@@ -18,13 +18,24 @@ A probe on this repository gave the evidence: the earlier form gave the 6 digest
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
+from typing import Any
 
 import pytest
 from conftest import set_version
 from test_answer_identity import append, case, project, structural_lines
 
-from systemap import answer_write, config, extract, judgement, judgement_json, nest
+from systemap import (
+    answer_write,
+    card_review,
+    config,
+    extract,
+    judgement,
+    judgement_evidence,
+    judgement_json,
+    nest,
+)
 from systemap.cli import main
 
 __all__ = ["project"]
@@ -105,3 +116,35 @@ def test_a_later_version_also_upgrades_an_answer_from_2_0_0(
         expected = expected.replace(earlier[line], now[line])
     assert toml.read_text(encoding="utf-8") == expected != before
     assert pending(project) == []
+
+
+def _with_import_facts(facts: dict[str, Any]) -> dict[str, Any]:
+    """Give a copy of the facts with the format 15 import keys in each module record."""
+    changed = copy.deepcopy(facts)
+    for record in changed["components"].values():
+        targets = sorted(record.get("uses", {}))
+        record["import_forms"] = {target: ["type"] for target in targets}
+        record["dynamic_imports"] = [{"call": "import", "text": "", "target": "", "line": 1}]
+    return changed
+
+
+def test_the_import_facts_of_format_15_do_not_change_the_evidence(project: Path) -> None:
+    """The 2.0.0 digest, the cited facts and the source review digest do not read the
+    `import_forms` and `dynamic_imports` keys (facts format 15)."""
+    cfg = config.load(project)
+    facts = extract.build(cfg)
+    changed = _with_import_facts(facts)
+    tree = nest.load(cfg)
+    lines = structural_lines(project)[:2]
+    for earlier in (True, False):
+        assert judgement.evidence_for_tree(
+            tree, changed, project, lines, earlier=earlier
+        ) == judgement.evidence_for_tree(tree, facts, project, lines, earlier=earlier)
+    for name, record in facts["components"].items():
+        new = changed["components"][name]
+        assert judgement_evidence.cited_facts(new) == judgement_evidence.cited_facts(record)
+    model, meaning = tree.maps[0].model, tree.maps[0].meaning
+    for card in model.components:
+        assert card_review.digest(card, model, meaning, changed) == card_review.digest(
+            card, model, meaning, facts
+        )

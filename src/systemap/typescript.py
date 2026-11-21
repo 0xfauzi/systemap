@@ -5,13 +5,14 @@ from __future__ import annotations
 import functools
 import hashlib
 from collections import defaultdict
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 from systemap import (
     file_names,
+    import_forms,
     typescript_calls,
     typescript_entry,
     typescript_package_imports,
@@ -32,6 +33,12 @@ from systemap.typescript_config import (
     root_candidates,
     source_files,
 )
+from systemap.typescript_import_forms import DETAILS as IMPORT_DETAILS
+from systemap.typescript_import_forms import _imports as _imports
+from systemap.typescript_import_forms import _text as _text
+from systemap.typescript_import_forms import _walk as _walk
+from systemap.typescript_import_forms import import_facts as read_import_facts
+from systemap.typescript_import_forms import read_imports
 from systemap.typescript_projects import (
     TypeScriptProjects,
     without_script_suffix,
@@ -54,12 +61,7 @@ from systemap.typescript_resolve import (
 )
 from systemap.typescript_surface import parse_problem, parse_surface
 from systemap.typescript_syntax import _tree as parse_tree
-from systemap.typescript_syntax import (
-    first_argument,
-    specifier_name,
-    string_value,
-    syntax_tree,
-)
+from systemap.typescript_syntax import syntax_tree
 from systemap.typescript_tests import test_names
 
 SOURCE_SUFFIXES = (".ts", ".tsx", ".mts", ".cts")
@@ -113,6 +115,9 @@ class TypeScriptContext:
     package_scopes: dict[Path, Any] = field(default_factory=dict)
     # The folder of each workspace package name (`typescript_resolve`).
     workspaces: dict[str, Path] | None = None
+    # The file, the text, the imports and the resolver of the last `internal_uses` call.
+    # The `import_facts` call that follows it uses them, and does not parse again.
+    last_imports: tuple[str, str, Any, Any, Callable[[str], str | None]] | None = None
 
     def compiler_for(self, path: Path) -> TypeScriptConfig:
         """This function gives the compiler settings of the project that contains a file."""
@@ -248,45 +253,18 @@ def _resolve(
     return _known_module(_module_candidate(specifier, module), known)
 
 
-def _imported_names(node: Any) -> set[str]:
-    clause = next((child for child in node.named_children if child.type == "import_clause"), None)
-    if clause is None:
-        return {WHOLE_MODULE}
-    if any(child.type == "namespace_import" for child in _walk(clause)):
-        return {WHOLE_MODULE}
-    out: set[str] = set()
-    if any(child.type == "identifier" for child in clause.named_children):
-        out.add("default")
-    for specifier in (child for child in _walk(clause) if child.type == "import_specifier"):
-        if original := specifier_name(specifier.child_by_field_name("name")):
-            out.add(original)
-    return out
+def _resolver(
+    module: str, known: set[str], paths: dict[str, Path], context: TypeScriptContext
+) -> Callable[[str], str | None]:
+    """Give `_resolve` for one importing module. It resolves each specifier one time."""
+    found: dict[str, str | None] = {}
 
+    def resolve(specifier: str) -> str | None:
+        if specifier not in found:
+            found[specifier] = _resolve(specifier, module, known, paths, context)
+        return found[specifier]
 
-def _exported_names(node: Any) -> set[str]:
-    clause = next((child for child in node.named_children if child.type == "export_clause"), None)
-    if clause is None:
-        return {WHOLE_MODULE}
-    out: set[str] = set()
-    for specifier in (child for child in clause.named_children if child.type == "export_specifier"):
-        # A string name, as in `export { 'a-b' as c } from`, is the name in the module.
-        if original := specifier_name(specifier.child_by_field_name("name")):
-            out.add(original)
-    return out or {WHOLE_MODULE}
-
-
-def _walk(node: Any) -> Iterator[Any]:
-    """Give the node and each named node below it, in source order. A list is the stack,
-    not recursion, because a deep tree goes above the recursion limit of Python."""
-    stack = [node]
-    while stack:
-        current = stack.pop()
-        yield current
-        stack.extend(reversed(current.named_children))
-
-
-def _text(node: Any | None) -> str:
-    return (node.text or b"").decode("utf-8") if node is not None else ""
+    return resolve
 
 
 def _syntax_tokens(node: Any) -> Iterator[str]:
@@ -301,68 +279,6 @@ def _syntax_tokens(node: Any) -> Iterator[str]:
             yield f"{current.type}:{_text(current)}"
         else:
             stack.extend(reversed(current.children))
-
-
-def _source(node: Any) -> str:
-    return string_value(node.child_by_field_name("source"))
-
-
-def _static_imports(root: Any) -> Iterator[tuple[str, set[str]]]:
-    for node in root.named_children:
-        imported = _static_import(node)
-        if imported is not None:
-            yield imported
-
-
-def _static_import(node: Any) -> tuple[str, set[str]] | None:
-    if node.has_error:
-        return _error_import(node)
-    specifier = _source(node)
-    if node.type == "import_statement" and not specifier:
-        clause = next(
-            (child for child in node.named_children if child.type == "import_require_clause"),
-            None,
-        )
-        if clause is not None and (specifier := _source(clause)):
-            return specifier, {WHOLE_MODULE}
-    if not specifier:
-        return None
-    if node.type == "import_statement":
-        return specifier, _imported_names(node)
-    if node.type == "export_statement":
-        return specifier, _exported_names(node)
-    return None
-
-
-def _error_import(node: Any) -> tuple[str, set[str]] | None:
-    if node.type == "export_statement" and _text(node).lstrip().startswith("export type * from"):
-        if specifier := _source(node):
-            return specifier, {WHOLE_MODULE}
-    return None
-
-
-def _dynamic_imports(root: Any) -> Iterator[tuple[str, set[str]]]:
-    for node in _walk(root):
-        specifier = _dynamic_specifier(node)
-        if specifier is not None:
-            yield specifier, {WHOLE_MODULE}
-
-
-def _dynamic_specifier(node: Any) -> str | None:
-    if node.type != "call_expression" or node.has_error:
-        return None
-    function = node.child_by_field_name("function")
-    if _text(function) not in ("import", "require"):
-        return None
-    first = first_argument(node)
-    if first is None or first.type != "string":
-        return None
-    return string_value(first)
-
-
-def _imports(root: Any) -> Iterator[tuple[str, set[str]]]:
-    yield from _static_imports(root)
-    yield from _dynamic_imports(root)
 
 
 def _projects(
@@ -485,6 +401,8 @@ def _is_package(specifier: str, importer: Path, context: TypeScriptContext) -> b
 
 class TypeScriptLanguage(TypeScriptRepository):
     """This adapter converts TypeScript syntax to the shared facts schema."""
+
+    import_details = IMPORT_DETAILS
 
     def source_paths(
         self,
@@ -641,15 +559,46 @@ class TypeScriptLanguage(TypeScriptRepository):
     ) -> dict[str, set[str]]:
         del prefixes, is_package, repo
         source_path = (paths or {}).get(module)
-        root = syntax_tree(raw, source_path.as_posix() if source_path else "")
+        path = source_path.as_posix() if source_path else ""
+        root = syntax_tree(raw, path)
         if context is None:
             return {}
+        imports, calls = read_imports(root, raw)
+        resolve = _resolver(module, known, paths or {}, context)
+        context.last_imports = (path, raw, imports, calls, resolve)
         uses: dict[str, set[str]] = defaultdict(set)
-        for specifier, names in _imports(root):
-            target = _resolve(specifier, module, known, paths or {}, context)
+        for specifier, names, _form in imports:
+            target = resolve(specifier)
             if target:
                 uses[target].update(names)
         return dict(uses)
+
+    def import_facts(
+        self,
+        raw: str,
+        module: str,
+        prefixes: set[str],
+        known: set[str],
+        is_package: bool = False,
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
+        context: TypeScriptContext | None = None,
+    ) -> import_forms.ImportFacts:
+        """Give the import forms and the imports by a string value of one module.
+
+        After `internal_uses` of the same text, the function uses its imports and its
+        resolved specifiers, and does not parse or resolve again."""
+        del prefixes, is_package, repo
+        if context is None:
+            return import_forms.NONE
+        found = paths or {}
+        source_path = found.get(module)
+        path = source_path.as_posix() if source_path else ""
+        last, context.last_imports = context.last_imports, None
+        if last is not None and last[0] == path and last[1] is raw:
+            return read_import_facts(last[2], last[3], last[4])
+        imports, calls = read_imports(syntax_tree(raw, path), raw)
+        return read_import_facts(imports, calls, _resolver(module, known, found, context))
 
     def call_sites(
         self,

@@ -8967,3 +8967,50 @@ Dive share canvas / atlas: self 0.333 / 0.111, workspace 0.139 / 0.050, M11 tree
 0.089. The M11 tree fails value 3: 1.33 times the canvas value and more than 0.05. Against
 B30, the two pages are faster on the M11 tree (canvas 0.239, atlas 0.161). Each other value
 passed (point 65 / 90 / 88 ms). Result: fail.
+
+## Facts format 15: the import forms of the adapters (2026-11-21)
+
+This is stage 1 of the module role design (`crossing import` accuracy).
+The adapters give the import form of each import (`load`, `call`, or `type`) and the imports by a string value.
+
+Acceptance (written before the build):
+
+- On scratch copies of the Django 6.1.3, SQLAlchemy 2.1.9 and starlette 0.46.2 test maps, after `systemap refresh`, the stored form of each (module, target) edge in `uses` is equal to the form of the design measurement script `forms_measure.py`: 0 differences.
+- On the same copies, the import crossings with one or more run-time edges are 283, 135 and 15.
+- On the same copies, `systemap judgement` and `judgement --json` give the same output before and after the stage.
+- The TypeScript extraction time increases by 10 percent or less.
+- A tree with 3000 levels gives no RecursionError in either adapter.
+
+Method: the copies were refreshed and judged with the code before the stage (a Git worktree of 999a223), then with the new code.
+A comparison script took the classifier functions of `forms_measure.py`, parsed each source file with `ast` only, and compared the forms edge by edge with `import_forms.forms`.
+It ran no project code.
+
+| Map | Edges | Differences | Import crossings | With a run-time edge | `judgement` output |
+|---|---|---|---|---|---|
+| Django 6.1.3 | 3214 | 0 | 283 | 283 | identical (text and JSON) |
+| SQLAlchemy 2.1.9 | 2458 | 0 | 163 | 135 | identical (text and JSON) |
+| starlette 0.46.2 | 116 | 0 | 17 | 15 | identical (text and JSON) |
+
+Modules with `import_forms`: Django 111, SQLAlchemy 151, starlette 2.
+Records in `dynamic_imports`: Django 44, SQLAlchemy 41, starlette 0.
+The design count of string imports for Django (89) also counts `import_string` and each attribute with the name `import_module`. The adapter counts only the calls of the standard library (`__import__`, `importlib.import_module`, and `import_module` after `from importlib import import_module`).
+
+Extraction time. The largest TypeScript fixture of the tests (`tests/fixtures/typescript-app`) has 16 lines, so its time is not a useful measurement.
+Thus the measurement used a generated project of 400 TypeScript modules, each with 6 imports, 12 functions with a `require()` call, and one class with a template `import()` call.
+Each row is five runs of `extract.build` in one process, after one warm-up run. Other processes can use the same computer, so the times are approximate.
+
+| Code | Times (s) | Minimum (s) |
+|---|---|---|
+| Before the stage, run 1 | 6.560, 6.528, 5.633, 5.966, 6.656 | 5.633 |
+| After the stage, run 1 | 6.181, 6.241, 6.103, 5.625, 6.647 | 5.625 |
+| Before the stage, run 2 | 6.879, 5.975, 6.455, 6.422, 6.159 | 5.975 |
+| After the stage, run 2 | 6.677, 5.996, 6.435, 6.033, 5.822 | 5.822 |
+
+The first build of the stage used a second walk of the tree and a second resolution of each specifier. It took 16 to 20 percent more time (minimum 6.751 s and 7.030 s against 5.809 s and 5.816 s), and failed the acceptance value.
+The final build reads the imports and their forms in one walk in `internal_uses`, and resolves each specifier of a module one time. `import_facts` then uses these values.
+The TypeScript facts without the new keys are byte-identical before and after the stage, for the generated project and for `tests/fixtures/typescript-app`.
+
+The Python extraction of the Django copy took 8.60, 8.71 and 8.36 s before the stage, and 8.92, 9.52 and 9.15 s after it (about 6 percent more). The design gives no acceptance value for Python.
+
+Result: all acceptance values passed.
+On this repository, no recorded answer digest changed. The source reviews and the flow reviews of the components and flows that cite the changed modules were examined and recorded again.

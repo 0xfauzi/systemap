@@ -1016,7 +1016,7 @@ Each language adapter also writes these facts with the same meaning for Python a
 
 - `cause` on each unknown record: the cause that gives the `fix:` line, for example `declaration file` or `script file`.
 
-The facts file has a format number in its `version` key. The current format is 14.
+The facts file has a format number in its `version` key. The current format is 15.
 A facts file of an earlier format is stale. Then `check` and `extract --check` exit 1.
 After an upgrade of systemap, run `systemap refresh`.
 
@@ -1025,6 +1025,11 @@ The signatures and the constant values come from the source text.
 Thus each supported Python version gives the same stored values.
 If the syntax tree has a node class that the syntax text does not know, the extraction stops.
 The error gives the class and the Python version.
+
+In format 15, each module record can have `import_forms` and `dynamic_imports`, and the facts have `import_details`.
+`import_forms` gives the import form of each target module with a form other than `load`: `load` (when the module loads), `call` (in a function body), or `type` (only for type checks).
+`dynamic_imports` gives each import by a string value, for example `importlib.import_module(name)` or `import(name)`. These records do not change `uses`.
+A language adapter gives `type` only for an import that can never operate at run time.
 
 A test file that systemap cannot read or parse gives a `test_file_issues` record, for Python and for TypeScript.
 The record is not known. It does not reject the map. `check` and `refresh` print it with its cause and its `fix:` line.
