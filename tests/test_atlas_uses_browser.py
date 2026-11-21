@@ -20,6 +20,16 @@ U3. The Used by list of B is A, then C: the two rows have no flow and one import
 U4. A click on the row of B in the Uses list of A selects B.
 U5. On a map where the card Hub imports ten cards, the Uses list shows eight rows and the
     button "Show all 10". A click on the button shows all ten rows and removes the button.
+
+Acceptance values, written on 2026-11-21 before the first run of the order test:
+
+U6. On the map of the cards A (modules a and a2), B, C, D and the actor User, where a imports
+    b, c, d and user, a2 imports d, and one flow connects A and B: the Uses list of A is D (no
+    flow, 2 importing modules), then C (no flow, 1 importing module), then B (flow). Thus the
+    rows with no flow come first although B has the first card ID, and the importing-module
+    count comes before the card ID.
+U7. On the same map, no list of A or D has a row for the actor User, although User claims the
+    module user that a imports.
 """
 
 from __future__ import annotations
@@ -39,15 +49,19 @@ DRIVER = Path(__file__).resolve().parent / "atlas_uses.js"
 TYPE_NOTE = "These lists include imports for type checks."
 
 
-def model_text(cards: list[str], flows: list[tuple[str, str, str]]) -> str:
-    """Give a model file with one card for each module `pkg.<card in lower case>`."""
+def model_text(
+    cards: list[str], flows: list[tuple[str, str, str]], more: dict[str, str] | None = None
+) -> str:
+    """Give a model file with one card for each module `pkg.<card in lower case>`.
+
+    `more` gives the extra arguments of some cards, for example a kind or other modules."""
     rows = []
     for n, card in enumerate(cards):
         x, y = 40 + (n % 5) * 160, 60 + (n // 5) * 130
+        extra = (more or {}).get(card, f"implemented_by=('pkg.{card.lower()}',), entry='run'")
         rows.append(
             f"    Component(id={card!r}, region='core', does='Does the work of {card}.', "
-            f"interface='run() -> None', implemented_by=('pkg.{card.lower()}',), "
-            f"entry='run', x={x}, y={y}),"
+            f"interface='run() -> None', {extra}, x={x}, y={y}),"
         )
     width, height = 900, 140 + 130 * ((len(cards) + 4) // 5)
     flow_rows = [f"    Flow({s!r}, {t!r}, {a!r}, 'data')," for s, t, a in flows]
@@ -77,10 +91,16 @@ def model_text(cards: list[str], flows: list[tuple[str, str, str]]) -> str:
     )
 
 
-def page(root: Path, sources: dict[str, str], cards: list[str], flows: Any) -> Path:
+def page(
+    root: Path,
+    sources: dict[str, str],
+    cards: list[str],
+    flows: Any,
+    more: dict[str, str] | None = None,
+) -> Path:
     write_tree(root, {"pkg/__init__.py": "", **sources})
     assert main(["--root", str(root), "init", "--no-ci"]) == 0
-    (root / "map/model.py").write_text(model_text(cards, flows), encoding="utf-8")
+    (root / "map/model.py").write_text(model_text(cards, flows, more), encoding="utf-8")
     assert main(["--root", str(root), "extract"]) == 0
     assert main(["--root", str(root), "render"]) == 0
     return root / "docs/map/index.html"
@@ -149,3 +169,30 @@ def test_show_all_gives_each_row(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert before["more"] == "Show all 10"
     assert all(r["shown"] for r in after["rows"]) and after["more"] is None
     assert [r["id"] for r in after["rows"]] == sorted(leaves)
+
+
+def test_the_order_and_the_actor_rule(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """U6 and U7."""
+    run = "def run() -> None:\n    pass\n"
+    sources = {
+        "pkg/a.py": "from pkg import b, c, d, user\n\n\ndef run() -> None:\n    d.run()\n",
+        "pkg/a2.py": "from pkg.d import run\n",
+        **{f"pkg/{n}.py": run for n in ("b", "c", "d", "user")},
+    }
+    more = {
+        "A": "implemented_by=('pkg.a', 'pkg.a2'), entry='run'",
+        "User": "kind='actor', implemented_by=('pkg.user',), entry='run'",
+    }
+    html = page(tmp_path, sources, ["A", "B", "C", "D", "User"], [("A", "B", "request")], more)
+    capsys.readouterr()
+    a = drive(html, "A")["before"]["sections"]
+    uses = a["Uses"]["rows"]
+    assert [(r["id"], r["head"]) for r in uses] == [
+        ("D", "D no flow"),
+        ("C", "C no flow"),
+        ("B", "B flow: request"),
+    ]
+    assert uses[0]["text"] == "2 modules of this card import 1 module of D."
+    assert a["Used by"]["rows"] == []
+    d = drive(html, "D")["before"]["sections"]
+    assert [r["id"] for r in d["Used by"]["rows"]] == ["A"]

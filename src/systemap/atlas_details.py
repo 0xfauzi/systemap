@@ -327,11 +327,12 @@ function between(m, a, b) { return (m.flows || []).filter(function (f) { return 
 function size(o) { return Object.keys(o).length; }
 // The links of card c: `uses` and `by` give, for each other card, the importing modules
 // (a) and the imported modules (b). `out` gives the imported modules outside the map.
+// `sr` has no actors, thus no module has an actor as its owner and no row is for an actor.
 function useLinks(c) {
   var m = c.map, own = ownersOf(m), mine = ((m.sr || {})[c.id] || {}).mo || [], got = {uses: {}, by: {}, out: {}};
   function add(t, id, a, b) {
     var o = m.byId[id];
-    if (id === undefined || id === c.id || !o || o.k === 'actor') return;
+    if (id === undefined || id === c.id || !o) return;
     var r = t[id] || (t[id] = {a: {}, b: {}});
     r.a[a] = 1; r.b[b] = 1;
   }

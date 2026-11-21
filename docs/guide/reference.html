@@ -352,13 +352,14 @@ An answer that matches no finding is stale.</p>
 <p><code>items</code> shows multiple exact lines with one reason.</p>
 </li>
 <li>
-<p><code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code> shows crossings between any two listed ids.</p>
+<p><code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code> selects crossings between any two listed ids.
+The report refuses this answer, because it selects only <code>crossing import</code> lines.</p>
 </li>
 <li>
-<p><code>crossing_into = &quot;A&quot;</code> shows crossings into A.</p>
+<p><code>crossing_into = &quot;A&quot;</code> selects crossings into A. The report refuses this answer.</p>
 </li>
 <li>
-<p><code>crossing_from = &quot;A&quot;</code> shows crossings from A.</p>
+<p><code>crossing_from = &quot;A&quot;</code> selects crossings from A. The report refuses this answer.</p>
 </li>
 <li>
 <p><code>kind = &quot;single module&quot;</code> shows all lines of that kind.
@@ -2854,7 +2855,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[judgement]</code></td>
 <td>none</td>
-<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. A previous <code>jev</code> name gives a configuration error.</td>
+<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>kind = &quot;single module&quot;</code> and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. The configuration also reads <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, and <code>crossing_from = &quot;A&quot;</code>. These forms select only <code>crossing import</code> lines, thus the report refuses them. A <code>kind</code> answer for <code>crossing import</code>, <code>module use</code>, or <code>declared flow</code> is also a refused answer. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. A previous <code>jev</code> name gives a configuration error.</td>
 </tr>
 <tr>
 <td><code>[judgement] require_reviews</code></td>
