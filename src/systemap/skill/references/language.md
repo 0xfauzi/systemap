@@ -314,7 +314,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | TSX | TypeScript syntax that includes JSX elements. |
 | viewport | The visible area in which the browser shows a map. |
 | writing profile | The configuration value that selects the writing rules for map text: `plain` or `asd-ste100`. |
-| actor | A person or a system outside the system source boundary that a map shows as a card. An actor is not a component. The schema records an actor as `Component` with `kind='actor'`. |
+| actor | A card for a person or a system outside the source of its map. On the top map, an actor is outside the system source boundary. On a nested map, an actor stands for a component of the parent map, and the page calls it a neighbour. An actor is not a component of the map that shows it. The schema records an actor as `Component` with `kind='actor'`. |
 | alias | An alternative source name for an import or public symbol. |
 | AUC | The area under a measured threshold curve (category 7). |
 | barycenter | The weighted mean position used by the layout procedure (category 7). |

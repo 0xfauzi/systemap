@@ -231,7 +231,7 @@ state machine, History needs commit data.
   from the card. The importers are the other cards with a module that imports a module of
   the card directly, from the module imports of the facts that the Uses and Used by lists
   use. Before, the reach did not count the imports, and no count of Focus told them: on the
-  Django map, modules of 18 components import modules of Orm. The importers are one step only, because a path of imports with
+  Django map, modules of 18 other cards import modules of Orm. The importers are one step only, because a path of imports with
   more steps gets to almost each card of a framework (34 of 36 for Orm). The two counts
   have different meanings, thus the page does not add them. A
   column shows nine cards at most and then the count of the others. Selecting a card
