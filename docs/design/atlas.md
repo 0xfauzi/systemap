@@ -51,7 +51,12 @@ state machine, History needs commit data.
 
 - **Headline.** The name of the layer, the question of the layer and the counts are type
   on the ground, not in a plate. The headline is beside the map or above it. The page
-  uses the position that gives the larger map. A total is always the total of the map:
+  uses the position that gives the larger map. A card is an actor or a component: in a
+  count, "card" is each card of the map, "actor" is a card of an actor, and "component" is
+  each other card. In a nested map the words are "neighbour" and "part". A layer with no
+  flow gives the cards, the regions, and the two parts of the cards, for example "37 cards
+  in 6 regions: 4 actors and 33 components". The Focus view counts the same cards. A total
+  is always the total of the map:
   when the layer uses fewer components than the map has, the count is "N of T
   components", and else "T components" (`countWords` in `atlas_view`). The same rule
   applies to the actors, and in a nested map to the parts and the neighbours. T parts in
@@ -221,7 +226,13 @@ state machine, History needs commit data.
   through no other state. A state is as wide as its full ID. The reading line gives the
   cause of a transition, and the meaning of a state.
 - **Focus.** The headline gives the counts and the reach, for example "a change here can
-  reach 16 of 27 cards". Reach is the count of cards on a path of flows from the card. A
+  reach 18 of 36 other cards: 4 through flows, 14 through imports with no flow". Reach is
+  the count of the other cards on a path of flows and imports from the card. An import goes
+  from the imported card to the importing card. The imports are the module imports of the
+  facts that the Uses and Used by lists use. The first part is the cards on a path of flows
+  only, and the second part is the other cards of the reach. Before, the reach counted only
+  the flows. On a draft map of Django, it gave 4 cards for Orm, but 18 components import
+  Orm. A
   column shows nine cards at most and then the count of the others. Selecting a card
   focuses on it. The view opens on the selected card of the Map view when that card has a
   flow. On a narrow screen the view shows one step at each side.

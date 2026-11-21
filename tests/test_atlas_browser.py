@@ -632,7 +632,10 @@ def _text_counts(layer: str) -> str:
     flows = re.findall(r"Flow\('(\w+)', '(\w+)', '[^']*', '(\w+)'", text)
     if layer == "structure":
         cards, regions = text.count("Component("), text.count("Region(")
-        return f"{cards} cards in {regions} regions"
+        return (
+            f"{cards} cards in {regions} regions: {len(actors)} neighbours and "
+            f"{cards - len(actors)} parts"
+        )
     if layer == "system":
         chosen = [f for f in flows if f[0] in actors or f[1] in actors]
     else:

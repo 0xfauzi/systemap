@@ -158,13 +158,20 @@ var ASK_Q = document.getElementById('atlas-ask-q'), ASK_N = document.getElementB
 var TABS = document.getElementById('atlas-tabs'), KEY = document.getElementById('atlas-key'), ZOOM_V = document.getElementById('atlas-zv');
 var SYNCED = '', ASK_TIMER = 0;
 // The counts of the headline: the actors (neighbours in a nested map), the components (parts)
-// and the flows of the layer, or the cards and the regions for a layer with no flow. A total
-// is always the total of the map: when the layer uses fewer actors or components than the
-// map has, the count is "N of T". The total of the parts is the count of the button "See its
-// T parts" and of the reading line of the card (`partsOf` in `atlas_lit`).
+// and the flows of the layer, or the cards and the regions for a layer with no flow. A card is
+// an actor or a component: thus the count of the cards is the sum of the two counts, and a
+// layer with no flow gives the two counts after the count of the cards. The Focus view counts
+// the same cards (`fcParts` in `atlas_focus`). A total is always the total of the map: when the
+// layer uses fewer actors or components than the map has, the count is "N of T". The total of
+// the parts is the count of the button "See its T parts" and of the reading line of the card
+// (`partsOf` in `atlas_lit`).
+function cardKinds(m) {
+  var a = m.cards.filter(function (c) { return c.k === 'actor'; }).length;
+  return (a ? counted(a, m.owner ? 'neighbour' : 'actor') + ' and ' : '') + counted(m.cards.length - a, m.owner ? 'part' : 'component');
+}
 function countWords(m, id) {
   var lf = layerFlags(m, id), actors = 0, comps = 0, allActors = 0;
-  if (!lf.n) return counted(m.cards.length, 'card') + ' in ' + counted(m.regions.length, 'region');
+  if (!lf.n) return counted(m.cards.length, 'card') + ' in ' + counted(m.regions.length, 'region') + ': ' + cardKinds(m);
   m.cards.forEach(function (c) {
     if (c.k === 'actor') allActors++;
     if (lf.used[c.id]) { if (c.k === 'actor') actors++; else comps++; }

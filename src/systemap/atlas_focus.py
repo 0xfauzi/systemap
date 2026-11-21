@@ -11,7 +11,8 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   the parts and the flows between two parts: the list, the board, the counts and the
   reach. It does not follow the flows of the map above. Thus a nested map with flows only
   to its neighbours has no Focus view, and the button Focus then shows the map above. The
-  counts of a nested map count parts, for example "a change here can reach 1 of 1 part".
+  counts of a nested map count parts, for example "a change here can reach 1 of 1 other
+  part: 1 through flows, 0 through imports with no flow".
 - The headline of a nested map gives the path. A part of the path is a button only when
   that map has the Focus view: the button focuses on the card of that map with the most
   flows. Each other part of the path is text.
@@ -22,13 +23,19 @@ rules are the section "The other views: the rules" of docs/design/atlas.md, and 
   the lines between the outer columns.
 - A column shows FC_MAX (nine) cards at most, and then the text "+ N more" with the count
   of the other cards of that step.
-- The reach (`reachOf`) is the set of the cards on a path of flows from a card, each with
-  its count of steps. The page computes it from the flows of the map. A card is not in its
-  own reach, also when a path of flows goes back to it (a cycle).
+- The reach is the set of the other cards on a path of flows and imports from a card
+  (`reachOf` and `fcImports`). An import goes from the imported card to the importing card:
+  a change of the imported card can reach the importing card. The page computes the
+  imports from the module imports of the facts that the Uses and Used by lists of the
+  details use. It reads no answer. A card is not in its own reach, also when a path goes
+  back to it (a cycle). The board shows only the flows.
 - The headline gives "Focus", the question "What does X use, and what uses X?", and the
   counts: the cards that the card receives from, the cards that it gives to, and the
-  reach, for example "a change here can reach 16 of 27 cards". On a phone the headline
-  also gives the counts.
+  reach with the two parts of it, for example "a change here can reach 18 of 36 other
+  cards: 4 through flows, 14 through imports with no flow". The first part is the cards on
+  a path of flows only. The second part is the other cards of the reach. The total is the
+  count of the cards of the map less one, as the headline of the Map view counts them
+  (`countWords` in `atlas_view`). On a phone the headline also gives the counts.
 - The list at the left gives the cards of the map that have a flow, with their count of
   flows, the largest count first. On a narrow screen the list is a row of names under the
   headline. The current card has aria-current "true".
@@ -143,6 +150,25 @@ function fcFlows(m) {
   if (!m._ff) m._ff = m.flows.filter(function (f) { return f.s !== f.t && fcPart(m, f.s) && fcPart(m, f.t); });
   return m._ff;
 }
+// The import links of map m between two different parts: {s: A, t: B} when a module of B
+// imports a module of A. Thus a change of A can reach B. The page has these imports for the
+// Uses and Used by lists of the details (`ownersOf` and `importerIds` in `atlas_details`).
+function fcImports(m) {
+  if (m._fi) return m._fi;
+  var own = ownersOf(m), seen = Object.create(null), out = [];
+  (m.md || []).forEach(function (x, j) {
+    var a = own[j];
+    if (a === undefined || !fcPart(m, a)) return;
+    importerIds(m, j).forEach(function (y) {
+      var b = typeof y === 'number' ? own[y] : undefined;
+      if (b === undefined || b === a || !fcPart(m, b) || seen[a + '|' + b]) return;
+      seen[a + '|' + b] = true;
+      out.push({s: a, t: b});
+    });
+  });
+  m._fi = out;
+  return out;
+}
 // The count of the parts of map m, and the word for a part.
 function fcParts(m) { return m.cards.filter(function (c) { return !upCard(c); }).length; }
 function fcNoun(m) { return m.owner ? 'part' : 'card'; }
@@ -169,23 +195,32 @@ function fcRanked(m) {
 // gives to, each with its count of steps.
 function fcReach(c) {
   var memo = c.map._fr || (c.map._fr = Object.create(null));
-  if (!memo[c.id]) memo[c.id] = {up: reachOf(fcFlows(c.map), c.id, 't', 's'), dn: reachOf(fcFlows(c.map), c.id, 's', 't')};
+  if (!memo[c.id]) {
+    var fl = fcFlows(c.map);
+    memo[c.id] = {up: reachOf(fl, c.id, 't', 's'), dn: reachOf(fl, c.id, 's', 't'), all: reachOf(fl.concat(fcImports(c.map)), c.id, 's', 't')};
+  }
   return memo[c.id];
 }
+// The reach counts the cards on a path of flows and imports. `flows` is the part that a path
+// of flows only reaches, and `imports` is the part that only a path with an import reaches.
 function fcCounts(c) {
-  var r = fcReach(c);
-  return {from: atSteps(r.up, 1).length, to: atSteps(r.dn, 1).length, reach: Object.keys(r.dn).length, of: fcParts(c.map) - 1};
+  var r = fcReach(c), reach = Object.keys(r.all).length, flows = Object.keys(r.dn).length;
+  return {from: atSteps(r.up, 1).length, to: atSteps(r.dn, 1).length, reach: reach, flows: flows, imports: reach - flows, of: fcParts(c.map) - 1};
+}
+function fcReachWords(c, n) {
+  return 'can reach ' + n.reach + ' of ' + n.of + ' other ' + fcNoun(c.map) + (n.of === 1 ? '' : 's') + ': ' + n.flows + ' through flows, ' +
+    n.imports + ' through imports with no flow';
 }
 function fcHead() {
   var c = fcCard(), n = fcCounts(c);
   return {k: 'Focus', q: 'What does ' + c.id + ' use, and what uses ' + c.id + '?',
-    n: 'receives from ' + n.from + ' · gives to ' + n.to + ' · a change here can reach ' + n.reach + ' of ' + counted(n.of, fcNoun(c.map))};
+    n: 'receives from ' + n.from + ' · gives to ' + n.to + ' · a change here ' + fcReachWords(c, n)};
 }
 function fcWords() {
   var c = fcCard(), n = fcCounts(c);
   var w = fcNoun(c.map);
   return 'Focus on ' + c.id + '. It receives from ' + counted(n.from, w) + ' and gives to ' + counted(n.to, w) +
-    '. A change here can reach ' + n.reach + ' of ' + counted(n.of, w) + '. Map: ' + mapName(c.map) + '.';
+    '. A change here ' + fcReachWords(c, n) + '. Map: ' + mapName(c.map) + '.';
 }
 
 // ---- the list ----------------------------------------------------------------------------

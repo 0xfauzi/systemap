@@ -280,3 +280,16 @@ def test_the_headline_gives_the_limits_of_a_comparison() -> None:
     assert atlas_marks.limits({}) == atlas_marks.limits(None) == ""
     plain = atlas_page.build(theme, data)
     assert 'id="atlas-limits"' not in plain and atlas_marks.LIMITS_CSS not in plain
+
+
+def test_each_function_of_the_atlas_script_has_one_name() -> None:
+    """The parts of the atlas script are in one function scope. Thus a second top-level
+    function with the same name replaces the first in each part. A name of the details part,
+    `onScreen`, replaced the function of the inside part one time and broke the move into a
+    nested map."""
+    from collections import Counter  # noqa: PLC0415
+
+    from systemap.atlas_script import SCRIPT  # noqa: PLC0415
+
+    names = Counter(re.findall(r"(?m)^function (\w+)\(", SCRIPT))
+    assert [n for n, k in names.items() if k > 1] == []

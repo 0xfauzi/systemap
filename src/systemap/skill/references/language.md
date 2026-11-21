@@ -325,7 +325,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | redirect page | The small page of a nested map that opens the top page (the atlas page or the canvas page) at that map with the URL hash. |
 | reading line | On the atlas page, the line of text at the bottom of the map that gives one sentence about the item under the pointer or with the keyboard focus. |
 | lane | On the atlas page, one of the parallel lines that the page gives to the paths that share a gap. |
-| reach | In the Focus view, the count of the cards on a path of flows from the card in the middle. |
+| reach | In the Focus view, the count of the other cards on a path of flows and imports from the card in the middle. |
 | state machine | The states of one item and the transitions between them, each with its cause (`StateMachine`). |
 | linked page | The page of one map, with links to the pages of its parent map and its nested maps. `[render] canvas = false` selects it for one release. |
 | release | A published version of systemap with a version number. |

@@ -14,6 +14,10 @@ Acceptance values, written before the first run on 2026-11-19:
    flows (Model). The headline gives "Focus", "What does Model use, and what uses Model?",
    and "receives from N · gives to M · a change here can reach R of T cards" with the
    counts of `_reach`.
+   Changed on 2026-11-21 before the run, for the fault F2 of the second user test: the
+   reach also follows the imports, and the headline gives "a change here can reach R of T
+   other cards: F through flows, I through imports with no flow"
+   (tests/test_atlas_counts_browser.py).
 2. At 1440 x 900 the board has four columns: "Two steps before", "Gives to Model", "Model
    gives to" and "Two steps after", in that order from left to right. Each column has the
    cards of its step, nine at most, and the text "+ N more" with the count of the other
@@ -79,7 +83,8 @@ Acceptance values added for the repair of stage 5, written before the first run 
 20. A nested map (the fixture of tests/test_nest_join.py with a flow from Routes to Views):
     with the map Gateway current, Focus shows the map Gateway. The list has only the parts
     Routes and Views, not the neighbours Auth and Store. The view opens on Routes, and the
-    counts are "receives from 0 · gives to 1 · a change here can reach 1 of 1 part". The
+    counts are "receives from 0 · gives to 1 · a change here can reach 1 of 1 other part:
+    1 through flows, 0 through imports with no flow" (changed on 2026-11-21 for F2). The
     path of the headline has the button "join". A click on it shows the top map, on the card
     Gateway, with the keyboard focus on the middle card. The details of Routes have the
     button "Focus on this card". Changed after the first run: the value also said that the
@@ -98,6 +103,7 @@ from typing import Any
 
 import pytest
 from conftest import write_tree
+from test_atlas_counts_browser import import_links, reach_set
 from test_canvas_access import no_axe
 from test_canvas_browser import browser
 from test_nest_join import CONFIG, NESTED, SOURCE, TOP
@@ -168,12 +174,15 @@ def _reach(data: dict[str, Any], card: str, back: bool) -> dict[str, int]:
 
 def _counts(data: dict[str, Any], card: str) -> str:
     up, dn = _reach(data, card, True), _reach(data, card, False)
-    total = len(data["maps"][0]["cards"]) - 1
+    top = data["maps"][0]
+    total = len(top["cards"]) - 1
     one = sum(1 for v in up.values() if v == 1)
     two = sum(1 for v in dn.values() if v == 1)
+    every = reach_set(_flows(data) + import_links(top), card)
     return (
-        f"receives from {one} · gives to {two} · a change here can reach {len(dn)} of "
-        f"{total} card{'' if total == 1 else 's'}"
+        f"receives from {one} · gives to {two} · a change here can reach {len(every)} of "
+        f"{total} other card{'' if total == 1 else 's'}: {len(dn)} through flows, "
+        f"{len(every) - len(dn)} through imports with no flow"
     )
 
 
@@ -510,7 +519,8 @@ def test_a_nested_map(nested_page: Path) -> None:
     assert [r["id"] for r in f["rail"]] == ["Routes", "Views"]
     assert {c["id"] for c in _cards(out["shown"])} == {"Routes", "Views"}
     assert out["shown"]["view"]["counts"] == (
-        "receives from 0 · gives to 1 · a change here can reach 1 of 1 part"
+        "receives from 0 · gives to 1 · a change here can reach 1 of 1 other part: "
+        "1 through flows, 0 through imports with no flow"
     )
     assert out["path"][0] == ["BUTTON", "join"]
     assert ["B", "Gateway"] in out["path"]
