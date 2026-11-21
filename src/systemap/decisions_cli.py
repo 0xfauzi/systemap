@@ -1,6 +1,7 @@
 """The `systemap decisions` commands give the semantic requests to a coding agent.
 
-- `systemap decisions pending [--json]` gives the open requests.
+- `systemap decisions pending [--json] [--limit N]` gives the open requests. The module use
+  requests come first. `--limit N` gives only the first N requests.
 - `systemap decisions submit FILE` examines and records the results of the agent.
 - `systemap decisions status [--json]` gives the counts, the unknown requests, and the
   history of the verdicts.
@@ -34,16 +35,26 @@ from systemap.decisions import VERDICTS, Request
 # Version 2 adds `max_insufficient` and `requests[].insufficient` to `pending`. It adds
 # `supported_records` and `records` to `status`, and `supported` counts only the current
 # claims. Each unknown request has `insufficient`, `open_lines`, and `history`.
-SCHEMA_VERSION = 2
+# Version 3 adds `requests[].role_keys` and `more` (the requests that `--limit` leaves out)
+# to `pending`. The module use requests come first.
+SCHEMA_VERSION = 3
 
 
 def _attempts(snap: decisions_submit.Snapshot, request: Request) -> int:
     return decisions_store.attempts(snap.records, request)
 
 
-def pending_payload(snap: decisions_submit.Snapshot) -> dict[str, Any]:
+def _limited(pending: list[Request], limit: int | None) -> tuple[list[Request], int]:
+    """Give the first `limit` requests, and the count of the requests that it leaves out."""
+    if limit is None:
+        return pending, 0
+    return pending[:limit], max(0, len(pending) - limit)
+
+
+def pending_payload(snap: decisions_submit.Snapshot, limit: int | None = None) -> dict[str, Any]:
     """Give the JSON object of `decisions pending`."""
     status = snap.status()
+    shown, more = _limited(status.pending, limit)
     return {
         "schema_version": SCHEMA_VERSION,
         "verdicts": list(VERDICTS),
@@ -55,18 +66,20 @@ def pending_payload(snap: decisions_submit.Snapshot) -> dict[str, Any]:
                 "attempts": _attempts(snap, request),
                 "insufficient": decisions_store.insufficient(snap.records, request),
             }
-            for request in status.pending
+            for request in shown
         ],
+        "more": more,
         "unknown": len(status.unknown),
     }
 
 
-def pending_text(snap: decisions_submit.Snapshot) -> list[str]:
+def pending_text(snap: decisions_submit.Snapshot, count: int | None = None) -> list[str]:
     """Give the text of `decisions pending` for a person or an agent."""
     status = snap.status()
     limit = snap.cfg.max_contradicted
+    shown, more = _limited(status.pending, count)
     out = [f"decisions: {len(status.pending)} pending, {len(status.unknown)} unknown"]
-    for request in status.pending:
+    for request in shown:
         claim = request.claim.splitlines()
         out += [f"request {request.id}", f"  type: {request.type}", f"  claim: {claim[0]}"]
         out += [f"         {row}" for row in claim[1:]]
@@ -80,12 +93,18 @@ def pending_text(snap: decisions_submit.Snapshot) -> list[str]:
             f"  file: {f.file} {f'refused: {f.problem}' if f.problem else f'sha256 {f.sha256}'}"
             for f in request.files
         ]
+        if request.role_keys:
+            out.append(f"  module role keys: {', '.join(request.role_keys)}")
         if request.blocked:
             out.append(f"  blocked: {request.blocked}")
     if status.pending:
         out.append(f"verdicts: {', '.join(VERDICTS)}")
         out.append("Examine the source code of each decision request.")
         out.append("Then use systemap decisions submit FILE.")
+    if more:
+        out.append(
+            f"{more} more decision requests. Do systemap decisions pending again after submit."
+        )
     return out
 
 
@@ -225,10 +244,13 @@ def cmd_decisions(args: argparse.Namespace) -> int:
     warn(*cli_scope.notes(snap.tree, cli_scope.ENTRY_NOTE))
     scope = {"entry_coverage": "not examined"}
     if args.action == "pending":
+        limit = args.limit
         say(
-            json.dumps(cli_scope.payload(pending_payload(snap), snap.tree, **scope), indent=2)
+            json.dumps(
+                cli_scope.payload(pending_payload(snap, limit), snap.tree, **scope), indent=2
+            )
             if args.json
-            else "\n".join(pending_text(snap))
+            else "\n".join(pending_text(snap, limit))
         )
         return 0
     say(
@@ -238,6 +260,17 @@ def cmd_decisions(args: argparse.Namespace) -> int:
     )
     status = snap.status()
     return 1 if status.pending or status.unknown else 0
+
+
+def _count(text: str) -> int:
+    """Read the value of --limit: an integer of 1 or more."""
+    try:
+        value = int(text)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not an integer of 1 or more.")
+    return value
 
 
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
@@ -263,13 +296,21 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         a = actions.add_parser(name, help=text, description=text)
         add_root(a)
         a.add_argument("--json", action="store_true", help="Write one JSON object.")
+        if name == "pending":
+            a.add_argument(
+                "--limit",
+                type=_count,
+                metavar="N",
+                help="Give only the first N decision requests.",
+            )
         cli_scope.add_option(a)
     a = actions.add_parser(
         "submit",
         help="Examine and record a JSON list of verdicts.",
         description=(
             "Read a JSON list of verdicts. Each verdict has request_id, verdict, citations, "
-            "and summary. If one verdict is incorrect, the command writes no file."
+            "and summary. A supported verdict for a module use line also has role, and it can "
+            "have symbol and handoff. If one verdict is incorrect, the command writes no file."
         ),
     )
     add_root(a)

@@ -18,6 +18,11 @@ finding kind and the names in a judgement line. The digest of a
 judgement request is the digest of its line. A source change that does not change the line
 does not change the ID. The answer gets the evidence digest at the time of the write.
 
+A `module use` request also has `role_keys`: a supported result for it gives the module
+role of the module (`role`, `symbol`, `handoff`). Its claim is the line and the rows below
+the line, and its files are the file of the module and the files of the modules that define
+its names. The module use requests come first, with the most waiting import crossings first.
+
 A judgement line that a review request also closes is not a separate request. These lines
 are the `stale source review` and `missing source review` lines of a component with a
 review request, and the `flow review` and `declared flow` lines of a flow with a review
@@ -62,6 +67,8 @@ SUPPORTED = "supported"
 CONTRADICTED = "contradicted"
 INSUFFICIENT = "insufficient_evidence"
 VERDICTS = (SUPPORTED, CONTRADICTED, INSUFFICIENT)
+# The keys of the module role in a supported result for a `module use` request.
+ROLE_KEYS = ("role", "symbol", "handoff")
 ARROW = "->"
 
 
@@ -93,6 +100,8 @@ class Request:
     `digest` is None if the claim has no current digest. `blocked` then tells the cause,
     and a `supported` verdict cannot be recorded until the map or the source changes.
     `identity` is the target in the store. If it is empty, the store uses `target`.
+    `role_keys` gives the module role keys that a supported result can have (`ROLE_KEYS`
+    for a `module use` request, else none).
     """
 
     id: str
@@ -104,6 +113,7 @@ class Request:
     files: tuple[SourceFile, ...]
     blocked: str = ""
     identity: str = ""
+    role_keys: tuple[str, ...] = ()
 
     @property
     def key(self) -> str:
@@ -115,6 +125,7 @@ class Request:
         out = dataclasses.asdict(self)
         out["claim_digest"] = out.pop("digest")
         out["files"] = [dataclasses.asdict(f) for f in self.files]
+        out["role_keys"] = list(self.role_keys)
         out["verdicts"] = list(VERDICTS)
         return out
 
@@ -395,6 +406,55 @@ def open_lines(request: Request, tree: nest.Tree, judged: judgement_json.Judged)
     ]
 
 
+def defining_modules(facts: dict[str, Any], module: str, used: Iterable[str]) -> list[str]:
+    """Give the modules of the facts that define the names `used` of `module` (`defined_in`).
+
+    A facade module gives names that other modules define. A module role answer must
+    cite the file of the module or of such a module."""
+    components = facts.get("components", {})
+    record = components.get(module)
+    entries = record.get("names", []) if isinstance(record, dict) else []
+    wanted = set(used)
+    return sorted(
+        {
+            e["defined_in"]
+            for e in entries
+            if isinstance(e, dict)
+            and e.get("name") in wanted
+            and isinstance(e.get("defined_in"), str)
+            and e["defined_in"] != module
+            and e["defined_in"] in components
+        }
+    )
+
+
+def use_used(row: dict[str, Any]) -> list[str]:
+    """Give the names that the users of a `module use` record import, without `"*"`."""
+    return sorted({n for user in row["users"] for n in user["names"] if n != module_use.STAR})
+
+
+def _use_parts(
+    line: str, facts: dict[str, Any], judged: judgement_json.Judged
+) -> tuple[str, list[str], tuple[str, ...]] | None:
+    """Give the claim, the modules, and the role keys of a `module use` line, or None."""
+    row = judged.uses.get(line)
+    if row is None:
+        return None
+    count = [judgement_json.count_row(*judged.counts[line])] if line in judged.counts else []
+    claim = "\n".join([line, *count, *row["rows"]])
+    module = row["module"]
+    return claim, [module, *defining_modules(facts, module, use_used(row))], ROLE_KEYS
+
+
+def _order(request: Request, judged: judgement_json.Judged) -> tuple[int, int, str]:
+    """Give the sort key: the module use requests first, with the most waiting import
+    crossings first, then by module. The other requests keep their order."""
+    row = judged.uses.get(request.target)
+    if not request.role_keys or row is None:
+        return (1, 0, "")
+    return (0, -int(row["waiting_crossings"]), str(row["module"]))
+
+
 def _line_requests(
     tree: nest.Tree,
     facts: dict[str, Any],
@@ -421,7 +481,9 @@ def _line_requests(
             if judgement_json.digest(line, judged.evidence)
             else "The evidence digest of the line is not available. Do systemap refresh."
         )
-        files = _files(root, facts, judgement_evidence.line_modules(m, line, facts))
+        use = _use_parts(line, facts, judged)
+        claim, modules, keys = use or (line, judgement_evidence.line_modules(m, line, facts), ())
+        files = _files(root, facts, modules)
         identity = subject if subjects.count(subject) == 1 else line
         out.append(
             Request(
@@ -429,14 +491,15 @@ def _line_requests(
                 JUDGEMENT,
                 m.id,
                 line,
-                line,
+                claim,
                 digest,
                 files,
                 blocked_by(blocked, files),
                 identity,
+                keys,
             )
         )
-    return out
+    return sorted(out, key=lambda r: _order(r, judged))
 
 
 def requests(

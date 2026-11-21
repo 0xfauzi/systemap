@@ -82,6 +82,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    Exact answers must have a current evidence digest. Broad answers must have `policy = true`.
    systemap refuses a broad answer for `crossing import`, `module use`, and `declared flow` lines.
    Do not leave unanswered lines. Examine source again for each stale answer.
+   On a map with `module use` lines, give the module roles first. Use the procedure in `references/decisions.md`.
 
    | kind | finding | action |
    |---|---|---|
@@ -93,8 +94,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `journey start` | A sequence starts at an unknown entry point. | Use the facts label or an empty `starts` value. |
    | `drafted journey` | An agent sequence still has no source examination. | Examine every step. Correct errors before removal of `drafted=True`. |
    | `step source` | A step source record does not resolve, or it is in no module of an acting or measured component. | Cite a current record from a module of a step component, or change the step. |
-   | `crossing import` | Components have imports between them but no flow. | The import crossing uses a `handoff` module or a handoff name. Add a flow with source evidence, change assignments, or record an answer for this line. |
    | `module use` | Other components import a module, and no flow connects them to its component. | Give the module role: `helper` with a symbol, `handoff`, or `mixed` with the handoff names. |
+   | `crossing import` | Components have imports between them but no flow. | The import crossing uses a `handoff` module or a handoff name. Add a flow with source evidence, change assignments, or record an answer for this line. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
    | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow ID` or `--flow 'SRC->DST'`. |
    | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
@@ -197,7 +198,7 @@ Only the agent of the parent map writes `systemap.toml`, the parent model, and t
 | `systemap journeys` | Ask the configured agent for draft sequences. The command needs `SYSTEMAP_TRUST_AGENT_COMMAND=1` from the maintainer. Do not set it yourself. The command rejects invalid steps. Examine each draft before removal of `drafted=True`. |
 | `systemap plan "<task>" --provider P` | Ask the decision provider which components the task can affect. `--check ID --base REF` compares a saved plan with source changes and sends no data. |
 | `systemap history` | Show source changes at older commits, assigned to the current components. |
-| `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. |
+| `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. `--limit N` gives the first N requests. |
 | `systemap explain KIND` | Show the meaning, reason, and action for a finding kind. `--brief` removes explanations from other command output. |
 | `systemap serve` | Serve the output over HTTP and show its URL. |
 | `systemap skill` | Install the complete skill again. `--print` writes SKILL.md to stdout. |

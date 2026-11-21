@@ -228,7 +228,7 @@ The result file is `map/parts/<stem>.json`.
 }
 ```
 
-A part agent records answers only in the forms `item` and `items`. The other forms in `config.ANSWER_FORMS` (config.py:85) are `crossing`, `crossing_into`, `crossing_from`, `kind`, and `module_sdk`. They apply across maps (second-pass.md:102-111). A part agent can propose one under `proposed_answers`. Only the main agent records it. The join refuses a result file that has a different form under `answers`.
+A part agent records answers only in the forms `item` and `items`. An `items` answer of a part agent for a `crossing import` line must have one item. Only the main agent records module roles. The other forms in `config_answers.ANSWER_FORMS` are `crossing`, `crossing_into`, `crossing_from`, `kind`, and `module_sdk`. They apply across maps (second-pass.md:102-111). A part agent can propose one under `proposed_answers`. Only the main agent records it. The join refuses a result file that has a different form under `answers`.
 
 **Without sub-agents.** One agent does Phase A, then each part in `order`, then Phase C. It uses the template message as its own task text. It writes the result file and makes one commit after each part. A context that becomes full can start again from the plan and the result files.
 

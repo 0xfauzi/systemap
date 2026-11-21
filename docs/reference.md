@@ -1846,16 +1846,19 @@ The target of a component is its ID. The target of a flow is its `id`, or `SRC->
 The target of a judgement line is its kind and the names of the components and modules in the line, for example `single module: Reader pkg.reader`.
 If two current lines have the same kind and names, or a line names nothing, the target is the full line.
 
-#### `systemap decisions pending [--json]`
+#### `systemap decisions pending [--json] [--limit N]`
 
 Gives the pending decision requests. The command exits 0.
 An unknown decision request is not pending. The `unknown` count gives the quantity.
+The `module use` requests come first, sorted by the quantity of import crossings that wait for the module role (the largest first), then by module.
+`--limit N` gives only the first N decision requests. N must be 1 or more.
+When the limit leaves out requests, the text ends with the quantity of the other requests, and the JSON object gives it in `more`.
 
 The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 2. Version 2 added `max_insufficient` and `requests[].insufficient`. |
+| `schema_version` | integer | The version of this schema. The value is 3. Version 2 added `max_insufficient` and `requests[].insufficient`. Version 3 added `requests[].role_keys` and `more`. |
 | `verdicts` | list of strings | `supported`, `contradicted`, and `insufficient_evidence`. |
 | `max_contradicted` | integer | The value of `[decisions] max_contradicted`. |
 | `max_insufficient` | integer | The quantity of `insufficient_evidence` verdicts for one target that makes the decision request unknown. The value is 2. |
@@ -1872,10 +1875,13 @@ The JSON object has these fields:
 | `requests[].insufficient` | integer | The quantity of `insufficient_evidence` verdicts for the target since the last change of its source. |
 | `requests[].blocked` | string | If not empty, the cause that prevents `supported`, and the necessary step. |
 | `requests[].identity` | string | For a judgement line, the target in the decision store: the kind and names of the line, or the full line. For a component or a flow, an empty string, and the store uses `target`. |
+| `requests[].role_keys` | list of strings | For a `module use` line, `role`, `symbol`, and `handoff`: the module role keys of a `supported` verdict. For other requests, an empty list. |
+| `more` | integer | The quantity of pending decision requests that `--limit` leaves out. Without `--limit`, the value is 0. |
 | `unknown` | integer | The quantity of unknown decision requests. |
 
 For a judgement line, the files are the files of the components and the modules that the line names.
 If the line names no component or module, the list is empty.
+For a `module use` line, the claim is the line and the rows below it, and the files are the file of the module and the files of the modules that define its names (`defined_in`).
 
 #### `systemap decisions submit FILE`
 
@@ -1888,6 +1894,9 @@ Each verdict is an object with only these fields:
 | `verdict` | string | `supported`, `contradicted`, or `insufficient_evidence`. |
 | `citations` | list of objects | The source lines that the agent read. Each citation has `file`, `start_line`, `end_line`, and `sha256`. |
 | `summary` | string | One or more sentences about the source code. The writing profile applies. |
+| `role` | string | Only in a `supported` verdict for a `module use` line, and necessary there: `helper`, `handoff`, or `mixed`. |
+| `symbol` | string | Only with `role`: one name. A `helper` verdict must have it when the rows of the line give names. |
+| `handoff` | list of strings | Only with `role = "mixed"`: one or more names of the module. |
 
 The command first examines all verdicts.
 If one verdict is incorrect, the command writes no file, gives each error, and exits 1.
@@ -1901,7 +1910,9 @@ The command rejects a verdict in these conditions:
 - A `file` is a symbolic link to a file that is not in the repository.
 - A line span is not in the file, or `start_line` is more than `end_line`.
 - A `sha256` is not the SHA-256 digest of the current file content.
-- A `supported` verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a judgement line without files, one citation is necessary.
+- A `supported` verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a `module use` line, these are the file of the module and the files of the modules that define its names. For a judgement line without files, one citation is necessary.
+- A verdict has `role`, `symbol`, or `handoff`, but it is not a `supported` verdict for a `module use` line. Or a `supported` verdict for a `module use` line has no `role`.
+- The module role does not obey the rules of the answer form, the symbol rule, or the flow source rule. The error gives the text of the refused answer.
 - A `supported` verdict has a decision request with a `blocked` value, or the review command cannot write the digest.
 - A `supported` verdict for a component has a flow of that component with a `contradicted` or unknown verdict.
 
@@ -1909,7 +1920,7 @@ Then the command writes, in this sequence:
 
 1. The `review_digest` of each `supported` flow.
 2. The `source_review` of each `supported` component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.
-3. One exact answer for each `supported` judgement line. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.
+3. One exact answer for each `supported` judgement line. For a `module use` line, the answer also has `role`, and `symbol` or `handoff` when the verdict gives them. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.
 4. The decision store, `.systemap/decisions.json`. Git does not record this file.
 
 A `contradicted` verdict adds one to the `contradicted` count of the target.

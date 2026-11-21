@@ -141,12 +141,9 @@ def test_the_skill_states_the_target_and_runs_suggest_and_the_check_together() -
     assert "If you remove a flow, crossing-import findings can open again" in step
     second = skill.files()["references/second-pass.md"]
     assert "`systemap check && systemap judgement --strict`" in second
-    for form in (
-        '{ crossing_into = "',
-        '{ crossing_from = "',
-        '{ crossing = ["Page", "Figures", "Describe"]',
-    ):
-        assert form in second, form
+    # systemap refuses the crossing selectors, so the examples do not show them.
+    assert "{ crossing" not in second
+    assert 'role = "helper", symbol = "clean"' in second
 
 
 def _package_facts(packages: list[str]) -> dict[str, Any]:

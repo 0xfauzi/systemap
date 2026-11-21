@@ -21,6 +21,14 @@ rules are the section "Map view: the rules" of docs/design/atlas.md:
   card, the source modules, the source records and the rules of the map (invariants and
   import rules). The flows are the flows of the layer of the map. The details give the count
   of the flows in other layers, with a button that shows all layers.
+- The "Uses" and "Used by" lists of a card that is not an actor: one row for each other
+  card that a module of this card imports, and for each other card with a module that
+  imports a module of this card. The page calculates them from the page data of the
+  Details panel (`sr.mo`, `md[].im`, `importers`) and the flows of the map. It reads no
+  answer. A row tells the first flow between the two cards, or "no flow". The rows with no
+  flow come first, then the rows with the most importing modules. The list shows
+  USES_SHOWN rows and a button that shows all. A click on a row selects the card. The lists
+  include imports for type checks, and the text below each list says it.
 - Each flow row lights its flow on the map (`point` in `atlas_lit`). A click on a row
   selects the card at its other end. A neighbour of a nested map goes out to its card.
 - A card that opens a map has a button that goes into that map. A card with a flow has the
@@ -123,6 +131,7 @@ text-align:left;padding:9px 8px;margin:0 -8px;border-radius:8px;transition:backg
 .row b em{font-style:normal;font-weight:400;color:var(--ink-3)}
 .row small{font-size:12px;color:var(--ink-2);line-height:1.45}
 .row small.ev{color:var(--ink-3)}
+.row[hidden]{display:none}
 .mods{display:flex;flex-wrap:wrap;gap:5px}
 .mods code,.side .rec code{font:400 10.5px/1.4 var(--fm);padding:3px 6px;border-radius:5px;border:1px solid var(--line);
 color:var(--ink-2);overflow-wrap:anywhere}
@@ -300,10 +309,63 @@ function modules(c) {
 function names(xs) { return xs.length ? xs.map(function (x, i) { return [i ? ', ' : null, el('code', null, x)]; }) : 'none recorded'; }
 function fileOf(m, x) { return 'f' in x ? x.f : m.fr ? m.fr[0] + x.i.replace(/\./g, '/') + m.fr[1] : ''; }
 function nameOf(m, x) { return typeof x === 'number' ? m.md[x].i : x; }
-function importers(m, j) {
+// The importers of module j: an index for a module of the map, a name for another module.
+function importerIds(m, j) {
   var x = m.md[j], out = [];
   if (!x.ia) m.md.forEach(function (o, k) { if ((o.im || []).indexOf(j) >= 0) out.push(k); });
-  return out.concat(x.ib || []).map(function (y) { return nameOf(m, y); });
+  return out.concat(x.ib || []);
+}
+function importers(m, j) { return importerIds(m, j).map(function (y) { return nameOf(m, y); }); }
+// ---- Uses and Used by: the cards that the modules of a card import, and the reverse ------
+var USES_SHOWN = 8;
+function ownersOf(m) {
+  var own = {};
+  Object.keys(m.sr || {}).forEach(function (id) { (m.sr[id].mo || []).forEach(function (k) { own[k] = id; }); });
+  return own;
+}
+function between(m, a, b) { return (m.flows || []).filter(function (f) { return (f.s === a && f.t === b) || (f.s === b && f.t === a); }); }
+function size(o) { return Object.keys(o).length; }
+// The links of card c: `uses` and `by` give, for each other card, the importing modules
+// (a) and the imported modules (b). `out` gives the imported modules outside the map.
+function useLinks(c) {
+  var m = c.map, own = ownersOf(m), mine = ((m.sr || {})[c.id] || {}).mo || [], got = {uses: {}, by: {}, out: {}};
+  function add(t, id, a, b) {
+    var o = m.byId[id];
+    if (id === undefined || id === c.id || !o || o.k === 'actor') return;
+    var r = t[id] || (t[id] = {a: {}, b: {}});
+    r.a[a] = 1; r.b[b] = 1;
+  }
+  mine.forEach(function (j) {
+    (m.md[j].im || []).forEach(function (y) { if (typeof y === 'number') add(got.uses, own[y], j, y); else got.out[y] = 1; });
+    importerIds(m, j).forEach(function (y) { if (typeof y === 'number') add(got.by, own[y], y, j); });
+  });
+  return got;
+}
+function linkRow(c, id, r, mine) {
+  var fl = between(c.map, c.id, id), a = size(r.a), b = size(r.b), verb = a === 1 ? ' imports ' : ' import ';
+  var tag = fl.length ? 'flow: ' + fl[0].a + (fl.length > 1 ? ' and ' + (fl.length - 1) + ' more' : '') : 'no flow';
+  var text = mine ? counted(a, 'module') + ' of this card' + verb + counted(b, 'module') + ' of ' + id + '.'
+    : counted(a, 'module') + ' of ' + id + verb + counted(b, 'module') + ' of this card.';
+  var e = el('button', {type: 'button', 'class': 'row', 'data-c': id}, el('i'), el('b', null, id + ' ', el('em', null, tag)), el('small', null, text));
+  if (fl.length) return colorOf(fl[0], e);
+  e.style.setProperty('--k', 'var(--line-2)');
+  return e;
+}
+function linkList(c, name, t, mine, empty, extra) {
+  var m = c.map, ids = Object.keys(t), flowed = {};
+  ids.forEach(function (id) { flowed[id] = between(m, c.id, id).length ? 1 : 0; });
+  ids.sort(function (x, y) { return flowed[x] - flowed[y] || size(t[y].a) - size(t[x].a) || (x < y ? -1 : x > y ? 1 : 0); });
+  var rows = ids.map(function (id, n) { var e = linkRow(c, id, t[id], mine); if (n >= USES_SHOWN) e.hidden = true; return e; });
+  return section(name, ids.length, rows.length ? rows : el('p', {'class': 'side__d'}, empty),
+    ids.length > USES_SHOWN ? el('button', {type: 'button', 'class': 'more', 'data-uses': ''}, 'Show all ' + ids.length) : null,
+    extra, el('p', {'class': 'side__d'}, 'These lists include imports for type checks.'));
+}
+function useLists(c) {
+  if (c.k === 'actor') return null;
+  var got = useLinks(c), n = size(got.out);
+  var out = n ? el('p', {'class': 'side__d'}, 'Modules of this card also import ' + counted(n, 'module') + ' outside this map.') : null;
+  return [linkList(c, 'Uses', got.uses, true, 'This card imports no module of another card.', out),
+    linkList(c, 'Used by', got.by, false, 'No module of another card imports this card.', null)];
 }
 function moduleRecord(m, j) {
   var x = m.md[j], file = fileOf(m, x);
@@ -374,7 +436,7 @@ function sideSync() {
   st.replaceChildren.apply(st, c.as ? [el('i', {'class': c.as[0] === 'unknown' ? 'no' : null}), claimWords(c)] : []);
   var body = document.createDocumentFragment();
   addChild(body, [c.child ? enterButton(c) : null, focusButton(c), c.d ? about(c.d) : null, c.nt ? el('p', {'class': 'side__d'}, el('b', null, 'Note.'), ' ' + c.nt) : null,
-    flowLists(c), sequencesOf(c), modules(c), records(c), rules(c)]);
+    flowLists(c), useLists(c), sequencesOf(c), modules(c), records(c), rules(c)]);
   if (SIDE.contains(document.activeElement) && SIDE_B.contains(document.activeElement)) document.getElementById('atlas-side-h').focus({preventScroll: true});
   SIDE_B.replaceChildren(body);
   SIDE_B.scrollTop = 0;
@@ -395,6 +457,8 @@ if (SIDE) {
     var b = e.target.closest ? e.target.closest('button') : null, c = SEL, f = rowFlow(e.target);
     if (!b || !c) return;
     if (f) { var o = c.map.byId[f.s === c.id ? f.t : f.s]; if (o) { point(null, null, ''); act(o, false); } }
+    else if (b.hasAttribute('data-c')) { var u = c.map.byId[b.getAttribute('data-c')]; if (u) act(u, false); }
+    else if (b.hasAttribute('data-uses')) { b.parentNode.querySelectorAll('.row[hidden]').forEach(function (r) { r.hidden = false; }); b.remove(); }
     else if (b.hasAttribute('data-go') && c.child) dive(c);
     else if (b.hasAttribute('data-focus')) fcEnter(c);
     else if (b.hasAttribute('data-all')) setLayer('all');

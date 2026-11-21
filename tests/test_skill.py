@@ -50,16 +50,10 @@ def test_skill_front_matter_and_vocabulary() -> None:
     block = re.search(r"```toml\n(.*?)```", second, re.S)
     assert block is not None
     rows = re.findall(r"^\s+\{ (\w+) = ", block.group(1), re.M)
-    assert rows == [
-        "item",
-        "items",
-        "crossing",
-        "crossing_into",
-        "crossing_from",
-        "kind",
-        "module_sdk",
-    ]
-    assert "Seven forms" in second and len(rows) == 7
+    # The crossing selectors are refused answers, so the examples give a module role answer.
+    assert rows == ["item", "items", "item", "kind", "module_sdk"]
+    assert 'role = "helper", symbol = "clean"' in block.group(1)
+    assert "These forms are available" in second and "Seven forms" not in second
     assert "systemap judgement --verbose" in second
     assert '--kind "crossing import"' in second
     assert "repository's own agent definition" in second
@@ -118,7 +112,12 @@ def test_step_four_lists_every_answer_form_and_every_line_kind() -> None:
     from systemap.config import LINE_KINDS
 
     rows = [line for line in step.splitlines() if line.strip().startswith("| `")]
-    assert [row.split("`")[1] for row in rows] == list(LINE_KINDS)
+    # The table gives `module use` before `crossing import`: the agent gives the module
+    # roles first, and only then are the crossing import lines open.
+    kinds = [k for k in LINE_KINDS if k != "module use"]
+    kinds.insert(kinds.index("crossing import"), "module use")
+    assert [row.split("`")[1] for row in rows] == kinds
+    assert "On a map with `module use` lines, give the module roles first." in step
     mis_fold = next(row for row in rows if "possible mis-fold" in row)
     assert "no common name word or package" in mis_fold
     assert "Examine its function" in mis_fold and "correct component assignment" in mis_fold

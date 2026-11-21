@@ -67,6 +67,7 @@ Use `items` for exact lines with one shared reason.
 If the reasons are different, use separate records.
 Exact answers must have current evidence digests.
 Broad policies must have `policy = true` and a clear explanation.
+systemap refuses a broad policy for `crossing import`, `module use`, and `declared flow` lines.
 Do not use a broad policy to hide an unexamined claim.
 
 ## Temporary scripts and repository checks

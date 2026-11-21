@@ -1910,7 +1910,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>import_crossings</code></td>
 <td>object</td>
-<td>The keys <code>open</code>, <code>waiting</code>, and <code>closed</code>, with the quantity of import crossings in each state, and <code>crossings</code>: one object for each import crossing with <code>line</code>, <code>map</code>, <code>from</code>, <code>to</code>, <code>state</code>, and <code>modules</code>. Each object of <code>modules</code> has <code>module</code> and <code>role</code> (<code>helper</code>, <code>handoff</code>, <code>mixed</code>, <code>refused</code>, or <code>none</code>). Only an <code>open</code> import crossing is a finding.</td>
+<td>The keys <code>open</code>, <code>waiting</code>, and <code>closed</code>, with the quantity of import crossings in each state, and <code>crossings</code>: one object for each import crossing with <code>line</code>, <code>map</code>, <code>from</code>, <code>to</code>, <code>state</code>, and <code>modules</code>. Each object of <code>modules</code> has <code>module</code> and <code>role</code> (<code>helper</code>, <code>handoff</code>, <code>mixed</code>, or <code>none</code>). A module with a refused answer has the role <code>none</code>, because it has no accepted module role. Only an <code>open</code> import crossing is a finding.</td>
 </tr>
 <tr>
 <td><code>module_roles</code></td>
@@ -2339,11 +2339,14 @@ A source change that does not change a judgement line does not change its <code>
 The target of a component is its ID. The target of a flow is its <code>id</code>, or <code>SRC-&gt;DST</code> for a flow without an <code>id</code>.
 The target of a judgement line is its kind and the names of the components and modules in the line, for example <code>single module: Reader pkg.reader</code>.
 If two current lines have the same kind and names, or a line names nothing, the target is the full line.</p>
-<h4 id="systemap-decisions-pending-json"><code>systemap decisions pending [--json]</code></h4>
+<h4 id="systemap-decisions-pending-json-limit-n"><code>systemap decisions pending [--json] [--limit N]</code></h4>
 <p>Gives the pending decision requests. The command exits 0.
-An unknown decision request is not pending. The <code>unknown</code> count gives the quantity.</p>
+An unknown decision request is not pending. The <code>unknown</code> count gives the quantity.
+The <code>module use</code> requests come first, sorted by the quantity of import crossings that wait for the module role (the largest first), then by module.
+<code>--limit N</code> gives only the first N decision requests. N must be 1 or more.
+When the limit leaves out requests, the text ends with the quantity of the other requests, and the JSON object gives it in <code>more</code>.</p>
 <p>The JSON object has these fields:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-pending-json">
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-pending-json-limit-n">
 <table>
 <thead>
 <tr>
@@ -2356,7 +2359,7 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 2. Version 2 added <code>max_insufficient</code> and <code>requests[].insufficient</code>.</td>
+<td>The version of this schema. The value is 3. Version 2 added <code>max_insufficient</code> and <code>requests[].insufficient</code>. Version 3 added <code>requests[].role_keys</code> and <code>more</code>.</td>
 </tr>
 <tr>
 <td><code>verdicts</code></td>
@@ -2439,6 +2442,16 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <td>For a judgement line, the target in the decision store: the kind and names of the line, or the full line. For a component or a flow, an empty string, and the store uses <code>target</code>.</td>
 </tr>
 <tr>
+<td><code>requests[].role_keys</code></td>
+<td>list of strings</td>
+<td>For a <code>module use</code> line, <code>role</code>, <code>symbol</code>, and <code>handoff</code>: the module role keys of a <code>supported</code> verdict. For other requests, an empty list.</td>
+</tr>
+<tr>
+<td><code>more</code></td>
+<td>integer</td>
+<td>The quantity of pending decision requests that <code>--limit</code> leaves out. Without <code>--limit</code>, the value is 0.</td>
+</tr>
+<tr>
 <td><code>unknown</code></td>
 <td>integer</td>
 <td>The quantity of unknown decision requests.</td>
@@ -2447,7 +2460,8 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 </table>
 </div>
 <p>For a judgement line, the files are the files of the components and the modules that the line names.
-If the line names no component or module, the list is empty.</p>
+If the line names no component or module, the list is empty.
+For a <code>module use</code> line, the claim is the line and the rows below it, and the files are the file of the module and the files of the modules that define its names (<code>defined_in</code>).</p>
 <h4 id="systemap-decisions-submit-file"><code>systemap decisions submit FILE</code></h4>
 <p>Reads a JSON list of verdicts from FILE, or from stdin for <code>-</code>.
 Each verdict is an object with only these fields:</p>
@@ -2481,6 +2495,21 @@ Each verdict is an object with only these fields:</p>
 <td>string</td>
 <td>One or more sentences about the source code. The writing profile applies.</td>
 </tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Only in a <code>supported</code> verdict for a <code>module use</code> line, and necessary there: <code>helper</code>, <code>handoff</code>, or <code>mixed</code>.</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td>Only with <code>role</code>: one name. A <code>helper</code> verdict must have it when the rows of the line give names.</td>
+</tr>
+<tr>
+<td><code>handoff</code></td>
+<td>list of strings</td>
+<td>Only with <code>role = &quot;mixed&quot;</code>: one or more names of the module.</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -2496,7 +2525,9 @@ A test file in the facts is the file of a test in the <code>tests</code> of a mo
 <li>A <code>file</code> is a symbolic link to a file that is not in the repository.</li>
 <li>A line span is not in the file, or <code>start_line</code> is more than <code>end_line</code>.</li>
 <li>A <code>sha256</code> is not the SHA-256 digest of the current file content.</li>
-<li>A <code>supported</code> verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a judgement line without files, one citation is necessary.</li>
+<li>A <code>supported</code> verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a <code>module use</code> line, these are the file of the module and the files of the modules that define its names. For a judgement line without files, one citation is necessary.</li>
+<li>A verdict has <code>role</code>, <code>symbol</code>, or <code>handoff</code>, but it is not a <code>supported</code> verdict for a <code>module use</code> line. Or a <code>supported</code> verdict for a <code>module use</code> line has no <code>role</code>.</li>
+<li>The module role does not obey the rules of the answer form, the symbol rule, or the flow source rule. The error gives the text of the refused answer.</li>
 <li>A <code>supported</code> verdict has a decision request with a <code>blocked</code> value, or the review command cannot write the digest.</li>
 <li>A <code>supported</code> verdict for a component has a flow of that component with a <code>contradicted</code> or unknown verdict.</li>
 </ul>
@@ -2504,7 +2535,7 @@ A test file in the facts is the file of a test in the <code>tests</code> of a mo
 <ol>
 <li>The <code>review_digest</code> of each <code>supported</code> flow.</li>
 <li>The <code>source_review</code> of each <code>supported</code> component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.</li>
-<li>One exact answer for each <code>supported</code> judgement line. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.</li>
+<li>One exact answer for each <code>supported</code> judgement line. For a <code>module use</code> line, the answer also has <code>role</code>, and <code>symbol</code> or <code>handoff</code> when the verdict gives them. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.</li>
 <li>The decision store, <code>.systemap/decisions.json</code>. Git does not record this file.</li>
 </ol>
 <p>A <code>contradicted</code> verdict adds one to the <code>contradicted</code> count of the target.

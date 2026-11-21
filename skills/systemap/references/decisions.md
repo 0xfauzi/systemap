@@ -42,11 +42,52 @@ Each decision request has an `id`. If the claim does not change, the `id` stays 
 Use `systemap decisions pending --map ID` for one nested map. The request IDs are the same as in a run without `--map`.
 Only the main agent runs `systemap decisions submit`. A part agent writes its verdicts in its result file (`references/parts.md`).
 
+## Module roles
+
+A `module use` line names one module. Modules of other components import this module, and no flow connects these components to the component of the module.
+Give the module role of the module in your result. The module role tells if the imports of the module need a flow.
+
+- `helper`: the code of the module operates in the code of the caller. It sends no artifact out of the caller.
+- `handoff`: the code of the module sends an artifact, keeps shared data, or starts work in its component.
+- `mixed`: some names of the module are handoff names. Give these names in `handoff`.
+
+A `supported` result for a `module use` request has these keys in addition to the four result keys:
+
+- `role`: `"helper"`, `"handoff"`, or `"mixed"`.
+- `symbol`: one name. A `helper` result must have it. Use a name that the users import. The rows of the request give these names. If a user imports the full module, you can also use a name that the module defines or imports. If the rows give no names, do not give a symbol.
+- `handoff`: a list of one or more names of the module. Use it only with `mixed`.
+
+```json
+{"request_id": "<id>", "verdict": "supported", "role": "helper", "symbol": "escape",
+ "citations": [{"file": "pkg/html.py", "start_line": 40, "end_line": 62, "sha256": "<digest>"}],
+ "summary": "<one sentence about the definition of the symbol>"}
+```
+
+For a `module use` request, `supported` records the module role of your result. `contradicted` tells that the line is not correct for the source, for example because the import does not occur.
+
+Procedure for module roles:
+
+1. Run `systemap refresh`.
+2. Run `systemap decisions pending --limit 25 --json`. The module use requests come first. The first requests have the most import crossings that wait.
+3. For each request, read the definitions of the names that the users import. The `files` rows give the file of the module and the files that define its names.
+4. Send `supported` with the module role. Cite the lines of the definitions that you read.
+5. Run `systemap decisions submit FILE`. Then run `systemap judgement`.
+6. Do steps 2 to 5 again until no module use request is pending.
+7. Each `crossing import` line that stays open uses a handoff module or a handoff name. Add a flow with an artifact, or give an exact answer for the line.
+
+Rules for module roles:
+
+- Examine each module. Do not give the same module role to all modules.
+- systemap refuses a `helper` answer when a flow source record of the map cites the module or a name of the module. Change the module role to `handoff` or `mixed`.
+- systemap refuses a family answer, and an answer with two or more items, for `crossing import`, `module use`, and `declared flow` lines.
+- An import for type checks only does not make a `module use` line.
+
 ## Rules
 
 - With Jev, use the sequence from `systemap judgement --order-by-drift` to select the first stale component, but examine all stale components.
 - Do not record `supported` without a citation. A verdict of `supported` must refer to a file of the claim.
   For a flow, the files of the claim are the files of the two endpoint components.
+  For a `module use` line, the files of the claim are the file of the module and the files of the modules that define its names.
 - Refer only to the lines that you read. Do not refer to a file that you did not read.
 - A citation can refer to a source file or a test file that the facts list.
 - Obey the writing profile in the summary. The summary of a `supported` judgement verdict becomes the recorded answer reason.
