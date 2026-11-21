@@ -281,7 +281,11 @@ For each finding, change the model or record the reason for its stored state.</p
 </tr>
 <tr>
 <td>crossing import</td>
-<td>Module A in component P imports module B in component Q. No flow connects P and Q in either direction.</td>
+<td>Module A in component P imports module B in component Q. No flow connects P and Q in either direction. The line opens only when the import crossing uses a handoff module or a handoff name.</td>
+</tr>
+<tr>
+<td>module use</td>
+<td>Modules of other components import module M, and no flow connects them to the component of M. What is the module role of M: <code>helper</code>, <code>handoff</code>, or <code>mixed</code>?</td>
 </tr>
 <tr>
 <td>declared flow</td>
@@ -383,6 +387,7 @@ The <code>source_review</code> value, the flow review digests, and the source di
 The cited facts are the <code>file</code>, the <code>package</code>, the public <code>names</code>, and the imports in <code>uses</code> with the imported names.
 They also include the <code>external</code> imports, the <code>parsed</code> value, and the unknown records without their line numbers.</li>
 <li>For a <code>crossing import</code> line, the imports between the two components, with the imported names.</li>
+<li>For a <code>module use</code> line, the cited facts of its module, its <code>import_forms</code>, and its <code>dynamic_imports</code> without the line numbers. A new user, a move of the module to a different component, and a function body do not change this evidence.</li>
 <li>For an <code>entry point</code> line, the entry point records of its modules. A record has the <code>kind</code>, <code>module</code>, <code>target</code>, and <code>name</code> values.</li>
 <li>For an <code>unknown surface</code> line of a module, the records of the line and the text of each cited source line.
 The records do not include the line number and the parser version.
@@ -1678,13 +1683,24 @@ A line after the findings counts the component source reviews by state: current,
 Then one row gives each flow with the label &quot;review earlier than source tracking&quot;. These rows are not findings.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under <code>[judgement] answered</code> suppress findings.
-The report refuses a family answer for <code>crossing import</code> and <code>declared flow</code> findings, and an answer with two or more items when one item is such a finding.
+The report refuses a family answer for <code>crossing import</code>, <code>module use</code>, and <code>declared flow</code> findings, and an answer with two or more items when one item is such a finding.
 A <code>refused answer:</code> row gives each refused answer and its cause. The findings of a refused answer stay open.
-An import only for type checks gives no <code>crossing import</code> finding.
+An import only for type checks gives no <code>crossing import</code> finding.</p>
+<p>A <code>module use</code> finding names one module that other components import with no flow. Its exact answer gives the module role of the module:</p>
+<ul>
+<li><code>role = &quot;helper&quot;</code> with <code>symbol</code>, a name that the users import. The code of the module operates in the code of the caller.</li>
+<li><code>role = &quot;handoff&quot;</code>. The code of the module sends an artifact, keeps shared data, or starts work in its component.</li>
+<li><code>role = &quot;mixed&quot;</code> with <code>handoff</code>, a list of the names of the module that are handoff code.</li>
+</ul>
+<p>A <code>crossing import</code> finding opens only when its import crossing uses a handoff module or a handoff name.
+An import crossing that uses a module with no module role waits. It is not a finding, but the <code>module use</code> finding of the module is open.
+An import crossing that uses only helper code is closed. An exact answer for its line gets an <code>unused answer:</code> row.
+The report refuses a <code>helper</code> answer when a flow source record of the map cites the module, and a <code>mixed</code> answer when a cited name is not in <code>handoff</code>.
+After the source review counts, two rows count the import crossings by state and the modules by module role.
 The first finding of each kind has rows about its effect and necessary action.</p>
 <ul>
 <li>
-<p><code>--strict</code> exits 1 while a finding is open or an answer is refused. If not, the exit code is 0.
+<p><code>--strict</code> exits 1 while a finding is open, an answer is refused, or an import crossing waits for module roles. If not, the exit code is 0.
 A model without components also gives exit 1 with <code>--strict</code>, as <code>systemap check</code> does.</p>
 </li>
 <li>
@@ -1774,7 +1790,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 8. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>. Version 8 added <code>open[].map_id</code>, <code>open[].parent_flow</code>, <code>open[].nested_flows</code>, and <code>open[].import_pairs</code>.</td>
+<td>The version of this schema. The value is 9. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>. Version 8 added <code>open[].map_id</code>, <code>open[].parent_flow</code>, <code>open[].nested_flows</code>, and <code>open[].import_pairs</code>. Version 9 added <code>open[].module_use</code>, the module role keys of <code>answered.answers</code>, <code>refused_answers</code>, <code>unused_answers</code>, <code>import_crossings</code>, and <code>module_roles</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1837,6 +1853,11 @@ It reads the model list one time, as each Jev command does.</p>
 <td>For a <code>boundary import</code> finding: each import, with <code>module</code> and <code>imports</code>. For a <code>boundary flow</code> finding, the list is empty. For other findings, the value is null.</td>
 </tr>
 <tr>
+<td><code>open[].module_use</code></td>
+<td>object or null</td>
+<td>For a <code>module use</code> finding: <code>module</code>, the imported module; <code>component</code>, its component in the map of the line; <code>users</code>, one object for each run-time import with <code>map</code>, <code>component</code>, and <code>names</code> (<code>*</code> is an import of the full module with no known names); and <code>waiting_crossings</code>, the quantity of import crossings that wait for the module role. For other findings, the value is null.</td>
+</tr>
+<tr>
 <td><code>open[].drift</code></td>
 <td>object</td>
 <td>Only with <code>--order-by-drift</code>, and only in a <code>stale source review</code> row. <code>probability</code> is the drift score, or null for <code>no score</code>. <code>source</code> is <code>diff</code> or <code>text</code>: the form of the source part.</td>
@@ -1870,6 +1891,31 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>answered.answers[].lines</code></td>
 <td>list of strings</td>
 <td>The findings that the answer closes.</td>
+</tr>
+<tr>
+<td><code>answered.answers[].role</code>, <code>symbol</code>, <code>handoff</code></td>
+<td>string, string, list of strings</td>
+<td>The module role, the symbol, and the handoff names of a module role answer. For other answers, the values are empty.</td>
+</tr>
+<tr>
+<td><code>refused_answers</code></td>
+<td>list of objects</td>
+<td>One object for each refused answer: <code>answer</code> (the selector), <code>items</code>, <code>cause</code> (<code>family</code>, <code>items</code>, <code>symbol</code>, or <code>flow_source</code>), <code>text</code>, and <code>lines</code>, the quantity of findings that the answer selects.</td>
+</tr>
+<tr>
+<td><code>unused_answers</code></td>
+<td>list of strings</td>
+<td>Each item of an exact <code>crossing import</code> answer that is not necessary, because module roles close its import crossing.</td>
+</tr>
+<tr>
+<td><code>import_crossings</code></td>
+<td>object</td>
+<td>The keys <code>open</code>, <code>waiting</code>, and <code>closed</code>, with the quantity of import crossings in each state, and <code>crossings</code>: one object for each import crossing with <code>line</code>, <code>map</code>, <code>from</code>, <code>to</code>, <code>state</code>, and <code>modules</code>. Each object of <code>modules</code> has <code>module</code> and <code>role</code> (<code>helper</code>, <code>handoff</code>, <code>mixed</code>, <code>refused</code>, or <code>none</code>). Only an <code>open</code> import crossing is a finding.</td>
+</tr>
+<tr>
+<td><code>module_roles</code></td>
+<td>object</td>
+<td>The keys <code>helper</code>, <code>handoff</code>, <code>mixed</code>, <code>refused</code>, and <code>none</code>, with the quantity of the modules of <code>module use</code> findings with each module role.</td>
 </tr>
 <tr>
 <td><code>stale_answers</code></td>
@@ -1992,7 +2038,8 @@ The changes of a refused path are not known. A refused module is not a removed m
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
 An answer for a new crossing import must agree with the <code>judgement</code> rule.
-An exact answer must have the current evidence digest. A family answer must have <code>policy = true</code>.
+An exact answer must have the current evidence digest. A family answer is refused.
+Module role answers also close a new crossing import when each imported module is a helper module, or a mixed module and the import uses no handoff name. The delta does not apply the flow source rule, because it has no flow tree.
 The exit code is 0 if the map is current, or 1 if it is necessary to update the map.</p>
 <p>The lines with a necessary action come first, under <code>The map needs an update (N):</code>.
 The lines with no necessary action follow.

@@ -22,6 +22,7 @@ from systemap import (
     delta_report,
     evidence,
     graph,
+    module_use,
     nest,
     source_facts,
 )
@@ -425,7 +426,9 @@ def compute(
             if not q or q == p or frozenset((p, q)) in joined or (module, target) in before:
                 continue
             imports = pairs.get((p, q), [(module, target)])
-            if _answered(cfg, prefix + crossing_line(p, q), h, imports):
+            if _answered(
+                cfg, prefix + crossing_line(p, q), h, imports, owner_head, (module, target)
+            ):
                 continue
             lines.append(
                 Line(
@@ -499,13 +502,23 @@ def _candidate(
 
 
 def _answered(
-    cfg: Config, line: str, components: dict[str, Any], imports: list[tuple[str, str]]
+    cfg: Config,
+    line: str,
+    components: dict[str, Any],
+    imports: list[tuple[str, str]],
+    owner: dict[str, str],
+    edge: tuple[str, str],
 ) -> bool:
     """This function accepts an answer for a crossing line with the judgement rule.
 
-    An exact answer must have the current evidence digest. A family answer must have
-    `policy = true`. The digest contains the imports, as in `judgement`.
+    An exact answer must have the current evidence digest. The digest contains the
+    imports, as in `judgement`. A family answer is a refused answer. Module role answers
+    also close the new import when they close each unit of the import
+    (`module_use.closes_import`). The delta has no flow tree, so it does not apply the
+    flow source rule.
     """
+    if module_use.closes_import(cfg.judgement_answered, components, owner, *edge):
+        return True
     found = digest(crossing_state(components, imports))
     return not apply_answers([line], cfg.judgement_answered, {line: found}).open
 

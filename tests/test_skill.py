@@ -108,14 +108,12 @@ def test_step_four_lists_every_answer_form_and_every_line_kind() -> None:
     for form in (
         'item = "<line>"',
         'items = ["<line>", ...]',
-        'crossing = ["A", "B", ...]',
-        'crossing_into = "A"',
-        'crossing_from = "A"',
         'kind = "<kind>"',
         'module_sdk = "<import>"',
     ):
         assert form in step, form
-    assert "two or more different identifiers" in step and "nonempty" in step
+    assert "nonempty" in step and "crossing_into" not in step
+    assert "refuses a broad answer for `crossing import`, `module use`, and `declared flow`" in step
     assert "evidence digest" in step and "policy = true" in step
     from systemap.config import LINE_KINDS
 

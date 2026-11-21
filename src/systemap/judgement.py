@@ -31,6 +31,7 @@ from systemap import (
     evidence,
     explain,
     judgement_evidence,
+    module_use,
     nest,
     nest_join,
     refused_answers,
@@ -467,7 +468,12 @@ def run_tree(
 
 
 def evidence_for_tree(
-    tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str], earlier: bool = False
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    root: Path,
+    lines: list[str],
+    earlier: bool = False,
+    uses: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """This function hashes the evidence of each printed line for exact answers.
 
@@ -475,14 +481,17 @@ def evidence_for_tree(
     Crossing-import evidence includes only the imports between the two components. A
     line with a source line number has the evidence of its statement. An uncommitted
     source edit that changes a cited fact changes the digest. With `earlier`, the
-    digests have the form of systemap 2.0.0 (`answer_upgrade`).
+    digests have the form of systemap 2.0.0 (`answer_upgrade`). `uses` gives the module
+    of each `module use` line. Without it, the module comes from the line.
     """
     crossings = {
         m.prefix + crossing_line(p, q): imports
         for m in tree.maps
         for (p, q), imports in crossing_imports(m.model, facts).items()
     }
-    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings, earlier)
+    if uses is None:
+        uses = {x: m for x in lines if (m := module_use.line_module(unprefixed(x)))}
+    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings, earlier, uses)
 
 
 def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
@@ -542,8 +551,8 @@ def answers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
 @dataclass(frozen=True)
 class Answered:
     """This record contains open diagnostics, accepted counts, stale answers, pending
-    reviews, policy notices, the accepted answers, and the texts of the refused answers
-    (`refused_answers`).
+    reviews, policy notices, the accepted answers, the texts of the refused answers
+    (`refused_answers`), and the answers that module roles make unused.
     """
 
     open: list[str]
@@ -553,6 +562,7 @@ class Answered:
     policies: list[str] = field(default_factory=list)
     accepted: list[Answer] = field(default_factory=list)
     refused: list[str] = field(default_factory=list)
+    unused: list[str] = field(default_factory=list)
 
 
 def apply_answers(
@@ -677,6 +687,7 @@ def report(
     out += [f"  pending answer: {printable(item)}" for item in result.pending or []]
     out += [f"  policy answer: {printable(item)}" for item in result.policies or []]
     out += [f"  refused answer: {printable(item)}" for item in result.refused]
+    out += [f"  unused answer: {printable(item)}" for item in result.unused]
     return out
 
 

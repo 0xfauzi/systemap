@@ -11,6 +11,10 @@ a refused answer with the cause:
 - `items`: the answer has two or more items, and one or more items are lines of a kind
   in `NO_FAMILY_KINDS`.
 
+From the module roles, the family text for `crossing import` lines tells the maintainer
+to give the module use answers first. `correct_stale` corrects the stale answers of the
+import crossings that module roles hide.
+
 The rule reads only the form of the answer. Thus an answer that selects no line now is
 a refused answer, not a stale answer. The configuration still reads these keys with no
 error, so that `systemap decisions pending` can operate while the answer is refused.
@@ -18,12 +22,15 @@ error, so that `systemap decisions pending` can operate while the answer is refu
 
 from __future__ import annotations
 
-from collections.abc import Container, Iterable
-from typing import Any
+from collections.abc import Container, Iterable, Mapping
+from typing import TYPE_CHECKING, Any
 
-from systemap import answer_migrations
+from systemap import answer_migrations, module_use
 from systemap.config_answers import Answer
 from systemap.crossing import CROSSING_LINE
+
+if TYPE_CHECKING:
+    from systemap.judgement import Answered
 
 NO_FAMILY_KINDS = ("crossing import", "module use", "declared flow")
 CROSSING_KIND = "crossing import"
@@ -95,6 +102,8 @@ def texts(given: Iterable[Answer], lines: list[str]) -> list[dict[str, Any]]:
                 f"{answer.label} selects {count} lines. A family answer cannot close a {kind} "
                 "line. Remove the answer. Then give one exact answer for each line."
             )
+            if kind == CROSSING_KIND:
+                text += " Give the module use answers first."
         else:
             text = (
                 f"{answer.label} has {len(answer.items)} items. An answer for a {kind} line "
@@ -110,3 +119,45 @@ def texts(given: Iterable[Answer], lines: list[str]) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+UNUSED = (
+    "'{item}' is not necessary: module roles close this import crossing. Remove it from "
+    "[judgement] answered."
+)
+
+
+def correct_stale(
+    result: Answered, states: Mapping[str, str], found: module_use.Index
+) -> list[str]:
+    """Correct the stale answers of `result` for the lines that module roles hide.
+
+    - An item for a waiting crossing import line is not stale. The line can open again.
+    - An item for a closed crossing import line is an unused answer with a row.
+    - A module role answer for a module that is not a unit is inactive while the module
+      is in the facts. It applies again when a new user with no flow comes. An answer for
+      a unit with no line map in a scoped run is also not stale.
+
+    Give the items of the unused answers."""
+    kept: list[str] = []
+    unused: list[str] = []
+    for item in result.stale:
+        line = answer_migrations.current_line(item, states)
+        state = states.get(line)
+        if state == module_use.CLOSED:
+            result.unused.append(UNUSED.format(item=item))
+            unused.append(item)
+        elif state != module_use.WAITING and not _inactive(item, found):
+            kept.append(item)
+    result.stale[:] = kept
+    return unused
+
+
+def _inactive(item: str, found: module_use.Index) -> bool:
+    """Tell if a module role item is inactive: its module is in the facts but it is not a
+    unit, or it is a unit with no line map."""
+    module = module_use.item_module(item)
+    if module is None:
+        return False
+    unit = found.units.get(module)
+    return unit.line_map is None if unit is not None else module in found.components

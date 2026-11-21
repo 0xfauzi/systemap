@@ -76,13 +76,11 @@ Copy these lines into your answer. Mark each step when it is complete.
 
    - `item = "<line>"`: the full line without indentation.
    - `items = ["<line>", ...]`: a nonempty list of full lines with one reason.
-   - `crossing = ["A", "B", ...]`: all crossing imports between two or more different identifiers, in either direction.
-   - `crossing_into = "A"`: all crossing imports into one component.
-   - `crossing_from = "A"`: all crossing imports from one component.
    - `kind = "<kind>"`: all lines of one finding kind.
    - `module_sdk = "<import>"`: all model SDK lines for one import name.
 
    Exact answers must have a current evidence digest. Broad answers must have `policy = true`.
+   systemap refuses a broad answer for `crossing import`, `module use`, and `declared flow` lines.
    Do not leave unanswered lines. Examine source again for each stale answer.
 
    | kind | finding | action |
@@ -95,7 +93,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `journey start` | A sequence starts at an unknown entry point. | Use the facts label or an empty `starts` value. |
    | `drafted journey` | An agent sequence still has no source examination. | Examine every step. Correct errors before removal of `drafted=True`. |
    | `step source` | A step source record does not resolve, or it is in no module of an acting or measured component. | Cite a current record from a module of a step component, or change the step. |
-   | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
+   | `crossing import` | Components have imports between them but no flow. | The import crossing uses a `handoff` module or a handoff name. Add a flow with source evidence, change assignments, or record an answer for this line. |
+   | `module use` | Other components import a module, and no flow connects them to its component. | Give the module role: `helper` with a symbol, `handoff`, or `mixed` with the handoff names. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
    | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow ID` or `--flow 'SRC->DST'`. |
    | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |

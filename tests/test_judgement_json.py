@@ -20,10 +20,13 @@ from typing import Any
 
 import pytest
 from conftest import init_two_cards, write_tree
+from test_module_use import three
 
 from systemap import explain, judgement, judgement_json
 from systemap.cli import main
 from systemap.config import Answer
+
+__all__ = ["three"]
 
 SOURCE = {
     "pkg/__init__.py": "",
@@ -117,13 +120,21 @@ def test_open_lines_equal_the_text_report(mapped: Path, capsys: pytest.CaptureFi
     assert code == 0
     assert [row["line"] for row in out["open"]] == text
     assert READER in text and WRITER in text and THIN not in text
-    assert out["schema_version"] == 8
+    assert out["schema_version"] == 9
     assert {row["line"]: row["kind"] for row in out["open"]}[READER] == "single module"
     assert out["stale_answers"] == ["single module: Gone contains only pkg.gone"]
     assert out["answered"] == {
         "count": 1,
         "answers": [
-            {"answer": 'kind = "thin layer"', "items": [], "reason": "a test", "lines": [THIN]}
+            {
+                "answer": 'kind = "thin layer"',
+                "items": [],
+                "reason": "a test",
+                "lines": [THIN],
+                "role": "",
+                "symbol": "",
+                "handoff": [],
+            }
         ],
     }
     assert out["source_reviews"] == {"current": 0, "stale": 0, "missing": 2}
@@ -238,9 +249,80 @@ def test_crossing_detail_is_in_each_row() -> None:
             "parent_flow": None,
             "nested_flows": None,
             "import_pairs": None,
+            "module_use": None,
         }
     ]
     assert out["answered"]["answers"] == [
-        {"answer": READER, "items": [READER], "reason": "r", "lines": [READER]}
+        {
+            "answer": READER,
+            "items": [READER],
+            "reason": "r",
+            "lines": [READER],
+            "role": "",
+            "symbol": "",
+            "handoff": [],
+        }
     ]
     assert out["source_reviews"] is None
+
+
+def test_schema_9_gives_the_module_roles(three: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Schema 9: `module_use` in each row of `open`, the module role keys of the answers,
+    and the refused answers, the unused answers, the import crossings, and the counts."""
+    reader = (
+        "module use: other components import pkg.reader and no flow connects them to its component"
+    )
+    writer = (
+        "module use: other components import pkg.writer and no flow connects them to its component"
+    )
+    code, first = as_json(three, capsys)
+    rows = {row["line"]: row for row in first["open"]}
+    assert rows[reader]["module_use"] == {
+        "module": "pkg.reader",
+        "component": "Reader",
+        "users": [{"map": "", "component": "Extra", "names": ["read"]}],
+        "waiting_crossings": 1,
+    }
+    assert rows[reader]["kind"] == "module use" and rows[reader]["count"] == 1
+    assert rows[reader]["detail"][:2] == ["component: Reader", "Extra imports read"]
+    assert first["import_crossings"]["waiting"] == 2 and first["import_crossings"]["open"] == 0
+    assert first["module_roles"] == {"helper": 0, "handoff": 0, "mixed": 0, "refused": 0, "none": 2}
+    closed = "crossing import: Extra imports Writer and no flow connects them"
+    crossing = next(c for c in first["import_crossings"]["crossings"] if c["line"] == closed)
+    assert crossing == {
+        "line": closed,
+        "map": "",
+        "from": "Extra",
+        "to": "Writer",
+        "state": "waiting",
+        "modules": [{"module": "pkg.writer", "role": "none"}],
+    }
+    assert main(["--root", str(three), "judgement", "--strict"]) == 1
+    capsys.readouterr()
+    answer(
+        three,
+        "{ item = "
+        + json.dumps(reader)
+        + ", role = 'handoff', evidence = "
+        + json.dumps(rows[reader]["evidence"])
+        + ", reason = 'a test' }",
+        "{ item = "
+        + json.dumps(writer)
+        + ", role = 'helper', symbol = 'nope', evidence = "
+        + json.dumps(rows[writer]["evidence"])
+        + ", reason = 'a test' }",
+        "{ crossing_into = 'Reader', policy = true, reason = 'a test' }",
+    )
+    code, after = as_json(three, capsys)
+    assert code == 0
+    accepted = next(a for a in after["answered"]["answers"] if a["items"] == [reader])
+    assert (accepted["role"], accepted["symbol"], accepted["handoff"]) == ("handoff", "", [])
+    assert [(r["cause"], r["lines"]) for r in after["refused_answers"]] == [
+        ("family", 1),
+        ("symbol", 1),
+    ]
+    assert after["refused_answers"][1]["items"] == [writer]
+    assert after["module_roles"]["handoff"] == 1 and after["module_roles"]["refused"] == 1
+    assert after["import_crossings"]["open"] == 1 and after["unused_answers"] == []
+    opened = next(r for r in after["open"] if r["kind"] == "crossing import")
+    assert opened["module_use"] is None and opened["detail"][0] == "handoff modules: pkg.reader"

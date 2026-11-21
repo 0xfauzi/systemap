@@ -36,6 +36,7 @@ LINE_KINDS = (
     "drafted journey",
     "step source",
     "crossing import",
+    "module use",
     "declared flow",
     "flow review",
     "no endpoint source",

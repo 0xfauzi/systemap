@@ -151,7 +151,11 @@ def judged(found: judgement_json.Judged, tree: nest.Tree, cfg: Config) -> judgem
     In a run with `--map`, an answer for a different map matches no line. An answer for
     an entry point line also matches no line, because the run gives no entry point lines.
     Such answers are not stale. A family answer can apply to each map. Thus a run with
-    `--map` cannot tell if it is stale, and it gives no family answer as stale."""
+    `--map` cannot tell if it is stale, and it gives no family answer as stale.
+
+    The run also removes the import crossings and the `module use` lines of the other
+    loaded maps. Thus `Judged.blocking` reads only the import crossings of the selected
+    map."""
     if not tree.partial:
         return found
     family = {answer.label for answer in cfg.judgement_answered if not answer.items}
@@ -160,7 +164,13 @@ def judged(found: judgement_json.Judged, tree: nest.Tree, cfg: Config) -> judgem
         for x in found.result.stale
         if x not in family and in_scope(tree, x) and not _entry_line(x)
     ]
-    return dataclasses.replace(found, result=dataclasses.replace(found.result, stale=kept))
+    return dataclasses.replace(
+        found,
+        result=dataclasses.replace(found.result, stale=kept),
+        crossings={k: v for k, v in found.crossings.items() if in_scope(tree, k)},
+        uses={k: v for k, v in found.uses.items() if in_scope(tree, k)},
+        hidden=[line for line in found.hidden if in_scope(tree, line)],
+    )
 
 
 def payload(obj: dict[str, Any], tree: nest.Tree, **not_examined: str) -> dict[str, Any]:

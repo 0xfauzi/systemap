@@ -9,7 +9,7 @@ from typing import Any
 
 import fixture_workspace
 import pytest
-from conftest import Sample, init_two_cards, sample_model, write_tree
+from conftest import Sample, init_two_cards, module_role_rows, sample_model, write_tree
 
 from systemap import config, extract, facts_file, judgement, nest, source_facts
 from systemap.cli import main
@@ -790,7 +790,8 @@ def test_crossing_family_answers_are_refused_with_their_counts() -> None:
     ]
     assert found[0]["text"] == (
         'crossing_into = "M" selects 2 lines. A family answer cannot close a crossing import '
-        "line. Remove the answer. Then give one exact answer for each line."
+        "line. Remove the answer. Then give one exact answer for each line. Give the module "
+        "use answers first."
     )
 
 
@@ -824,6 +825,14 @@ def test_crossing_into_and_from_in_the_configuration(
     )
     assert main(["--root", str(tmp_path), "extract"]) == 0
     capsys.readouterr()
+    # The imported modules are handoff modules, so the import crossings are open.
+    toml = tmp_path / "systemap.toml"
+    roles = "".join(f"    {row},\n" for row in module_role_rows(tmp_path))
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + f"\n[judgement]\nanswered = [\n{roles}]\n",
+        encoding="utf-8",
+    )
+    kept = toml.read_text(encoding="utf-8").split("\n[judgement]\n")[0]
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
     into_reader = "crossing import: Extra imports Reader and no flow connects them"
@@ -833,12 +842,12 @@ def test_crossing_into_and_from_in_the_configuration(
     # the head still counts every open line; an unknown kind is refused.
     assert main(["--root", str(tmp_path), "judgement", "--verbose", "--brief"]) == 0
     out = capsys.readouterr().out
-    count = "    count: 1 module\n"
+    count = "    count: 1 module\n    handoff modules: pkg.reader\n"
     assert f"  {into_reader}\n{count}    pkg.extra imports pkg.reader\n  {into_writer}\n" in out
     # without --brief the kind is taught once, under the first line of that kind
     assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
     out = capsys.readouterr().out
-    assert out.count("      why: The code has a connection that the map does not show.") == 1
+    assert out.count("      why: Handoff code sends an artifact, keeps shared data") == 1
     assert f"  {into_reader}\n{count}    pkg.extra imports pkg.reader\n      why: " in out
     assert main(["--root", str(tmp_path), "judgement", "--kind", "crossing import"]) == 0
     out = capsys.readouterr().out
@@ -849,8 +858,7 @@ def test_crossing_into_and_from_in_the_configuration(
     assert main(["--root", str(tmp_path), "judgement", "--strict", "--kind", "no sentence"]) == 1
     with pytest.raises(SystemExit):
         main(["--root", str(tmp_path), "judgement", "--kind", "crossing"])
-    toml = tmp_path / "systemap.toml"
-    kept = toml.read_text(encoding="utf-8")
+    capsys.readouterr()
     # Each crossing family answer is refused: the lines stay open, and --strict exits 1.
     for form, selected in (
         ('crossing_into = "Reader"', 1),
@@ -863,18 +871,19 @@ def test_crossing_into_and_from_in_the_configuration(
             + f"""
 [judgement]
 answered = [
-        {{ {form}, policy = true, reason = "the extra reads the others' types; the map draws the data edges" }},
+{roles}        {{ {form}, policy = true, reason = "the extra reads the others' types; the map draws the data edges" }},
 ]
 """,
             encoding="utf-8",
         )
         assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 1
         out = capsys.readouterr().out
-        assert " answered" not in out.split("\n", 1)[0], form
+        # Only the two module role answers are answered.
+        assert out.split("\n", 1)[0].endswith(" to examine, 2 answered"), form
         assert into_reader in out and into_writer in out, form
         assert f"  refused answer: {form} selects {selected} lines. A family answer" in out
     cfg = config.load(tmp_path)
-    assert cfg.judgement_answered[0].crossing == ("Reader", "Extra")
+    assert cfg.judgement_answered[-1].crossing == ("Reader", "Extra")
 
 
 def test_bulk_answers_in_the_configuration(

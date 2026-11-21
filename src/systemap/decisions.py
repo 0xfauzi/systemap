@@ -45,6 +45,7 @@ from systemap import (
     judgement,
     judgement_evidence,
     judgement_json,
+    module_use,
     nest,
     repo_files,
     review_policy,
@@ -350,6 +351,8 @@ def _flow_requests(m: nest.Map, facts: dict[str, Any], root: Path) -> list[Reque
 def _subject(m: nest.Map, line: str, facts: dict[str, Any]) -> str:
     """Give the finding kind and the names in the line, or the line if it names nothing."""
     bare = judgement.unprefixed(line[len(m.prefix) :])
+    if module_use.line_module(bare) is not None:
+        return line
     kind = next((k for k, head in judgement.KIND_PREFIX.items() if bare.startswith(head)), "")
     cards = sorted({card.id for card in judgement_evidence.named_cards(m, line)})
     modules = sorted(judgement_evidence.named_modules(facts.get("components", {}), bare))

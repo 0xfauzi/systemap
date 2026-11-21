@@ -9030,3 +9030,47 @@ The script `module_roles.py` (steps `units` and `states`) writes `module_roles_G
 Result: gate G1 passed on the three maps. OrmLoading -> Engine is `closed` (`sqlalchemy.engine` mixed, `sqlalchemy.future` helper).
 After the run, a comparison with the labels of the design team found 22 different module roles in the 210 units that the two label sets both have (Django 9, SQLAlchemy 13, starlette 0). Also, 5 mixed units have different handoff names.
 The three most important differences: `django.conf` (29 import crossings) is `helper` in the design labels and `mixed` with `settings` in the new labels (open question O1). `sqlalchemy.inspection` (14) is `helper` and `mixed`. `django.db.utils` (11) is `mixed` with `ConnectionHandler` and `helper`.
+
+## Stage 4a: module roles in judgement and delta (2026-11-21)
+
+The files of the module role validation are now in the repository:
+
+- `module_roles.py`: the steps `units` and `states` of gate G1.
+- `module_roles_v4.py`: the step `before` of the stage 4a acceptance, and the steps `write` and `compare` of step V4.
+- `module_roles_labels/G1.labels.json`: the labels of gate G1, from a coding agent that did not see the specification.
+- `module_roles_labels/design_r1.*.labels.json`: the labels of the design team for the runs of sections 18.2 and 18.3.
+
+Bias disclosure of the design labels: the agent that wrote the labels of the design team knew the import crossings of acceptance 18.1 (a). It labelled 105 of the 220 Django units of revision 1. The labels of gate G1 do not have this bias.
+The labels are bench data. The tests do not read them as answers, and the tests call no agent.
+
+Results of section 18.2 (revision 1 rules, recorded by the design team): acceptance (a) passed on the three maps. The module use lines were Django 220, SQLAlchemy 99 and starlette 8. The import crossing states (open / waiting / closed) were starlette 9 / 0 / 6, SQLAlchemy 44 / 3 / 88 and Django 97 / 60 / 126. The questions were 17, 143 and 317 (ratios 1.13, 1.06 and 1.12).
+
+Results of section 18.3 (revision 2 rules, recorded by the design team, the same labels):
+
+| Map | Run-time import crossings | Module use lines | Labelled | Open / waiting / closed | Questions (ratio) | Open only through `"*"` | Refused labels |
+|---|---|---|---|---|---|---|---|
+| starlette | 15 | 8 | 8 | 9 / 0 / 6 | 17 (1.13) | 0 | 0 |
+| SQLAlchemy | 135 | 101 | 94 | 36 / 10 / 89 | 137 (1.01) | 0 | 5 |
+| Django | 283 | 226 | 103 | 91 / 68 / 124 | 317 (1.12) | 0 | 0 |
+
+Expectation (c) of section 18.3 failed on SQLAlchemy: revision 2 refused 5 labels that revision 1 accepted. Each of these labels gave a symbol that no user imports. The specification records this result as the intended correction of the symbol rule.
+
+The stage 4a acceptance values, on scratch copies of the three maps after `systemap extract`, before a module role answer (step `before`):
+
+| Map | Refused answers (selected lines) | Module use lines | Open crossing import lines | Waiting import crossings | `evaluate` time |
+|---|---|---|---|---|---|
+| Django 6.1.3 | `kind = "crossing import"` (283), `kind = "declared flow"` (6) | 226 (expected 226) | 0 | 283 (expected 283) | 1.0 s |
+| SQLAlchemy 2.1.9 | `kind = "crossing import"` (135) | 101 (expected 101) | 0 | 135 (expected 135) | 0.6 s |
+| starlette 0.46.2 | none (the map has no family answer for the three kinds) | 8 (expected 8) | 0 | 15 (expected 15) | 0.1 s |
+
+Step V4: the 335 G1 labels were written as exact answers with current digests in the scratch copies (steps `write`). Then `systemap judgement --json` gave these import crossing states (step `compare`):
+
+| Map | Open / waiting / closed | Differences from G1 | `judgement --json` time |
+|---|---|---|---|
+| Django 6.1.3 | 131 / 0 / 152 | 0 | 1.5 s |
+| SQLAlchemy 2.1.9 | 46 / 0 / 89 | 0 | 0.9 s |
+| starlette 0.46.2 | 9 / 0 / 6 | 0 | 0.3 s |
+
+The command refused no module role answer. The import crossings of acceptance 18.1 (a) are open in the command output. OrmLoading -> Engine is closed, as in G1.
+
+Result: all stage 4a acceptance values on the three maps passed, and V4 passed.

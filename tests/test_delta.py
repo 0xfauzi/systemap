@@ -513,3 +513,32 @@ def test_the_seed_is_the_card_with_the_most_changed_modules() -> None:
     assert delta._seed({"pkg.a", "pkg.b", "pkg.c"}, owner) == "Two"
     assert delta._seed({"pkg.a", "pkg.b"}, owner) == "One", "a tie goes to the first by name"
     assert delta._seed({"pkg.d"}, owner) == "", "an unclaimed module seeds nothing"
+
+
+@pytest.mark.parametrize(("role", "shown"), [("helper", False), ("handoff", True)])
+def test_a_helper_module_role_stops_the_new_crossing_import_line(
+    repo: Path, capsys: pytest.CaptureFixture[str], role: str, shown: bool
+) -> None:
+    """A helper module role of pkg.parser closes the new import of Ledger. A handoff module
+    role does not close it."""
+    from systemap import extract, judgement_evidence, module_use
+
+    components = extract.build(config.load(repo))["components"]
+    digest = judgement_evidence.digest(judgement_evidence.use_state(components, "pkg.parser"))
+    line = module_use.module_line("pkg.parser")
+    symbol = ', symbol = "parse_all"' if role == "helper" else ""
+    toml = repo / "systemap.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8").replace(
+            'answered = [{ crossing = ["Ledger", "Parser"], policy = true, reason = "a type import" }]',
+            f'answered = [{{ item = "{line}", role = "{role}"{symbol}, evidence = "{digest}", '
+            'reason = "a test" }]',
+        ),
+        encoding="utf-8",
+    )
+    main(["--root", str(repo), "delta", "--base", "HEAD~1", "--brief"])
+    out = capsys.readouterr().out
+    found = "  new crossing import: pkg.ledger (component Ledger) imports pkg.parser" in out
+    assert found == shown
+    # The other new import has no module role answer, so it keeps its line.
+    assert "  new crossing import: pkg.writer (component Writer) imports pkg.reader" in out

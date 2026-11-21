@@ -123,16 +123,33 @@ JUDGEMENT = {
     ),
     "crossing import": Lesson(
         means=(
-            "A module of one component imports a module of another component. No flow "
-            "connects these components."
+            "A module of one component imports a handoff module or a handoff name of "
+            "another component. No flow connects these components."
         ),
         why=(
-            "The code has a connection that the map does not show. This connection can "
-            "affect a change to the system."
+            "Handoff code sends an artifact, keeps shared data, or starts work. Thus the "
+            "code has a connection that the map does not show."
         ),
         do=(
-            "Add the flow and its description. Or put the modules in one component, or "
-            "record why the import does not make a flow necessary."
+            "Add the flow and its description. Or put the modules in one component. If the "
+            "module role of the imported module is not correct, change its module use answer."
+        ),
+    ),
+    "module use": Lesson(
+        means=(
+            "Modules of other components import this module. No flow connects these "
+            "components to the component of the module."
+        ),
+        why=(
+            "The module role shows if these imports must have a flow. A helper module "
+            "operates in the code of the caller and sends no artifact. A handoff module sends an "
+            "artifact, keeps shared data, or starts work in its component."
+        ),
+        do=(
+            "Read the definitions of the names that the users import. Give one exact "
+            'answer with role = "helper" and a symbol that the users import, role = '
+            '"handoff", or role = "mixed" and the handoff names. A family answer cannot '
+            "close this line."
         ),
     ),
     "declared flow": Lesson(
@@ -334,7 +351,7 @@ DELTA = {
         why=("The code now has a connection that the map does not show."),
         do=(
             "If the connection is correct, add the flow and its description. Otherwise, "
-            "change the code, or give an exact answer for the crossing import line."
+            "change the code, or give the module role of the imported module."
         ),
     ),
     "evidence lost": Lesson(

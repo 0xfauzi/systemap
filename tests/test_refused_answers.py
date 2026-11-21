@@ -59,7 +59,8 @@ def test_family_answers_of_the_three_kinds_are_refused() -> None:
             "items": [],
             "cause": "family",
             "text": 'kind = "crossing import" selects 2 lines. A family answer cannot close a '
-            "crossing import line. Remove the answer. Then give one exact answer for each line.",
+            "crossing import line. Remove the answer. Then give one exact answer for each line. "
+            "Give the module use answers first.",
             "lines": 2,
         }
     ]

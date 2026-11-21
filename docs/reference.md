@@ -165,7 +165,8 @@ For each finding, change the model or record the reason for its stored state.
 | no sentence | A flow has no relation sentence. |
 | thin layer | A layer contains fewer than two components. This includes an unused standard kind. |
 | entry point X has no sequence (component C) | The identity of the entry point is not in the `covers` of an examined sequence. If more than 4 entry points of one kind in one component have no sequence, one line gives them, for example `entry point 6 routes into C have no sequence (component C)`. C is the component of the module that the entry point names. The function that it starts can be in a different component, for example a console script that names a function that its package imports. |
-| crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. |
+| crossing import | Module A in component P imports module B in component Q. No flow connects P and Q in either direction. The line opens only when the import crossing uses a handoff module or a handoff name. |
+| module use | Modules of other components import module M, and no flow connects them to the component of M. What is the module role of M: `helper`, `handoff`, or `mixed`? |
 | declared flow | A flow has no source review or structural evidence. Find source evidence or change the claim. |
 | flow review | An import, shared module, or mechanism word is available. Direction and artifact must have a source review. |
 | no endpoint source | A flow has `source_refs`, but no reference is in a module of its source or target component. Add a reference from an endpoint module or change the flow. |
@@ -230,6 +231,7 @@ The evidence digest of a line contains only the evidence that the line names:
   The cited facts are the `file`, the `package`, the public `names`, and the imports in `uses` with the imported names.
   They also include the `external` imports, the `parsed` value, and the unknown records without their line numbers.
 - For a `crossing import` line, the imports between the two components, with the imported names.
+- For a `module use` line, the cited facts of its module, its `import_forms`, and its `dynamic_imports` without the line numbers. A new user, a move of the module to a different component, and a function body do not change this evidence.
 - For an `entry point` line, the entry point records of its modules. A record has the `kind`, `module`, `target`, and `name` values.
 - For an `unknown surface` line of a module, the records of the line and the text of each cited source line.
   The records do not include the line number and the parser version.
@@ -1373,12 +1375,24 @@ A line after the findings counts the component source reviews by state: current,
 Then one row gives each flow with the label "review earlier than source tracking". These rows are not findings.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under `[judgement] answered` suppress findings.
-The report refuses a family answer for `crossing import` and `declared flow` findings, and an answer with two or more items when one item is such a finding.
+The report refuses a family answer for `crossing import`, `module use`, and `declared flow` findings, and an answer with two or more items when one item is such a finding.
 A `refused answer:` row gives each refused answer and its cause. The findings of a refused answer stay open.
 An import only for type checks gives no `crossing import` finding.
+
+A `module use` finding names one module that other components import with no flow. Its exact answer gives the module role of the module:
+
+- `role = "helper"` with `symbol`, a name that the users import. The code of the module operates in the code of the caller.
+- `role = "handoff"`. The code of the module sends an artifact, keeps shared data, or starts work in its component.
+- `role = "mixed"` with `handoff`, a list of the names of the module that are handoff code.
+
+A `crossing import` finding opens only when its import crossing uses a handoff module or a handoff name.
+An import crossing that uses a module with no module role waits. It is not a finding, but the `module use` finding of the module is open.
+An import crossing that uses only helper code is closed. An exact answer for its line gets an `unused answer:` row.
+The report refuses a `helper` answer when a flow source record of the map cites the module, and a `mixed` answer when a cited name is not in `handoff`.
+After the source review counts, two rows count the import crossings by state and the modules by module role.
 The first finding of each kind has rows about its effect and necessary action.
 
-- `--strict` exits 1 while a finding is open or an answer is refused. If not, the exit code is 0.
+- `--strict` exits 1 while a finding is open, an answer is refused, or an import crossing waits for module roles. If not, the exit code is 0.
   A model without components also gives exit 1 with `--strict`, as `systemap check` does.
 
 - `--kind KIND` prints one kind.
@@ -1450,7 +1464,7 @@ The JSON object has these fields:
 
 | Field | Type | Contents |
 |---|---|---|
-| `schema_version` | integer | The version of this schema. The value is 8. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. Version 8 added `open[].map_id`, `open[].parent_flow`, `open[].nested_flows`, and `open[].import_pairs`. |
+| `schema_version` | integer | The version of this schema. The value is 9. Version 2 added `open[].cause`. Version 3 added `open[].sources`. Version 4 added `earlier_flow_reviews`. Version 5 added `insufficient`, `open_lines`, and `history` to each object of `unknown_requests`. Version 6 added `open[].count`. Version 7 added `assurance`. Version 8 added `open[].map_id`, `open[].parent_flow`, `open[].nested_flows`, and `open[].import_pairs`. Version 9 added `open[].module_use`, the module role keys of `answered.answers`, `refused_answers`, `unused_answers`, `import_crossings`, and `module_roles`. |
 | `open` | list of objects | One object for each finding that has no accepted answer. The sequence is the sequence of the text report. |
 | `open[].line` | string | The full finding line. It is the identifier for `item` in `[judgement] answered`. |
 | `open[].kind` | string | The kind of the finding, for example `single module`. The value is an empty string if the kind is not known. |
@@ -1463,6 +1477,7 @@ The JSON object has these fields:
 | `open[].parent_flow` | object or null | For a boundary finding: `src` and `dst` of the parent flow that the finding is about, and `artifacts`, the artifacts of the parent flows in that direction. The list is empty if the parent map has no such flow. For a `boundary import` finding, the direction is from the card to X. If the parent map has only a flow from X to the card, the direction is from X to the card. For other findings, the value is null. |
 | `open[].nested_flows` | list of objects or null | For a boundary finding: each flow of the nested map with the actor that the finding names, with `src`, `dst`, and `artifact`. For other findings, the value is null. |
 | `open[].import_pairs` | list of objects or null | For a `boundary import` finding: each import, with `module` and `imports`. For a `boundary flow` finding, the list is empty. For other findings, the value is null. |
+| `open[].module_use` | object or null | For a `module use` finding: `module`, the imported module; `component`, its component in the map of the line; `users`, one object for each run-time import with `map`, `component`, and `names` (`*` is an import of the full module with no known names); and `waiting_crossings`, the quantity of import crossings that wait for the module role. For other findings, the value is null. |
 | `open[].drift` | object | Only with `--order-by-drift`, and only in a `stale source review` row. `probability` is the drift score, or null for `no score`. `source` is `diff` or `text`: the form of the source part. |
 | `answered.count` | integer | The quantity of findings that accepted answers close. |
 | `answered.answers` | list of objects | One object for each accepted answer. |
@@ -1470,6 +1485,11 @@ The JSON object has these fields:
 | `answered.answers[].items` | list of strings | The exact lines of an `item` or `items` answer. For a family answer, the list is empty. |
 | `answered.answers[].reason` | string | The `reason` of the answer. |
 | `answered.answers[].lines` | list of strings | The findings that the answer closes. |
+| `answered.answers[].role`, `symbol`, `handoff` | string, string, list of strings | The module role, the symbol, and the handoff names of a module role answer. For other answers, the values are empty. |
+| `refused_answers` | list of objects | One object for each refused answer: `answer` (the selector), `items`, `cause` (`family`, `items`, `symbol`, or `flow_source`), `text`, and `lines`, the quantity of findings that the answer selects. |
+| `unused_answers` | list of strings | Each item of an exact `crossing import` answer that is not necessary, because module roles close its import crossing. |
+| `import_crossings` | object | The keys `open`, `waiting`, and `closed`, with the quantity of import crossings in each state, and `crossings`: one object for each import crossing with `line`, `map`, `from`, `to`, `state`, and `modules`. Each object of `modules` has `module` and `role` (`helper`, `handoff`, `mixed`, `refused`, or `none`). Only an `open` import crossing is a finding. |
+| `module_roles` | object | The keys `helper`, `handoff`, `mixed`, `refused`, and `none`, with the quantity of the modules of `module use` findings with each module role. |
 | `stale_answers` | list of strings | Each exact item or family selector that agrees with no finding. |
 | `source_reviews` | object or null | The keys `current`, `stale`, and `missing`, with the quantity of source components in each review state. The value is null if no facts are available or no source component exists. |
 | `earlier_flow_reviews` | list of objects | One object for each flow with the label "review earlier than source tracking". `map` is the map ID, and an empty string for the top map. `flow` is the flow identifier. Such a review is current, so it gives no finding. |
@@ -1532,7 +1552,8 @@ Findings include unclaimed new modules, removed entry and interface names,
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
 An answer for a new crossing import must agree with the `judgement` rule.
-An exact answer must have the current evidence digest. A family answer must have `policy = true`.
+An exact answer must have the current evidence digest. A family answer is refused.
+Module role answers also close a new crossing import when each imported module is a helper module, or a mixed module and the import uses no handoff name. The delta does not apply the flow source rule, because it has no flow tree.
 The exit code is 0 if the map is current, or 1 if it is necessary to update the map.
 
 The lines with a necessary action come first, under `The map needs an update (N):`.

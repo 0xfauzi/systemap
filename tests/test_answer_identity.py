@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import init_two_cards, write_tree
+from conftest import give_module_roles, init_two_cards, write_tree
 from test_answer_evidence import FIXTURE, SERVICE, SOURCE
 
 from systemap import config, extract, judgement, nest
@@ -254,6 +254,8 @@ def test_the_crossing_count_is_in_a_row_below_the_line(
     line = structural_lines(project)[1]
     assert " in 1 module" not in line
     assert line.endswith(" and no flow connects them")
+    # A handoff module role opens the import crossing.
+    give_module_roles(project)
     capsys.readouterr()
     main(["--root", str(project), "judgement"])
     out = capsys.readouterr().out.splitlines()

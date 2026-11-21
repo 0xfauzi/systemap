@@ -1,0 +1,1106 @@
+[
+ {
+  "unit": "sqlalchemy.exc",
+  "role": "helper",
+  "file": "lib/sqlalchemy/exc.py",
+  "span": [
+   157,
+   162
+  ],
+  "sentence": "Exception classes only.",
+  "symbol": "ArgumentError"
+ },
+ {
+  "unit": "sqlalchemy.util",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/__init__.py",
+  "span": [
+   131,
+   131
+  ],
+  "sentence": "Facade of language helpers and collections.",
+  "symbol": "memoized_property"
+ },
+ {
+  "unit": "sqlalchemy.util.typing",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/typing.py",
+  "span": [
+   667,
+   682
+  ],
+  "sentence": "Typing helpers and descriptors.",
+  "symbol": "CallableReference"
+ },
+ {
+  "unit": "sqlalchemy.inspection",
+  "role": "helper",
+  "file": "lib/sqlalchemy/inspection.py",
+  "span": [
+   91,
+   93
+  ],
+  "sentence": "inspect looks up a registered inspector for the type and calls it in the caller.",
+  "symbol": "inspect"
+ },
+ {
+  "unit": "sqlalchemy.event",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/event/__init__.py",
+  "span": [
+   12,
+   12
+  ],
+  "sentence": "listen adds receivers to the global event registry, and dispatch calls receivers of other components.",
+  "symbol": "listen"
+ },
+ {
+  "unit": "sqlalchemy.sql.base",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/base.py",
+  "span": [
+   1931,
+   2218
+  ],
+  "sentence": "Base classes and collections of SQL expression objects.",
+  "symbol": "ColumnCollection"
+ },
+ {
+  "unit": "sqlalchemy.sql.visitors",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/visitors.py",
+  "span": [
+   896,
+   900
+  ],
+  "sentence": "Traversal functions that operate on the expression tree of the caller.",
+  "symbol": "traverse"
+ },
+ {
+  "unit": "sqlalchemy.sql.elements",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/elements.py",
+  "span": [
+   338,
+   800
+  ],
+  "sentence": "Classes of SQL expression elements.",
+  "symbol": "ClauseElement"
+ },
+ {
+  "unit": "sqlalchemy.sql.type_api",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/type_api.py",
+  "span": [
+   117,
+   1184
+  ],
+  "sentence": "Base classes of SQL data types.",
+  "symbol": "TypeEngine"
+ },
+ {
+  "unit": "sqlalchemy.sql.sqltypes",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/sqltypes.py",
+  "span": [
+   2136,
+   2272
+  ],
+  "sentence": "SQL data type classes.",
+  "symbol": "Boolean"
+ },
+ {
+  "unit": "sqlalchemy.sql",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/__init__.py",
+  "span": [
+   90,
+   90
+  ],
+  "sentence": "Facade of SQL expression constructors.",
+  "symbol": "select"
+ },
+ {
+  "unit": "sqlalchemy.sql.operators",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/operators.py",
+  "span": [
+   668,
+   2134
+  ],
+  "sentence": "Operator functions and classes.",
+  "symbol": "ColumnOperators"
+ },
+ {
+  "unit": "sqlalchemy.sql.schema",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/schema.py",
+  "span": [
+   1778,
+   2991
+  ],
+  "sentence": "Schema description objects; create_all gives the DDL to the bind of the caller.",
+  "symbol": "Column"
+ },
+ {
+  "unit": "sqlalchemy",
+  "role": "mixed",
+  "file": "lib/sqlalchemy/__init__.py",
+  "span": [
+   19,
+   19
+  ],
+  "sentence": "The package facade exports the engine constructors and the event API next to type and expression helpers.",
+  "handoff": [
+   "create_engine",
+   "create_mock_engine",
+   "Engine",
+   "Connection"
+  ]
+ },
+ {
+  "unit": "sqlalchemy.util.compat",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/compat.py",
+  "span": [
+   162,
+   163
+  ],
+  "sentence": "Compatibility functions.",
+  "symbol": "b64encode"
+ },
+ {
+  "unit": "sqlalchemy.engine.base",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/engine/base.py",
+  "span": [
+   90,
+   2455
+  ],
+  "sentence": "Connection.execute sends SQL statements to the DBAPI connection.",
+  "symbol": "Connection"
+ },
+ {
+  "unit": "sqlalchemy.sql._typing",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/_typing.py",
+  "span": [
+   453,
+   455
+  ],
+  "sentence": "Typing aliases and typing functions.",
+  "symbol": "Nullable"
+ },
+ {
+  "unit": "sqlalchemy.sql.cache_key",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/cache_key.py",
+  "span": [
+   275,
+   424
+  ],
+  "sentence": "Cache key value classes and their mixins.",
+  "symbol": "CacheKey"
+ },
+ {
+  "unit": "sqlalchemy.sql.expression",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/expression.py",
+  "span": [
+   166,
+   166
+  ],
+  "sentence": "Facade of SQL expression classes and constructors.",
+  "symbol": "nullsfirst"
+ },
+ {
+  "unit": "sqlalchemy.sql.roles",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/roles.py",
+  "span": [
+   76,
+   78
+  ],
+  "sentence": "Marker classes for argument roles.",
+  "symbol": "ColumnArgumentRole"
+ },
+ {
+  "unit": "sqlalchemy.sql.selectable",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/selectable.py",
+  "span": [
+   5484,
+   7136
+  ],
+  "sentence": "SELECT and FROM expression classes.",
+  "symbol": "Select"
+ },
+ {
+  "unit": "sqlalchemy.sql.util",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/util.py",
+  "span": [
+   1130,
+   1307
+  ],
+  "sentence": "Functions that change expression trees of the caller.",
+  "symbol": "ClauseAdapter"
+ },
+ {
+  "unit": "sqlalchemy.util.concurrency",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/concurrency.py",
+  "span": [
+   147,
+   171
+  ],
+  "sentence": "await_ runs an awaitable of the caller in the greenlet of the caller.",
+  "symbol": "await_"
+ },
+ {
+  "unit": "sqlalchemy.util.langhelpers",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/langhelpers.py",
+  "span": [
+   266,
+   369
+  ],
+  "sentence": "Language helpers.",
+  "symbol": "decorator"
+ },
+ {
+  "unit": "sqlalchemy.util.topological",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/topological.py",
+  "span": [
+   58,
+   74
+  ],
+  "sentence": "Topological sort functions.",
+  "symbol": "sort"
+ },
+ {
+  "unit": "sqlalchemy.engine.result",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/result.py",
+  "span": [
+   482,
+   1187
+  ],
+  "sentence": "Generic result classes that filter rows that a subclass fetches.",
+  "symbol": "Result"
+ },
+ {
+  "unit": "sqlalchemy.schema",
+  "role": "helper",
+  "file": "lib/sqlalchemy/schema.py",
+  "span": [
+   50,
+   50
+  ],
+  "sentence": "Compatibility facade of schema classes (the facts give no names).",
+  "symbol": "Column"
+ },
+ {
+  "unit": "sqlalchemy.sql.coercions",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/coercions.py",
+  "span": [
+   165,
+   169
+  ],
+  "sentence": "Argument coercion functions.",
+  "symbol": "expect"
+ },
+ {
+  "unit": "sqlalchemy.sql.ddl",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/ddl.py",
+  "span": [
+   541,
+   575
+  ],
+  "sentence": "DDL statement classes; the generators execute through the connection of the caller.",
+  "symbol": "CreateTable"
+ },
+ {
+  "unit": "sqlalchemy.sql.dml",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/dml.py",
+  "span": [
+   1238,
+   1506
+  ],
+  "sentence": "INSERT, UPDATE and DELETE expression classes.",
+  "symbol": "Insert"
+ },
+ {
+  "unit": "sqlalchemy.engine.cursor",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/engine/cursor.py",
+  "span": [
+   1606,
+   2422
+  ],
+  "sentence": "CursorResult keeps the DBAPI cursor and fetches rows from the database.",
+  "symbol": "CursorResult"
+ },
+ {
+  "unit": "sqlalchemy.engine.interfaces",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/interfaces.py",
+  "span": [
+   654,
+   2918
+  ],
+  "sentence": "Abstract interface classes and typing aliases.",
+  "symbol": "Dialect"
+ },
+ {
+  "unit": "sqlalchemy.log",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/log.py",
+  "span": [
+   1,
+   279
+  ],
+  "sentence": "The module sends log records from instance loggers to the logging system."
+ },
+ {
+  "unit": "sqlalchemy.orm.state",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/state.py",
+  "span": [
+   105,
+   1040
+  ],
+  "sentence": "InstanceState is a data object for each mapped instance.",
+  "symbol": "InstanceState"
+ },
+ {
+  "unit": "sqlalchemy.orm.unitofwork",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/orm/unitofwork.py",
+  "span": [
+   156,
+   488
+  ],
+  "sentence": "UOWTransaction runs the flush and executes the SQL of the session.",
+  "symbol": "UOWTransaction"
+ },
+ {
+  "unit": "sqlalchemy.pool",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/pool/__init__.py",
+  "span": [
+   1,
+   41
+  ],
+  "sentence": "The pool classes keep shared DBAPI connections."
+ },
+ {
+  "unit": "sqlalchemy.types",
+  "role": "helper",
+  "file": "lib/sqlalchemy/types.py",
+  "span": [
+   38,
+   38
+  ],
+  "sentence": "Compatibility facade of type classes (the facts give no names).",
+  "symbol": "Integer"
+ },
+ {
+  "unit": "sqlalchemy.util._collections",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/_collections.py",
+  "span": [
+   268,
+   268
+  ],
+  "sentence": "Collection classes.",
+  "symbol": "OrderedDict"
+ },
+ {
+  "unit": "sqlalchemy.util.cython",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/cython.py",
+  "span": [
+   23,
+   23
+  ],
+  "sentence": "Shim of Cython decorators.",
+  "symbol": "compiled"
+ },
+ {
+  "unit": "sqlalchemy.util.deprecations",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/deprecations.py",
+  "span": [
+   99,
+   150
+  ],
+  "sentence": "Decorators that give deprecation warnings.",
+  "symbol": "deprecated"
+ },
+ {
+  "unit": "sqlalchemy.engine",
+  "role": "mixed",
+  "file": "lib/sqlalchemy/engine/__init__.py",
+  "span": [
+   20,
+   20
+  ],
+  "sentence": "The facade exports Connection, Engine and CursorResult, which operate on the database, and result and row helper classes.",
+  "handoff": [
+   "Connection",
+   "Engine",
+   "create_engine",
+   "CursorResult"
+  ]
+ },
+ {
+  "unit": "sqlalchemy.engine._result_cy",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/_result_cy.py",
+  "span": [
+   125,
+   654
+  ],
+  "sentence": "Row data helpers.",
+  "symbol": "BaseResultInternal"
+ },
+ {
+  "unit": "sqlalchemy.engine._util_cy",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/_util_cy.py",
+  "span": [
+   129,
+   136
+  ],
+  "sentence": "Item getter helpers.",
+  "symbol": "tuplegetter"
+ },
+ {
+  "unit": "sqlalchemy.engine.row",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/row.py",
+  "span": [
+   46,
+   283
+  ],
+  "sentence": "Row value classes.",
+  "symbol": "Row"
+ },
+ {
+  "unit": "sqlalchemy.event.base",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/event/base.py",
+  "span": [
+   428,
+   460
+  ],
+  "sentence": "The dispatcher gives the listener collections that call receivers of other components.",
+  "symbol": "dispatcher"
+ },
+ {
+  "unit": "sqlalchemy.event.registry",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/event/registry.py",
+  "span": [
+   1,
+   391
+  ],
+  "sentence": "The module keeps the global registry of event listeners."
+ },
+ {
+  "unit": "sqlalchemy.orm",
+  "role": "mixed",
+  "file": "lib/sqlalchemy/orm/__init__.py",
+  "span": [
+   138,
+   138
+  ],
+  "sentence": "The ORM facade exports the Session classes, which execute SQL, next to mapping helpers.",
+  "handoff": [
+   "Session",
+   "SessionTransaction",
+   "close_all_sessions",
+   "scoped_session",
+   "sessionmaker"
+  ]
+ },
+ {
+  "unit": "sqlalchemy.orm.attributes",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/attributes.py",
+  "span": [
+   515,
+   575
+  ],
+  "sentence": "Attribute descriptors and history functions.",
+  "symbol": "InstrumentedAttribute"
+ },
+ {
+  "unit": "sqlalchemy.orm.base",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/base.py",
+  "span": [
+   356,
+   359
+  ],
+  "sentence": "Constants and helper functions.",
+  "symbol": "instance_str"
+ },
+ {
+  "unit": "sqlalchemy.orm.context",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/context.py",
+  "span": [
+   112,
+   266
+  ],
+  "sentence": "Compile state and context objects for ORM statements.",
+  "symbol": "QueryContext"
+ },
+ {
+  "unit": "sqlalchemy.orm.exc",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/exc.py",
+  "span": [
+   95,
+   122
+  ],
+  "sentence": "Exception classes only.",
+  "symbol": "UnmappedInstanceError"
+ },
+ {
+  "unit": "sqlalchemy.orm.interfaces",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/interfaces.py",
+  "span": [
+   780,
+   1091
+  ],
+  "sentence": "Base classes and constants of mapped properties.",
+  "symbol": "PropComparator"
+ },
+ {
+  "unit": "sqlalchemy.orm.session",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/orm/session.py",
+  "span": [
+   1554,
+   5209
+  ],
+  "sentence": "Session executes statements and flushes changes to the database.",
+  "symbol": "Session"
+ },
+ {
+  "unit": "sqlalchemy.orm.util",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/util.py",
+  "span": [
+   678,
+   906
+  ],
+  "sentence": "ORM helper classes and functions.",
+  "symbol": "AliasedClass"
+ },
+ {
+  "unit": "sqlalchemy.pool.impl",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/pool/impl.py",
+  "span": [
+   44,
+   255
+  ],
+  "sentence": "The pool classes keep shared DBAPI connections.",
+  "symbol": "QueuePool"
+ },
+ {
+  "unit": "sqlalchemy.sql._annotated_cols",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/_annotated_cols.py",
+  "span": [
+   40,
+   68
+  ],
+  "sentence": "Typing helper classes.",
+  "symbol": "Named"
+ },
+ {
+  "unit": "sqlalchemy.sql.compiler",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/compiler.py",
+  "span": [
+   810,
+   1001
+  ],
+  "sentence": "Compiled statement classes and constants.",
+  "symbol": "Compiled"
+ },
+ {
+  "unit": "sqlalchemy.sql.traversals",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/traversals.py",
+  "span": [
+   209,
+   244
+  ],
+  "sentence": "Traversal mixins.",
+  "symbol": "HasCopyInternals"
+ },
+ {
+  "unit": "sqlalchemy.dialects",
+  "role": "helper",
+  "file": "lib/sqlalchemy/dialects/__init__.py",
+  "span": [
+   60,
+   60
+  ],
+  "sentence": "A plugin loader that finds a dialect class by name for the caller.",
+  "symbol": "registry"
+ },
+ {
+  "unit": "sqlalchemy.dialects.postgresql.ext",
+  "role": "helper",
+  "file": "lib/sqlalchemy/dialects/postgresql/ext.py",
+  "span": [
+   542,
+   555
+  ],
+  "sentence": "PostgreSQL expression constructs.",
+  "symbol": "distinct_on"
+ },
+ {
+  "unit": "sqlalchemy.engine._processors_cy",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/_processors_cy.py",
+  "span": [
+   43,
+   46
+  ],
+  "sentence": "Value conversion functions.",
+  "symbol": "to_str"
+ },
+ {
+  "unit": "sqlalchemy.engine._row_cy",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/_row_cy.py",
+  "span": [
+   51,
+   181
+  ],
+  "sentence": "Row base class.",
+  "symbol": "BaseRow"
+ },
+ {
+  "unit": "sqlalchemy.engine.processors",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/processors.py",
+  "span": [
+   43,
+   83
+  ],
+  "sentence": "Value conversion functions.",
+  "symbol": "str_to_datetime_processor_factory"
+ },
+ {
+  "unit": "sqlalchemy.engine.reflection",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/engine/reflection.py",
+  "span": [
+   183,
+   2078
+  ],
+  "sentence": "Inspector queries the database for the schema.",
+  "symbol": "Inspector"
+ },
+ {
+  "unit": "sqlalchemy.engine.create",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/engine/create.py",
+  "span": [
+   50,
+   86
+  ],
+  "sentence": "create_engine makes an Engine with a pool of DBAPI connections.",
+  "symbol": "create_engine"
+ },
+ {
+  "unit": "sqlalchemy.engine.url",
+  "role": "helper",
+  "file": "lib/sqlalchemy/engine/url.py",
+  "span": [
+   46,
+   866
+  ],
+  "sentence": "URL value class.",
+  "symbol": "URL"
+ },
+ {
+  "unit": "sqlalchemy.ext.asyncio.engine",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/ext/asyncio/engine.py",
+  "span": [
+   1017,
+   1344
+  ],
+  "sentence": "AsyncEngine and its connections execute SQL on the database.",
+  "symbol": "AsyncEngine"
+ },
+ {
+  "unit": "sqlalchemy.ext.compiler",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/ext/compiler.py",
+  "span": [
+   503,
+   551
+  ],
+  "sentence": "compiles registers a function that the SQL compiler of another component calls.",
+  "symbol": "compiles"
+ },
+ {
+  "unit": "sqlalchemy.future",
+  "role": "helper",
+  "file": "lib/sqlalchemy/future/__init__.py",
+  "span": [
+   14,
+   14
+  ],
+  "sentence": "Variant: the only use (orm.context) is future.select.",
+  "symbol": "select"
+ },
+ {
+  "unit": "sqlalchemy.orm._orm_constructors",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/_orm_constructors.py",
+  "span": [
+   100,
+   396
+  ],
+  "sentence": "Constructor functions of mapped properties.",
+  "symbol": "mapped_column"
+ },
+ {
+  "unit": "sqlalchemy.orm._typing",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/_typing.py",
+  "span": [
+   121,
+   124
+  ],
+  "sentence": "Typing aliases.",
+  "symbol": "is_orm_option"
+ },
+ {
+  "unit": "sqlalchemy.orm.clsregistry",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/clsregistry.py",
+  "span": [
+   605,
+   630
+  ],
+  "sentence": "Name resolver helpers (the facts give no names).",
+  "symbol": "_resolver"
+ },
+ {
+  "unit": "sqlalchemy.orm.decl_api",
+  "role": "mixed",
+  "file": "lib/sqlalchemy/orm/decl_api.py",
+  "span": [
+   181,
+   208
+  ],
+  "sentence": "DeclarativeMeta and the declarative bases add mapped classes to a shared registry.",
+  "handoff": [
+   "DeclarativeMeta",
+   "declarative_base",
+   "as_declarative"
+  ]
+ },
+ {
+  "unit": "sqlalchemy.orm.decl_base",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/orm/decl_base.py",
+  "span": [
+   1,
+   2394
+  ],
+  "sentence": "_DeferredDeclarativeConfig keeps a shared table of deferred class configurations."
+ },
+ {
+  "unit": "sqlalchemy.orm.descriptor_props",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/descriptor_props.py",
+  "span": [
+   194,
+   939
+  ],
+  "sentence": "Mapped property classes.",
+  "symbol": "CompositeProperty"
+ },
+ {
+  "unit": "sqlalchemy.orm.events",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/events.py",
+  "span": [
+   726,
+   1511
+  ],
+  "sentence": "Event definition classes; the event registry does the registration.",
+  "symbol": "MapperEvents"
+ },
+ {
+  "unit": "sqlalchemy.orm.identity",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/identity.py",
+  "span": [
+   37,
+   123
+  ],
+  "sentence": "A data container that the session keeps.",
+  "symbol": "IdentityMap"
+ },
+ {
+  "unit": "sqlalchemy.orm.loading",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/orm/loading.py",
+  "span": [
+   82,
+   311
+  ],
+  "sentence": "instances fetches rows from a cursor result and load_on_ident executes queries through the session.",
+  "symbol": "instances"
+ },
+ {
+  "unit": "sqlalchemy.orm.path_registry",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/path_registry.py",
+  "span": [
+   128,
+   424
+  ],
+  "sentence": "Path value classes.",
+  "symbol": "PathRegistry"
+ },
+ {
+  "unit": "sqlalchemy.orm.query",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/orm/query.py",
+  "span": [
+   165,
+   3432
+  ],
+  "sentence": "Query executes its statement through the session.",
+  "symbol": "Query"
+ },
+ {
+  "unit": "sqlalchemy.orm.scoping",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/orm/scoping.py",
+  "span": [
+   158,
+   2245
+  ],
+  "sentence": "scoped_session keeps a shared registry of sessions.",
+  "symbol": "scoped_session"
+ },
+ {
+  "unit": "sqlalchemy.orm.writeonly",
+  "role": "helper",
+  "file": "lib/sqlalchemy/orm/writeonly.py",
+  "span": [
+   578,
+   701
+  ],
+  "sentence": "Collection class that makes statements.",
+  "symbol": "WriteOnlyCollection"
+ },
+ {
+  "unit": "sqlalchemy.pool.base",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/pool/base.py",
+  "span": [
+   155,
+   483
+  ],
+  "sentence": "Pool keeps shared DBAPI connections.",
+  "symbol": "Pool"
+ },
+ {
+  "unit": "sqlalchemy.pool.events",
+  "role": "helper",
+  "file": "lib/sqlalchemy/pool/events.py",
+  "span": [
+   27,
+   375
+  ],
+  "sentence": "Event definition class.",
+  "symbol": "PoolEvents"
+ },
+ {
+  "unit": "sqlalchemy.sql._cache_key_cy",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/_cache_key_cy.py",
+  "span": [
+   74,
+   203
+  ],
+  "sentence": "Cache key helpers.",
+  "symbol": "BaseHasCacheKey"
+ },
+ {
+  "unit": "sqlalchemy.sql._orm_types",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/_orm_types.py",
+  "span": [
+   19,
+   19
+  ],
+  "sentence": "Typing aliases.",
+  "symbol": "DMLStrategyArgument"
+ },
+ {
+  "unit": "sqlalchemy.sql._selectable_constructors",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/_selectable_constructors.py",
+  "span": [
+   396,
+   396
+  ],
+  "sentence": "Constructor functions of SELECT expressions.",
+  "symbol": "select"
+ },
+ {
+  "unit": "sqlalchemy.sql._util_cy",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/_util_cy.py",
+  "span": [
+   77,
+   127
+  ],
+  "sentence": "Name map helpers.",
+  "symbol": "anon_map"
+ },
+ {
+  "unit": "sqlalchemy.sql.annotation",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/annotation.py",
+  "span": [
+   54,
+   111
+  ],
+  "sentence": "Annotation mixins and functions.",
+  "symbol": "SupportsAnnotations"
+ },
+ {
+  "unit": "sqlalchemy.sql.events",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/events.py",
+  "span": [
+   26,
+   458
+  ],
+  "sentence": "Event definition class.",
+  "symbol": "DDLEvents"
+ },
+ {
+  "unit": "sqlalchemy.sql.functions",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/functions.py",
+  "span": [
+   1373,
+   1496
+  ],
+  "sentence": "SQL function expression classes.",
+  "symbol": "Function"
+ },
+ {
+  "unit": "sqlalchemy.sql.lambdas",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/lambdas.py",
+  "span": [
+   81,
+   151
+  ],
+  "sentence": "Lambda statement classes.",
+  "symbol": "lambda_stmt"
+ },
+ {
+  "unit": "sqlalchemy.sql.naming",
+  "role": "helper",
+  "file": "lib/sqlalchemy/sql/naming.py",
+  "span": [
+   17,
+   17
+  ],
+  "sentence": "Naming convention helpers.",
+  "symbol": "conv"
+ },
+ {
+  "unit": "sqlalchemy.testing.config",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/testing/config.py",
+  "span": [
+   1,
+   440
+  ],
+  "sentence": "The module keeps the shared configuration and database of the test run."
+ },
+ {
+  "unit": "sqlalchemy.testing.provision",
+  "role": "handoff",
+  "file": "lib/sqlalchemy/testing/provision.py",
+  "span": [
+   364,
+   372
+  ],
+  "sentence": "The provision functions create and drop databases.",
+  "symbol": "create_db"
+ },
+ {
+  "unit": "sqlalchemy.testing.warnings",
+  "role": "helper",
+  "file": "lib/sqlalchemy/testing/warnings.py",
+  "span": [
+   20,
+   21
+  ],
+  "sentence": "Warning functions.",
+  "symbol": "warn_test_suite"
+ },
+ {
+  "unit": "sqlalchemy.util._has_cython",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/_has_cython.py",
+  "span": [
+   37,
+   37
+  ],
+  "sentence": "A constant (the facts give no names).",
+  "symbol": "_CYEXTENSION_MSG"
+ },
+ {
+  "unit": "sqlalchemy.util.preloaded",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/preloaded.py",
+  "span": [
+   147,
+   147
+  ],
+  "sentence": "A lazy import helper.",
+  "symbol": "preload_module"
+ },
+ {
+  "unit": "sqlalchemy.util.queue",
+  "role": "helper",
+  "file": "lib/sqlalchemy/util/queue.py",
+  "span": [
+   84,
+   235
+  ],
+  "sentence": "Queue classes that the pool keeps.",
+  "symbol": "Queue"
+ }
+]

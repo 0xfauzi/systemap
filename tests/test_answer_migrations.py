@@ -120,6 +120,25 @@ def test_a_moved_line_selects_the_one_line_in_the_nested_map() -> None:
     assert moved.items == (current,)
 
 
+def test_a_module_use_item_moves_to_the_one_current_line_of_its_module() -> None:
+    """A module moved into a nested map, or out of it. The item of its `module use` line
+    without the map prefix agrees with one current line, so it applies to that line."""
+    line = "module use: other components import pkg.x and no flow connects them to its component"
+    other = "module use: other components import pkg.y and no flow connects them to its component"
+    into = answer_migrations.current_lines(
+        [Answer(items=(line,), reason="r")], ["Orm: " + line, other]
+    )
+    assert into[0].items == ("Orm: " + line,)
+    out = answer_migrations.current_lines([Answer(items=("Orm: " + line,), reason="r")], [line])
+    assert out[0].items == (line,)
+    # Two current lines for the module: the item stays the same.
+    both = answer_migrations.current_lines(
+        [Answer(items=(line,), reason="r")], ["Orm: " + line, "Web: " + line]
+    )
+    assert both[0].items == (line,)
+    assert answer_migrations.warnings(into, {"Orm: " + line, other}) == []
+
+
 def test_a_target_line_without_names_selects_the_one_line_with_names() -> None:
     """Acceptance 2: the module, the file, and the target must agree with one line."""
     earlier = (

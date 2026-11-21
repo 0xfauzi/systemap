@@ -43,6 +43,15 @@ A layer is a filtered view of the map.
   A `crossing import` line opens only when one or more of its imports can operate at run time. The evidence digest of the line still contains all its imports.
   A `boundary import` line with only imports for type checks goes away, and its exact answer is stale. The evidence of a `boundary import` line contains only the imports that can operate at run time. Thus an exact answer for a `boundary import` line with imports for type checks must have a new evidence digest.
   With `--verbose`, the rows below a `crossing import` line also give each import only in a function body and each import by a string value.
+- `judgement` gives a `module use` line for each module that other components import with no flow. The line names the module, not its component.
+  Its exact answer gives the module role of the module: `role = "helper"` with a `symbol` that the users import, `role = "handoff"`, or `role = "mixed"` with the `handoff` names.
+  A `crossing import` line now opens only when its import crossing uses a handoff module or a handoff name. An import crossing that uses a module with no module role waits, and an import crossing that uses only helper code is closed.
+  Thus, after the upgrade, each `crossing import` line of a map waits until the `module use` lines have answers. `judgement --strict` exits 1 while an import crossing of the reported maps waits.
+  An exact `crossing import` answer for a waiting line is not stale. For a closed line, the report gives an `unused answer:` row. Remove such an answer.
+  The report refuses a family answer and an answer with two or more items for a `module use` line. It also refuses a `helper` answer when a flow source record cites the module, and a module role answer with a name that the facts do not give.
+  `delta` applies the module role answers to a `new crossing import` line. It does not apply the flow source rule.
+  `judgement --json` has schema version 9. See the reference.
+- The history cache key contains the facts format. Thus the first `render` or `refresh` after the upgrade reads the history again one time.
 - Known limit: `judgement` still applies a family answer for a `boundary import` line. Thus one such answer can hide an import that must have a flow across the boundary of a nested map.
 - `render`, `refresh`, and `live` write the atlas page by default (`[render] page = "atlas"`, stage 9 of `docs/design/atlas.md`). Before, the default was the canvas page.
   `canvas = true` also gives the atlas page. The redirect pages of the nested maps do not change.

@@ -444,6 +444,14 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | contract commit | The Git commit with the top map, the boundary rules, the stubs, and the `map=` fields. |
 | stub | A nested model file that has only the components from `systemap parts --stub`. |
 | Git worktree | A different folder with the files of one Git repository, with its own branch. |
+| module role | The recorded classification of an imported module in a module use answer: `helper`, `handoff`, or `mixed`. |
+| helper module | A module whose code operates in the code of the caller and sends no artifact out of the caller. |
+| handoff module | A module whose code sends an artifact, keeps shared data, or starts work in its component. |
+| mixed module | A module that has handoff names and other names. |
+| handoff name | A public name of a mixed module that the answer records in `handoff`. |
+| import crossing | Two components of one map where modules of the first component import modules of the second component, and no flow connects them. Each import crossing has one `crossing import` line. |
+| refused answer | A recorded answer that the judgement report does not apply. The report gives the cause. |
+| import form | The time at which an import operates: `load`, `call`, or `type`. |
 
 | Term | Technical meaning |
 |---|---|

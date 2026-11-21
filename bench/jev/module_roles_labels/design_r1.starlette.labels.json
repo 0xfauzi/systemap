@@ -1,0 +1,92 @@
+[
+ {
+  "unit": "starlette.requests",
+  "role": "mixed",
+  "file": "starlette/requests.py",
+  "span": [
+   198,
+   322
+  ],
+  "sentence": "HTTPConnection only reads the scope; Request.stream receives body messages from the server and Request.send_push_promise sends a message.",
+  "handoff": [
+   "Request"
+  ]
+ },
+ {
+  "unit": "starlette.types",
+  "role": "helper",
+  "file": "starlette/types.py",
+  "span": [
+   10,
+   10
+  ],
+  "sentence": "The module holds only type aliases.",
+  "symbol": "Scope"
+ },
+ {
+  "unit": "starlette.websockets",
+  "role": "handoff",
+  "file": "starlette/websockets.py",
+  "span": [
+   25,
+   186
+  ],
+  "sentence": "WebSocket.send and accept send ASGI messages to the client, and receive takes messages from the server.",
+  "symbol": "WebSocket"
+ },
+ {
+  "unit": "starlette._utils",
+  "role": "helper",
+  "file": "starlette/_utils.py",
+  "span": [
+   28,
+   28
+  ],
+  "sentence": "The functions examine objects and exception groups in the code of the caller.",
+  "symbol": "is_async_callable"
+ },
+ {
+  "unit": "starlette.datastructures",
+  "role": "helper",
+  "file": "starlette/datastructures.py",
+  "span": [
+   485,
+   559
+  ],
+  "sentence": "The classes are data containers that the caller keeps.",
+  "symbol": "Headers"
+ },
+ {
+  "unit": "starlette.exceptions",
+  "role": "helper",
+  "file": "starlette/exceptions.py",
+  "span": [
+   7,
+   20
+  ],
+  "sentence": "The module holds exception classes only.",
+  "symbol": "HTTPException"
+ },
+ {
+  "unit": "starlette.responses",
+  "role": "handoff",
+  "file": "starlette/responses.py",
+  "span": [
+   29,
+   160
+  ],
+  "sentence": "Response.__call__ sends the response start and body messages through the ASGI send callable.",
+  "symbol": "Response"
+ },
+ {
+  "unit": "starlette.concurrency",
+  "role": "helper",
+  "file": "starlette/concurrency.py",
+  "span": [
+   35,
+   37
+  ],
+  "sentence": "The function runs the function of the caller in a worker thread and gives its result back to the caller.",
+  "symbol": "run_in_threadpool"
+ }
+]

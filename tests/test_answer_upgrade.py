@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import set_version
+from conftest import give_module_roles, set_version
 from test_answer_identity import append, case, project, structural_lines
 
 from systemap import (
@@ -51,6 +51,8 @@ def answer_earlier(root: Path) -> tuple[list[str], dict[str, str]]:
     """Record two answers with 2.0.0 digests: a `single module` line, and a `crossing
     import` line in its earlier form with the count. Give the lines and the digests."""
     single, crossing = structural_lines(root)[:2]
+    # A handoff module role opens the import crossing, so its answer is not hidden.
+    give_module_roles(root)
     earlier = digests(root, [single, crossing], earlier=True)
     old_crossing = crossing.replace(" and no flow", " in 1 module and no flow")
     cfg = config.load(root)
@@ -123,7 +125,9 @@ def _with_import_facts(facts: dict[str, Any]) -> dict[str, Any]:
     changed = copy.deepcopy(facts)
     for record in changed["components"].values():
         targets = sorted(record.get("uses", {}))
-        record["import_forms"] = {target: ["type"] for target in targets}
+        # A `type` form removes an import crossing (stage 3). The `call` and `load` forms
+        # keep it, so the same lines have a digest.
+        record["import_forms"] = {target: ["call", "load"] for target in targets}
         record["dynamic_imports"] = [{"call": "import", "text": "", "target": "", "line": 1}]
     return changed
 
