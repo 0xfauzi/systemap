@@ -117,13 +117,14 @@ async function moveState(page) {
     return { moves: s.inside().moves, sel: s.side().sel, current: s.current(), bar: !!s.inside().bar, loc: !!s.inside().loc, focus: document.activeElement && document.activeElement.id };
   });
 }
-// The camera of each frame from now (`systemapCanvas.camera`), until `camsEnd`.
+// The camera of each frame from now (`systemapCanvas.camera`), with the time of the frame
+// (`t`, ms), until `camsEnd`.
 async function camsStart(page) {
   await page.evaluate(() => {
     window.__cams = [];
     const me = {};
     window.__camRun = me;
-    (function each() { if (window.__camRun !== me) return; window.__cams.push(window.systemapCanvas.camera()); requestAnimationFrame(each); })();
+    (function each() { if (window.__camRun !== me) return; window.__cams.push({ ...window.systemapCanvas.camera(), t: performance.now() }); requestAnimationFrame(each); })();
   });
 }
 async function camsEnd(page) { return page.evaluate(() => { window.__camRun = null; return window.__cams; }); }
