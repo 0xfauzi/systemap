@@ -7,8 +7,6 @@ evidence mechanisms. The reference document lists the keys and defaults.
 
 from __future__ import annotations
 
-import dataclasses
-import re
 import tomllib
 from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
@@ -16,10 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from systemap import (
+    config_answers,
     config_decisions,
     config_render,
     contract_file,
-    decision_kinds,
     file_names,
     flow_ids,
     git_command,
@@ -30,6 +28,11 @@ from systemap import (
     tree_walk,
 )
 from systemap import language as languages
+from systemap.config_answers import ANSWER_FORMS as ANSWER_FORMS
+from systemap.config_answers import ANSWER_KEYS as ANSWER_KEYS
+from systemap.config_answers import AUDIT_KINDS as AUDIT_KINDS
+from systemap.config_answers import LINE_KINDS as LINE_KINDS
+from systemap.config_answers import Answer as Answer
 from systemap.config_paths import names as written_names
 from systemap.delta_link import page_url
 from systemap.language_config import package_roots, tests_directories, writing_profile
@@ -83,33 +86,6 @@ AGENT_KEYS = {"command", "cache", "timeout"}
 FIGURE_KEYS = {"out", "mode", "components", "caption", "interactive", "svg_id", "layer", "map"}
 COVERAGE_KEYS = {"ignore"}
 IGNORE_KEYS = {"module", "reason"}
-JUDGEMENT_KEYS = {"answered", "require_reviews"}
-ANSWER_FORMS = ("item", "items", "crossing", "crossing_into", "crossing_from", "kind", "module_sdk")
-ANSWER_KEYS = {*ANSWER_FORMS, "reason", "evidence", "policy", "reviewed", "citations"}
-# The kinds of line `systemap judgement` prints, as `kind = "..."` names them.
-LINE_KINDS = (
-    "single module",
-    "possible mis-fold",
-    "no sentence",
-    "thin layer",
-    "entry point",
-    "journey start",
-    "drafted journey",
-    "step source",
-    "crossing import",
-    "declared flow",
-    "flow review",
-    "no endpoint source",
-    "stale source review",
-    "missing source review",
-    "model sdk",
-    "unknown surface",
-    "contract reason",
-    "boundary flow",
-    "boundary import",
-)
-# The kinds of line `systemap audit` prints; answered in the same list.
-AUDIT_KINDS = decision_kinds.KINDS
 
 
 class ConfigError(Exception):
@@ -146,45 +122,6 @@ class Ignore:
 
     module: str
     reason: str
-
-
-@dataclass(frozen=True)
-class Answer:
-    """This record gives a maintainer answer for exact diagnostic lines or a line family.
-
-    Exact items contain the full printed line without the two-space indent. Family
-    selectors use component IDs, a diagnostic kind, or an SDK import. Evidence binds
-    exact answers to source data. A policy lets family answers accept diagnostics.
-    """
-
-    items: tuple[str, ...]
-    reason: str
-    crossing: tuple[str, ...] | None = None
-    kind: str = ""
-    module_sdk: str = ""
-    crossing_into: str = ""
-    crossing_from: str = ""
-    evidence: str = ""
-    policy: bool = False
-    reviewed: tuple[str, ...] = ()
-    # (file, start_line, end_line, sha256) for each source span that supports the answer.
-    citations: tuple[tuple[str, int, int, str], ...] = ()
-
-    @property
-    def label(self) -> str:
-        """This property gives the answer selector as configuration text for stale-answer
-        reports."""
-        if self.crossing is not None:
-            return "crossing = [" + ", ".join(f'"{cid}"' for cid in self.crossing) + "]"
-        if self.crossing_into:
-            return f'crossing_into = "{self.crossing_into}"'
-        if self.crossing_from:
-            return f'crossing_from = "{self.crossing_from}"'
-        if self.kind:
-            return f'kind = "{self.kind}"'
-        if self.module_sdk:
-            return f'module_sdk = "{self.module_sdk}"'
-        return self.items[0] if len(self.items) == 1 else f"items = {list(self.items)}"
 
 
 @dataclass(frozen=True)
@@ -652,121 +589,11 @@ def _agent(raw: dict[str, Any], where: str) -> dict[str, Any]:
     return {"agent_command": command, "agent_cache": cache, "agent_timeout": float(timeout)}
 
 
-def _answer_selector(form: str, value: Any, location: str) -> Answer:
-    """Validate the answer selector without its reason or evidence."""
-    if form in ("item", "items"):
-        return Answer(items=_answer_lines(form, value, location), reason="")
-    if form == "crossing":
-        return Answer(items=(), reason="", crossing=_answer_crossing(value, location))
-    if form in ("crossing_into", "crossing_from"):
-        name = _answer_name(value, f"{location} {form} must contain one component ID.")
-        if form == "crossing_into":
-            return Answer(items=(), reason="", crossing_into=name)
-        return Answer(items=(), reason="", crossing_from=name)
-    if form == "kind":
-        error = f"{location} kind must be one of {', '.join((*LINE_KINDS, *AUDIT_KINDS))}"
-        name = _answer_name(value, error)
-        if name not in (*LINE_KINDS, *AUDIT_KINDS):
-            raise ConfigError(error + decision_kinds.previous_name_note(name))
-        return Answer(items=(), reason="", kind=name)
-    name = _answer_name(value, f"{location} module_sdk must be an import name.")
-    return Answer(items=(), reason="", module_sdk=name)
-
-
-def _answer_name(value: Any, error: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ConfigError(error)
-    return value.strip()
-
-
-def _answer_lines(form: str, value: Any, location: str) -> tuple[str, ...]:
-    if form == "item":
-        return (_answer_name(value, f"{location} item must be a line."),)
-    if (
-        not isinstance(value, list)
-        or not value
-        or not all(isinstance(v, str) and v.strip() for v in value)
-    ):
-        raise ConfigError(f"{location} items must be a list with one or more lines.")
-    return tuple(v.strip() for v in value)
-
-
-def _answer_crossing(value: Any, location: str) -> tuple[str, ...]:
-    ids = (
-        [v.strip() if isinstance(v, str) else "" for v in value] if isinstance(value, list) else []
-    )
-    if len(ids) < 2 or not all(ids) or len(set(ids)) != len(ids):
-        raise ConfigError(
-            f"{location} crossing must contain two or more different component IDs, such "
-            f'as ["A", "B"].'
-        )
-    return tuple(ids)
-
-
 def _judgement_answered(raw: dict[str, Any], where: str) -> tuple[Answer, ...]:
-    """This function reads and validates `[judgement] answered`, with reasons and evidence."""
-    judgement = raw.get("judgement", {})
-    if not isinstance(judgement, dict):
-        raise ConfigError(f"{where}: judgement must be a table")
-    bad = sorted(set(judgement) - JUDGEMENT_KEYS)
-    if bad:
-        raise ConfigError(f"{where}: judgement has an unknown key: {', '.join(bad)}")
-    entries = judgement.get("answered", [])
-    if not isinstance(entries, list):
-        raise ConfigError(f"{where}: judgement.answered must be a list of tables")
-    return tuple(
-        _answer_entry(entry, f"{where}: judgement.answered[{k}]")
-        for k, entry in enumerate(entries, start=1)
-    )
-
-
-def _answer_entry(entry: Any, location: str) -> Answer:
-    if not isinstance(entry, dict):
-        raise ConfigError(f"{location} must be a table with item (or items) and reason.")
-    bad = sorted(set(entry) - ANSWER_KEYS)
-    if bad:
-        raise ConfigError(f"{location} has an unknown key: {', '.join(bad)}")
-    forms = [form for form in ANSWER_FORMS if entry.get(form) is not None]
-    if len(forms) != 1:
-        raise ConfigError(
-            f"{location} must contain one selector: item, items, crossing, crossing_into, "
-            f"crossing_from, kind, or module_sdk. The selector count is {len(forms)}"
-        )
-    (form,) = forms
-    answer = _answer_selector(form, entry[form], location)
-    evidence, policy, reviewed = _answer_review(entry, form, location)
-    reason = entry.get("reason")
-    if not isinstance(reason, str) or not reason.strip():
-        raise ConfigError(
-            f"{location} ({answer.label}) must contain a reason. Give the reason for the answer."
-        )
     try:
-        cited = config_decisions.citations(entry.get("citations"), location)
+        return config_answers.judgement_answered(raw, where)
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
-    return dataclasses.replace(
-        answer, reason=reason, evidence=evidence, policy=policy, reviewed=reviewed, citations=cited
-    )
-
-
-def _answer_review(
-    entry: dict[str, Any], form: str, location: str
-) -> tuple[str, bool, tuple[str, ...]]:
-    exact = form in ("item", "items")
-    evidence = entry.get("evidence", "")
-    policy = entry.get("policy", False)
-    reviewed = entry.get("reviewed", [])
-    if not isinstance(evidence, str) or (evidence and not exact):
-        raise ConfigError(f"{location} evidence is permitted only for an exact item.")
-    if evidence and re.fullmatch(r"[0-9a-f]{64}", evidence) is None:
-        raise ConfigError(f"{location} evidence must be a SHA-256 digest")
-    if not isinstance(policy, bool) or (policy and exact):
-        raise ConfigError(f"{location} policy is permitted only for a family selector.")
-    if not isinstance(reviewed, list) or not all(isinstance(v, str) and v for v in reviewed):
-        raise ConfigError(f"{location} reviewed must be a list of lines")
-    if reviewed and not policy:
-        raise ConfigError(f"{location} reviewed is permitted only with policy = true.")
-    return evidence, policy, tuple(reviewed)
 
 
 def load_model(path: Path, label: str = "", root: Path | None = None) -> tuple[Model, Meaning]:

@@ -13,6 +13,8 @@ Acceptance values:
 5. The writer keeps the line end that the file uses (result `followup-answer-newlines`).
    For each form, a file with CRLF line ends has 0 LF without a CR after the write, and a
    file with LF line ends has 0 CR after the write.
+6. A list of strings gives one JSON string for each item, and the TOML parser gives the
+   same list. The bytes of an answer without such a list do not change.
 """
 
 from __future__ import annotations
@@ -63,6 +65,36 @@ def test_each_form_gets_the_answer_and_keeps_its_text(tmp_path: Path, form: str)
     assert before == after
     for comment in ("# note", "# c"):
         assert (comment in text) == (comment in new)
+
+
+def test_a_list_of_strings_gives_one_string_for_each_item(tmp_path: Path) -> None:
+    """Acceptance 6: a module role answer with handoff names."""
+    entry = {
+        "item": "module use: other components import a b and no flow connects them to its component",
+        "role": "mixed",
+        "handoff": ["Serializer", 'quote"name', "\u00e9"],
+        "evidence": "0" * 64,
+        "reason": "r",
+    }
+    assert answer_write.inline(entry).endswith(
+        'role = "mixed", handoff = ["Serializer", "quote\\"name", "\u00e9"], '
+        f'evidence = "{"0" * 64}", reason = "r" }}'
+    )
+    (tmp_path / "systemap.toml").write_text(FORMS["empty"], encoding="utf-8")
+    answer_write.add(tmp_path, "systemap.toml", [entry])
+    new = (tmp_path / "systemap.toml").read_text(encoding="utf-8")
+    assert answers(new) == [entry]
+    assert config.load(tmp_path).judgement_answered[0].handoff == tuple(entry["handoff"])
+
+
+def test_the_bytes_of_an_existing_answer_do_not_change() -> None:
+    """Acceptance 6: the inline text of ENTRY is the text before the list rule."""
+    assert answer_write.inline(ENTRY) == (
+        '{ item = "single module: A contains \\"only\\" x", evidence = "'
+        + "0" * 64
+        + '", reason = "r # not a comment", citations = [{ file = "a.py", start_line = 1, '
+        'end_line = 2, sha256 = "' + "1" * 64 + '" }] }'
+    )
 
 
 def test_an_answer_for_the_same_line_replaces_the_old_answer(tmp_path: Path) -> None:

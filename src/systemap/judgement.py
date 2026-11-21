@@ -36,6 +36,15 @@ from systemap import (
 )
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
+from systemap.crossing import CROSSING_LINE as CROSSING_LINE
+from systemap.crossing import Pair as Pair
+from systemap.crossing import crossing_counts as crossing_counts
+from systemap.crossing import crossing_detail as crossing_detail
+from systemap.crossing import crossing_detail_tree as crossing_detail_tree
+from systemap.crossing import crossing_imports as crossing_imports
+from systemap.crossing import crossing_imports_without_flow as crossing_imports_without_flow
+from systemap.crossing import crossing_line as crossing_line
+from systemap.crossing import crossing_pairs as crossing_pairs
 from systemap.evidence import mentioned, owners
 from systemap.journey_coverage import (
     TOGETHER_AT as TOGETHER_AT,
@@ -197,86 +206,6 @@ def entry_points_without_journey(
     """This function groups entry points without sequence coverage by kind and component."""
     owner = _owner_of(model, facts)
     return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner, covered), owner)
-
-
-Pair = tuple[str, str]
-
-
-def crossing_pairs(
-    components: dict[str, Any], owner: dict[str, str]
-) -> dict[Pair, list[tuple[str, str]]]:
-    """This function indexes module imports across distinct component pairs.
-
-    It uses source facts and an owner table so the delta can use the same rule at
-    another commit.
-    """
-    out: dict[Pair, list[tuple[str, str]]] = {}
-    for module in sorted(components):
-        p = owner.get(module)
-        if not p:
-            continue
-        for target in sorted(components[module].get("uses", {})):
-            q = owner.get(target)
-            if q and q != p:
-                out.setdefault((p, q), []).append((module, target))
-    return out
-
-
-def crossing_line(p: str, q: str) -> str:
-    """This function gives one diagnostic for a component pair.
-
-    The line contains no count, because a count can change while the finding stays the
-    same. `crossing_counts` gives the count for the row below the line.
-    """
-    return f"crossing import: {p} imports {q} and no flow connects them"
-
-
-def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tuple[str, str]]]:
-    """This function gives component pairs with an import connection and no flow
-    connection.
-    """
-    components = facts.get("components", {})
-    joined = {frozenset(f.edge) for f in model.flows}
-    return {
-        pair: imports
-        for pair, imports in crossing_pairs(components, _owner_of(model, facts)).items()
-        if frozenset(pair) not in joined
-    }
-
-
-def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
-    """This function gives one diagnostic for each ordered component pair with imports but
-    no flow. The verbose detail lists these imports.
-    """
-    return [crossing_line(p, q) for p, q in crossing_imports(model, facts)]
-
-
-def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
-    """This function indexes imports by their full printed crossing-import diagnostic."""
-    return {
-        prefix + crossing_line(p, q): [f"{m} imports {t}" for m, t in imports]
-        for (p, q), imports in crossing_imports(model, facts).items()
-    }
-
-
-def crossing_counts(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int]:
-    """This function gives the count of the modules of the source component that import
-    the destination component, for each crossing-import line of all maps."""
-    return {
-        m.prefix + crossing_line(p, q): len({module for module, _target in imports})
-        for m in tree.reported
-        for (p, q), imports in crossing_imports(m.model, facts).items()
-    }
-
-
-def crossing_detail_tree(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
-    """This function gives crossing-import detail for all maps with their diagnostic
-    prefixes.
-    """
-    out: dict[str, list[str]] = {}
-    for m in tree.reported:
-        out.update(crossing_detail(m.model, facts, m.prefix))
-    return out
 
 
 def declared_flows(
@@ -565,7 +494,6 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
-CROSSING_LINE = re.compile(r"^crossing import: (\S+) imports (\S+) and no flow connects")
 SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component ")
 # How each kind's lines begin; the entry point line carries no colon.
 KIND_PREFIX = {kind: f"{kind}: " for kind in LINE_KINDS} | {"entry point": "entry point "}
