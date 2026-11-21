@@ -9014,3 +9014,19 @@ The Python extraction of the Django copy took 8.60, 8.71 and 8.36 s before the s
 
 Result: all acceptance values passed.
 On this repository, no recorded answer digest changed. The source reviews and the flow reviews of the components and flows that cite the changed modules were examined and recorded again.
+
+## G1: module role labels from an agent that did not see the specification (2026-11-21)
+
+Decision D1: on 2026-11-21 the maintainer accepted the question cost of section 20.1 of the module role specification (Django 317 to 385, SQLAlchemy 137, starlette 17). The maintainer also asked for stage 4 in this release.
+A coding agent that did not see the specification gave a module role to each of the 335 units. Django has 226 units (157 helper, 53 handoff, 16 mixed), SQLAlchemy 101 (77, 14, 10), and starlette 8 (5, 2, 1).
+The script `module_roles.py` (steps `units` and `states`) writes `module_roles_G1.json`. The units step gave 283, 135 and 15 run-time import crossings and 226, 101 and 8 units, as in section 18.3. The label file (114 KB) is not in the repository.
+
+| Map | Open / waiting / closed | Questions (ratio) | Open only through `"*"` | 18.1 (a) | Waiting = 0 |
+|---|---|---|---|---|---|
+| Django 6.1.3 | 131 / 0 / 152 | 357 (1.26) | 0 | passed | passed |
+| SQLAlchemy 2.1.9 | 46 / 0 / 89 | 147 (1.09) | 0 | passed | passed |
+| starlette 0.46.2 | 9 / 0 / 6 | 17 (1.13) | 0 | passed | passed |
+
+Result: gate G1 passed on the three maps. OrmLoading -> Engine is `closed` (`sqlalchemy.engine` mixed, `sqlalchemy.future` helper).
+After the run, a comparison with the labels of the design team found 22 different module roles in the 210 units that the two label sets both have (Django 9, SQLAlchemy 13, starlette 0). Also, 5 mixed units have different handoff names.
+The three most important differences: `django.conf` (29 import crossings) is `helper` in the design labels and `mixed` with `settings` in the new labels (open question O1). `sqlalchemy.inspection` (14) is `helper` and `mixed`. `django.db.utils` (11) is `mixed` with `ConnectionHandler` and `helper`.
