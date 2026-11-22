@@ -44,9 +44,21 @@ MACHINES = (
         of="Model",
         start=("missing",),
         states=(
-            State("missing", "systemap.card_review.MISSING", "The component has no source_review value."),
-            State("current", "systemap.card_review.CURRENT", "The source_review value is the current digest."),
-            State("stale", "systemap.card_review.STALE", "The source_review value is not the current digest."),
+            State(
+                "missing",
+                "systemap.card_review.MISSING",
+                "The component has no source_review value.",
+            ),
+            State(
+                "current",
+                "systemap.card_review.CURRENT",
+                "The source_review value is the current digest.",
+            ),
+            State(
+                "stale",
+                "systemap.card_review.STALE",
+                "The source_review value is not the current digest.",
+            ),
         ),
         transitions=(
             Transition(
