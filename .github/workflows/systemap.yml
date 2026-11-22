@@ -337,7 +337,7 @@ jobs:
   # card names that fit.
   canvas-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60 # about 35 minutes with the atlas browser tests (measured on 2026-11-22)
     env:
       SYSTEMAP_BROWSER_TESTS: required
     steps:
