@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 
-from systemap.card_names import PAGE_NAME
+from systemap.card_names import NAME_ADVANCES, NAME_EM, PAGE_NAME
 from systemap.page_canvas_finish import GRID_TILE_PART
 
 DRAW = r"""
@@ -383,8 +383,9 @@ function cardText(c, x, y, w, h, alpha, qv) {
   text(fit(c.id, ns, right, 600, false, true), x + pad, base, ns, qv > 0.5 ? C['--ink-3'] : C['--ink'], t * (1 - 0.4 * qv), qv > 0.5 ? 500 : 600, false, 'left', true);
   if (c.p && far > 0) text(fit(c.p, q(10 * u), low, 400), x + pad, mid + 13 * u, q(10 * u), C['--ink-3'], t * far * (1 - qv) * (1 - HIDE));
 }
-// The size and the room of a card name at scale 1 (`card_names`). The check uses the same
-// values and the same font widths. Thus the check reports each name that the page cuts.
+// The size and the room of a card name at scale 1, and the font widths of a name (`adv`, in
+// units of `em`), from `card_names`. The check uses the same values. Thus the check reports
+// each name that the page cuts, in each browser.
 var PAGE_NAME = PAGE_NAME_JSON;
 // The size of the name s: ns, or the largest smaller size in half pixels at which the name
 // fits in `room`, but not smaller than `least`. A name that the check accepts fits at `least`.
@@ -507,4 +508,9 @@ function boxOnScreen(r) { return r[0] + r[2] > 0 && r[1] + r[3] > HEAD_H && r[0]
 """
 
 # The page reads the size and the room of a card name from the check values (`card_names`).
-DRAW = GRID_TILE_PART + DRAW.replace("PAGE_NAME_JSON", json.dumps(PAGE_NAME))
+# The page also gets the font widths of the check (`adv`, in units of `em`), and measures a
+# card name with them, not with the browser: a browser can round the width of each character.
+NAME_TABLE = {**PAGE_NAME, "adv": list(NAME_ADVANCES), "em": NAME_EM}
+DRAW = GRID_TILE_PART + DRAW.replace(
+    "PAGE_NAME_JSON", json.dumps(NAME_TABLE, separators=(",", ":"))
+)

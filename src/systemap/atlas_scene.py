@@ -174,10 +174,26 @@ function font(weight, size, mono) { return weight + ' ' + size + 'px ' + (mono ?
 function unitWidth(word, weight, mono, flat) {
   var key = weight + (mono ? 'm' : 's') + (flat ? 'f' : '') + word, w = WORDS.get(key);
   if (w === undefined) {
-    ctx.font = font(weight, 100, mono); kerning(ctx, flat);
-    w = ctx.measureText(word).width / 100; kerning(ctx, false); WORDS.set(key, w);
+    w = flat && !mono && +weight === 600 ? tableWidth(word) : -1;
+    if (w < 0) {
+      ctx.font = font(weight, 100, mono); kerning(ctx, flat);
+      w = ctx.measureText(word).width / 100; kerning(ctx, false);
+    }
+    WORDS.set(key, w);
   }
   return w;
+}
+// The width of a card name at size 1 from the font widths of the check (`PAGE_NAME.adv`), or
+// -1 when a character has no width there. The browser can round the width of each character,
+// so the page does not use the browser for a card name.
+function tableWidth(word) {
+  var adv = PAGE_NAME.adv, sum = 0;
+  for (var i = 0; i < word.length; i++) {
+    var a = adv[word.charCodeAt(i) - 32];
+    if (a === undefined) return -1;
+    sum += a;
+  }
+  return sum / PAGE_NAME.em;
 }
 // No kerning with `flat`, where the browser has the property, and else the kerning of the font.
 function kerning(g, flat) { if ('fontKerning' in g) g.fontKerning = flat ? 'none' : 'auto'; }

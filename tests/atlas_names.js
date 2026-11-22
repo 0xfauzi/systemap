@@ -6,6 +6,7 @@
 // At 1440 x 900, the names that the page draws for the cards of the top map: at the fit, and
 // then for each zoom, with each card in the middle of the screen. Also the width of each
 // character from 32 to 126 in the page font at weight 600 and 100 px, with no kerning.
+// The environment value SKEW makes each width that the browser measures SKEW times larger.
 // The output is one JSON object. `errors` has the script errors of the page.
 'use strict';
 const { chromium } = require('playwright');
@@ -14,6 +15,18 @@ const { chromium } = require('playwright');
   const [file, ...zooms] = process.argv.slice(2);
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+  // With SKEW, each text width that the browser measures is SKEW times its value, as in a
+  // browser with other font metrics. The card names must not change (N3).
+  const skew = Number(process.env.SKEW || 1);
+  if (skew !== 1) {
+    await page.addInitScript((s) => {
+      const m = CanvasRenderingContext2D.prototype.measureText;
+      CanvasRenderingContext2D.prototype.measureText = function (t) {
+        const r = m.call(this, t);
+        return { width: r.width * s, actualBoundingBoxAscent: r.actualBoundingBoxAscent, actualBoundingBoxDescent: r.actualBoundingBoxDescent };
+      };
+    }, skew);
+  }
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });

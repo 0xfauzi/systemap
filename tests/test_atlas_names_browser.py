@@ -19,11 +19,18 @@ N2. The check gives a warning for the card name ManagementCommands (160 units, 1
     maintainer changed N2 on 2026-11-21: before, the check refused the name with exit code 1.
 N3. The page width of each character from 32 to 126 at weight 600 and 100 px with no
     kerning is the width that `NAME_ADVANCES` gives, with a difference of 0.001 px or less.
+    Changed on 2026-11-22 after CI: in the Chrome Headless Shell of the CI runner, the
+    browser gave each character a width in whole pixels (the space 25 px, not 25.146 px),
+    so N3 failed there and passed in the Chromium of the development machine. A browser can
+    round the font widths, so the page now measures a card name with `NAME_ADVANCES` itself,
+    not with the browser. N3 is now: when each width that the browser measures is 1.3 times
+    its value, the page still shows the name of N1 in full at the fit and at each zoom.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -32,7 +39,7 @@ import pytest
 from conftest import init_two_cards, write_tree
 from test_canvas_browser import browser
 
-from systemap.card_names import NAME_ADVANCES, NAME_EM, name_room, name_width
+from systemap.card_names import name_room, name_width
 from systemap.cli import main
 
 ROOT = Path(__file__).resolve().parent
@@ -65,9 +72,13 @@ def two_cards(root: Path, name: str) -> Path:
     return root / "docs/map/index.html"
 
 
-def drive(page: Path) -> dict[str, Any]:
+def drive(page: Path, skew: float = 1.0) -> dict[str, Any]:
     proc = subprocess.run(
-        [browser(), str(DRIVER), str(page), *ZOOMS], capture_output=True, text=True, timeout=300
+        [browser(), str(DRIVER), str(page), *ZOOMS],
+        capture_output=True,
+        text=True,
+        timeout=300,
+        env={**os.environ, "SKEW": str(skew)},
     )
     assert proc.returncode == 0, proc.stderr
     got = dict(json.loads(proc.stdout))
@@ -96,8 +107,10 @@ def test_check_and_page_agree_on_a_name_that_fits(
         assert not cut(zoom["texts"], FITS), (zoom["k"], zoom["card"], zoom["texts"])
         shown += FITS in zoom["texts"]
     assert shown >= len(ZOOMS)
-    for code, px in enumerate(got["widths"], start=32):
-        assert abs(px - NAME_ADVANCES[code - 32] * 100 / NAME_EM) <= 0.001, chr(code)
+    skewed = drive(page, 1.3)
+    assert FITS in skewed["fit"]
+    for zoom in skewed["zooms"]:
+        assert not cut(zoom["texts"], FITS), (zoom["k"], zoom["card"], zoom["texts"])
 
 
 def test_check_reports_the_name_that_the_page_cuts(
