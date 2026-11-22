@@ -337,7 +337,7 @@ jobs:
   # card names that fit.
   canvas-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 60 # about 35 minutes with the atlas browser tests (measured on 2026-11-22)
+    timeout-minutes: 60 # on 2026-11-22 the job passed 80 percent of its tests at 22 minutes and did not end in 30
     env:
       SYSTEMAP_BROWSER_TESTS: required
     steps:
