@@ -99,8 +99,11 @@ NO_CHANGE = (
     "notice: The page has no History view, because no commit changed a source file of a"
     " component of the top map."
 )
-# The history element of the atlas page (`atlas_page`). The page escapes "<" in the data.
-_STORED = re.compile(r'<script type="application/json" id="atlas-history">(.*?)</script>', re.S)
+# The history element of the atlas page (`atlas_page._history_element`), as the page writes
+# it. The page escapes "<" in the data, so the data has no "</script>". The page is a file
+# that systemap wrote; `stored` finds the exact start text and does not parse HTML.
+_STORED_START = '<script type="application/json" id="atlas-history">'
+_STORED_END = "</script>"
 _NUMSTAT = re.compile(r"(\d+|-)\t(\d+|-)\t(.*)", re.S)
 
 
@@ -387,11 +390,15 @@ def stored(cfg: Config, tree: nest.Tree) -> dict[str, Any] | None:
         text = file_write.read_text(cfg.root, tree.top.page_path(cfg))
     except (OSError, UnicodeError, file_write.RefusedFile):
         return None
-    match = _STORED.search(text or "")
-    if not match:
+    start = (text or "").find(_STORED_START)
+    if start < 0:
+        return None
+    start += len(_STORED_START)
+    end = (text or "").find(_STORED_END, start)
+    if end < 0:
         return None
     try:
-        value = json.loads(match.group(1))
+        value = json.loads((text or "")[start:end])
     except ValueError:
         return None
     # A history of a different `history_days` is not the history of the settings.

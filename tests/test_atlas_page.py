@@ -40,6 +40,7 @@ import base64
 import hashlib
 import json
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -158,19 +159,53 @@ def _digest(text: str) -> str:
     return "'sha256-" + base64.b64encode(hashlib.sha256(text.encode()).digest()).decode() + "'"
 
 
+class _Parts(HTMLParser):
+    """The script elements with no attribute, the style elements, and each style attribute
+    and inline event handler of a page. An HTML parser finds the elements in each letter
+    case, so the test does not depend on how the page writes its tags."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.scripts: list[str] = []
+        self.styles: list[str] = []
+        self.style_attributes: list[str] = []
+        self.handlers: list[str] = []
+        self._into: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        names = [name for name, _value in attrs]
+        self.style_attributes += [tag for name in names if name == "style"]
+        self.handlers += [f"{tag} {name}" for name in names if name.startswith("on")]
+        if tag == "script" and not attrs:
+            self.scripts.append("")
+            self._into = self.scripts
+        elif tag == "style":
+            self.styles.append("")
+            self._into = self.styles
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("script", "style"):
+            self._into = None
+
+    def handle_data(self, data: str) -> None:
+        if self._into is not None:
+            self._into[-1] += data
+
+
 def test_the_policy_and_the_markup(atlas_root: Path) -> None:
     """Acceptance 4."""
     top = _read(atlas_root, "index.html")
-    scripts = re.findall(r"<script>(.*?)</script>", top, re.S)
-    styles = re.findall(r"<style>(.*?)</style>", top, re.S)
+    parts = _Parts()
+    parts.feed(top)
+    parts.close()
+    scripts, styles = parts.scripts, parts.styles
     assert len(scripts) == 2 and len(styles) == 1
     directives = dict(part.split(" ", 1) for part in page_csp.of_page(top).split("; "))
     assert sorted(directives["script-src"].split()) == sorted(_digest(s) for s in scripts)
     assert directives["style-src-elem"] == _digest(styles[0])
     assert directives["frame-src"] == "'none'"
-    markup = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", "", top, flags=re.S)
-    assert re.search(r"<[^>]*\sstyle=", markup) is None
-    assert re.search(r"<[^>]*\son[a-z]+=", markup) is None
+    assert not parts.style_attributes, parts.style_attributes
+    assert not parts.handlers, parts.handlers
     # The namespace name of SVG in the icon of the page is a name, not a file.
     names = top.replace("http://www.w3.org/2000/svg", "")
     assert re.search(r"(https?:)?//[a-z0-9.-]+\.[a-z]{2,}/", names) is None
