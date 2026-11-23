@@ -29,7 +29,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from test_atlas_page import DATA as ATLAS_DATA
+from test_atlas_page import page_data_texts
 from test_canvas_access import AXE_VERSION, _access, _axe, no_axe
 from test_canvas_page import DATA
 
@@ -42,7 +42,7 @@ SELF_MAP = ROOT / "docs" / "map" / "index.html"
 def test_the_committed_self_map_is_the_atlas_page() -> None:
     """Acceptance 1."""
     html = SELF_MAP.read_text(encoding="utf-8")
-    found = ATLAS_DATA.findall(html)
+    found = page_data_texts(html)
     assert len(found) == 1, "one data element"
     assert not DATA.findall(html), "no data element of the canvas page"
     data = json.loads(found[0])

@@ -69,7 +69,35 @@ from systemap import (
 from systemap.cli import main
 
 REPO = Path(__file__).resolve().parent.parent
-DATA = re.compile(r'<script type="application/json" id="atlas-data">(.*?)</script>', re.S)
+
+
+class _Data(HTMLParser):
+    """The text of each script element with the id atlas-data, in each letter case."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.found: list[str] = []
+        self._open = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self._open = tag == "script" and ("id", "atlas-data") in attrs
+        if self._open:
+            self.found.append("")
+
+    def handle_endtag(self, tag: str) -> None:
+        self._open = False
+
+    def handle_data(self, data: str) -> None:
+        if self._open:
+            self.found[-1] += data
+
+
+def page_data_texts(html: str) -> list[str]:
+    """Give the text of each data element of the atlas page (`atlas_page`)."""
+    parser = _Data()
+    parser.feed(html)
+    parser.close()
+    return parser.found
 
 
 def _config(tmp_path: Path, setting: str) -> config.Config:
@@ -242,9 +270,9 @@ def test_the_page_is_in_the_size_limit_of_the_budget() -> None:
     atlas = atlas_page.build(theme, atlas_data.build(cfg, tree, facts), history)
     assert 'id="atlas-history"' in atlas
     assert len(atlas.encode()) <= 1.5 * len(canvas.encode())
-    found = DATA.search(atlas)
-    assert found is not None
-    assert json.loads(found.group(1))["maps"][0]["flows"]
+    found = page_data_texts(atlas)
+    assert len(found) == 1
+    assert json.loads(found[0])["maps"][0]["flows"]
 
 
 def test_the_page_has_the_parts_for_a_screen_reader(atlas_root: Path) -> None:
