@@ -134,11 +134,17 @@ async function point(browser, file, card) {
     out.unpinned = await page.evaluate(state);
   }
   // The direction of the draw: a new move onto the card, and one frame in the middle of the
-  // draw of its lines.
-  await page.mouse.move(5, 300);
-  await page.waitForTimeout(600);
-  await page.mouse.move(at[0], at[1]);
-  out.middle = await page.evaluate(`(${midDraw.toString()})()`);
+  // draw of its lines. The page starts to watch the frames before the move, so the time of the
+  // move does not use part of the draw. A slow machine can skip the frames of the middle of
+  // the draw, so the move is done again, up to 3 times, until one frame is in the middle.
+  out.middle = [];
+  for (let tries = 0; tries < 3 && !out.middle.length; tries++) {
+    await page.mouse.move(5, 300);
+    await page.waitForTimeout(600);
+    await page.evaluate(`void (window.__mid = (${midDraw.toString()})())`);
+    await page.mouse.move(at[0], at[1]);
+    out.middle = await page.evaluate('window.__mid');
+  }
   await page.mouse.move(5, 300);
   await page.waitForTimeout(400);
   // A card with no flow in the layer.
