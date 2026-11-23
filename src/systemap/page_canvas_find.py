@@ -197,6 +197,7 @@ _BODY = r"""  function where(m){ return 'in ' + (m.id || DATA.name || 'the top m
   function goFlow(m, f){
     if(!placed(m, 'the flow ' + f.a)){ return; }
     setHash(hashOf(m.id));
+    viewFlowOn(f);
     flyGoal(goalOf(m, null, f));
     land(function(){
       SAID_MAP = m;

@@ -133,10 +133,14 @@ def _without_location(record: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in record.items() if key not in _LOCATION}
 
 
+# The module keys that 2.0.0 did not write, or that the 2.0.0 evidence does not contain.
+_NOT_EARLIER = frozenset({"syntax_sha", "api", "import_forms", "dynamic_imports"})
+
+
 def _answer_facts(record: dict[str, Any]) -> dict[str, Any]:
     """Give the module record of the 2.0.0 evidence: the record without the
-    parser-specific syntax fingerprints."""
-    stable = {key: value for key, value in record.items() if key not in {"syntax_sha", "api"}}
+    parser-specific syntax fingerprints, and without the import facts of format 15."""
+    stable = {key: value for key, value in record.items() if key not in _NOT_EARLIER}
     stable["api"] = [
         {key: value for key, value in item.items() if key != "fingerprint"}
         for item in record.get("api", [])
@@ -424,6 +428,28 @@ def crossing_state(
     ]
 
 
+def use_state(components: Mapping[str, Any], module: str) -> Any:
+    """Give the evidence of a `module use` line: the cited facts of the module, its import
+    forms, and its imports by a string value.
+
+    The state does not contain the users, the component of the module, the map claims, or
+    the source hash. Thus a new user, a move of the module, a comment, or a function body
+    does not change it. A new name, a new import, a new form, or a new import by a string
+    value of the module changes it."""
+    record = components.get(module)
+    if not isinstance(record, dict):
+        return {"module": module, "facts": None, "forms": None, "dynamic": None}
+    dynamic = [d for d in record.get("dynamic_imports", []) if isinstance(d, Mapping)]
+    return {
+        "module": module,
+        "facts": cited_facts(record),
+        "forms": record.get("import_forms", {}),
+        "dynamic": sorted(
+            (str(d.get("call")), str(d.get("text")), str(d.get("target"))) for d in dynamic
+        ),
+    }
+
+
 def digest(state: Any) -> str:
     """Give the SHA-256 digest of an evidence state."""
     encoded = json.dumps(state, sort_keys=True, default=str).encode()
@@ -437,14 +463,21 @@ def tree_evidence(
     lines: list[str],
     crossings: Mapping[str, list[tuple[str, str]]],
     earlier: bool = False,
+    uses: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Give the evidence digest of each line. `crossings` gives the imports of each
-    crossing-import line. With `earlier`, give the 2.0.0 form."""
+    crossing-import line, and `uses` gives the module of each `module use` line
+    (`use_state`). With `earlier`, give the 2.0.0 form. The 2.0.0 form of a `module use`
+    line is its current form, because 2.0.0 had no such line."""
     located = located_records(facts)
     records = repository_records(facts)
     model_hashes: dict[str, str] = {}
     out = boundary_evidence(tree, facts, lines)
+    modules = uses or {}
     for key in _without(lines, out):
+        if key in modules:
+            out[key] = digest(use_state(facts.get("components", {}), modules[key]))
+            continue
         m = map_of(tree, key)
         bare = key[len(m.prefix) :]
         state = located_state(root, located.get(bare, []))

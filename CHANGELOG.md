@@ -9,8 +9,72 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+### Writing profile
+
+- The `asd-ste100` profile uses the ASD-STE100 Issue 9 style. It does not use the official ASD dictionary.
+  The language policy has the style rules, from public summaries of the standard, and a project word list.
+  Under this profile, an agent says that the text follows the ASD-STE100 style. It does not say that the text obeys the official standard.
+- The language policy text changed for the two profiles. The cache key of a coding-agent request contains the policy.
+  Thus `systemap journeys` does not use an answer that it recorded before this change. It asks the agent again.
+
+### Atlas page
+
+- A long label at rest does not go across a vertical part of its line. Outside the Sequences view, a vertical part takes a label only when the label is 8 label heights wide or less. The label shows when the reader points at the line.
+- `systemap check` gives a warning line for each card name that the atlas page cuts. The line starts with `warning: card ID: name does not fit on the atlas page`.
+  The check and the page use one measure of a card name (`card_names`): the same font widths, the same size, and the same room.
+  In this release, the warning does not change the exit code of `check` or `figure`. Thus a map that passed the check before the upgrade also passes it after the upgrade.
+  A later release will give an error for such a name. The detail JSON of a drawing with such a name gives these lines in `_meta.page_names`, not in `_meta.collisions`.
+- The details of a card that is not an actor have the lists "Uses" and "Used by": the other cards that the modules of the card import, and the other cards with modules that import it. Each row tells the first flow between the two cards, or "no flow". A click on a row selects the card. The lists include imports for type checks. The page calculates the lists from the page data that it had before. The canvas page does not have these lists in this release.
+- A selection of a card keeps the scale and the place of the reader. Before, a selection with the details closed and a close of the details fitted the full map. Now a selection of a card that is fully on the screen and not under the details does not move the camera. When the details would cover the selected card, the camera moves the smallest distance that keeps the card out from under the details, and it keeps the cards of its flows in view when it can. Find and a link with the hash of a card still fit the map of the card. In a nested map, the small picture of the map above does not show while it covers a card, so that it does not take a click meant for a card. After a selection at the fit, a change of the window size fits the map again with the space of the details.
+- The counts of the atlas page use one noun for one thing. A card is an actor or a component. The glossary now gives this meaning: an actor is not a component. A layer with no flow gives the cards and the two parts, for example "37 cards in 6 regions: 4 actors and 33 components". Before, it gave only "37 cards in 6 regions", and the other layers gave "33 components" for the same map.
+- The Focus headline gives the reach through flows and, as a separate count, the other cards that import the card directly, for example "through flows, a change here can reach 15 of 36 other cards · modules of 18 other cards import modules of this card". Before, the reach did not count the imports: modules of 18 other cards import modules of Orm on the Django map, but no count of Focus told this. The importers are one step only: a path of imports with more steps gets to almost each card of a framework. The page does not add the two counts, because they have different meanings. The imports are the module imports of the facts that the Uses and Used by lists use. The board still shows only the flows.
+- No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
+
 ### Changes that can break a script or a CI job
 
+- The facts format is 15. Each module record can have `import_forms` and `dynamic_imports`, and the facts have `import_details`.
+  `import_forms` gives the import form of each target module with a form other than `load`: `call` (in a function body) or `type` (only for type checks).
+  `dynamic_imports` gives each import by a string value. These records do not change `uses`. Only the evidence digest of a `module use` line contains them: it contains the `import_forms` and the `dynamic_imports` of its module. The evidence digests of the other lines do not contain them.
+  A facts file of format 14 is stale. Then `check` and `extract --check` exit 1. Run `systemap refresh` one time and commit the output.
+- `judgement` refuses a family answer for a `crossing import` or `declared flow` line. A family answer is an answer with `kind`, `crossing`, `crossing_into`, or `crossing_from`.
+  It also refuses an answer with two or more items when one item is a `crossing import` or `declared flow` line.
+  The report does not apply a refused answer. It gives a `refused answer:` row with the cause, after the `policy answer:` rows. The lines of the answer are open again.
+  An answer that selects no line now is also a refused answer, not a stale answer. The configuration still reads these answers with no error.
+  `judgement --strict` exits 1 when there is one or more refused answers. Remove each refused answer. Then give one exact answer for each line.
+  `delta` also does not apply these answers. Thus a `kind = "crossing import"` answer does not stop a `new crossing import` line.
+  The `crossing import` line form does not change, and an exact answer for one line keeps its evidence digest.
+- An import only for type checks does not make a `crossing import`, `new crossing import`, or `boundary import` line.
+  A `crossing import` line opens only when one or more of its imports can operate at run time. The evidence digest of the line still contains all its imports.
+  A `boundary import` line with only imports for type checks goes away, and its exact answer is stale. The evidence of a `boundary import` line contains only the imports that can operate at run time. Thus an exact answer for a `boundary import` line with imports for type checks must have a new evidence digest.
+  With `--verbose`, the rows below a `crossing import` line also give each import only in a function body and each import by a string value.
+- `judgement` gives a `module use` line for each module that other components import with no flow. The line names the module, not its component.
+  Its exact answer gives the module role of the module: `role = "helper"` with a `symbol` that the users import, `role = "handoff"`, or `role = "mixed"` with the `handoff` names.
+  A `crossing import` line now opens only when its import crossing uses a handoff module or a handoff name. An import crossing that uses a module with no module role waits, and an import crossing that uses only helper code is closed.
+  Thus, after the upgrade, each `crossing import` line of a map waits until the `module use` lines have answers. `judgement --strict` exits 1 while an import crossing of the reported maps waits.
+  An exact `crossing import` answer for a waiting line is not stale. For a closed line, the report gives an `unused answer:` row. Remove such an answer.
+  The report refuses a family answer and an answer with two or more items for a `module use` line. It also refuses a `helper` answer when a flow source record cites the module, and a module role answer with a name that the facts do not give.
+  `delta` applies the module role answers to a `new crossing import` line. It does not apply the flow source rule.
+  `judgement --json` has schema version 9. See the reference.
+- `decisions pending` gives the `module use` requests first, with the most waiting import crossings first. Each request has `role_keys`. `--limit N` gives only the first N requests. The JSON object has schema version 3 and the field `more`.
+  A `supported` verdict for a `module use` request must have `role`, and it can have `symbol` and `handoff`. `decisions submit` refuses these keys in other verdicts. It applies the rules of the module role answers before it writes a file, and it writes the module role in the exact answer.
+  A `supported` verdict for a `module use` request must cite the file of the module or of a module that defines its names.
+- The skill tells the agent to give the module roles before it examines the `crossing import` lines. Its answer examples do not show the `crossing`, `crossing_into`, and `crossing_from` forms, because `judgement` refuses them.
+- The history cache key contains the facts format. Thus the first `render` or `refresh` after the upgrade reads the history again one time.
+- Known limit: `judgement` still applies a family answer for a `boundary import` line. Thus one such answer can hide an import that must have a flow across the boundary of a nested map.
+- `render`, `refresh`, and `live` write the atlas page by default (`[render] page = "atlas"`, stage 9 of `docs/design/atlas.md`). Before, the default was the canvas page.
+  `canvas = true` also gives the atlas page. The redirect pages of the nested maps do not change.
+  `systemap check` and `render --check` report the earlier page as stale one time.
+  The atlas page reads the Git log for its History view. Thus `render` and `refresh` can give one notice line when Git cannot read the commits.
+
+  Steps and changes:
+  - Run `systemap refresh` one time and commit the output.
+  - The page data is in the element `script#atlas-data`, not in `script#canvas-data`. A script that reads the page data must read this element.
+  - The atlas page has no Changes view. With `render --base`, the change marks are on the Map view. The link `#changes` of a pull request comment opens the top map, and `#<id>/changes` opens the map `<id>`.
+  - With `render --base` and in `systemap live`, the headline of the atlas page has the disclosure "Not in this comparison". It gives the limits of the comparison, as the Changes view of the linked page gives them. The headline is before the map in the order of the keyboard focus, so that Tab gets to the disclosure before the cards.
+  - The link of a pull request comment has the text "Open the changes on the map". Before, the text was "Open the Changes view of the map". A script that finds the link by its text must use the new text.
+  - At the start, `systemap live` writes "map: The page compares the working tree with REF at the merge base SHA." Before, the line started with "map: The Changes view compares". A script that reads this line must use the new text, or use `--json`.
+  - To keep the canvas page, set `[render] page = "canvas"`. The canvas page and the linked pages do not change.
+  - `scripts/screenshots.py`, the website, and the guide page "Read the map" show the atlas page.
 - systemap does not read the previous names and line forms that 2.0.0 and 3.0.0 read with a warning.
   3.0.0 said that it reads them until 3.1.0.
   - `delta --jev`, `delta --no-jev`, and `suggest --jev` give a usage error and exit 2. Use `--decide` and `--no-decide`.
@@ -102,6 +166,65 @@ A layer is a filtered view of the map.
 
   Step: run `systemap judgement`. For each new line, add the flow or the actor, or record an answer with `kind = "boundary flow"`, `kind = "boundary import"`, or an exact `item`.
 - The `judgement --json` schema is version 8. Each row of `open` has the new fields `map_id`, `parent_flow`, `nested_flows`, and `import_pairs`. Their values are null for a line that is not a boundary line.
+
+### Changes
+
+- The atlas page after its final review:
+  - With reduced motion, a double-click on a card goes into its map. A click with a mouse on a card that opens a map opens the details after a short wait also with reduced motion, so that the camera does not move before the second click.
+  - A selection hides the help note at the bottom left, also a selection with Find or with the keyboard.
+  - The reading line is one line of text. A long sentence ends with "..." on the screen, and a screen reader gets the full text. With the details open, the reading line is in the middle of the map area, and the key does not show while the reading line shows.
+  - A label at rest is not on the edge of a surface or of a region, and it is not on a corner of its own line. A label of a sequence with no other place can still cross such an edge. Its halo has the color of the ground under it. A long artifact is cut at the end of a word.
+  - The regions have numbers in reading order.
+  - In the sequence diagram, a lifeline does not go through the label of a later step.
+  - On a phone, the headline of the Map view gives the counts, as the other views do.
+  - The key says "Color when you point:" and gives the kinds as "Data", "Control" and "Map review".
+  - The details give the assurance level and the freshness under the name in the words of the design study, for example "Claims examined against the source, current". A long description ends with "...".
+  - In the History view of a shallow clone, a dashed line at the left of the first column marks where the clone starts.
+  - On the canvas page, the ring of a card is on the pixel grid of the screen.
+- The placer puts the frame of a nested map in a better shape for the atlas page. The frame keeps two region columns. The neighbours at the sides keep no room for the label of their container, because the atlas page does not draw that label in a nested map. The placer keeps the layout with the fewest label collisions and refused routes, then the neighbours at three sides or more, then the smallest map. When the neighbours at the sides give more label collisions or refused routes than one column, the placer keeps the column. Page now shows at 87 percent at 1440 x 900 (before stage 2, 76 percent), and its four regions show on a phone at 390 x 844. Run `systemap place --map ID --all` to place a nested map again. N6 to N9 and P6 to P8 in `bench/jev/README.md` give the measurements.
+- A flow label at rest on the atlas page shows the full artifact, or it does not show. Before, a label of more than 36 characters was cut with "...". In a nested map, the lines of one neighbour with one artifact show one label. Before, the same cut label could show two times.
+- The atlas page shows five signs in a nested map: a bar with "Inside", the name of the map, and a button "Back to" the map above with the key Esc; a zoom from the box of the card into the map and back to the card, which is then selected; a small picture of the map above in a corner; a title on the frame and a different ground around it; and the line "on" and the name of the map above on each neighbour card.
+  Esc and the Back button select the card of the nested map after the move out. A second Esc closes the details.
+- The zoomed-in view of the atlas page has these repairs:
+  - The line "on" and the name of the map above on a neighbour card is 10 px or more at the fit of a wide screen, and 0.75 of the size of the name or more at each zoom. It is in the font of the card text, not in small uppercase letters. Before, it was about 7 px.
+  - A total in the headline is the total of the map. When a layer uses fewer components than the map has, the headline gives "N of T components" ("N of T parts" in a nested map). The same rule applies to the actors and the neighbours. Before, the headline of Page gave "9 parts" and the details of its card gave "See its 11 parts".
+  - Esc or the Back button during a move out goes out one more level after the movement. Each level has its own movement, and the last one selects its card. Before, three presses of Esc from the map P0/Q0/Deep stopped in P0/Q0.
+  - Each view that shows a nested map shows the bar of the nested map and the inside ground: the Map view, the Sequences view, the States view and the Focus view. The History view shows the top map. In a view other than the Map view, Back opens the Map view of the map above with the card of the nested map selected.
+  - The last frame of a move out shows the nested map at the box of its card.
+- `[render] page = "atlas"` writes the atlas page (`docs/design/atlas.md`). It has the Map view, the Sequences view, the States view and the Focus view. The Map view has the layers as tabs, a headline with the question of the layer, calm lines with lanes, and labels at rest. A pointer on a card or a line lights its flows and gives one sentence about it at the bottom of the map. A click, a tap or Enter selects a card and opens its details. A double-click goes into the map that a card opens. The Sequences view has a list of the sequences, the route on the map with the step numbers on the lines, a bar with the steps, and the same steps as a diagram. The current step has the color of its kind, earlier steps are dark and later steps are faint. The left and right arrow keys change the step. The list also gives the entry points with no sequence. The States view shows when a map has a state machine. It has a list of the machines and a board with the states and the transitions of one machine. A pointer, a click or the keyboard focus on a state or a transition gives its meaning or its cause at the bottom of the board. The arrow keys move the keyboard focus through the states and the transitions. The Focus view puts one card in the middle, the cards that give to it at the left and the cards that it gives to at the right, two steps deep. A column shows nine cards at most. The headline gives the reach of the card, for example "a change here can reach 16 of 27 cards". Selecting a card puts it in the middle. The details have the button "Focus on this card". The History view shows where the source files of each component changed, and when: one row for each component with a change and one column for each of 12 equal parts of the time. It shows only when Git can read the commits. When Git is not available, `render`, `refresh` and `live` write the page with no History view, and `render` and `refresh` give one notice line. They also give one notice line when a shallow clone has only boundary commits, for example a clone with `--depth 1`. The log is kept in `.systemap/history.json`, and after a new commit only the new commits are read. `[render] history = false` removes the view, and `[render] history_days = N` uses only the N days before the last commit. `check` and `render --check` use the history data of the page file and do not read Git, so a new commit does not make the page stale. A change of `history_days` makes the page stale. The header has Find (Ctrl K, Cmd K or the / key) for the cards, the flows, the sequences and the actions of all maps, a theme control with Device, Light and Dark, a Reduce motion button and a list of the keyboard keys (the ? key). The theme and Reduce motion use the stored keys of the other pages. On a screen of 720 px or less, these tools are in one Tools menu. The URL hash of a nested map opens that map. The URL hash of a card fits the map of the card and selects the card, as Find does. `systemap live` loads the atlas page again for each new version and keeps the hash. In the Map view, the actor card of each open boundary finding has a dotted ring and a tag. With `render --base`, each changed card has a ring and a tag in the change color, a card that opens a map with a change in it has the tag CHANGED INSIDE, and each lost flow has a dashed line in the change color. The headline gives the count of the open boundary lines and of the changed cards, also on a phone. The focus rings and the keyboard focus lines of all views have a darker color in the light scheme, so that their contrast is 3 or more. In a busy layer, the dot and the arrowhead of a line keep a contrast of 3 or more. `page = "linked"` is the same as `canvas = false`.
+
+- The map of this repository has the nested map Page (`map/page.py`, stage 10 of `docs/design/atlas.md`). It has 11 parts: the page writer, the page data, the shared page parts, and the parts of the atlas page, the canvas page and the linked page. The neighbours are in one column, as the placer gives them. Each flow between two parts has its source records and its review digest.
+
+- Prototype on the branch `views-prototype`, not for a release (`docs/design/views.md`).
+  - A model can have state machines (`Meaning.machines`, with `StateMachine`, `State` and `Transition`). `systemap check` gives an error if the source symbol of a state is not a constant in the facts.
+  - The canvas page has a States view, when a map has a state machine. It shows the states and the transitions, and the cause of each transition.
+  - In the Sequences view, "As a diagram" shows the steps as a sequence diagram. "On the map" shows them on the map, as before.
+  - With a mouse or the keyboard, a selected card opens the Details panel. On a screen wider than 900 px, the open panel takes its width from the canvas, so it covers no part of the map. On a touch screen, a tap shows the plate of facts as before.
+  - The canvas page has parts of DESIGN.md that the linked page had: the mark in the header, a dot grid, card names and region names in the mono font, the number of a region in a ring, and a legend with the count of the flows. In the Steps mode, a dot goes one time along the flow of the new step.
+  - In the Map view, a selected card keeps its flows at full contrast. The other flows and cards of its map go to low contrast, and those flows show no label.
+  - Flow lines have round corners. A flow label has a halo in the color of the map in place of a plate, and its font size stops at 12 px. The uppercase names have letter spacing. The card under the pointer of a mouse has a stronger border.
+  - A flow label goes to a position on its path that no path of a different flow goes through, when its path has such a position. This changes label positions on the canvas page, on the linked page and in the figures. In the Map view of the canvas page, a label with such a path through it does not show at rest. It shows when the reader selects a card or puts the pointer on a card at one end of the flow. The legend gives the count of these labels.
+  - The Details panel has a new hierarchy: the name of the card in the mono font, its kind as a tag, a row of facts, and the assurance level and the freshness as tags. A flow is one row with a line in the color of its kind, the artifact, the other component, and its evidence. A sequence in the panel is a button that opens that sequence.
+  - With a mouse, the views in the header are one segmented control, and the layers are tabs with a line under the pressed tab. The Sequences toolbar has two segmented controls. A touch screen keeps the boxes of 44 px.
+  - The landing page has a States tab, and its pictures show the current canvas page. On a narrow screen, the sequence diagram keeps its text size: the columns come nearer, and each second name box is one row lower.
+  - A long description of a card shows its first two sentences in the Details panel, with the full text below "Full description".
+- The canvas page shows the flow labels at the fit of a map on more screens.
+  - The fit of a map tree with no nested map is larger. Such a tree has no portal, so the fit does not keep the bands of the portals free.
+    At 1440 x 900 pixels, the zoom of the fit of the map of this repository goes from 0.751 to 0.821.
+  - A flow label starts to show at the zoom 0.62, in place of 0.76. Its font size is 8 percent more than its size at the zoom, to 9 px.
+    A larger label makes the label plates overlap. `bench/jev/README.md` (L1) gives the measurement.
+  - At 1440 x 900 pixels, each label of the map of this repository shows at 9 px. At 1280 x 720 pixels, the labels are not clear at the fit. Zoom in to read them.
+  - A map tree with a nested map keeps the earlier fit.
+- The canvas page opens with the layer System context when the top map has flows in that layer. Before this change, it opened with All.
+  A map with no such flows opens with All. A script that reads the first view of the page must select All first.
+  When Find or "Show the flow on the map" goes to a flow that the layer does not show, the page changes to the layer of that flow.
+- A caption at the right of the path gives the name and the question of the layer, for example "System context" and "Which actors connect to the system?".
+  In the Sequences view, it gives the question of the whole route, or the count and the sentence of the step.
+- In the Sequences view, with no selected card, the Details panel gives the route of the sequence in order: each step with its flow and its sentence.
+  A step is a button that shows that step on the map. Before this change, the panel gave the rules of the map in this view.
+- In the Sequences view, a flow that is not on the route has no label.
+
+  Step: run `systemap refresh` one time and commit the output. If you do not, `check` and `render --check` report the page as stale.
 
 ### Corrections
 

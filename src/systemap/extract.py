@@ -23,11 +23,13 @@ from typing import Any
 from systemap import (
     fact_cache,
     file_names,
+    import_forms,
     notice_text,
     python_calls,
     python_earlier_text,
     python_entry,
     python_exports,
+    python_import_forms,
     python_repo,
     python_syntax,
     python_tests,
@@ -74,6 +76,8 @@ def _not_test(repo: Path, test_patterns: tuple[str, ...], path: Path) -> bool:
 
 class PythonLanguage(PythonRepository):
     """Read Python syntax through the language adapter interface."""
+
+    import_details = python_import_forms.DETAILS
 
     def source_paths(
         self,
@@ -187,6 +191,20 @@ class PythonLanguage(PythonRepository):
     ) -> dict[str, set[str]]:
         del repo, paths, context
         return internal_uses(raw, prefixes, known, module, is_package)
+
+    def import_facts(
+        self,
+        raw: str,
+        module: str,
+        prefixes: set[str],
+        known: set[str],
+        is_package: bool = False,
+        repo: Path | None = None,
+        paths: dict[str, Path] | None = None,
+        context: Any = None,
+    ) -> import_forms.ImportFacts:
+        del repo, paths, context
+        return python_import_forms.import_facts(raw, prefixes, known, module, is_package)
 
     def call_sites(
         self,

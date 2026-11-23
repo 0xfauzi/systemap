@@ -620,8 +620,12 @@ def place_labels(
     names: dict[int, str] | None = None,
     cards: dict[str, Box] | None = None,
     region_of: dict[str, str] | None = None,
+    cross: bool = True,
 ) -> dict[int, Placed]:
     """Place labels in path-length order, with the shortest path first.
+
+    With `cross`, a position with fewer paths of other flows through it has priority
+    (`Seating.seat`). Without it, the order is the order before that rule.
 
     The names argument supplies labels for collision diagnostics. The cards argument
     supplies component obstacles.
@@ -636,6 +640,8 @@ def place_labels(
 
     cands = {k: label_candidates(routes[k].points, widths[k], lh, canvas) for k in routes}
     state = Seating(cands, obstacles, gap)
+    if cross:
+        state.lines({k: routes[k].points for k in routes})
     placed = state.placed
     for k in sorted(routes, key=plen):
         best = state.seat(k)

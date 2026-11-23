@@ -167,14 +167,18 @@ Leave positions unset. Run `systemap place`.
 `pinned=True` keeps a position during `systemap place --all`.
 
 Card names and short descriptions have measured text limits.
-A component, agent, or tool can show a long CamelCase name on two lines.
+The atlas page shows a card name on one line.
+The checker gives a warning for a name that the atlas page cuts.
+In this release, the warning does not change the exit code. A later release will give an error.
+The SVG diagram can show a long CamelCase name of a component, agent, or tool on two lines.
 Other kinds use one name line.
 The short description uses two lines except for actors or a component with a two-line name.
 The checker gives the actual available dimensions when text does not fit.
 Do not remove part of an identifier or invent a shorter source name.
+If a component name does not fit, select a different literal name with fewer or narrower letters.
 
 `note` gives a source limitation or other necessary qualification.
-On the canvas page, the Details panel shows it below the `does` text.
+On the atlas page and the canvas page, the details show it below the `does` text.
 On the linked page, the inspector shows it below the interface, and a dot on the card gives the note as hover text.
 
 ### Nested map
@@ -188,9 +192,9 @@ Its actors use the identifiers of adjacent components on the parent map.
 An actor cannot have a nested map.
 
 The parent card keeps its flows and shows a second card behind it.
-The card shows a preview of the nested map. Zoom in, double-click, or press Enter to open the nested map.
+The card shows a small picture of the nested map. Zoom in, double-click, or press Shift Enter to open the nested map.
 `docs/map/Gateway/index.html` is a redirect page.
-It opens the canvas page with the URL hash `#Gateway`.
+It opens the top page with the URL hash `#Gateway`.
 A nested map can also have nested maps, with identifiers such as `Gateway/Routes`.
 See `references/layout.md` for thresholds and commands.
 
@@ -442,9 +446,10 @@ These fields come from `systemap.facts_file.FIELDS`.
 
 **The file**
 
-- `version`: The facts format is 14, with portable syntax hashes, compiler provenance, the digests of the configuration values that extraction reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. `extract --check` marks older formats stale. In format 14, the Python syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`). The signatures and the constant values come from the source text. These values are the same on each supported Python version.
+- `version`: The facts format is 15, with portable syntax hashes, compiler provenance, the digests of the configuration values that extraction reads, module completeness, the folder package in `package`, `call_sites`, `types`, `type_only`, `same_as`, the import forms, and decorators in the `api` fingerprints. Each re-export has `defined_in` and `defined_as`. Each unknown record has a `cause`: `read`, `encoding`, `size`, `syntax`, `depth`, `declaration`, `target`, `declaration file`, `script file`, `package`, `binding`, `reexport`, or `name`. `extract --check` marks older formats stale. In format 14, the Python syntax digest and the `api` fingerprints come from the syntax text of systemap (`systemap.syntax_text`). The signatures and the constant values come from the source text. These values are the same on each supported Python version.
 - `built_at_commit`: The commit read during extraction (`HEAD`), or empty outside Git. The page prints `facts from <sha>`. Extraction occurs before the commit that records the facts.
 - `packages`: The import names of package roots.
+- `import_details`: The import details that the language adapter gives: `call`, `dynamic`, and `type`. If `type` is not in the list, each import counts as an import at run time.
 - `provenance`: The parser, the compiler settings, and the extraction inputs. A change to the extraction inputs makes a new source review necessary, even without source-file changes. A parser or compiler change alone does not, because these values can be different on another computer. `files` has, for each configuration file that extraction reads, the digest of the values that extraction reads from it. Comments and other values do not change the digest. `installed` has these digests for the files in an installed package folder, for example `node_modules`. A new or changed installed digest is an input change. An installed file that is not on this computer is not a change.
 - `tests_dirs`: Root-relative test directories: configured `tests_dir`, or every directory with the name `tests` or `test`.
 - `spec_sections`: The `##` headings in `spec_path`, with `level` and `title`.
@@ -476,6 +481,8 @@ These fields come from `systemap.facts_file.FIELDS`.
 - `empty_marker`: `true` for a module that only marks a package and holds no code: a Python `__init__.py` file or a TypeScript `index` file without statements. A Python docstring, `pass`, `__future__` import, and literal value for a dunder name such as `__all__` are not statements for this rule. Coverage does not include these modules.
 - `unknown`: TypeScript surface entries with unresolved syntax or kinds. Each has a source line, reason, short source excerpt, and `cause`. A parse record also has `parser`, the parser version. The finding line gives only the reason. The line, the excerpt, and the parser version go into rows below the line.
 - `uses`: Imported local modules with the names taken from each. `*` means the full module.
+- `import_forms`: The time at which the imports of each target module operate, for each target with a form other than `load`: `load` (when the module loads), `call` (in a function body), or `type` (only for type checks). A target that is not in this map has the form `load`.
+- `dynamic_imports`: Each import by a string value that the language adapter finds: the called name in `call`, the fixed string in `text` (empty for a different value), the module of the facts in `target` (empty if there is no such module), and the line. These records do not change `uses`.
 - `call_sites`: The local names that the module gets from a name of a module in `uses`, and the lines that use them. Each record has `local`, `target`, `name` (`*` for the full module), `bound`, `line`, and `uses`. `bound` is `import` for a name that an import statement makes, or for a re-export without a local name, such as `export { a } from`. It is `value` for a name that gets its value or type from that name, such as `ledger` after `ledger = Ledger()`. `line` is the binding line. Each use is `[line, function line, property]`. The function line is the line of the named function or method that contains the use, or 0. The property is the attribute that the use reads, or an empty string. The value is `null` if the source did not parse.
 - `imports`: The keys of `uses`.
 - `imported_by`: Local modules that import this module.

@@ -6,17 +6,18 @@ between components. A sequence shows the steps that start at an entry point.
 
 ## Language requirement
 
-You must use ASD-STE100 Issue 9 for all text that a person reads.
+You must use the ASD-STE100 Issue 9 style for all text that a person reads.
 This requirement includes all new names and all map updates.
 It includes component names, flow artifacts, layers, sequences, invariants,
 explanations, command help, errors, agent answers, and documentation.
 
 Before you write text, read
 [the language policy](src/systemap/skill/references/language.md).
-Use the official ASD-STE100 rules and dictionary.
-Use each approved word only with its approved meaning and part of speech.
+Use the ASD-STE100 style rules and the project word list in that policy.
+The project does not use the official ASD dictionary.
+Use each word with one meaning and one part of speech.
 Use technical terms only with the meanings in the project glossary.
-If the reference is not available, tell the maintainer. Do not give an ASD-STE100 acceptance result.
+Say that the text follows the ASD-STE100 style. Do not say that it obeys the official standard.
 
 Do not change commands, schema keys, source symbols, or quoted evidence.
 These technical identities are not permission to write new text in unrestricted English.
@@ -92,5 +93,5 @@ Add each new source module to a component.
 
 Jev is the TypeSafe model for decisions that source facts cannot give.
 Tests must use recorded answers and injected agents. Tests must not call Jev or a coding agent.
-Before you complete the work, examine the text against ASD-STE100 and the project glossary.
+Before you complete the work, examine the text against the ASD-STE100 style rules, the project word list, and the project glossary.
 Automated tests do not show correct word meanings or language compliance.

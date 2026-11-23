@@ -2,8 +2,8 @@
 
 - Git attributes such as `export-subst` and `export-ignore` do not change the facts
   at a commit.
-- A family answer for a new crossing import must have `policy = true`, and an exact
-  answer must have the current evidence digest, as in `systemap judgement`.
+- A family answer cannot close a new crossing import, also with `policy = true`, and an
+  exact answer must have the current evidence digest, as in `systemap judgement`.
 """
 
 from __future__ import annotations
@@ -121,14 +121,16 @@ def crossing_in_delta(repo: Path, capsys: pytest.CaptureFixture[str]) -> bool:
     return "new crossing import: pkg.writer" in capsys.readouterr().out
 
 
-def test_a_family_answer_needs_policy_in_delta_as_in_judgement(
+def test_a_family_answer_is_refused_in_delta_as_in_judgement(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     crossing_commit(repo)
     answer(repo, '{ crossing_from = "Writer", reason = "a test" }')
     assert crossing_in_delta(repo, capsys)
     answer(repo, '{ crossing_from = "Writer", policy = true, reason = "a test" }')
-    assert not crossing_in_delta(repo, capsys)
+    assert crossing_in_delta(repo, capsys)
+    answer(repo, '{ kind = "crossing import", policy = true, reason = "a test" }')
+    assert crossing_in_delta(repo, capsys)
 
 
 def test_an_exact_answer_needs_the_judgement_evidence_digest_in_delta(

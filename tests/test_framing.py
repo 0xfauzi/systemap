@@ -109,8 +109,11 @@ def check_case(report: dict[str, Any], case: dict[str, Any]) -> None:
         )
     # Fitted whole, never cropped, and never past the zoom cap.
     assert view["k"] <= ZCAP + 1e-6, where
-    assert view["k"] * rect["w"] <= area["w"] + 0.05, where
-    assert view["k"] * rect["h"] <= area["h"] + 0.05, where
+    # The page gives the zoom with 4 decimal places. Thus a frame of w units can be
+    # 0.00005 * w px larger than the area. With the map of this repository 1174 units
+    # wide (2026-11-17), a frame of 1149 units was 288.054 px in an area of 288 px.
+    assert view["k"] * rect["w"] <= area["w"] + 0.05 + 0.00005 * rect["w"], where
+    assert view["k"] * rect["h"] <= area["h"] + 0.05 + 0.00005 * rect["h"], where
 
 
 def check(report: dict[str, Any]) -> None:

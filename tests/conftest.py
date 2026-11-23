@@ -399,8 +399,8 @@ def self_map_page(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The linked page of the self-map, written into a temporary folder.
 
     The committed page docs/map/index.html is the canvas page from step 5 of
-    docs/design/nested-canvas.md. The tests of the linked page script use this page in
-    its place. Acceptance: the page has the bytes that `systemap render` gives for the
+    docs/design/nested-canvas.md, and the atlas page from stage 9 of docs/design/atlas.md.
+    The tests of the linked page script use this page in its place. Acceptance: the page has the bytes that `systemap render` gives for the
     top map of this repository with `[render] canvas = false` and the committed facts.
     Before step 5, these bytes were equal to the bytes of the committed page.
     """
@@ -593,3 +593,43 @@ def use_linked_pages(root: Path) -> None:
     """Add `[render] canvas = false` to the configuration of `root`."""
     toml = root / "systemap.toml"
     toml.write_text(toml.read_text(encoding="utf-8") + LINKED_PAGES, encoding="utf-8")
+
+
+def module_role_rows(root: Path, role: str = "handoff") -> list[str]:
+    """Give one exact module role answer, as a TOML row, for each open `module use` line.
+
+    The answers use the recorded evidence digests of `judgement_evidence.use_state`. Thus
+    a test can make the import crossings of a fixture open (`handoff`) or closed
+    (`helper`, with the first name that the users import)."""
+    from systemap import config, facts_file, module_use, nest
+
+    cfg = config.load(root)
+    tree = nest.load(cfg)
+    facts = facts_file.read_facts(cfg.facts_path, cfg.root)
+    found = module_use.index(tree, facts)
+    digests = module_use.evidence(found)
+    rows: list[str] = []
+    for line in module_use.lines(found, tree):
+        unit = found.units[module_use.item_module(line) or ""]
+        symbol = ""
+        if role == "helper" and unit.used:
+            symbol = f", symbol = {json.dumps(sorted(unit.used)[0])}"
+        rows.append(
+            f"{{ item = {json.dumps(line)}, role = {json.dumps(role)}{symbol}, "
+            f"evidence = {json.dumps(digests[unit.module])}, reason = 'a test' }}"
+        )
+    return rows
+
+
+def give_module_roles(root: Path, role: str = "handoff") -> None:
+    """Add the answers of `module_role_rows` to `[judgement] answered` of `systemap.toml`."""
+    toml = root / "systemap.toml"
+    text = toml.read_text(encoding="utf-8")
+    rows = "".join(f"    {row},\n" for row in module_role_rows(root, role))
+    if "\nanswered = [\n" in text:
+        text = text.replace("\nanswered = [\n", f"\nanswered = [\n{rows}", 1)
+    elif "\n[judgement]\n" in text:
+        text = text.replace("\n[judgement]\n", f"\n[judgement]\nanswered = [\n{rows}]\n", 1)
+    else:
+        text += f"\n[judgement]\nanswered = [\n{rows}]\n"
+    toml.write_text(text, encoding="utf-8")

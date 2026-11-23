@@ -24,8 +24,8 @@ Apply the profile to all names and text that a person reads in every new map and
 It includes component names, artifacts, layers, sequences, steps, invariants, explanations, and recorded reasons.
 Read [references/language.md](references/language.md) before you write. Do not change commands, schema keys, identifiers, or quoted source evidence.
 
-- `plain`: the common rules and the glossary terms with their meanings. There is no dictionary step. Do not say that the text obeys ASD-STE100.
-- `asd-ste100`: also ASD-STE100 Issue 9, with the official ASD rules and dictionary. Use approved meanings and parts of speech. If the dictionary is not available, tell the maintainer. Do not give an ASD-STE100 acceptance result.
+- `plain`: the common rules and the glossary terms with their meanings. There is no ASD-STE100 step. Do not say that the text follows ASD-STE100.
+- `asd-ste100`: also the ASD-STE100 Issue 9 style, with the style rules and the project word list in the policy. Use each word with one meaning and one part of speech. The policy does not use the official ASD dictionary. Say that the text follows the ASD-STE100 style. Do not say that it obeys the official standard.
 
 ## Jev answers
 
@@ -61,7 +61,7 @@ Copy these lines into your answer. Mark each step when it is complete.
    Otherwise, use `systemap suggest`. Examine the proposed assignments against source.
    Read the repository's own documentation: its README, AGENTS.md, CLAUDE.md, docs/.
    Read `references/schema.md`, `references/example.md`, `references/layout.md`, and `references/pitfalls.md`.
-   Also read `references/layers.md` and `references/journeys-and-invariants.md`.
+   Also read `references/layers.md`, `references/journeys-and-invariants.md`, and `references/views.md`.
 
    Write components and flows without `x` and `y`. Run `systemap place`.
    The command searches region orders and compares route collisions, refusals, bends, and length.
@@ -76,14 +76,13 @@ Copy these lines into your answer. Mark each step when it is complete.
 
    - `item = "<line>"`: the full line without indentation.
    - `items = ["<line>", ...]`: a nonempty list of full lines with one reason.
-   - `crossing = ["A", "B", ...]`: all crossing imports between two or more different identifiers, in either direction.
-   - `crossing_into = "A"`: all crossing imports into one component.
-   - `crossing_from = "A"`: all crossing imports from one component.
    - `kind = "<kind>"`: all lines of one finding kind.
    - `module_sdk = "<import>"`: all model SDK lines for one import name.
 
    Exact answers must have a current evidence digest. Broad answers must have `policy = true`.
+   systemap refuses a broad answer for `crossing import`, `module use`, and `declared flow` lines.
    Do not leave unanswered lines. Examine source again for each stale answer.
+   On a map with `module use` lines, give the module roles first. Use the procedure in `references/decisions.md`.
 
    | kind | finding | action |
    |---|---|---|
@@ -95,7 +94,8 @@ Copy these lines into your answer. Mark each step when it is complete.
    | `journey start` | A sequence starts at an unknown entry point. | Use the facts label or an empty `starts` value. |
    | `drafted journey` | An agent sequence still has no source examination. | Examine every step. Correct errors before removal of `drafted=True`. |
    | `step source` | A step source record does not resolve, or it is in no module of an acting or measured component. | Cite a current record from a module of a step component, or change the step. |
-   | `crossing import` | Components have imports between them but no flow. | Examine the imports. Add a flow with source evidence, change assignments, or record why no flow is necessary. |
+   | `module use` | Other components import a module, and no flow connects them to its component. | Give the module role: `helper` with a symbol, `handoff`, or `mixed` with the handoff names. |
+   | `crossing import` | Components have imports between them but no flow. | The import crossing uses a `handoff` module or a handoff name. Add a flow with source evidence, change assignments, or record an answer for this line. |
    | `declared flow` | A flow has no structural or source evidence. | Examine source support. Add source records or remove the flow. |
    | `flow review` | A flow has structural evidence or stale source records. | Examine direction and artifact against current source. Correct the claim, or renew the record with `systemap review --flow ID` or `--flow 'SRC->DST'`. |
    | `no endpoint source` | No source record of a flow is in a module of its source or target component. | Add a source record from an endpoint module that sends or receives the artifact, or change the flow. |
@@ -198,7 +198,7 @@ Only the agent of the parent map writes `systemap.toml`, the parent model, and t
 | `systemap journeys` | Ask the configured agent for draft sequences. The command needs `SYSTEMAP_TRUST_AGENT_COMMAND=1` from the maintainer. Do not set it yourself. The command rejects invalid steps. Examine each draft before removal of `drafted=True`. |
 | `systemap plan "<task>" --provider P` | Ask the decision provider which components the task can affect. `--check ID --base REF` compares a saved plan with source changes and sends no data. |
 | `systemap history` | Show source changes at older commits, assigned to the current components. |
-| `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. |
+| `systemap decisions pending` | Show the decision requests: claims for source examination. `submit FILE` records your verdicts. `status` shows the unknown requests. `--limit N` gives the first N requests. |
 | `systemap explain KIND` | Show the meaning, reason, and action for a finding kind. `--brief` removes explanations from other command output. |
 | `systemap serve` | Serve the output over HTTP and show its URL. |
 | `systemap skill` | Install the complete skill again. `--print` writes SKILL.md to stdout. |
@@ -228,11 +228,11 @@ Do not put code or test counts on map components. Keep relationships on flows. D
 ## References
 
 - `references/language.md`: the writing profiles, the common rules, the ASD-STE100 rules, the glossary, and the language acceptance procedure. Read it before every text change.
-- `references/schema.md`: dataclasses, fields, and structural checks. Read it before the draft.
-- `references/example.md`: a complete small model and configuration. Read it with the schema.
+- `references/schema.md` and `references/example.md`: dataclasses, fields, structural checks, and a complete small model and configuration. Read them before the draft.
 - `references/layout.md`: automatic positions, pinned positions, routes, and descriptions. Read it before placement.
 - `references/layers.md`: derived layers, standard kinds, and model-calling systems. Read it before flow assignments.
 - `references/journeys-and-invariants.md`: source support for sequences and invariants. Read it before the draft and source review.
+- `references/views.md`: the views of the page, the data that each view needs, and state machines. Read it before the draft.
 - `references/second-pass.md`: full source examination and completion conditions. Read it at step 6.
 - `references/pitfalls.md`: known assignment and tool errors. Read it before the draft.
 - `references/decisions.md`: decision requests, verdicts, and citations. Read it at step 6.

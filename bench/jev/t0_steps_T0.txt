@@ -1,0 +1,117 @@
+
+## self
+- map top, sequence 0 'Read the change history': 5 steps, labels that cross an edge in all frames: 12
+    whole: flow 41 '3 public surfaces' free 19, clean 19 of 219; flow 7 '2 --base, delta' free 0, clean 0 of 897
+    1: flow 41 '3 public surfaces' free 19, clean 19 of 219; flow 7 '2 --base, delta' free 0, clean 0 of 897
+    2: flow 41 '3 public surfaces' free 19, clean 19 of 219; flow 7 '2 --base, delta' free 0, clean 0 of 897
+    3: flow 41 '3 public surfaces' free 19, clean 19 of 219; flow 7 '2 --base, delta' free 0, clean 0 of 897
+    4: flow 41 '3 public surfaces' free 19, clean 19 of 219; flow 7 '2 --base, delta' free 0, clean 0 of 897
+    5: flow 41 '3 public surfaces' free 19, clean 19 of 219; flow 7 '2 --base, delta' free 0, clean 0 of 897
+- map top, sequence 1 'Compare a plan with source changes': 6 steps, labels that cross an edge in all frames: 7
+    whole: flow 41 '6 public surfaces' free 19, clean 19 of 219
+    1: flow 41 '6 public surfaces' free 19, clean 19 of 219
+    2: flow 41 '6 public surfaces' free 19, clean 19 of 219
+    3: flow 41 '6 public surfaces' free 19, clean 19 of 219
+    4: flow 41 '6 public surfaces' free 19, clean 19 of 219
+    5: flow 41 '6 public surfaces' free 19, clean 19 of 219
+    6: flow 41 '6 public surfaces' free 19, clean 19 of 219
+- map top, sequence 2 'Get an audit or issue assessment': 5 steps, labels that cross an edge in all frames: 0
+- map top, sequence 3 'Make the initial map': 7 steps, labels that cross an edge in all frames: 12
+    whole: flow 46 '6 positions' free 41, clean 41 of 2127
+    1: flow 46 '6 positions' free 41, clean 41 of 2127
+    2: flow 46 '6 positions' free 41, clean 41 of 2127
+    3: flow 46 '6 positions' free 41, clean 41 of 2127
+    4: flow 46 '6 positions' free 41, clean 41 of 2127; flow 5 '4 extract, facts' (step only) free 0, clean 0 of 531
+    5: flow 46 '6 positions' free 41, clean 41 of 2127; flow 5 '4 extract, facts' (step only) free 0, clean 0 of 531
+    6: flow 46 '6 positions' free 41, clean 41 of 2127; flow 5 '4 extract, facts' (step only) free 0, clean 0 of 531
+    7: flow 46 '6 positions' free 41, clean 41 of 2127; flow 5 '4 extract, facts' (step only) free 0, clean 0 of 531
+- map top, sequence 4 'Examine the model and refresh the map': 6 steps, labels that cross an edge in all frames: 7
+    whole: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+    1: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+    2: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+    3: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+    4: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+    5: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+    6: flow 78 '3 second-pass list' free 0, clean 0 of 1005
+- map top, sequence 5 'Update the map after a module move': 5 steps, labels that cross an edge in all frames: 6
+    whole: flow 7 '2 --base, delta' free 0, clean 0 of 897
+    1: flow 7 '2 --base, delta' free 0, clean 0 of 897
+    2: flow 7 '2 --base, delta' free 0, clean 0 of 897
+    3: flow 7 '2 --base, delta' free 0, clean 0 of 897
+    4: flow 7 '2 --base, delta' free 0, clean 0 of 897
+    5: flow 7 '2 --base, delta' free 0, clean 0 of 897
+- map top, sequence 6 'Read stored source facts': 1 steps, labels that cross an edge in all frames: 0
+- map top, sequence 7 'Render the map page': 4 steps, labels that cross an edge in all frames: 0
+- map top, sequence 8 'Show the map of the working tree': 6 steps, labels that cross an edge in all frames: 12
+    whole: flow 7 '3 --base, delta' free 0, clean 0 of 897
+    1: flow 7 '3 --base, delta' free 0, clean 0 of 897
+    2: flow 7 '3 --base, delta' free 0, clean 0 of 897; flow 5 '2 extract, facts' (step only) free 0, clean 0 of 531
+    3: flow 7 '3 --base, delta' free 0, clean 0 of 897; flow 5 '2 extract, facts' (step only) free 0, clean 0 of 531
+    4: flow 7 '3 --base, delta' free 0, clean 0 of 897; flow 5 '2 extract, facts' (step only) free 0, clean 0 of 531
+    5: flow 7 '3 --base, delta' free 0, clean 0 of 897; flow 5 '2 extract, facts' (step only) free 0, clean 0 of 531
+    6: flow 7 '3 --base, delta' free 0, clean 0 of 897; flow 5 '2 extract, facts' (step only) free 0, clean 0 of 531
+- map top, sequence 9 'Write a model file with literal values': 3 steps, labels that cross an edge in all frames: 0
+- map top, sequence 10 'Record the review of one target': 3 steps, labels that cross an edge in all frames: 0
+- map top, sequence 11 'Examine the claims with the agent': 5 steps, labels that cross an edge in all frames: 6
+    whole: flow 78 '2 second-pass list' free 0, clean 0 of 1005
+    1: flow 78 '2 second-pass list' free 0, clean 0 of 1005
+    2: flow 78 '2 second-pass list' free 0, clean 0 of 1005
+    3: flow 78 '2 second-pass list' free 0, clean 0 of 1005
+    4: flow 78 '2 second-pass list' free 0, clean 0 of 1005
+    5: flow 78 '2 second-pass list' free 0, clean 0 of 1005
+- map top, sequence 12 'Make a map figure': 3 steps, labels that cross an edge in all frames: 0
+- map top, sequence 13 'Read a finding explanation': 1 steps, labels that cross an edge in all frames: 0
+- map top, sequence 14 'Write a sequence for an entry point': 3 steps, labels that cross an edge in all frames: 0
+- map top, sequence 15 'Divide the map into nested parts': 6 steps, labels that cross an edge in all frames: 8
+    whole: flow 10 '5 judgement' free 236, clean 0 of 4932
+    1: flow 10 '5 judgement' free 236, clean 0 of 4932
+    2: flow 10 '5 judgement' free 236, clean 0 of 4932
+    3: flow 10 '5 judgement' free 236, clean 0 of 4932
+    4: flow 10 '5 judgement' free 236, clean 0 of 4932
+    5: flow 10 '5 judgement' free 236, clean 0 of 4932
+    6: flow 10 '5 judgement' free 236, clean 0 of 4932; flow 78 '6 second-pass list' (step only) free 0, clean 0 of 1005
+
+self total: 85 frames, 398 shown labels, 70 crossing labels; with a free place on the full line 28, with a clean place 21, with no free place 42
+self different crossing labels (map, sequence, flow): 12; a free place in each frame 4; no free place in any frame 8; mixed 0
+
+## workspace
+- map top, sequence 0 'python -m wharf_server.gateway: a request becomes a durable job': 4 steps, labels that cross an edge in all frames: 0
+- map top, sequence 1 'An orchestrator turn': 5 steps, labels that cross an edge in all frames: 6
+    whole: flow 18 '2 system prompt' free 0, clean 0 of 219
+    1: flow 18 '2 system prompt' free 0, clean 0 of 219
+    2: flow 18 '2 system prompt' free 0, clean 0 of 219
+    3: flow 18 '2 system prompt' free 0, clean 0 of 219
+    4: flow 18 '2 system prompt' free 0, clean 0 of 219
+    5: flow 18 '2 system prompt' free 0, clean 0 of 219
+- map top, sequence 2 'A reference folio becomes a guide': 12 steps, labels that cross an edge in all frames: 26
+    whole: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    1: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    2: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    3: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    4: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    5: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    6: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    7: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    8: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    9: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    10: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    11: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+    12: flow 24 '10 completion call' free 86, clean 0 of 732; flow 27 '12 CompletedGuide' free 0, clean 0 of 1065
+- map top, sequence 3 'An attached source becomes cited datasets': 5 steps, labels that cross an edge in all frames: 6
+    whole: flow 20 '2 extraction schema' free 19, clean 3 of 597
+    1: flow 20 '2 extraction schema' free 19, clean 3 of 597
+    2: flow 20 '2 extraction schema' free 19, clean 3 of 597
+    3: flow 20 '2 extraction schema' free 19, clean 3 of 597
+    4: flow 20 '2 extraction schema' free 19, clean 3 of 597
+    5: flow 20 '2 extraction schema' free 19, clean 3 of 597
+- map top, sequence 4 'A folio plan call': 3 steps, labels that cross an edge in all frames: 3
+    1: flow 19 '1 planner template' (step only) free 0, clean 0 of 261
+    2: flow 19 '1 planner template' (step only) free 0, clean 0 of 261
+    3: flow 19 '1 planner template' (step only) free 0, clean 0 of 261
+- map top, sequence 5 'python -m wharf_server.render: a folio becomes pages': 4 steps, labels that cross an edge in all frames: 0
+- map top, sequence 6 'A solved page becomes OFX bytes': 4 steps, labels that cross an edge in all frames: 2
+    3: flow 37 '3 ResolvedPageModel' (step only) free 0, clean 0 of 219
+    4: flow 37 '3 ResolvedPageModel' (step only) free 0, clean 0 of 219
+
+workspace total: 44 frames, 255 shown labels, 43 crossing labels; with a free place on the full line 19, with a clean place 6, with no free place 24
+workspace different crossing labels (map, sequence, flow): 6; a free place in each frame 2; no free place in any frame 4; mixed 0

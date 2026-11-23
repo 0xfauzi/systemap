@@ -116,17 +116,27 @@ async function tools(file) {
   }), before);
   out.theme.reads -= reads1;
   // The selection without Reduce motion and with it.
-  const a = await cardPoint(page, 0), b = await cardPoint(page, 1);
+  const a = await cardPoint(page, 0);
   // Each record starts before the input, so its first frames have the value before it.
   await page.evaluate((id) => { window.__want = id; }, a.id);
-  let rec = framesOf(page, selAlpha, 600);
+  // The frame log of the page (`record`) gives the time and the alpha of each frame of the
+  // page, also of a frame that a record of framesOf misses under load.
+  await page.evaluate(() => window.systemapCanvas.record());
   await page.waitForTimeout(80);
   await page.mouse.click(a.x, a.y);
-  out.fadeOff = await rec;
+  await page.waitForTimeout(600);
+  out.fadeOff = await page.evaluate((id) => window.systemapCanvas.recorded().map((f) => {
+    const e = f.sel.find((x) => x[0] === id);
+    return [f.at, e ? e[1] : 0];
+  }), a.id);
+  let rec;
   out.selected = a.id;
   await page.click('#reduce-motion');
   out.motion = await page.evaluate(() => ({ attr: document.documentElement.getAttribute('data-reduce-motion'),
     stored: localStorage.getItem('systemap-reduce-motion'), pressed: document.getElementById('reduce-motion').getAttribute('aria-pressed') }));
+  // The first click opens the Details panel, and the map moves. Thus the point of the
+  // second card is read now.
+  const b = await cardPoint(page, 1);
   await page.evaluate((id) => { window.__want = id; }, b.id);
   rec = framesOf(page, selAlpha, 400);
   await page.waitForTimeout(80);
@@ -378,7 +388,8 @@ async function access(file) {
       const tap = async (x, y) => (screen === 'phone' ? page.touchscreen.tap(x, y) : page.mouse.click(x, y));
       const menu = async () => { if (await page.isVisible('#tools-open')) await page.click('#tools-open'); };
       const states = {
-        details: async () => { const a = await cardPoint(page, 0); await tap(a.x, a.y); await menu(); await page.click('#details-toggle'); },
+        // With a mouse, the click on the card opens the panel. On a touch screen, the Details button opens it.
+        details: async () => { const a = await cardPoint(page, 0); await tap(a.x, a.y); await page.waitForTimeout(250); if (!(await page.isVisible('#cdetails'))) { await menu(); await page.click('#details-toggle'); } },
         flow: async () => { await page.click('#cdet-body button[data-f]'); },
         keys: async () => { await page.keyboard.press('Escape'); await page.focus('#canvas'); await page.keyboard.press('?'); },
         source: async () => { await page.keyboard.press('Escape'); await menu(); await page.click('#snap'); }

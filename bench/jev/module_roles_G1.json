@@ -1,0 +1,6117 @@
+{
+ "django": {
+  "accept_rows": [
+   "crossing import: Admin imports Orm and no flow connects them: open [['django.db.models', 'mixed (used)'], ['django.db.models.aggregates', 'helper'], ['django.db.models.base', 'handoff (used)'], ['django.db.models.constants', 'helper'], ['django.db.models.deletion', 'mixed (used)'], ['django.db.models.expressions', 'helper'], ['django.db.models.fields', 'helper'], ['django.db.models.fields.files', 'helper'], ['django.db.models.fields.json', 'helper'], ['django.db.models.fields.related', 'helper'], ['django.db.models.manager', 'handoff (used)'], ['django.db.models.query_utils', 'helper'], ['django.db.models.utils', 'helper']]",
+   "crossing import: Auth imports Mail and no flow connects them: open [['django.core.mail', 'handoff (used)'], ['django.core.mail.message', 'handoff (used)']]",
+   "crossing import: Auth imports Signals and no flow connects them: open [['django.core.signals', 'handoff (used)'], ['django.dispatch.dispatcher', 'handoff (used)']]",
+   "crossing import: Utils imports Mail and no flow connects them: open [['django.core.mail', 'handoff (used)'], ['django.core.mail.exceptions', 'helper']]",
+   "crossing import: Utils imports Cache and no flow connects them: open [['django.core.cache', 'handoff (used)']]"
+  ],
+  "acceptance_a": true,
+  "acceptance_waiting": true,
+  "counts": {
+   "closed": 152,
+   "open": 131,
+   "waiting": 0
+  },
+  "module_roles": {
+   "handoff": 53,
+   "helper": 157,
+   "mixed": 16
+  },
+  "module_use_lines": 226,
+  "questions": 357,
+  "run_time_import_crossings": 283,
+  "star_only": [],
+  "states": {
+   "Orm: crossing import: Expressions imports Fields and no flow connects them": "closed",
+   "Orm: crossing import: Expressions imports ModelClasses and no flow connects them": "closed",
+   "Orm: crossing import: Expressions imports QuerySets and no flow connects them": "closed",
+   "Orm: crossing import: Fields imports Expressions and no flow connects them": "closed",
+   "Orm: crossing import: Fields imports QuerySets and no flow connects them": "open",
+   "Orm: crossing import: Fields imports SqlCompiler and no flow connects them": "open",
+   "Orm: crossing import: ModelClasses imports Expressions and no flow connects them": "closed",
+   "Orm: crossing import: ModelClasses imports SqlCompiler and no flow connects them": "open",
+   "Orm: crossing import: QuerySets imports Expressions and no flow connects them": "closed",
+   "Orm: crossing import: SqlCompiler imports Fields and no flow connects them": "closed",
+   "Orm: crossing import: SqlCompiler imports ModelClasses and no flow connects them": "closed",
+   "crossing import: Admin imports AppRegistry and no flow connects them": "open",
+   "crossing import: Admin imports Auth and no flow connects them": "open",
+   "crossing import: Admin imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Admin imports Http and no flow connects them": "closed",
+   "crossing import: Admin imports Messages and no flow connects them": "open",
+   "crossing import: Admin imports Migrations and no flow connects them": "closed",
+   "crossing import: Admin imports Orm and no flow connects them": "open",
+   "crossing import: Admin imports Settings and no flow connects them": "open",
+   "crossing import: Admin imports StaticFiles and no flow connects them": "open",
+   "crossing import: Admin imports SystemChecks and no flow connects them": "open",
+   "crossing import: Admin imports TestFramework and no flow connects them": "open",
+   "crossing import: Admin imports Transactions and no flow connects them": "open",
+   "crossing import: Admin imports UrlRouting and no flow connects them": "closed",
+   "crossing import: Admin imports Utils and no flow connects them": "closed",
+   "crossing import: Admin imports Views and no flow connects them": "closed",
+   "crossing import: AppRegistry imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: AppRegistry imports UrlRouting and no flow connects them": "closed",
+   "crossing import: AppRegistry imports Utils and no flow connects them": "closed",
+   "crossing import: Auth imports Admin and no flow connects them": "open",
+   "crossing import: Auth imports AppRegistry and no flow connects them": "open",
+   "crossing import: Auth imports ContentTypes and no flow connects them": "open",
+   "crossing import: Auth imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Auth imports Forms and no flow connects them": "closed",
+   "crossing import: Auth imports Handlers and no flow connects them": "closed",
+   "crossing import: Auth imports Http and no flow connects them": "closed",
+   "crossing import: Auth imports Mail and no flow connects them": "open",
+   "crossing import: Auth imports ManagementCommands and no flow connects them": "closed",
+   "crossing import: Auth imports Messages and no flow connects them": "open",
+   "crossing import: Auth imports Migrations and no flow connects them": "closed",
+   "crossing import: Auth imports Settings and no flow connects them": "open",
+   "crossing import: Auth imports Signals and no flow connects them": "open",
+   "crossing import: Auth imports SiteFeatures and no flow connects them": "closed",
+   "crossing import: Auth imports SystemChecks and no flow connects them": "open",
+   "crossing import: Auth imports Templates and no flow connects them": "closed",
+   "crossing import: Auth imports Transactions and no flow connects them": "open",
+   "crossing import: Auth imports UrlRouting and no flow connects them": "closed",
+   "crossing import: Auth imports Utils and no flow connects them": "closed",
+   "crossing import: Auth imports Views and no flow connects them": "closed",
+   "crossing import: Cache imports AppRegistry and no flow connects them": "closed",
+   "crossing import: Cache imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Cache imports FileStorage and no flow connects them": "closed",
+   "crossing import: Cache imports Orm and no flow connects them": "closed",
+   "crossing import: Cache imports Settings and no flow connects them": "open",
+   "crossing import: Cache imports Signals and no flow connects them": "open",
+   "crossing import: Cache imports Transactions and no flow connects them": "open",
+   "crossing import: Cache imports Utils and no flow connects them": "closed",
+   "crossing import: ContentTypes imports AppRegistry and no flow connects them": "open",
+   "crossing import: ContentTypes imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: ContentTypes imports Forms and no flow connects them": "closed",
+   "crossing import: ContentTypes imports Http and no flow connects them": "closed",
+   "crossing import: ContentTypes imports ManagementCommands and no flow connects them": "closed",
+   "crossing import: ContentTypes imports Migrations and no flow connects them": "closed",
+   "crossing import: ContentTypes imports Orm and no flow connects them": "open",
+   "crossing import: ContentTypes imports SiteFeatures and no flow connects them": "closed",
+   "crossing import: ContentTypes imports SystemChecks and no flow connects them": "open",
+   "crossing import: ContentTypes imports Transactions and no flow connects them": "open",
+   "crossing import: ContentTypes imports Utils and no flow connects them": "closed",
+   "crossing import: CoreHelpers imports Settings and no flow connects them": "open",
+   "crossing import: CoreHelpers imports Utils and no flow connects them": "closed",
+   "crossing import: DbBackends imports AppRegistry and no flow connects them": "open",
+   "crossing import: DbBackends imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: DbBackends imports ManagementCommands and no flow connects them": "open",
+   "crossing import: DbBackends imports Orm and no flow connects them": "open",
+   "crossing import: DbBackends imports Serializers and no flow connects them": "closed",
+   "crossing import: DbBackends imports Settings and no flow connects them": "open",
+   "crossing import: DbBackends imports Signals and no flow connects them": "open",
+   "crossing import: DbBackends imports SystemChecks and no flow connects them": "closed",
+   "crossing import: DbBackends imports Utils and no flow connects them": "closed",
+   "crossing import: FileStorage imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: FileStorage imports Settings and no flow connects them": "open",
+   "crossing import: FileStorage imports Signals and no flow connects them": "open",
+   "crossing import: FileStorage imports Utils and no flow connects them": "closed",
+   "crossing import: Forms imports Settings and no flow connects them": "open",
+   "crossing import: Forms imports Templates and no flow connects them": "closed",
+   "crossing import: Forms imports Utils and no flow connects them": "closed",
+   "crossing import: Gis imports Admin and no flow connects them": "open",
+   "crossing import: Gis imports AppRegistry and no flow connects them": "open",
+   "crossing import: Gis imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Gis imports DbBackends and no flow connects them": "open",
+   "crossing import: Gis imports Forms and no flow connects them": "closed",
+   "crossing import: Gis imports Http and no flow connects them": "closed",
+   "crossing import: Gis imports ManagementCommands and no flow connects them": "open",
+   "crossing import: Gis imports Serializers and no flow connects them": "closed",
+   "crossing import: Gis imports Settings and no flow connects them": "open",
+   "crossing import: Gis imports SiteFeatures and no flow connects them": "closed",
+   "crossing import: Gis imports SystemChecks and no flow connects them": "open",
+   "crossing import: Gis imports Templates and no flow connects them": "closed",
+   "crossing import: Gis imports Transactions and no flow connects them": "open",
+   "crossing import: Gis imports UrlRouting and no flow connects them": "closed",
+   "crossing import: Gis imports Utils and no flow connects them": "closed",
+   "crossing import: Handlers imports AppRegistry and no flow connects them": "open",
+   "crossing import: Handlers imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Handlers imports Settings and no flow connects them": "open",
+   "crossing import: Handlers imports Transactions and no flow connects them": "open",
+   "crossing import: Handlers imports UrlRouting and no flow connects them": "closed",
+   "crossing import: Handlers imports Utils and no flow connects them": "closed",
+   "crossing import: Handlers imports Views and no flow connects them": "closed",
+   "crossing import: Http imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Http imports FileStorage and no flow connects them": "closed",
+   "crossing import: Http imports Serializers and no flow connects them": "closed",
+   "crossing import: Http imports Settings and no flow connects them": "open",
+   "crossing import: Http imports Signals and no flow connects them": "open",
+   "crossing import: Http imports Utils and no flow connects them": "closed",
+   "crossing import: Mail imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Mail imports Settings and no flow connects them": "open",
+   "crossing import: Mail imports Utils and no flow connects them": "closed",
+   "crossing import: ManagementCommands imports Cache and no flow connects them": "open",
+   "crossing import: ManagementCommands imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: ManagementCommands imports DbBackends and no flow connects them": "closed",
+   "crossing import: ManagementCommands imports FileStorage and no flow connects them": "closed",
+   "crossing import: ManagementCommands imports Handlers and no flow connects them": "open",
+   "crossing import: ManagementCommands imports Mail and no flow connects them": "open",
+   "crossing import: ManagementCommands imports Orm and no flow connects them": "open",
+   "crossing import: ManagementCommands imports Settings and no flow connects them": "open",
+   "crossing import: ManagementCommands imports Templates and no flow connects them": "closed",
+   "crossing import: ManagementCommands imports TestFramework and no flow connects them": "closed",
+   "crossing import: ManagementCommands imports Transactions and no flow connects them": "open",
+   "crossing import: ManagementCommands imports Utils and no flow connects them": "open",
+   "crossing import: Messages imports AppRegistry and no flow connects them": "closed",
+   "crossing import: Messages imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Messages imports Http and no flow connects them": "closed",
+   "crossing import: Messages imports Settings and no flow connects them": "open",
+   "crossing import: Messages imports Signals and no flow connects them": "open",
+   "crossing import: Messages imports Utils and no flow connects them": "closed",
+   "crossing import: Middleware imports Cache and no flow connects them": "open",
+   "crossing import: Middleware imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Middleware imports Http and no flow connects them": "closed",
+   "crossing import: Middleware imports Mail and no flow connects them": "open",
+   "crossing import: Middleware imports Settings and no flow connects them": "open",
+   "crossing import: Middleware imports Utils and no flow connects them": "open",
+   "crossing import: Migrations imports AppRegistry and no flow connects them": "open",
+   "crossing import: Migrations imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Migrations imports Settings and no flow connects them": "open",
+   "crossing import: Migrations imports SystemChecks and no flow connects them": "closed",
+   "crossing import: Migrations imports Transactions and no flow connects them": "open",
+   "crossing import: Migrations imports Utils and no flow connects them": "closed",
+   "crossing import: Orm imports AppRegistry and no flow connects them": "open",
+   "crossing import: Orm imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Orm imports DbBackends and no flow connects them": "closed",
+   "crossing import: Orm imports FileStorage and no flow connects them": "open",
+   "crossing import: Orm imports Settings and no flow connects them": "open",
+   "crossing import: Orm imports SystemChecks and no flow connects them": "closed",
+   "crossing import: Orm imports Utils and no flow connects them": "closed",
+   "crossing import: Postgres imports AppRegistry and no flow connects them": "open",
+   "crossing import: Postgres imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Postgres imports DbBackends and no flow connects them": "open",
+   "crossing import: Postgres imports Forms and no flow connects them": "closed",
+   "crossing import: Postgres imports Migrations and no flow connects them": "closed",
+   "crossing import: Postgres imports Signals and no flow connects them": "open",
+   "crossing import: Postgres imports SystemChecks and no flow connects them": "closed",
+   "crossing import: Postgres imports Transactions and no flow connects them": "open",
+   "crossing import: Postgres imports Utils and no flow connects them": "closed",
+   "crossing import: Serializers imports AppRegistry and no flow connects them": "open",
+   "crossing import: Serializers imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Serializers imports Orm and no flow connects them": "open",
+   "crossing import: Serializers imports Settings and no flow connects them": "open",
+   "crossing import: Serializers imports Transactions and no flow connects them": "closed",
+   "crossing import: Serializers imports Utils and no flow connects them": "closed",
+   "crossing import: Sessions imports AppRegistry and no flow connects them": "closed",
+   "crossing import: Sessions imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Sessions imports ManagementCommands and no flow connects them": "closed",
+   "crossing import: Sessions imports Migrations and no flow connects them": "closed",
+   "crossing import: Sessions imports Orm and no flow connects them": "open",
+   "crossing import: Sessions imports Settings and no flow connects them": "open",
+   "crossing import: Sessions imports Transactions and no flow connects them": "open",
+   "crossing import: Sessions imports Utils and no flow connects them": "closed",
+   "crossing import: Settings imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Settings imports UrlRouting and no flow connects them": "closed",
+   "crossing import: Settings imports Utils and no flow connects them": "closed",
+   "crossing import: Signals imports Settings and no flow connects them": "open",
+   "crossing import: Signals imports Utils and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Admin and no flow connects them": "open",
+   "crossing import: SiteFeatures imports AppRegistry and no flow connects them": "open",
+   "crossing import: SiteFeatures imports Auth and no flow connects them": "open",
+   "crossing import: SiteFeatures imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Forms and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Http and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports ManagementCommands and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Migrations and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Orm and no flow connects them": "open",
+   "crossing import: SiteFeatures imports Settings and no flow connects them": "open",
+   "crossing import: SiteFeatures imports SystemChecks and no flow connects them": "open",
+   "crossing import: SiteFeatures imports Transactions and no flow connects them": "open",
+   "crossing import: SiteFeatures imports UrlRouting and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Utils and no flow connects them": "closed",
+   "crossing import: SiteFeatures imports Views and no flow connects them": "closed",
+   "crossing import: StaticFiles imports AppRegistry and no flow connects them": "open",
+   "crossing import: StaticFiles imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: StaticFiles imports Handlers and no flow connects them": "open",
+   "crossing import: StaticFiles imports Http and no flow connects them": "closed",
+   "crossing import: StaticFiles imports ManagementCommands and no flow connects them": "open",
+   "crossing import: StaticFiles imports Settings and no flow connects them": "open",
+   "crossing import: StaticFiles imports SystemChecks and no flow connects them": "open",
+   "crossing import: StaticFiles imports TestFramework and no flow connects them": "open",
+   "crossing import: StaticFiles imports UrlRouting and no flow connects them": "closed",
+   "crossing import: StaticFiles imports Utils and no flow connects them": "closed",
+   "crossing import: StaticFiles imports Views and no flow connects them": "closed",
+   "crossing import: SystemChecks imports AppRegistry and no flow connects them": "open",
+   "crossing import: SystemChecks imports Cache and no flow connects them": "open",
+   "crossing import: SystemChecks imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: SystemChecks imports Mail and no flow connects them": "closed",
+   "crossing import: SystemChecks imports Middleware and no flow connects them": "closed",
+   "crossing import: SystemChecks imports Orm and no flow connects them": "open",
+   "crossing import: SystemChecks imports Settings and no flow connects them": "open",
+   "crossing import: SystemChecks imports Templates and no flow connects them": "open",
+   "crossing import: SystemChecks imports Transactions and no flow connects them": "open",
+   "crossing import: SystemChecks imports UrlRouting and no flow connects them": "closed",
+   "crossing import: SystemChecks imports Utils and no flow connects them": "closed",
+   "crossing import: Tasks imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Tasks imports Orm and no flow connects them": "closed",
+   "crossing import: Tasks imports Settings and no flow connects them": "open",
+   "crossing import: Tasks imports SystemChecks and no flow connects them": "open",
+   "crossing import: Tasks imports Utils and no flow connects them": "closed",
+   "crossing import: Templates imports AppRegistry and no flow connects them": "open",
+   "crossing import: Templates imports Cache and no flow connects them": "open",
+   "crossing import: Templates imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Templates imports Forms and no flow connects them": "closed",
+   "crossing import: Templates imports Middleware and no flow connects them": "closed",
+   "crossing import: Templates imports Settings and no flow connects them": "open",
+   "crossing import: Templates imports Signals and no flow connects them": "open",
+   "crossing import: Templates imports StaticFiles and no flow connects them": "open",
+   "crossing import: Templates imports SystemChecks and no flow connects them": "closed",
+   "crossing import: Templates imports Transactions and no flow connects them": "open",
+   "crossing import: Templates imports UrlRouting and no flow connects them": "closed",
+   "crossing import: TestFramework imports AppRegistry and no flow connects them": "open",
+   "crossing import: TestFramework imports Auth and no flow connects them": "open",
+   "crossing import: TestFramework imports Cache and no flow connects them": "open",
+   "crossing import: TestFramework imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: TestFramework imports DbBackends and no flow connects them": "open",
+   "crossing import: TestFramework imports FileStorage and no flow connects them": "open",
+   "crossing import: TestFramework imports Forms and no flow connects them": "closed",
+   "crossing import: TestFramework imports Http and no flow connects them": "closed",
+   "crossing import: TestFramework imports Mail and no flow connects them": "open",
+   "crossing import: TestFramework imports ManagementCommands and no flow connects them": "open",
+   "crossing import: TestFramework imports Orm and no flow connects them": "closed",
+   "crossing import: TestFramework imports Serializers and no flow connects them": "closed",
+   "crossing import: TestFramework imports Settings and no flow connects them": "open",
+   "crossing import: TestFramework imports Signals and no flow connects them": "open",
+   "crossing import: TestFramework imports StaticFiles and no flow connects them": "open",
+   "crossing import: TestFramework imports SystemChecks and no flow connects them": "open",
+   "crossing import: TestFramework imports Templates and no flow connects them": "open",
+   "crossing import: TestFramework imports Transactions and no flow connects them": "open",
+   "crossing import: TestFramework imports UrlRouting and no flow connects them": "closed",
+   "crossing import: TestFramework imports Utils and no flow connects them": "closed",
+   "crossing import: TestFramework imports Views and no flow connects them": "closed",
+   "crossing import: Transactions imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Transactions imports Settings and no flow connects them": "open",
+   "crossing import: Transactions imports Signals and no flow connects them": "open",
+   "crossing import: Transactions imports Utils and no flow connects them": "closed",
+   "crossing import: UrlRouting imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: UrlRouting imports Http and no flow connects them": "closed",
+   "crossing import: UrlRouting imports Settings and no flow connects them": "open",
+   "crossing import: UrlRouting imports SystemChecks and no flow connects them": "closed",
+   "crossing import: UrlRouting imports Utils and no flow connects them": "closed",
+   "crossing import: Utils imports AppRegistry and no flow connects them": "open",
+   "crossing import: Utils imports Cache and no flow connects them": "open",
+   "crossing import: Utils imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Utils imports Forms and no flow connects them": "closed",
+   "crossing import: Utils imports Http and no flow connects them": "closed",
+   "crossing import: Utils imports Mail and no flow connects them": "open",
+   "crossing import: Utils imports ManagementCommands and no flow connects them": "closed",
+   "crossing import: Utils imports Orm and no flow connects them": "closed",
+   "crossing import: Utils imports Serializers and no flow connects them": "closed",
+   "crossing import: Utils imports Settings and no flow connects them": "open",
+   "crossing import: Utils imports Signals and no flow connects them": "open",
+   "crossing import: Utils imports UrlRouting and no flow connects them": "closed",
+   "crossing import: Views imports AppRegistry and no flow connects them": "open",
+   "crossing import: Views imports CoreHelpers and no flow connects them": "closed",
+   "crossing import: Views imports Http and no flow connects them": "closed",
+   "crossing import: Views imports Middleware and no flow connects them": "open",
+   "crossing import: Views imports Settings and no flow connects them": "open",
+   "crossing import: Views imports Utils and no flow connects them": "closed"
+  },
+  "units": {
+   "Orm: crossing import: Expressions imports Fields and no flow connects them": [
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.composite",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.json",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: Expressions imports ModelClasses and no flow connects them": [
+    [
+     "django.db.models",
+     "mixed"
+    ],
+    [
+     "django.db.models.constants",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: Expressions imports QuerySets and no flow connects them": [
+    [
+     "django.db.models.query_utils",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: Fields imports Expressions and no flow connects them": [
+    [
+     "django.db.models.expressions",
+     "helper"
+    ],
+    [
+     "django.db.models.functions.text",
+     "helper"
+    ],
+    [
+     "django.db.models.functions.window",
+     "helper"
+    ],
+    [
+     "django.db.models.lookups",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: Fields imports QuerySets and no flow connects them": [
+    [
+     "django.db.models.query",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.query_utils",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: Fields imports SqlCompiler and no flow connects them": [
+    [
+     "django.db.models.sql.query",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.sql.where",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: ModelClasses imports Expressions and no flow connects them": [
+    [
+     "django.db.models.aggregates",
+     "helper"
+    ],
+    [
+     "django.db.models.constraints",
+     "helper"
+    ],
+    [
+     "django.db.models.expressions",
+     "helper"
+    ],
+    [
+     "django.db.models.functions.comparison",
+     "helper"
+    ],
+    [
+     "django.db.models.indexes",
+     "helper"
+    ],
+    [
+     "django.db.models.lookups",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: ModelClasses imports SqlCompiler and no flow connects them": [
+    [
+     "django.db.models.sql.subqueries",
+     "handoff (used)"
+    ]
+   ],
+   "Orm: crossing import: QuerySets imports Expressions and no flow connects them": [
+    [
+     "django.db.models.expressions",
+     "helper"
+    ],
+    [
+     "django.db.models.functions.comparison",
+     "helper"
+    ],
+    [
+     "django.db.models.functions.datetime",
+     "helper"
+    ],
+    [
+     "django.db.models.lookups",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: SqlCompiler imports Fields and no flow connects them": [
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.composite",
+     "helper"
+    ]
+   ],
+   "Orm: crossing import: SqlCompiler imports ModelClasses and no flow connects them": [
+    [
+     "django.db.models",
+     "mixed"
+    ],
+    [
+     "django.db.models.constants",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Admin imports Auth and no flow connects them": [
+    [
+     "django.contrib.auth",
+     "mixed"
+    ],
+    [
+     "django.contrib.auth.base_user",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.auth.decorators",
+     "helper"
+    ],
+    [
+     "django.contrib.auth.forms",
+     "helper"
+    ],
+    [
+     "django.contrib.auth.templatetags.auth",
+     "helper"
+    ],
+    [
+     "django.contrib.auth.views",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Admin imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.paginator",
+     "helper"
+    ],
+    [
+     "django.core.validators",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Http and no flow connects them": [
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Messages and no flow connects them": [
+    [
+     "django.contrib.messages",
+     "helper"
+    ],
+    [
+     "django.contrib.messages.api",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.messages.constants",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Migrations and no flow connects them": [
+    [
+     "django.db.migrations.migration",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.fields",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.models",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Orm and no flow connects them": [
+    [
+     "django.db.models",
+     "mixed (used)"
+    ],
+    [
+     "django.db.models.aggregates",
+     "helper"
+    ],
+    [
+     "django.db.models.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.constants",
+     "helper"
+    ],
+    [
+     "django.db.models.deletion",
+     "mixed (used)"
+    ],
+    [
+     "django.db.models.expressions",
+     "helper"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.files",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.json",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.related",
+     "helper"
+    ],
+    [
+     "django.db.models.manager",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.query_utils",
+     "helper"
+    ],
+    [
+     "django.db.models.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Admin imports StaticFiles and no flow connects them": [
+    [
+     "django.contrib.staticfiles.testing",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Admin imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Admin imports TestFramework and no flow connects them": [
+    [
+     "django.test.selenium",
+     "handoff (used)"
+    ],
+    [
+     "django.test.utils",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Admin imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Admin imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ],
+    [
+     "django.urls.conf",
+     "helper"
+    ],
+    [
+     "django.urls.exceptions",
+     "helper"
+    ],
+    [
+     "django.urls.resolvers",
+     "helper"
+    ],
+    [
+     "django.urls.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.csp",
+     "helper"
+    ],
+    [
+     "django.utils.decorators",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.formats",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.hashable",
+     "helper"
+    ],
+    [
+     "django.utils.html",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.safestring",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Admin imports Views and no flow connects them": [
+    [
+     "django.views.decorators.cache",
+     "helper"
+    ],
+    [
+     "django.views.decorators.common",
+     "helper"
+    ],
+    [
+     "django.views.decorators.csrf",
+     "helper"
+    ],
+    [
+     "django.views.generic.base",
+     "helper"
+    ],
+    [
+     "django.views.generic.list",
+     "helper"
+    ],
+    [
+     "django.views.i18n",
+     "helper"
+    ]
+   ],
+   "crossing import: AppRegistry imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: AppRegistry imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ]
+   ],
+   "crossing import: AppRegistry imports Utils and no flow connects them": [
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.log",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Admin and no flow connects them": [
+    [
+     "django.contrib.admin",
+     "mixed"
+    ],
+    [
+     "django.contrib.admin.decorators",
+     "mixed (used)"
+    ],
+    [
+     "django.contrib.admin.options",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.admin.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Auth imports ContentTypes and no flow connects them": [
+    [
+     "django.contrib.contenttypes.management",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.contenttypes.models",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Auth imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.validators",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Forms and no flow connects them": [
+    [
+     "django.forms.fields",
+     "helper"
+    ],
+    [
+     "django.forms.forms",
+     "helper"
+    ],
+    [
+     "django.forms.models",
+     "helper"
+    ],
+    [
+     "django.forms.widgets",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Handlers and no flow connects them": [
+    [
+     "django.core.handlers.asgi",
+     "mixed"
+    ]
+   ],
+   "crossing import: Auth imports Http and no flow connects them": [
+    [
+     "django.http.request",
+     "helper"
+    ],
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Mail and no flow connects them": [
+    [
+     "django.core.mail",
+     "handoff (used)"
+    ],
+    [
+     "django.core.mail.message",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Auth imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.base",
+     "helper"
+    ],
+    [
+     "django.core.management.color",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Messages and no flow connects them": [
+    [
+     "django.contrib.messages.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Auth imports Migrations and no flow connects them": [
+    [
+     "django.db.migrations.migration",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.fields",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.models",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.special",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Auth imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ],
+    [
+     "django.dispatch.dispatcher",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Auth imports SiteFeatures and no flow connects them": [
+    [
+     "django.contrib.sites.shortcuts",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Auth imports Templates and no flow connects them": [
+    [
+     "django.template.library",
+     "helper"
+    ],
+    [
+     "django.template.loader",
+     "helper"
+    ],
+    [
+     "django.template.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ],
+    [
+     "django.urls.conf",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Utils and no flow connects them": [
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.deconstruct",
+     "helper"
+    ],
+    [
+     "django.utils.decorators",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.html",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Auth imports Views and no flow connects them": [
+    [
+     "django.shortcuts",
+     "helper"
+    ],
+    [
+     "django.views.decorators.cache",
+     "helper"
+    ],
+    [
+     "django.views.decorators.csrf",
+     "helper"
+    ],
+    [
+     "django.views.decorators.debug",
+     "helper"
+    ],
+    [
+     "django.views.generic.base",
+     "helper"
+    ],
+    [
+     "django.views.generic.edit",
+     "helper"
+    ]
+   ],
+   "crossing import: Cache imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed"
+    ]
+   ],
+   "crossing import: Cache imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Cache imports FileStorage and no flow connects them": [
+    [
+     "django.core.files.locks",
+     "helper"
+    ],
+    [
+     "django.core.files.move",
+     "helper"
+    ]
+   ],
+   "crossing import: Cache imports Orm and no flow connects them": [
+    [
+     "django.db.models.expressions",
+     "helper"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ]
+   ],
+   "crossing import: Cache imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Cache imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Cache imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Cache imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.connection",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: ContentTypes imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports Forms and no flow connects them": [
+    [
+     "django.forms.models",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports Http and no flow connects them": [
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.base",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports Migrations and no flow connects them": [
+    [
+     "django.db.migrations.migration",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.fields",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.models",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.special",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports Orm and no flow connects them": [
+    [
+     "django.db.models",
+     "mixed (used by *)"
+    ],
+    [
+     "django.db.models.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.deletion",
+     "mixed (used)"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.mixins",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.related",
+     "helper"
+    ],
+    [
+     "django.db.models.query",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.query_utils",
+     "helper"
+    ],
+    [
+     "django.db.models.signals",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.sql.where",
+     "helper"
+    ],
+    [
+     "django.db.models.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports SiteFeatures and no flow connects them": [
+    [
+     "django.contrib.sites.shortcuts",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: ContentTypes imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: ContentTypes imports Utils and no flow connects them": [
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: CoreHelpers imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: CoreHelpers imports Utils and no flow connects them": [
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.deconstruct",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.hashable",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.ipv6",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: DbBackends imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: DbBackends imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: DbBackends imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: DbBackends imports Orm and no flow connects them": [
+    [
+     "django.db.models.aggregates",
+     "helper"
+    ],
+    [
+     "django.db.models.constants",
+     "helper"
+    ],
+    [
+     "django.db.models.constraints",
+     "helper"
+    ],
+    [
+     "django.db.models.deletion",
+     "mixed"
+    ],
+    [
+     "django.db.models.expressions",
+     "helper"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.composite",
+     "helper"
+    ],
+    [
+     "django.db.models.functions.comparison",
+     "helper"
+    ],
+    [
+     "django.db.models.indexes",
+     "helper"
+    ],
+    [
+     "django.db.models.sql.compiler",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.sql.query",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.sql.where",
+     "helper"
+    ]
+   ],
+   "crossing import: DbBackends imports Serializers and no flow connects them": [
+    [
+     "django.core.serializers",
+     "helper"
+    ]
+   ],
+   "crossing import: DbBackends imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: DbBackends imports Signals and no flow connects them": [
+    [
+     "django.dispatch.dispatcher",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: DbBackends imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ]
+   ],
+   "crossing import: DbBackends imports Utils and no flow connects them": [
+    [
+     "django.utils.asyncio",
+     "helper"
+    ],
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.dateparse",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.duration",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.safestring",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ],
+   "crossing import: FileStorage imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: FileStorage imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: FileStorage imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: FileStorage imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.deconstruct",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ]
+   ],
+   "crossing import: Forms imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Forms imports Templates and no flow connects them": [
+    [
+     "django.template.backends.django",
+     "helper"
+    ],
+    [
+     "django.template.backends.jinja2",
+     "helper"
+    ],
+    [
+     "django.template.loader",
+     "helper"
+    ],
+    [
+     "django.templatetags.static",
+     "helper"
+    ]
+   ],
+   "crossing import: Forms imports Utils and no flow connects them": [
+    [
+     "django.utils.choices",
+     "helper"
+    ],
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.dateparse",
+     "helper"
+    ],
+    [
+     "django.utils.dates",
+     "helper"
+    ],
+    [
+     "django.utils.duration",
+     "helper"
+    ],
+    [
+     "django.utils.formats",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.hashable",
+     "helper"
+    ],
+    [
+     "django.utils.html",
+     "helper"
+    ],
+    [
+     "django.utils.ipv6",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.safestring",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports Admin and no flow connects them": [
+    [
+     "django.contrib.admin",
+     "mixed (used)"
+    ],
+    [
+     "django.contrib.admin.decorators",
+     "mixed (used)"
+    ],
+    [
+     "django.contrib.admin.options",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.admin.sites",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Gis imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Gis imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.validators",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports DbBackends and no flow connects them": [
+    [
+     "django.db.backends.base.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.mysql.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.mysql.features",
+     "helper"
+    ],
+    [
+     "django.db.backends.mysql.introspection",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.mysql.operations",
+     "helper"
+    ],
+    [
+     "django.db.backends.mysql.schema",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.oracle.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.oracle.features",
+     "helper"
+    ],
+    [
+     "django.db.backends.oracle.introspection",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.oracle.operations",
+     "helper"
+    ],
+    [
+     "django.db.backends.oracle.schema",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.postgresql.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.postgresql.features",
+     "helper"
+    ],
+    [
+     "django.db.backends.postgresql.introspection",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.postgresql.operations",
+     "helper"
+    ],
+    [
+     "django.db.backends.postgresql.psycopg_any",
+     "helper"
+    ],
+    [
+     "django.db.backends.postgresql.schema",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.sqlite3.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.sqlite3.client",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.sqlite3.features",
+     "helper"
+    ],
+    [
+     "django.db.backends.sqlite3.introspection",
+     "mixed (used)"
+    ],
+    [
+     "django.db.backends.sqlite3.operations",
+     "helper"
+    ],
+    [
+     "django.db.backends.sqlite3.schema",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports Forms and no flow connects them": [
+    [
+     "django.forms",
+     "helper"
+    ],
+    [
+     "django.forms.fields",
+     "helper"
+    ],
+    [
+     "django.forms.widgets",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports Http and no flow connects them": [
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.base",
+     "helper"
+    ],
+    [
+     "django.core.management.commands.inspectdb",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Gis imports Serializers and no flow connects them": [
+    [
+     "django.core.serializers",
+     "helper"
+    ],
+    [
+     "django.core.serializers.base",
+     "helper"
+    ],
+    [
+     "django.core.serializers.json",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Gis imports SiteFeatures and no flow connects them": [
+    [
+     "django.contrib.sitemaps",
+     "helper"
+    ],
+    [
+     "django.contrib.syndication.views",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Gis imports Templates and no flow connects them": [
+    [
+     "django.template.loader",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ]
+   ],
+   "crossing import: Gis imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.deconstruct",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.feedgenerator",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.log",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ],
+   "crossing import: Handlers imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Handlers imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Handlers imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Handlers imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Handlers imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ],
+    [
+     "django.urls.resolvers",
+     "helper"
+    ]
+   ],
+   "crossing import: Handlers imports Utils and no flow connects them": [
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.log",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ]
+   ],
+   "crossing import: Handlers imports Views and no flow connects them": [
+    [
+     "django.views.debug",
+     "helper"
+    ]
+   ],
+   "crossing import: Http imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.signing",
+     "helper"
+    ]
+   ],
+   "crossing import: Http imports FileStorage and no flow connects them": [
+    [
+     "django.core.files.uploadhandler",
+     "helper"
+    ]
+   ],
+   "crossing import: Http imports Serializers and no flow connects them": [
+    [
+     "django.core.serializers.json",
+     "helper"
+    ]
+   ],
+   "crossing import: Http imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Http imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Http imports Utils and no flow connects them": [
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ]
+   ],
+   "crossing import: Mail imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Mail imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Mail imports Utils and no flow connects them": [
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Cache and no flow connects them": [
+    [
+     "django.core.cache",
+     "handoff (used)"
+    ],
+    [
+     "django.core.cache.backends.db",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: ManagementCommands imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports DbBackends and no flow connects them": [
+    [
+     "django.db.backends.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports FileStorage and no flow connects them": [
+    [
+     "django.core.files.temp",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Handlers and no flow connects them": [
+    [
+     "django.core.servers.basehttp",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Mail and no flow connects them": [
+    [
+     "django.core.mail",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Orm and no flow connects them": [
+    [
+     "django.db.models.constants",
+     "helper"
+    ],
+    [
+     "django.db.models.deletion",
+     "mixed"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ],
+    [
+     "django.conf.global_settings",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Templates and no flow connects them": [
+    [
+     "django.template.context",
+     "helper"
+    ],
+    [
+     "django.template.engine",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports TestFramework and no flow connects them": [
+    [
+     "django.test.runner",
+     "helper"
+    ],
+    [
+     "django.test.utils",
+     "mixed"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: ManagementCommands imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.archive",
+     "helper"
+    ],
+    [
+     "django.utils.autoreload",
+     "mixed (used)"
+    ],
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.termcolors",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ],
+   "crossing import: Messages imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ]
+   ],
+   "crossing import: Messages imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.signing",
+     "helper"
+    ]
+   ],
+   "crossing import: Messages imports Http and no flow connects them": [
+    [
+     "django.http.cookie",
+     "helper"
+    ]
+   ],
+   "crossing import: Messages imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Messages imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Messages imports Utils and no flow connects them": [
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.safestring",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Middleware imports Cache and no flow connects them": [
+    [
+     "django.core.cache",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Middleware imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Middleware imports Http and no flow connects them": [
+    [
+     "django.http.request",
+     "helper"
+    ],
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Middleware imports Mail and no flow connects them": [
+    [
+     "django.core.mail",
+     "handoff (used)"
+    ],
+    [
+     "django.core.mail.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Middleware imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Middleware imports Utils and no flow connects them": [
+    [
+     "django.utils.cache",
+     "mixed (used)"
+    ],
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.csp",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.log",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Migrations imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed"
+    ],
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Migrations imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Migrations imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Migrations imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.model_checks",
+     "helper"
+    ]
+   ],
+   "crossing import: Migrations imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Migrations imports Utils and no flow connects them": [
+    [
+     "django.utils.copy",
+     "helper"
+    ],
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ],
+   "crossing import: Orm imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Orm imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.validators",
+     "helper"
+    ]
+   ],
+   "crossing import: Orm imports DbBackends and no flow connects them": [
+    [
+     "django.db.backends.oracle.functions",
+     "helper"
+    ],
+    [
+     "django.db.backends.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Orm imports FileStorage and no flow connects them": [
+    [
+     "django.core.files.base",
+     "helper"
+    ],
+    [
+     "django.core.files.images",
+     "helper"
+    ],
+    [
+     "django.core.files.storage",
+     "handoff (used)"
+    ],
+    [
+     "django.core.files.storage.base",
+     "handoff (used)"
+    ],
+    [
+     "django.core.files.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Orm imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Orm imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ]
+   ],
+   "crossing import: Orm imports Utils and no flow connects them": [
+    [
+     "django.utils.choices",
+     "helper"
+    ],
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.dateparse",
+     "helper"
+    ],
+    [
+     "django.utils.deconstruct",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.duration",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.hashable",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.ipv6",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ],
+    [
+     "django.utils.tree",
+     "helper"
+    ]
+   ],
+   "crossing import: Postgres imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Postgres imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.validators",
+     "helper"
+    ]
+   ],
+   "crossing import: Postgres imports DbBackends and no flow connects them": [
+    [
+     "django.db.backends.base.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.backends.ddl_references",
+     "helper"
+    ],
+    [
+     "django.db.backends.postgresql.psycopg_any",
+     "helper"
+    ],
+    [
+     "django.db.backends.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Postgres imports Forms and no flow connects them": [
+    [
+     "django.forms.fields",
+     "helper"
+    ],
+    [
+     "django.forms.widgets",
+     "helper"
+    ]
+   ],
+   "crossing import: Postgres imports Migrations and no flow connects them": [
+    [
+     "django.db.migrations.operations.base",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.models",
+     "helper"
+    ],
+    [
+     "django.db.migrations.serializer",
+     "helper"
+    ],
+    [
+     "django.db.migrations.writer",
+     "helper"
+    ]
+   ],
+   "crossing import: Postgres imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Postgres imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ]
+   ],
+   "crossing import: Postgres imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Postgres imports Utils and no flow connects them": [
+    [
+     "django.utils.deconstruct",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Serializers imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Serializers imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Serializers imports Orm and no flow connects them": [
+    [
+     "django.db.models",
+     "mixed"
+    ],
+    [
+     "django.db.models.base",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Serializers imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Serializers imports Transactions and no flow connects them": [
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Serializers imports Utils and no flow connects them": [
+    [
+     "django.utils.duration",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.xmlutils",
+     "helper"
+    ]
+   ],
+   "crossing import: Sessions imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ]
+   ],
+   "crossing import: Sessions imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.signing",
+     "helper"
+    ]
+   ],
+   "crossing import: Sessions imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.base",
+     "helper"
+    ]
+   ],
+   "crossing import: Sessions imports Migrations and no flow connects them": [
+    [
+     "django.db.migrations.migration",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.models",
+     "helper"
+    ]
+   ],
+   "crossing import: Sessions imports Orm and no flow connects them": [
+    [
+     "django.db.models.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.manager",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Sessions imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Sessions imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Sessions imports Utils and no flow connects them": [
+    [
+     "django.utils.cache",
+     "mixed"
+    ],
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Settings imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Settings imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ]
+   ],
+   "crossing import: Settings imports Utils and no flow connects them": [
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ]
+   ],
+   "crossing import: Signals imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Signals imports Utils and no flow connects them": [
+    [
+     "django.utils.inspect",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Admin and no flow connects them": [
+    [
+     "django.contrib.admin.decorators",
+     "mixed (used)"
+    ],
+    [
+     "django.contrib.admin.options",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SiteFeatures imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Auth and no flow connects them": [
+    [
+     "django.contrib.auth.views",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SiteFeatures imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.paginator",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Forms and no flow connects them": [
+    [
+     "django.forms.fields",
+     "helper"
+    ],
+    [
+     "django.forms.models",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Http and no flow connects them": [
+    [
+     "django.http.request",
+     "helper"
+    ],
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.color",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Migrations and no flow connects them": [
+    [
+     "django.db.migrations.migration",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.fields",
+     "helper"
+    ],
+    [
+     "django.db.migrations.operations.models",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Orm and no flow connects them": [
+    [
+     "django.db.models.base",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.deletion",
+     "mixed"
+    ],
+    [
+     "django.db.models.fields",
+     "helper"
+    ],
+    [
+     "django.db.models.fields.related",
+     "helper"
+    ],
+    [
+     "django.db.models.manager",
+     "handoff (used)"
+    ],
+    [
+     "django.db.models.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: SiteFeatures imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ],
+    [
+     "django.urls.conf",
+     "helper"
+    ],
+    [
+     "django.urls.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Utils and no flow connects them": [
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.feedgenerator",
+     "helper"
+    ],
+    [
+     "django.utils.formats",
+     "helper"
+    ],
+    [
+     "django.utils.html",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.safestring",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: SiteFeatures imports Views and no flow connects them": [
+    [
+     "django.shortcuts",
+     "helper"
+    ],
+    [
+     "django.views.decorators.csrf",
+     "helper"
+    ]
+   ],
+   "crossing import: StaticFiles imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.config",
+     "helper"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: StaticFiles imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: StaticFiles imports Handlers and no flow connects them": [
+    [
+     "django.core.handlers.asgi",
+     "mixed (used)"
+    ],
+    [
+     "django.core.handlers.exception",
+     "handoff (used)"
+    ],
+    [
+     "django.core.handlers.wsgi",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: StaticFiles imports Http and no flow connects them": [
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: StaticFiles imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.base",
+     "helper"
+    ],
+    [
+     "django.core.management.color",
+     "helper"
+    ],
+    [
+     "django.core.management.commands.runserver",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: StaticFiles imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: StaticFiles imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: StaticFiles imports TestFramework and no flow connects them": [
+    [
+     "django.test.testcases",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: StaticFiles imports UrlRouting and no flow connects them": [
+    [
+     "django.conf.urls.static",
+     "helper"
+    ]
+   ],
+   "crossing import: StaticFiles imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: StaticFiles imports Views and no flow connects them": [
+    [
+     "django.views.static",
+     "helper"
+    ]
+   ],
+   "crossing import: SystemChecks imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SystemChecks imports Cache and no flow connects them": [
+    [
+     "django.core.cache",
+     "handoff (used)"
+    ],
+    [
+     "django.core.cache.backends.filebased",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SystemChecks imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: SystemChecks imports Mail and no flow connects them": [
+    [
+     "django.core.mail.handler",
+     "helper"
+    ]
+   ],
+   "crossing import: SystemChecks imports Middleware and no flow connects them": [
+    [
+     "django.middleware.csrf",
+     "helper"
+    ]
+   ],
+   "crossing import: SystemChecks imports Orm and no flow connects them": [
+    [
+     "django.db.models",
+     "mixed (used)"
+    ],
+    [
+     "django.db.models.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SystemChecks imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: SystemChecks imports Templates and no flow connects them": [
+    [
+     "django.template",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SystemChecks imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: SystemChecks imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.resolvers",
+     "helper"
+    ]
+   ],
+   "crossing import: SystemChecks imports Utils and no flow connects them": [
+    [
+     "django.utils.csp",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ],
+    [
+     "django.utils.translation.trans_real",
+     "helper"
+    ]
+   ],
+   "crossing import: Tasks imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Tasks imports Orm and no flow connects them": [
+    [
+     "django.db.models.enums",
+     "helper"
+    ]
+   ],
+   "crossing import: Tasks imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Tasks imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Tasks imports Utils and no flow connects them": [
+    [
+     "django.utils.connection",
+     "helper"
+    ],
+    [
+     "django.utils.crypto",
+     "helper"
+    ],
+    [
+     "django.utils.inspect",
+     "helper"
+    ],
+    [
+     "django.utils.json",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Templates imports AppRegistry and no flow connects them": [
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Templates imports Cache and no flow connects them": [
+    [
+     "django.core.cache",
+     "handoff (used)"
+    ],
+    [
+     "django.core.cache.backends.base",
+     "helper"
+    ],
+    [
+     "django.core.cache.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Templates imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Templates imports Forms and no flow connects them": [
+    [
+     "django.forms.renderers",
+     "helper"
+    ]
+   ],
+   "crossing import: Templates imports Middleware and no flow connects them": [
+    [
+     "django.middleware.csp",
+     "helper"
+    ],
+    [
+     "django.middleware.csrf",
+     "helper"
+    ]
+   ],
+   "crossing import: Templates imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Templates imports Signals and no flow connects them": [
+    [
+     "django.dispatch.dispatcher",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Templates imports StaticFiles and no flow connects them": [
+    [
+     "django.contrib.staticfiles.storage",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Templates imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ]
+   ],
+   "crossing import: Templates imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Templates imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ],
+    [
+     "django.urls.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed (used)"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports Auth and no flow connects them": [
+    [
+     "django.contrib.auth",
+     "mixed (used)"
+    ],
+    [
+     "django.contrib.auth.backends",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.auth.forms",
+     "helper"
+    ],
+    [
+     "django.contrib.auth.handlers.modwsgi",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.auth.management.commands.changepassword",
+     "handoff (used)"
+    ],
+    [
+     "django.contrib.auth.password_validation",
+     "helper"
+    ],
+    [
+     "django.contrib.auth.views",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports Cache and no flow connects them": [
+    [
+     "django.core.cache",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports DbBackends and no flow connects them": [
+    [
+     "django.db.backends.base.base",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports FileStorage and no flow connects them": [
+    [
+     "django.core.files.locks",
+     "helper"
+    ],
+    [
+     "django.core.files.storage",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports Forms and no flow connects them": [
+    [
+     "django.forms.fields",
+     "helper"
+    ],
+    [
+     "django.forms.renderers",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Http and no flow connects them": [
+    [
+     "django.http.cookie",
+     "helper"
+    ],
+    [
+     "django.http.request",
+     "helper"
+    ],
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Mail and no flow connects them": [
+    [
+     "django.core.mail",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management",
+     "mixed (used)"
+    ],
+    [
+     "django.core.management.color",
+     "helper"
+    ],
+    [
+     "django.core.management.sql",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports Orm and no flow connects them": [
+    [
+     "django.db.models.options",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Serializers and no flow connects them": [
+    [
+     "django.core.serializers",
+     "helper"
+    ],
+    [
+     "django.core.serializers.json",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ],
+    [
+     "django.dispatch.dispatcher",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports StaticFiles and no flow connects them": [
+    [
+     "django.contrib.staticfiles.finders",
+     "helper"
+    ],
+    [
+     "django.contrib.staticfiles.storage",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: TestFramework imports Templates and no flow connects them": [
+    [
+     "django.template",
+     "handoff (used)"
+    ],
+    [
+     "django.template.base",
+     "helper"
+    ],
+    [
+     "django.template.engine",
+     "helper"
+    ],
+    [
+     "django.template.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Transactions and no flow connects them": [
+    [
+     "django.db",
+     "handoff (used)"
+    ],
+    [
+     "django.db.transaction",
+     "handoff (used)"
+    ],
+    [
+     "django.db.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.base",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Utils and no flow connects them": [
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.formats",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.html",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.log",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.text",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ],
+    [
+     "django.utils.translation.trans_real",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ],
+   "crossing import: TestFramework imports Views and no flow connects them": [
+    [
+     "django.views.static",
+     "helper"
+    ]
+   ],
+   "crossing import: Transactions imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Transactions imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Transactions imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Transactions imports Utils and no flow connects them": [
+    [
+     "django.utils.connection",
+     "helper"
+    ],
+    [
+     "django.utils.deprecation",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ]
+   ],
+   "crossing import: UrlRouting imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: UrlRouting imports Http and no flow connects them": [
+    [
+     "django.http.request",
+     "helper"
+    ],
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: UrlRouting imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: UrlRouting imports SystemChecks and no flow connects them": [
+    [
+     "django.core.checks.messages",
+     "helper"
+    ],
+    [
+     "django.core.checks.urls",
+     "helper"
+    ]
+   ],
+   "crossing import: UrlRouting imports Utils and no flow connects them": [
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed (used by *)"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Utils imports Cache and no flow connects them": [
+    [
+     "django.core.cache",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Utils imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.validators",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Forms and no flow connects them": [
+    [
+     "django.forms.utils",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Http and no flow connects them": [
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Mail and no flow connects them": [
+    [
+     "django.core.mail",
+     "handoff (used)"
+    ],
+    [
+     "django.core.mail.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports ManagementCommands and no flow connects them": [
+    [
+     "django.core.management.color",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Orm and no flow connects them": [
+    [
+     "django.db.models.enums",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Serializers and no flow connects them": [
+    [
+     "django.core.serializers.json",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ],
+    [
+     "django.conf.locale",
+     "helper"
+    ]
+   ],
+   "crossing import: Utils imports Signals and no flow connects them": [
+    [
+     "django.core.signals",
+     "handoff (used)"
+    ],
+    [
+     "django.dispatch.dispatcher",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Utils imports UrlRouting and no flow connects them": [
+    [
+     "django.urls.resolvers",
+     "helper"
+    ]
+   ],
+   "crossing import: Views imports AppRegistry and no flow connects them": [
+    [
+     "django",
+     "mixed"
+    ],
+    [
+     "django.apps.registry",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Views imports CoreHelpers and no flow connects them": [
+    [
+     "django.core.exceptions",
+     "helper"
+    ],
+    [
+     "django.core.paginator",
+     "helper"
+    ]
+   ],
+   "crossing import: Views imports Http and no flow connects them": [
+    [
+     "django.http.request",
+     "helper"
+    ],
+    [
+     "django.http.response",
+     "helper"
+    ]
+   ],
+   "crossing import: Views imports Middleware and no flow connects them": [
+    [
+     "django.middleware.cache",
+     "handoff (used)"
+    ],
+    [
+     "django.middleware.csrf",
+     "helper"
+    ],
+    [
+     "django.middleware.gzip",
+     "helper"
+    ],
+    [
+     "django.middleware.http",
+     "helper"
+    ]
+   ],
+   "crossing import: Views imports Settings and no flow connects them": [
+    [
+     "django.conf",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Views imports Utils and no flow connects them": [
+    [
+     "django.utils._os",
+     "helper"
+    ],
+    [
+     "django.utils.cache",
+     "mixed"
+    ],
+    [
+     "django.utils.datastructures",
+     "helper"
+    ],
+    [
+     "django.utils.decorators",
+     "helper"
+    ],
+    [
+     "django.utils.encoding",
+     "helper"
+    ],
+    [
+     "django.utils.formats",
+     "helper"
+    ],
+    [
+     "django.utils.functional",
+     "helper"
+    ],
+    [
+     "django.utils.http",
+     "helper"
+    ],
+    [
+     "django.utils.log",
+     "helper"
+    ],
+    [
+     "django.utils.module_loading",
+     "helper"
+    ],
+    [
+     "django.utils.regex_helper",
+     "helper"
+    ],
+    [
+     "django.utils.timezone",
+     "helper"
+    ],
+    [
+     "django.utils.translation",
+     "helper"
+    ],
+    [
+     "django.utils.translation.trans_real",
+     "helper"
+    ],
+    [
+     "django.utils.version",
+     "helper"
+    ]
+   ]
+  },
+  "unlabelled": []
+ },
+ "sqlalchemy": {
+  "accept_rows": [
+   "crossing import: UnitOfWork imports Engine and no flow connects them: open [['sqlalchemy.engine.base', 'handoff (used)'], ['sqlalchemy.engine.interfaces', 'helper']]"
+  ],
+  "acceptance_a": true,
+  "acceptance_waiting": true,
+  "counts": {
+   "closed": 89,
+   "open": 46,
+   "waiting": 0
+  },
+  "module_roles": {
+   "handoff": 14,
+   "helper": 77,
+   "mixed": 10
+  },
+  "module_use_lines": 101,
+  "questions": 147,
+  "run_time_import_crossings": 135,
+  "star_only": [],
+  "states": {
+   "crossing import: AsyncIo imports Engine and no flow connects them": "open",
+   "crossing import: AsyncIo imports Expressions and no flow connects them": "closed",
+   "crossing import: AsyncIo imports Mapper and no flow connects them": "open",
+   "crossing import: AsyncIo imports PublicApi and no flow connects them": "open",
+   "crossing import: AsyncIo imports Results and no flow connects them": "closed",
+   "crossing import: CacheKeys imports Expressions and no flow connects them": "closed",
+   "crossing import: CacheKeys imports PublicApi and no flow connects them": "closed",
+   "crossing import: CacheKeys imports Util and no flow connects them": "closed",
+   "crossing import: Compiler imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Compiler imports PublicApi and no flow connects them": "closed",
+   "crossing import: Compiler imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: Compiler imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Compiler imports Util and no flow connects them": "closed",
+   "crossing import: Connectors imports Engine and no flow connects them": "open",
+   "crossing import: Connectors imports Pool and no flow connects them": "open",
+   "crossing import: Connectors imports PublicApi and no flow connects them": "closed",
+   "crossing import: Connectors imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Connectors imports Util and no flow connects them": "closed",
+   "crossing import: Declarative imports Events and no flow connects them": "open",
+   "crossing import: Declarative imports Expressions and no flow connects them": "closed",
+   "crossing import: Declarative imports PublicApi and no flow connects them": "open",
+   "crossing import: Declarative imports Session and no flow connects them": "closed",
+   "crossing import: Declarative imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Declarative imports Util and no flow connects them": "closed",
+   "crossing import: Dialects imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Dialects imports Events and no flow connects them": "open",
+   "crossing import: Dialects imports Expressions and no flow connects them": "closed",
+   "crossing import: Dialects imports Extensions and no flow connects them": "closed",
+   "crossing import: Dialects imports Pool and no flow connects them": "open",
+   "crossing import: Dialects imports PublicApi and no flow connects them": "open",
+   "crossing import: Dialects imports Results and no flow connects them": "open",
+   "crossing import: Dialects imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: Dialects imports TestingSuite and no flow connects them": "open",
+   "crossing import: Dialects imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Dialects imports Util and no flow connects them": "closed",
+   "crossing import: Engine imports Expressions and no flow connects them": "closed",
+   "crossing import: Engine imports Reflection and no flow connects them": "open",
+   "crossing import: Engine imports Results and no flow connects them": "open",
+   "crossing import: Engine imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: Engine imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Engine imports Util and no flow connects them": "closed",
+   "crossing import: Events imports PublicApi and no flow connects them": "closed",
+   "crossing import: Events imports Util and no flow connects them": "closed",
+   "crossing import: Expressions imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Expressions imports Events and no flow connects them": "open",
+   "crossing import: Expressions imports PublicApi and no flow connects them": "open",
+   "crossing import: Expressions imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Expressions imports Util and no flow connects them": "closed",
+   "crossing import: Extensions imports Declarative and no flow connects them": "closed",
+   "crossing import: Extensions imports Engine and no flow connects them": "open",
+   "crossing import: Extensions imports Events and no flow connects them": "open",
+   "crossing import: Extensions imports Expressions and no flow connects them": "closed",
+   "crossing import: Extensions imports OrmLoading and no flow connects them": "open",
+   "crossing import: Extensions imports PublicApi and no flow connects them": "closed",
+   "crossing import: Extensions imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: Extensions imports Session and no flow connects them": "open",
+   "crossing import: Extensions imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Extensions imports UnitOfWork and no flow connects them": "open",
+   "crossing import: Extensions imports Util and no flow connects them": "closed",
+   "crossing import: Mapper imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Mapper imports Engine and no flow connects them": "closed",
+   "crossing import: Mapper imports Events and no flow connects them": "open",
+   "crossing import: Mapper imports Expressions and no flow connects them": "closed",
+   "crossing import: Mapper imports PublicApi and no flow connects them": "open",
+   "crossing import: Mapper imports Results and no flow connects them": "closed",
+   "crossing import: Mapper imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: Mapper imports Session and no flow connects them": "open",
+   "crossing import: Mapper imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Mapper imports UnitOfWork and no flow connects them": "open",
+   "crossing import: Mapper imports Util and no flow connects them": "closed",
+   "crossing import: OrmLoading imports CacheKeys and no flow connects them": "closed",
+   "crossing import: OrmLoading imports Engine and no flow connects them": "closed",
+   "crossing import: OrmLoading imports Events and no flow connects them": "open",
+   "crossing import: OrmLoading imports PublicApi and no flow connects them": "open",
+   "crossing import: OrmLoading imports UnitOfWork and no flow connects them": "open",
+   "crossing import: OrmLoading imports Util and no flow connects them": "closed",
+   "crossing import: Pool imports Events and no flow connects them": "open",
+   "crossing import: Pool imports PublicApi and no flow connects them": "closed",
+   "crossing import: Pool imports Util and no flow connects them": "closed",
+   "crossing import: PublicApi imports Expressions and no flow connects them": "closed",
+   "crossing import: PublicApi imports Pool and no flow connects them": "open",
+   "crossing import: PublicApi imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: PublicApi imports TypeSystem and no flow connects them": "closed",
+   "crossing import: PublicApi imports Util and no flow connects them": "closed",
+   "crossing import: Reflection imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Reflection imports Engine and no flow connects them": "open",
+   "crossing import: Reflection imports Expressions and no flow connects them": "closed",
+   "crossing import: Reflection imports PublicApi and no flow connects them": "open",
+   "crossing import: Reflection imports TypeSystem and no flow connects them": "closed",
+   "crossing import: Reflection imports Util and no flow connects them": "closed",
+   "crossing import: Results imports Compiler and no flow connects them": "closed",
+   "crossing import: Results imports Engine and no flow connects them": "closed",
+   "crossing import: Results imports Expressions and no flow connects them": "closed",
+   "crossing import: Results imports PublicApi and no flow connects them": "closed",
+   "crossing import: Results imports Util and no flow connects them": "closed",
+   "crossing import: SchemaMetadata imports CacheKeys and no flow connects them": "closed",
+   "crossing import: SchemaMetadata imports Events and no flow connects them": "open",
+   "crossing import: SchemaMetadata imports PublicApi and no flow connects them": "open",
+   "crossing import: SchemaMetadata imports TypeSystem and no flow connects them": "closed",
+   "crossing import: SchemaMetadata imports Util and no flow connects them": "closed",
+   "crossing import: Session imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Session imports Expressions and no flow connects them": "closed",
+   "crossing import: Session imports Mapper and no flow connects them": "closed",
+   "crossing import: Session imports PublicApi and no flow connects them": "open",
+   "crossing import: Session imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: Session imports Util and no flow connects them": "closed",
+   "crossing import: TestingSuite imports AsyncIo and no flow connects them": "open",
+   "crossing import: TestingSuite imports CacheKeys and no flow connects them": "closed",
+   "crossing import: TestingSuite imports Compiler and no flow connects them": "closed",
+   "crossing import: TestingSuite imports Dialects and no flow connects them": "open",
+   "crossing import: TestingSuite imports Events and no flow connects them": "open",
+   "crossing import: TestingSuite imports Expressions and no flow connects them": "closed",
+   "crossing import: TestingSuite imports Mapper and no flow connects them": "open",
+   "crossing import: TestingSuite imports Pool and no flow connects them": "open",
+   "crossing import: TestingSuite imports PublicApi and no flow connects them": "open",
+   "crossing import: TestingSuite imports SchemaMetadata and no flow connects them": "closed",
+   "crossing import: TestingSuite imports TypeSystem and no flow connects them": "closed",
+   "crossing import: TestingSuite imports Util and no flow connects them": "closed",
+   "crossing import: TypeSystem imports CacheKeys and no flow connects them": "closed",
+   "crossing import: TypeSystem imports Events and no flow connects them": "open",
+   "crossing import: TypeSystem imports Expressions and no flow connects them": "closed",
+   "crossing import: TypeSystem imports PublicApi and no flow connects them": "open",
+   "crossing import: TypeSystem imports Util and no flow connects them": "closed",
+   "crossing import: UnitOfWork imports Engine and no flow connects them": "open",
+   "crossing import: UnitOfWork imports Events and no flow connects them": "open",
+   "crossing import: UnitOfWork imports Mapper and no flow connects them": "closed",
+   "crossing import: UnitOfWork imports OrmLoading and no flow connects them": "open",
+   "crossing import: UnitOfWork imports PublicApi and no flow connects them": "closed",
+   "crossing import: UnitOfWork imports Results and no flow connects them": "closed",
+   "crossing import: UnitOfWork imports TypeSystem and no flow connects them": "closed",
+   "crossing import: UnitOfWork imports Util and no flow connects them": "closed",
+   "crossing import: Util imports CacheKeys and no flow connects them": "closed",
+   "crossing import: Util imports Engine and no flow connects them": "closed",
+   "crossing import: Util imports PublicApi and no flow connects them": "closed",
+   "crossing import: Util imports Results and no flow connects them": "closed"
+  },
+  "units": {
+   "crossing import: AsyncIo imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.engine.base",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.engine.create",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: AsyncIo imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ]
+   ],
+   "crossing import: AsyncIo imports Mapper and no flow connects them": [
+    [
+     "sqlalchemy.orm",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: AsyncIo imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: AsyncIo imports Results and no flow connects them": [
+    [
+     "sqlalchemy.engine._result_cy",
+     "helper"
+    ],
+    [
+     "sqlalchemy.engine.result",
+     "helper"
+    ],
+    [
+     "sqlalchemy.engine.row",
+     "helper"
+    ]
+   ],
+   "crossing import: CacheKeys imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ]
+   ],
+   "crossing import: CacheKeys imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed"
+    ]
+   ],
+   "crossing import: CacheKeys imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.cython",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Compiler imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: Compiler imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ]
+   ],
+   "crossing import: Compiler imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: Compiler imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ]
+   ],
+   "crossing import: Compiler imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Connectors imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine.base",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.engine.interfaces",
+     "helper"
+    ],
+    [
+     "sqlalchemy.engine.url",
+     "helper"
+    ]
+   ],
+   "crossing import: Connectors imports Pool and no flow connects them": [
+    [
+     "sqlalchemy.pool.base",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Connectors imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ]
+   ],
+   "crossing import: Connectors imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Connectors imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.concurrency",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ]
+   ],
+   "crossing import: Declarative imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Declarative imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql._annotated_cols",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.expression",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.selectable",
+     "helper"
+    ]
+   ],
+   "crossing import: Declarative imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Declarative imports Session and no flow connects them": [
+    [
+     "sqlalchemy.orm.state",
+     "helper"
+    ]
+   ],
+   "crossing import: Declarative imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ]
+   ],
+   "crossing import: Declarative imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.topological",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Dialects imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._typing",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.coercions",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.dml",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.expression",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.functions",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.roles",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.selectable",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.util",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports Extensions and no flow connects them": [
+    [
+     "sqlalchemy.ext.compiler",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports Pool and no flow connects them": [
+    [
+     "sqlalchemy.pool.base",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.pool.impl",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Dialects imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.schema",
+     "helper"
+    ],
+    [
+     "sqlalchemy.types",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports Results and no flow connects them": [
+    [
+     "sqlalchemy.engine.cursor",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.engine.processors",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.ddl",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports TestingSuite and no flow connects them": [
+    [
+     "sqlalchemy.testing.config",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.testing.provision",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.testing.warnings",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Dialects imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.concurrency",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.topological",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Engine imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql._selectable_constructors",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._typing",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.dml",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.expression",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.util",
+     "helper"
+    ]
+   ],
+   "crossing import: Engine imports Reflection and no flow connects them": [
+    [
+     "sqlalchemy.engine.reflection",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Engine imports Results and no flow connects them": [
+    [
+     "sqlalchemy.engine.cursor",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.engine.result",
+     "helper"
+    ],
+    [
+     "sqlalchemy.engine.row",
+     "helper"
+    ]
+   ],
+   "crossing import: Engine imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.ddl",
+     "helper"
+    ]
+   ],
+   "crossing import: Engine imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Engine imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.concurrency",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.cython",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Events imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ]
+   ],
+   "crossing import: Events imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.concurrency",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ]
+   ],
+   "crossing import: Expressions imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.cache_key",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.traversals",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: Expressions imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.event.registry",
+     "mixed"
+    ]
+   ],
+   "crossing import: Expressions imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Expressions imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Expressions imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports Declarative and no flow connects them": [
+    [
+     "sqlalchemy.orm.clsregistry",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.decl_api",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.decl_base",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine.base",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Extensions imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Extensions imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._typing",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.roles",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.util",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports OrmLoading and no flow connects them": [
+    [
+     "sqlalchemy.orm.context",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.query",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Extensions imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.schema",
+     "helper"
+    ],
+    [
+     "sqlalchemy.types",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports Session and no flow connects them": [
+    [
+     "sqlalchemy.orm.session",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.orm.state",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Extensions imports UnitOfWork and no flow connects them": [
+    [
+     "sqlalchemy.orm.unitofwork",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Extensions imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.cache_key",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine.interfaces",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.event.attr",
+     "helper"
+    ],
+    [
+     "sqlalchemy.event.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.event.registry",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Mapper imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._orm_types",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._typing",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.annotation",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.coercions",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.dml",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.expression",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.lambdas",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.roles",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.selectable",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.util",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.log",
+     "helper"
+    ],
+    [
+     "sqlalchemy.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports Results and no flow connects them": [
+    [
+     "sqlalchemy.engine.result",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports Session and no flow connects them": [
+    [
+     "sqlalchemy.orm.identity",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.scoping",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.orm.session",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.orm.state",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Mapper imports UnitOfWork and no flow connects them": [
+    [
+     "sqlalchemy.orm.unitofwork",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Mapper imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: OrmLoading imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.cache_key",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.traversals",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: OrmLoading imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.future",
+     "helper"
+    ]
+   ],
+   "crossing import: OrmLoading imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.event.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.event.registry",
+     "mixed"
+    ]
+   ],
+   "crossing import: OrmLoading imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.log",
+     "helper"
+    ]
+   ],
+   "crossing import: OrmLoading imports UnitOfWork and no flow connects them": [
+    [
+     "sqlalchemy.orm.unitofwork",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: OrmLoading imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Pool imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.event.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.event.registry",
+     "mixed"
+    ]
+   ],
+   "crossing import: Pool imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.log",
+     "helper"
+    ]
+   ],
+   "crossing import: Pool imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.concurrency",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.queue",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: PublicApi imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._annotated_cols",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._typing",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.expression",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.naming",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ]
+   ],
+   "crossing import: PublicApi imports Pool and no flow connects them": [
+    [
+     "sqlalchemy.pool.base",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.pool.events",
+     "helper"
+    ],
+    [
+     "sqlalchemy.pool.impl",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: PublicApi imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.ddl",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.events",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: PublicApi imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: PublicApi imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ]
+   ],
+   "crossing import: Reflection imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.cache_key",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: Reflection imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine.base",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Reflection imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ]
+   ],
+   "crossing import: Reflection imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Reflection imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: Reflection imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.topological",
+     "helper"
+    ]
+   ],
+   "crossing import: Results imports Compiler and no flow connects them": [
+    [
+     "sqlalchemy.sql.compiler",
+     "helper"
+    ]
+   ],
+   "crossing import: Results imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine._util_cy",
+     "helper"
+    ]
+   ],
+   "crossing import: Results imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.util",
+     "helper"
+    ]
+   ],
+   "crossing import: Results imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ]
+   ],
+   "crossing import: Results imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.cython",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: SchemaMetadata imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: SchemaMetadata imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.event.base",
+     "helper"
+    ]
+   ],
+   "crossing import: SchemaMetadata imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: SchemaMetadata imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.type_api",
+     "helper"
+    ]
+   ],
+   "crossing import: SchemaMetadata imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.topological",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Session imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: Session imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.coercions",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.dml",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.roles",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.selectable",
+     "helper"
+    ]
+   ],
+   "crossing import: Session imports Mapper and no flow connects them": [
+    [
+     "sqlalchemy.orm._typing",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.attributes",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.descriptor_props",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.interfaces",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.path_registry",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.util",
+     "helper"
+    ]
+   ],
+   "crossing import: Session imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Session imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: Session imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports AsyncIo and no flow connects them": [
+    [
+     "sqlalchemy.ext.asyncio.engine",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestingSuite imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports Compiler and no flow connects them": [
+    [
+     "sqlalchemy.sql.compiler",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports Dialects and no flow connects them": [
+    [
+     "sqlalchemy.dialects",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.dialects.postgresql.ext",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestingSuite imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.selectable",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports Mapper and no flow connects them": [
+    [
+     "sqlalchemy.orm",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.orm._orm_constructors",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.orm.events",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.writeonly",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports Pool and no flow connects them": [
+    [
+     "sqlalchemy.pool",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.pool.impl",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TestingSuite imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy",
+     "mixed (used)"
+    ],
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.schema",
+     "helper"
+    ],
+    [
+     "sqlalchemy.types",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports SchemaMetadata and no flow connects them": [
+    [
+     "sqlalchemy.sql.ddl",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.schema",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ]
+   ],
+   "crossing import: TestingSuite imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._has_cython",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.compat",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.concurrency",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ]
+   ],
+   "crossing import: TypeSystem imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql.cache_key",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.visitors",
+     "helper"
+    ]
+   ],
+   "crossing import: TypeSystem imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: TypeSystem imports Expressions and no flow connects them": [
+    [
+     "sqlalchemy.sql.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.coercions",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.elements",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.operators",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql.roles",
+     "helper"
+    ]
+   ],
+   "crossing import: TypeSystem imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: TypeSystem imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: UnitOfWork imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine.base",
+     "handoff (used)"
+    ],
+    [
+     "sqlalchemy.engine.interfaces",
+     "helper"
+    ]
+   ],
+   "crossing import: UnitOfWork imports Events and no flow connects them": [
+    [
+     "sqlalchemy.event.api",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: UnitOfWork imports Mapper and no flow connects them": [
+    [
+     "sqlalchemy.orm.attributes",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.base",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.interfaces",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.util",
+     "helper"
+    ]
+   ],
+   "crossing import: UnitOfWork imports OrmLoading and no flow connects them": [
+    [
+     "sqlalchemy.orm.context",
+     "helper"
+    ],
+    [
+     "sqlalchemy.orm.loading",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: UnitOfWork imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ],
+    [
+     "sqlalchemy.inspection",
+     "mixed"
+    ]
+   ],
+   "crossing import: UnitOfWork imports Results and no flow connects them": [
+    [
+     "sqlalchemy.engine.cursor",
+     "mixed"
+    ],
+    [
+     "sqlalchemy.engine.result",
+     "helper"
+    ]
+   ],
+   "crossing import: UnitOfWork imports TypeSystem and no flow connects them": [
+    [
+     "sqlalchemy.sql.sqltypes",
+     "helper"
+    ]
+   ],
+   "crossing import: UnitOfWork imports Util and no flow connects them": [
+    [
+     "sqlalchemy.util",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util._collections",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.deprecations",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.langhelpers",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.preloaded",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.topological",
+     "helper"
+    ],
+    [
+     "sqlalchemy.util.typing",
+     "helper"
+    ]
+   ],
+   "crossing import: Util imports CacheKeys and no flow connects them": [
+    [
+     "sqlalchemy.sql._cache_key_cy",
+     "helper"
+    ],
+    [
+     "sqlalchemy.sql._util_cy",
+     "helper"
+    ]
+   ],
+   "crossing import: Util imports Engine and no flow connects them": [
+    [
+     "sqlalchemy.engine._util_cy",
+     "helper"
+    ]
+   ],
+   "crossing import: Util imports PublicApi and no flow connects them": [
+    [
+     "sqlalchemy.exc",
+     "helper"
+    ]
+   ],
+   "crossing import: Util imports Results and no flow connects them": [
+    [
+     "sqlalchemy.engine._processors_cy",
+     "helper"
+    ],
+    [
+     "sqlalchemy.engine._result_cy",
+     "helper"
+    ],
+    [
+     "sqlalchemy.engine._row_cy",
+     "helper"
+    ]
+   ]
+  },
+  "unlabelled": []
+ },
+ "starlette": {
+  "accept_rows": [
+   "crossing import: Middleware imports WebSockets and no flow connects them: open [['starlette.websockets', 'handoff (used)']]",
+   "crossing import: Authentication imports WebSockets and no flow connects them: open [['starlette.websockets', 'handoff (used)']]",
+   "crossing import: TestClient imports WebSockets and no flow connects them: open [['starlette.websockets', 'handoff (used)']]"
+  ],
+  "acceptance_a": true,
+  "acceptance_waiting": true,
+  "counts": {
+   "closed": 6,
+   "open": 9,
+   "waiting": 0
+  },
+  "module_roles": {
+   "handoff": 2,
+   "helper": 5,
+   "mixed": 1
+  },
+  "module_use_lines": 8,
+  "questions": 17,
+  "run_time_import_crossings": 15,
+  "star_only": [],
+  "states": {
+   "crossing import: Application imports Requests and no flow connects them": "open",
+   "crossing import: Application imports Responses and no flow connects them": "open",
+   "crossing import: Application imports Support and no flow connects them": "closed",
+   "crossing import: Application imports WebSockets and no flow connects them": "open",
+   "crossing import: Authentication imports Requests and no flow connects them": "open",
+   "crossing import: Authentication imports Support and no flow connects them": "closed",
+   "crossing import: Authentication imports WebSockets and no flow connects them": "open",
+   "crossing import: Middleware imports Support and no flow connects them": "closed",
+   "crossing import: Middleware imports WebSockets and no flow connects them": "open",
+   "crossing import: Responses imports Requests and no flow connects them": "open",
+   "crossing import: TestClient imports Support and no flow connects them": "closed",
+   "crossing import: TestClient imports WebSockets and no flow connects them": "open",
+   "crossing import: WebSockets imports Requests and no flow connects them": "closed",
+   "crossing import: WebSockets imports Responses and no flow connects them": "open",
+   "crossing import: WebSockets imports Support and no flow connects them": "closed"
+  },
+  "units": {
+   "crossing import: Application imports Requests and no flow connects them": [
+    [
+     "starlette.requests",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Application imports Responses and no flow connects them": [
+    [
+     "starlette.responses",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Application imports Support and no flow connects them": [
+    [
+     "starlette.datastructures",
+     "helper"
+    ],
+    [
+     "starlette.types",
+     "helper"
+    ]
+   ],
+   "crossing import: Application imports WebSockets and no flow connects them": [
+    [
+     "starlette.websockets",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Authentication imports Requests and no flow connects them": [
+    [
+     "starlette.requests",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: Authentication imports Support and no flow connects them": [
+    [
+     "starlette._utils",
+     "helper"
+    ],
+    [
+     "starlette.exceptions",
+     "helper"
+    ]
+   ],
+   "crossing import: Authentication imports WebSockets and no flow connects them": [
+    [
+     "starlette.websockets",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Middleware imports Support and no flow connects them": [
+    [
+     "starlette._utils",
+     "helper"
+    ],
+    [
+     "starlette.concurrency",
+     "helper"
+    ],
+    [
+     "starlette.datastructures",
+     "helper"
+    ],
+    [
+     "starlette.exceptions",
+     "helper"
+    ],
+    [
+     "starlette.types",
+     "helper"
+    ]
+   ],
+   "crossing import: Middleware imports WebSockets and no flow connects them": [
+    [
+     "starlette.websockets",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: Responses imports Requests and no flow connects them": [
+    [
+     "starlette.requests",
+     "mixed (used)"
+    ]
+   ],
+   "crossing import: TestClient imports Support and no flow connects them": [
+    [
+     "starlette._utils",
+     "helper"
+    ],
+    [
+     "starlette.types",
+     "helper"
+    ]
+   ],
+   "crossing import: TestClient imports WebSockets and no flow connects them": [
+    [
+     "starlette.websockets",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: WebSockets imports Requests and no flow connects them": [
+    [
+     "starlette.requests",
+     "mixed"
+    ]
+   ],
+   "crossing import: WebSockets imports Responses and no flow connects them": [
+    [
+     "starlette.responses",
+     "handoff (used)"
+    ]
+   ],
+   "crossing import: WebSockets imports Support and no flow connects them": [
+    [
+     "starlette.types",
+     "helper"
+    ]
+   ]
+  },
+  "unlabelled": []
+ }
+}

@@ -1,0 +1,52 @@
+zoom 97%
+
+system: 32 lines, dense False, 2 labels
+| flow | artifact | w | need | flat | wall | taken | crossed | own | free |
+|---|---|---|---|---|---|---|---|---|---|
+| CLI -> PageWriter | render | 49 | 67 | 84 | 23 | 0 | 0 | 0 | 0 |
+| Check -> PageWriter | render to compare | 124 | 142 | 109 | 0 | 0 | 0 | 0 | 0 |
+| PageWriter -> Figures | map hash | 69 | 87 | 71 | 23 | 0 | 0 | 0 | 0 |
+| AtlasPage -> Maintainer | the page | 63 | 81 | 84 | 23 | 0 | 0 | 0 | 0 |
+| Config -> PageWriter | name, paths | 85 | 103 | 63 | 23 | 0 | 0 | 0 | 0 |
+| Config -> PageData | name, paths | 85 | 103 | 248 | 32 | 0 | 14 | 0 | 0 |
+| Config -> AtlasPage | name, paths | 85 | 103 | 446 | 48 | 0 | 21 | 0 | 0 |
+| Config -> CanvasPage | name, paths | 85 | 103 | 109 | 23 | 0 | 0 | 0 | 0 |
+| Config -> LinkedPage | name, paths | 85 | 103 | 275 | 46 | 0 | 0 | 0 | 0 |
+| Config -> PageAssets | name, paths | 85 | 103 | 55 | 23 | 0 | 0 | 0 | 0 |
+| Judgement -> PageData | uncovered entry points, assurance levels, boundary findings | 386 | 404 | 278 | 46 | 0 | 0 | 0 | 0 |
+| Judgement -> AtlasPage | uncovered entry points, assurance levels, boundary findings | 386 | 404 | 42 | 23 | 0 | 0 | 0 | 0 |
+| Judgement -> CanvasPage | uncovered entry points, assurance levels, boundary findings | 386 | 404 | 267 | 46 | 0 | 0 | 0 | 0 |
+| Judgement -> LinkedPage | uncovered entry points, assurance levels, boundary findings | 386 | 404 | 109 | 0 | 0 | 0 | 0 | 0 |
+| Judgement -> LinkedViews | uncovered entry points, assurance levels, boundary findings | 386 | 404 | 42 | 23 | 0 | 0 | 0 | 0 |
+| FactsExtractor -> PageData | source records | 102 | 120 | 237 | 69 | 0 | 0 | 0 | 0 |
+| FactsExtractor -> LinkedViews | source records | 102 | 120 | 53 | 23 | 0 | 0 | 0 | 0 |
+| ChangeDetector -> PageWriter | change map | 85 | 103 | 51 | 23 | 0 | 0 | 0 | 0 |
+| ChangeDetector -> PageData | change map | 85 | 103 | 57 | 23 | 0 | 0 | 0 | 0 |
+| ChangeDetector -> LinkedViews | change map | 85 | 103 | 272 | 54 | 0 | 15 | 0 | 0 |
+| Model -> PageWriter | layers | 46 | 64 | 64 | 68 | 0 | 1 | 0 | 0 |
+| Model -> PageData | layers | 46 | 64 | 251 | 30 | 0 | 16 | 0 | 0 |
+| Model -> AtlasPage | layers | 46 | 64 | 159 | 69 | 0 | 23 | 4 | 19 |
+| Model -> AtlasViews | layers | 46 | 64 | 494 | 69 | 0 | 0 | 0 | 0 |
+| Model -> CanvasPage | layers | 46 | 64 | 109 | 23 | 0 | 0 | 0 | 0 |
+| Model -> LinkedPage | layers | 46 | 64 | 259 | 58 | 0 | 11 | 0 | 0 |
+| Model -> LinkedViews | layers | 46 | 64 | 422 | 19 | 0 | 12 | 4 | 34 |
+| Schematic -> PageData | svg, detail | 72 | 90 | 611 | 56 | 0 | 13 | 0 | 0 |
+| Schematic -> LinkedPage | svg, detail | 72 | 90 | 109 | 23 | 0 | 0 | 0 | 0 |
+| Schematic -> LinkedViews | svg, detail | 72 | 90 | 109 | 23 | 0 | 0 | 0 | 0 |
+
+structure: 0 lines, dense False, 0 labels
+| flow | artifact | w | need | flat | wall | taken | crossed | own | free |
+|---|---|---|---|---|---|---|---|---|---|
+
+data: 54 lines, dense True, 0 labels
+
+control: 5 lines, dense False, 0 labels
+| flow | artifact | w | need | flat | wall | taken | crossed | own | free |
+|---|---|---|---|---|---|---|---|---|---|
+| PageWriter -> AtlasPage | render | 49 | 67 | 88 | 22 | 0 | 1 | 0 | 0 |
+| PageWriter -> CanvasPage | render | 49 | 67 | 22 | 22 | 0 | 1 | 0 | 0 |
+| PageWriter -> LinkedPage | render | 49 | 67 | 55 | 21 | 0 | 2 | 0 | 0 |
+| CLI -> PageWriter | render | 49 | 67 | 84 | 23 | 0 | 0 | 0 | 0 |
+| Check -> PageWriter | render to compare | 124 | 142 | 109 | 0 | 0 | 0 | 0 | 0 |
+
+all: 59 lines, dense True, 0 labels

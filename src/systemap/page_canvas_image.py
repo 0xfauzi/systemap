@@ -129,8 +129,9 @@ function mapObstacles(m, a, ox, oy, box, alpha) {
   var cards = m.cardIndex.query(box[0], box[1], box[2], box[3], []), fs = labelSize(a), la = labelAlpha(a, alpha), na = nameAlpha(a, alpha);
   cards.forEach(function (c) { obstacle(ox + a * c.b[0], oy + a * c.b[1], a * c.b[2], a * c.b[3], 1, alpha); });
   if (hasLabels(fs, la)) plates(m.flowIndex.query(box[0], box[1], box[2], box[3], []), a, ox, oy, fs, function (x, y, w, h) { obstacle(x, y, w, h, 1, la); });
-  if (fs < MIN_TEXT || na <= 0.02) return cards.length;
-  boxNames(m, a, ox, oy, function (s, x, y) { if (s) textBox(s, x, y, fs, 600, false, '', na); });
+  var ns = nameSize(a);
+  if (ns < MIN_TEXT || na <= 0.02) return cards.length;
+  boxNames(m, a, ox, oy, function (s, x, y) { if (s) textBox(s, x, y, ns, 600, true, '', na); });
   return cards.length;
 }
 // The parts of an image in the order of the normal drawing: the boxes, the flows in

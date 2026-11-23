@@ -25,6 +25,10 @@ ROOT = Path(__file__).resolve().parent.parent
 STARTER = {"pkg/__init__.py": "", "pkg/reader.py": "def read() -> None:\n    return None\n"}
 
 
+# The sentence of the policy that names the official standard. Only the asd-ste100 part has it.
+OFFICIAL = "ASD supplies the [official standard]"
+
+
 def configured(tmp_path: Path, text: str) -> config.Config:
     (tmp_path / "systemap.toml").write_text(text, encoding="utf-8")
     return config.load(tmp_path)
@@ -99,7 +103,7 @@ def test_the_template_writes_the_plain_profile_with_both_values_explained(langua
     head = text[: text.index("[writing]")]
     comment = head[head.rindex("\n\n") :]
     assert '"plain"' in comment and '"asd-ste100"' in comment
-    assert "dictionary" in comment
+    assert "word list" in comment
 
 
 def test_init_writes_a_configuration_that_gives_the_plain_profile(tmp_path: Path) -> None:
@@ -150,7 +154,7 @@ def test_a_plain_request_has_the_common_rules_and_the_glossary_only(tmp_path: Pa
         assert part in question, part
     assert "Descriptive sentences must not exceed 25 words" in question
     assert agent.STRICT_SECTION not in question
-    assert "asd-ste100.org" not in question
+    assert OFFICIAL not in question
     assert "Use the `plain` writing profile for this request." in question
     assert question.endswith("Write a sequence.")
 
@@ -158,7 +162,7 @@ def test_a_plain_request_has_the_common_rules_and_the_glossary_only(tmp_path: Pa
 def test_an_asd_ste100_request_has_the_whole_policy(tmp_path: Path) -> None:
     question = asked_with(tmp_path, "asd-ste100")
     assert question.startswith(agent.LANGUAGE_POLICY)
-    assert agent.STRICT_SECTION in question and "asd-ste100.org" in question
+    assert agent.STRICT_SECTION in question and OFFICIAL in question
     assert "Use the `asd-ste100` writing profile for this request." in question
 
 

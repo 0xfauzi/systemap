@@ -1,0 +1,37 @@
+| input | layout | canvas | area | zoom | collisions | refused | bends | length | reach |
+|---|---|---|---|---|---|---|---|---|---|
+| nested Gateway | column | 476 x 400 | 190 | 1.975 | 0 | 0 | 2 | 376 | 234 |
+| nested Gateway | sides | 500 x 472 | 236 | 1.674 | 0 | 0 | 2 | 384 | 238 |
+| nested Style | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 2 | 206 | 235 |
+| nested Style | sides | 500 x 472 | 236 | 1.674 | 0 | 0 | 0 | 212 | 187 |
+| join Gateway | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 0 | 168 | 234 |
+| join Gateway | sides | 500 x 472 | 236 | 1.674 | 0 | 0 | 0 | 172 | 186 |
+| levels p0 | column | 476 x 400 | 190 | 1.975 | 0 | 0 | 4 | 448 | 234 |
+| levels p0 | sides | 302 x 564 | 170 | 1.401 | 0 | 0 | 4 | 510 | 180 |
+| levels p0_q0 | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 2 | 264 | 280 |
+| levels p0_q0 | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 1 | 263 | 273 |
+| levels p0_q0_deep | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 0 | 120 | 234 |
+| levels p0_q0_deep | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 0 | 124 | 238 |
+| levels p0_q1 | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 2 | 264 | 280 |
+| levels p0_q1 | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 1 | 263 | 273 |
+| levels p0_q1_deep | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 0 | 120 | 234 |
+| levels p0_q1_deep | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 0 | 124 | 238 |
+| levels p1 | column | 476 x 400 | 190 | 1.975 | 0 | 0 | 4 | 448 | 234 |
+| levels p1 | sides | 302 x 564 | 170 | 1.401 | 0 | 0 | 4 | 510 | 180 |
+| levels p1_q0 | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 2 | 264 | 280 |
+| levels p1_q0 | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 1 | 263 | 273 |
+| levels p1_q0_deep | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 0 | 120 | 234 |
+| levels p1_q0_deep | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 0 | 124 | 238 |
+| levels p1_q1 | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 2 | 264 | 280 |
+| levels p1_q1 | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 1 | 263 | 273 |
+| levels p1_q1_deep | column | 476 x 308 | 147 | 2.565 | 0 | 0 | 0 | 120 | 234 |
+| levels p1_q1_deep | sides | 500 x 380 | 190 | 2.079 | 0 | 0 | 0 | 124 | 238 |
+| draft Page | column | 904 x 1142 | 1032 | 0.692 | 0 | 0 | 62 | 15628 | 677 |
+| draft Page | sides | 1126 x 804 | 905 | 0.983 | 0 | 0 | 57 | 11671 | 363 |
+
+1. refused and collisions not more on each input: PASS
+2. total bends 71 against 82: PASS
+3. total length 15007 against 18810: PASS
+4. reach less on each input with an actor: FAIL
+5. zoom 90 percent (Page) or 80 percent (others) or more: FAIL
+layout problems of the sides layouts: none

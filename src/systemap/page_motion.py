@@ -35,7 +35,7 @@ SURFACE_CSS = (
 
 
 # The CSS of the keyboard sheet. The canvas page uses it too (`page_canvas_details`).
-KEYS_CSS = r"""/* ---- the keyboard sheet ---------------------------------------------------- */
+KEYS_CSS = r"""
 .keys{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
 padding:16px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
 .keys[hidden]{display:none}

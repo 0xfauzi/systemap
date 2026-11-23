@@ -6,6 +6,7 @@ reads the name of a recorded method.
 
 from __future__ import annotations
 
+import configparser
 import fnmatch
 import os
 import re
@@ -23,6 +24,7 @@ from systemap.language import LOOSE_FILES, NO_SOURCE, SOURCE
 PYTHON_SKIP = frozenset({".git", ".venv", "node_modules", "__pycache__", "build", "dist"})
 PACKAGE_MARKER = "__init__.py"
 PYPROJECT = "pyproject.toml"
+SETUP_CFG = "setup.cfg"
 # The method name in a recorded method header, such as `async def save(self)`. The
 # name can contain Unicode letters and marks (`identifier.complete`).
 METHOD = re.compile(r"(?:async )?def ([^\s(]+)\(")
@@ -153,20 +155,79 @@ def _member_paths(root: Path, pattern: str) -> list[Path]:
 
 def discover_roots(root: Path) -> list[tuple[str, str]]:
     """Find package directories with __init__.py, including src layouts and uv workspace
-    members."""
+    members.
+
+    When the packaging configuration names the directories of the packages (`declared_dirs`,
+    for example `where = ["lib"]`), the packages of the repository root are those
+    directories. Without them, the root and `src` hold the packages. A test directory
+    (`config.TEST_DIR_NAMES`) is not a package root: the tests have their own setting."""
     found: list[tuple[str, str]] = []
-    parents = [
-        parent
-        for base in (root, *workspace_members(root))
-        for parent in (base, base / "src")
-        if parent.is_dir()
-    ]
+    declared = declared_dirs(root)
+    tops = declared or [root, root / "src"]
+    members = [p for base in workspace_members(root) for p in (base, base / "src")]
+    parents = [parent for parent in (*tops, *members) if parent.is_dir()]
     for child in (child for parent in parents for child in _valid_paths(root, parent.iterdir())):
         entry = (child.relative_to(root).as_posix(), child.name)
+        if child.name in config.TEST_DIR_NAMES:
+            continue
         # A link to a folder out of the root is not a package root of the repository.
         if _root_dir(child) and repo_files.inside(root, child) and entry not in found:
             found.append(entry)
     return found
+
+
+def declared_dirs(root: Path) -> list[Path]:
+    """Give the directories in the root that the packaging configuration names as the place
+    of the packages: `where` of `[tool.setuptools.packages.find]`, the "" key of
+    `[tool.setuptools] package-dir`, and the same keys in setup.cfg (`[options]` and
+    `[options.packages.find]`). A value that names no directory in the root is not used.
+
+    Without this, a library under `lib/` was not found, and the test and example packages
+    of the root became the package roots."""
+    data = pyproject(root)
+    tools = table(data, "tool", "setuptools")
+    names: list[object] = [
+        *_listed(table(data, "tool", "setuptools", "packages", "find").get("where"))
+    ]
+    names.append(_mapping(tools.get("package-dir")).get(""))
+    names.extend(_setup_cfg(root))
+    out: list[Path] = []
+    for name in (n.strip() for n in names if isinstance(n, str) and n.strip() not in ("", ".")):
+        path = root / name
+        if (
+            ".." not in PurePosixPath(name).parts
+            and path.is_dir()
+            and repo_files.inside(root, path)
+        ):
+            if path not in out:
+                out.append(path)
+    return out
+
+
+def _listed(value: object) -> list[object]:
+    return list(value) if isinstance(value, list) else [value] if isinstance(value, str) else []
+
+
+def _mapping(value: object) -> dict[str, object]:
+    return {str(k): v for k, v in value.items()} if isinstance(value, dict) else {}
+
+
+def _setup_cfg(root: Path) -> list[str]:
+    """Give the package directories of setup.cfg: `[options] package_dir` with the "" key
+    (`= lib`), and `[options.packages.find] where`. A file that cannot be read gives none."""
+    parser = configparser.ConfigParser(interpolation=None)
+    if not repo_files.present(root / SETUP_CFG):
+        return []
+    try:
+        parser.read_string(repo_files.read_text(root, SETUP_CFG, encoding="utf-8-sig"))
+    except (OSError, UnicodeError, configparser.Error):
+        return []
+    out = [parser.get("options.packages.find", "where", fallback="")]
+    for line in parser.get("options", "package_dir", fallback="").splitlines():
+        key, eq, value = line.partition("=")
+        if eq and not key.strip():
+            out.append(value)
+    return out
 
 
 def _valid_paths(root: Path, paths: Iterable[Path]) -> list[Path]:
@@ -210,7 +271,9 @@ class PythonRepository:
     roots_note = (
         '# Package roots use "path" = "import name".\n'
         "# Without explicit roots, the extractor finds top-level Python packages\n"
-        "# in the repository and its uv workspace members."
+        "# in the directories that the packaging configuration names (for example\n"
+        '# where = ["lib"]), else in the repository and src, and in its uv workspace\n'
+        "# members. A test directory is not a package root."
     )
     roots_example = '# [package_roots]\n# "src/mypackage" = "mypackage"'
 

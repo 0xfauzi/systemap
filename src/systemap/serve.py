@@ -6,7 +6,9 @@ message tells the person how to select a port.
 
 `systemap live` renders the pages of the working tree into a temporary directory and
 supplies that directory. It does not write the output directory or a tracked file.
-The Changes view compares the working tree with the merge base of a base ref and HEAD.
+The revision comparison of the page compares the working tree with the merge base of a
+base ref and HEAD. The atlas page shows it as change marks on the Map view, and the canvas
+page and the linked page show it in the Changes view.
 When a watched file changes, or after `POST /refresh`, the command renders the pages
 again. Each time, the pages get a new version number. The command renders one version
 at a time. A request while the command renders causes one more version after the
@@ -538,7 +540,7 @@ HUMAN: dict[str, Callable[[dict[str, Any]], str]] = {
     "serving": lambda e: (
         f"map: The live map is at {e['url']}. Use Ctrl-C to stop the server.\n"
         + (
-            f"map: The Changes view compares the working tree with {e['base']} at the "
+            f"map: The page compares the working tree with {e['base']} at the "
             f"merge base {_short(e['comparison_base'])}."
             if e["base"]
             else "map: No base ref is available. The page has no revision comparison."
@@ -674,7 +676,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         description=(
             "This command renders the page of the working tree into a temporary directory "
             "and supplies it on 127.0.0.1. It does not write the output directory. The "
-            "Changes view compares the working tree with the merge base of the base ref and "
+            "page compares the working tree with the merge base of the base ref and "
             "HEAD. When a source, model, or configuration file changes, or after POST "
             "/refresh, the command renders the page again. Then the browser loads the page "
             "again and keeps the view. GET /status gives the state as JSON. GET /events "
@@ -693,7 +695,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
         default="",
         metavar="REF",
         help=(
-            "Set the base ref of the Changes view. The default is the first of "
+            "Set the base ref of the revision comparison. The default is the first of "
             + ", ".join(BASES)
             + " that has a merge base with HEAD. Without one, the page has no revision "
             "comparison."

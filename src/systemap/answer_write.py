@@ -33,15 +33,22 @@ class AnswerWriteError(ConfigError):
 
 
 def inline(entry: dict[str, Any]) -> str:
-    """Give one TOML inline table. A JSON string or integer is also a TOML value."""
+    """Give one TOML inline table. A JSON string or integer is also a TOML value.
+
+    A list of tables gives inline tables. A list of strings gives one JSON string for each
+    item."""
     parts = []
     for key, value in entry.items():
         if isinstance(value, list):
-            text = "[" + ", ".join(inline(item) for item in value) + "]"
+            text = "[" + ", ".join(_inline_item(item) for item in value) + "]"
         else:
             text = json.dumps(value, ensure_ascii=False)
         parts.append(f"{key} = {text}")
     return "{ " + ", ".join(parts) + " }"
+
+
+def _inline_item(item: Any) -> str:
+    return inline(item) if isinstance(item, dict) else json.dumps(item, ensure_ascii=False)
 
 
 def _location(source: str) -> tuple[str, tuple[str, ...]]:

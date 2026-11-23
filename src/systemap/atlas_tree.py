@@ -1,0 +1,220 @@
+"""The tree part of the atlas renderer: the text list of the map tree, the URL hash and the
+label of the canvas.
+
+`atlas_script` joins this part after the image part (`atlas_image`). It is a fork of the
+tree part of the canvas page (`page_canvas_tree`). The page keeps a text list of the map
+tree for a screen reader (`buildTree`): the maps, the cards in reading order and the flows.
+Each link of the list moves the camera to its item. The links are not in the order of Tab
+(`tabindex` -1): the canvas gives Tab to the cards and the lines of the current map
+(`tabOrder` in `atlas_keys`), and a screen reader reads the links of the list in its own
+order. Without this, Tab went through each card and flow of each map a second time after
+the canvas, as links that do not show. The link of a neighbour of a nested map goes out to
+its card in the map above (`upCard`), as a selection on the canvas and a result of Find do. The URL hash holds the camera target:
+the ID of the open map, for example `#Gateway`, or the ID of a card in a map, for example
+`#Gateway/Routes`. A card fits its map and is selected when the camera stops (`goTo`), as
+after the result of a card in Find. The label of the canvas and the live region give the open map and its layer.
+
+The Changes view of the canvas page is not in this fork: the marks of a revision
+comparison are on the Map view (`atlas_marks`). The view link `#changes` of a pull request
+comment (`delta_link.CHANGES`) and a hash such as `#Gateway/changes` still open the top map
+or the map `Gateway`, with no words about a missing map (`VIEW_LINK`). A map or a card with
+the ID `changes` keeps its link.
+"""
+
+from __future__ import annotations
+
+CSS = """
+.tree{position:absolute;left:0;top:0;width:1px;height:1px;margin:-1px;overflow:hidden;
+white-space:nowrap}
+.tree a:focus{position:fixed;left:12px;top:56px;z-index:3;box-sizing:border-box;
+min-height:44px;max-width:calc(100% - 24px);padding:12px 16px;overflow:hidden;
+text-overflow:ellipsis;white-space:nowrap;font:600 14px/20px var(--fs);color:var(--ink);
+background:var(--surface);border:1px solid var(--line-2);border-radius:8px;
+outline:2px solid var(--focus);outline-offset:2px;text-decoration:none}
+"""
+
+HTML = (
+    '<nav id="atlas-tree" class="tree" aria-label="Map tree"></nav>'
+    '<p id="atlas-said" class="sr-only" aria-live="polite"></p>'
+)
+
+TREE = r"""
+// ---- the list of the tree and the canvas label -------------------------------------
+var TREE_EL = document.getElementById('atlas-tree'), LABEL = '', SAID_MAP = null, TREE_MS = null;
+// Make the HTML element `tag` with DOM functions, not with HTML text. Thus no text of the
+// canvas data goes to an HTML parser. The tree, the Sequences list, the Details panel and
+// Find can use it. Each key of `attrs` gives an attribute (`setAttribute`). A value of null,
+// undefined or false gives no attribute. The function does not set a name that starts with
+// "on", and it sets a URL attribute (`href`, `src`, `srcdoc`, `action`, `formaction`,
+// `data` or `xlink:href`) only to a URL hash ("#..."). Each argument after `attrs` is an
+// element, a text, a number, or an array of these. The function adds a text or a number as
+// text, and it adds nothing for null, undefined or false. A text that comes after a text
+// goes into the same text node, as the HTML parser does. Thus the browser shapes the
+// glyphs of a line as one run.
+function el(tag, attrs) {
+  var e = document.createElement(tag), k, v;
+  for (k in attrs || {}) {
+    v = attrs[k];
+    if (v === null || v === undefined || v === false || /^on/i.test(k)) continue;
+    v = String(v);
+    if (/^(href|src|srcdoc|action|formaction|data|xlink:href)$/i.test(k) && v.charAt(0) !== '#') continue;
+    e.setAttribute(k, v);
+  }
+  for (var i = 2; i < arguments.length; i++) addChild(e, arguments[i]);
+  return e;
+}
+function addChild(e, x) {
+  if (x === null || x === undefined || x === false) return;
+  if (Array.isArray(x)) x.forEach(function (y) { addChild(e, y); });
+  else if (typeof x === 'object') e.append(x);
+  else if (e.lastChild && e.lastChild.nodeType === 3) e.lastChild.appendData(String(x));
+  else e.append(String(x));
+}
+function counted(n, one) { return n + ' ' + one + (n === 1 ? '' : 's'); }
+// The ID that the URL hash gives to a card: the ID of its map, a slash and the card ID.
+// For a card that opens a map, this is the ID of that map.
+function cardId(c) { return c.map.id ? c.map.id + '/' + c.id : c.id; }
+function mapName(m) {
+  var names = [];
+  for (var x = m; x.owner; x = x.owner.map) names.unshift(x.owner.id);
+  return [DATA.name || 'map'].concat(names).join(' / ');
+}
+function sizeText(m) { return counted(m.cards.length, 'card') + ' and ' + counted(m.flows.length, 'flow'); }
+function factsText(c) {
+  var n = (c.m || []).length, out = [];
+  if (c.p) out.push(c.p + '.');
+  if (c.d) out.push(c.d);
+  if (c.k === 'actor') out.push('Actor.');
+  else out.push(n ? (n === 1 ? 'Module: ' : 'Modules: ') + c.m.join(', ') + '.' : 'No module.');
+  out.push('Flows in: ' + c.ins.length + '. Flows out: ' + c.outs.length + '.');
+  if (c.as) out.push('Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.');
+  if (c.child) out.push('Opens a map of ' + sizeText(c.child) + '.', mapMarkWords(c.child));
+  out.push(markWords(c));
+  return out.filter(Boolean).join(' ');
+}
+// A link of the list: `at` gives the data attributes of its map and its card or flow. The
+// link is not in the order of Tab: a screen reader reads the list.
+function treeLink(hash, at, text) {
+  return el('a', Object.assign({href: hash || '#', tabindex: '-1'}, at), text);
+}
+// The lists of the cards and of the flows of a map. The cards are in the reading order of
+// Tab (`readingOrder` in `page_canvas_keys`). The item of a card that opens a map holds the
+// lists of that map.
+function mapLists(m) {
+  var name = mapName(m);
+  return [el('ul', {'aria-label': 'Cards of ' + name}, readingOrder(m).map(function (c) {
+    return el('li', null, treeLink(hashOf(cardId(upCard(c) || c)), {'data-m': m.oi, 'data-c': c.i}, c.id), ' ' + factsText(c),
+      c.child ? mapLists(c.child) : null);
+  })), m.flows.length ? el('ul', {'aria-label': 'Flows of ' + name}, m.flows.map(function (f) {
+    return el('li', null, treeLink(hashOf(m.id), {'data-m': m.oi, 'data-f': f.i}, 'Flow from ' + f.s + ' to ' + f.t + ': ' + f.a));
+  })) : null];
+}
+// A new list replaces the links. When a link of the list has the keyboard focus, the same
+// link of the new list gets it (`data-m` and `data-c` or `data-f`).
+function buildTree() {
+  if (!TREE_EL) return;
+  var t0 = performance.now(), a = document.activeElement, keep = null;
+  if (a && a.tagName === 'A' && TREE_EL.contains(a)) {
+    keep = ['data-m', 'data-c', 'data-f'].map(function (n) { return a.hasAttribute(n) ? '[' + n + '="' + a.getAttribute(n) + '"]' : ''; }).join('');
+  }
+  TREE_EL.replaceChildren(el('ul', null, el('li', null, treeLink('', {'data-m': 0}, 'Map: ' + mapName(TOP)),
+    ' ' + sizeText(TOP) + '.', mapMarkWords(TOP) ? ' ' + mapMarkWords(TOP) : null, mapLists(TOP))));
+  var back = keep && TREE_EL.querySelector('a' + keep);
+  if (back) back.focus({preventScroll: true});
+  TREE_MS = performance.now() - t0;
+}
+function union(a, b) {
+  var x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]);
+  return [x, y, Math.max(a[0] + a[2], b[0] + b[2]) - x, Math.max(a[1] + a[3], b[1] + b[3]) - y];
+}
+// The camera goal of a map, a card or a flow: a world box and the margin of its fit. A
+// card that opens a map has the goal of that map. A card that opens no map has the fit of
+// its map, and `card` is the card to select when the camera stops there (`goTo`). A deep
+// zoom into the card does not occur, because an atlas card shows only its name. The goal of
+// a neighbour of a nested map is its card in the map above (`upCard`).
+function goalOf(m, c, f) {
+  if (c && !c.child && upCard(c)) c = upCard(c);
+  if (f) {
+    var s = m.byId[f.s], t = m.byId[f.t];
+    return s && t ? {box: union(worldBox(s), worldBox(t)), pad: 0.2} : {box: frameOf(m), pad: FIT};
+  }
+  if (c && !c.child) return {box: frameOf(c.map), pad: FIT, card: c};
+  return {box: frameOf(c ? c.child : m), pad: FIT};
+}
+function flyGoal(g) { flyTo(g.box, g.pad); }
+// Move the camera to the goal g. When g has a card, the camera fits the map of the card with
+// the space of the details, and the card is selected when the camera stops (`afterFlight`),
+// as after the result of a card in Find.
+function goTo(g) {
+  if (g.card) { select(null, {keep: true}); AFTER = g.card; AFTER_KEY = false; }
+  flyGoal(g);
+}
+// The ID that the URL hash gives, or '' when the hash is not a correct URI part.
+function hashId() { try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ''; } }
+// Write the hash `h` with no new history entry. An empty `h` removes the hash.
+function setHash(h) {
+  try { history.replaceState(null, '', h || location.pathname + location.search); } catch (e) { /* a file page can refuse it */ }
+}
+// The goal that the URL hash gives: a map, or a card of a map. When the hash names no map
+// and no card, it is the deepest map that the start of the hash names (`hashMap`), or the
+// top map, and the live region tells the reader. These words also give the map, thus `tell`
+// does not write the region again when the camera stops in that map.
+var VIEW_LINK = /(^|\/)changes$/;
+function hashGoal() {
+  var id = hashId(), c = hashCard(id), v;
+  if (id && MAPS[id] && MAPS[id].T) return goalOf(MAPS[id], null, null);
+  if (c) return goalOf(c.map, c, null);
+  v = hashMap(id);
+  if (VIEW_LINK.test(id) && (id === 'changes' || v.id === id.slice(0, -8))) return goalOf(v, null, null);
+  if (id) { say('No map and no card has the link #' + id + '. Open map: ' + mapName(v) + '.'); SAID_MAP = v; }
+  return goalOf(v, null, null);
+}
+// The deepest map whose ID starts the ID `id` of a URL hash, or the top map. Thus an old
+// link to a card that is not in a nested map any more stays in that map.
+function hashMap(id) {
+  for (var cut = id.lastIndexOf('/'); cut > 0; cut = id.lastIndexOf('/', cut - 1)) {
+    var m = MAPS[id.slice(0, cut)];
+    if (m && m.T) return m;
+  }
+  return TOP;
+}
+// The card that the ID `id` of a URL hash names, when it is a card that opens no map. An
+// empty ID names no card.
+function hashCard(id) {
+  if (!id) return null;
+  var cut = id.lastIndexOf('/'), m = MAPS[cut < 0 ? '' : id.slice(0, cut)];
+  var c = m && m.T ? m.byId[id.slice(cut + 1)] : null;
+  return c && !c.child ? c : null;
+}
+if (TREE_EL) {
+  TREE_EL.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('a[data-m]') : null;
+    if (!a) return;
+    var m = ORDER[+a.getAttribute('data-m')], c = a.hasAttribute('data-c') ? m.cards[+a.getAttribute('data-c')] : null;
+    var f = a.hasAttribute('data-f') ? m.flows[+a.getAttribute('data-f')] : null, href = a.getAttribute('href');
+    e.preventDefault();
+    setHash(href === '#' ? '' : href);
+    goTo(goalOf(m, c, f));
+  });
+}
+// The words for the focused item, after the words of a new map.
+function heldWords() {
+  var f = FOCUS && document.activeElement === cv && focusHeld(FOCUS) ? FOCUS : null;
+  return f ? ' ' + itemWords(f) : '';
+}
+// When the camera stops: the label of the canvas gives the current path. When the open map
+// changes, the live region tells the new map. Each element changes only when its text changes.
+function tell(m) {
+  relabel(m);
+  if (SAID_MAP && m !== SAID_MAP) say(openWords(m) + heldWords());
+  SAID_MAP = m;
+}
+// The words of an open map: its path, its count of cards, and the words of the view.
+function openWords(m) { var k = mapMarkWords(m); return 'Open map: ' + mapName(m) + '. ' + counted(m.cards.length, 'card') + '. ' + layerWords(m) + (k ? ' ' + k : ''); }
+// The label of the canvas: the path, the level, and the layer when it is not All
+// (`viewLabel` in `atlas_view`).
+function relabel(m) {
+  var label = 'System map: ' + mapName(m) + '. Level ' + CHAIN.length + '.' + viewLabel();
+  if (label !== LABEL) { LABEL = label; cv.setAttribute('aria-label', label); }
+}
+"""

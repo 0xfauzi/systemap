@@ -38,8 +38,11 @@ from systemap import canvas_data, canvas_header, canvas_page, page, page_canvas
 from systemap.model import all_layers
 
 # The pages that d8ac070 writes for the fixture without `[render] canvas`.
+# 2026-11-17: the digest of index.html is different from d8ac070 (d9bee9a1...). The label
+# placement prefers a position that no path of a different flow goes through (A3 of
+# bench/jev/README.md). This rule is for all pages, so the labels of this page moved.
 MAIN_PAGES = {
-    "index.html": "d9bee9a146cc26b71d152d1094495ae1c71c9942197e19936c14b8474cf96b58",
+    "index.html": "b6357b83ae08f4fe5e862839ae974401ed395e26c5fbf81e1e52a63eb8c6e4d6",
     "Gateway/index.html": "5e9140682ede81da4bfef80e99c42d5bc53a550fff41e2cfa13f1180eaa565e0",
 }
 
@@ -51,7 +54,7 @@ def linked_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="module")
 def canvas_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _made(tmp_path_factory.mktemp("header"), "[render]\ncanvas = true\n")
+    return _made(tmp_path_factory.mktemp("header"), '[render]\npage = "canvas"\n')
 
 
 def _data(root: Path) -> dict[str, Any]:
@@ -81,6 +84,7 @@ def test_the_header_has_the_views_the_layers_and_find(canvas_root: Path) -> None
     assert views == [
         ("map", "true", "Map"),
         ("sequences", "false", "Sequences"),
+        ("states", "false", "States"),
         ("changes", "false", "Changes"),
     ]
     assert '<nav class="cbar__views" aria-label="Views">' in text
@@ -179,3 +183,25 @@ def test_the_script_joins_the_view_part() -> None:
         assert name in script, name
     assert "HEAD_H + 14" in script and "P_TOP = P_TOP0 + HEAD_H" in script
     assert "'|' + VIEW.epoch + '|'" in script
+
+
+def test_the_page_opens_with_system_context_when_it_is_the_first_layer() -> None:
+    """The layer control of a page whose top map has System context first has that layer
+    pressed, in the Tab order and selected. Each other page has All."""
+
+    def data(*ids: str) -> dict[str, list[dict[str, list[dict[str, str]]]]]:
+        return {"maps": [{"layers": [{"id": i, "n": i.title(), "q": ""} for i in ids]}]}
+
+    first = data("system", "structure")
+    assert canvas_header.first_layer(first) == "system"
+    html = canvas_header.html_of(first)
+    assert '<button type="button" data-layer="system" aria-pressed="true" tabindex="0"' in html
+    assert '<button type="button" data-layer="all" aria-pressed="false" tabindex="-1"' in html
+    assert '<option value="system" selected>' in html and '<option value="all">' in html
+    for other in (data("structure", "system"), data(), {"maps": []}):
+        assert canvas_header.first_layer(other) == "all"
+        html = canvas_header.html_of(other)
+        assert '<button type="button" data-layer="all" aria-pressed="true" tabindex="0"' in html
+        assert '<option value="all" selected>' in html
+        assert html.count('aria-pressed="true" tabindex="0"') == 1
+    assert "if (TOP.layers && TOP.layers[0] && TOP.layers[0].id === 'system')" in page_canvas.SCRIPT

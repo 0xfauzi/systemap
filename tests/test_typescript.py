@@ -314,8 +314,11 @@ def test_typescript_jsonc_extends_aliases_and_dist_targets(tmp_path: Path) -> No
     }
     assert facts["test_file_issues"] == []
     assert set(facts) == facts_file.fields_of("facts")
+    # Extraction writes the import forms and the imports by a string value only when
+    # they have values.
+    sparse = {"parse_error", "executes", "import_forms", "dynamic_imports"}
     assert all(
-        facts_file.fields_of("module") - set(record) == {"parse_error", "executes"}
+        {"parse_error", "executes"} <= facts_file.fields_of("module") - set(record) <= sparse
         for record in facts["components"].values()
     )
 

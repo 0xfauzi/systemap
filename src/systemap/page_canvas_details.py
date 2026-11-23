@@ -16,16 +16,20 @@ lose information when it becomes the default page:
 - Source of this map. The button gives the commit of the facts (7 characters), or "commit
   not recorded". It opens the source records of the page: the unknown source information,
   the commit, the facts file and the model file (`canvas_header`).
-- Details. The D key and the button open and close the Details panel. The panel gives the
+- Details. With a mouse or the keyboard, a selected card opens the Details panel. On a
+  touch screen, a tap shows the plate of facts, and the Details button opens the panel. The D key
+  and the button also open and close the panel. The panel gives the
   selected card: its kind and text, its note, the map that it opens, the flows in and out with their
   evidence state and assurance, the sequences, the invariants and the import rules with
   their assurance, and the source records (`canvas_details`). A flow of the lists gives
-  the flow. Without a selection, the panel gives the rules of the current map. When the
+  the flow. Without a selection, the panel gives the rules of the current map, or the
+  text of the current view (`viewPanel`): in the Sequences view, the route in order. When the
   panel closes, the focus goes back to the element that had it before the panel opened.
   A letter in the list of the sequences stays in that list.
 
-The panel is over the canvas. It does not change the bands of the fit. Thus the fit of a
-map is the same with the panel open or closed. The panel fades in and out in 160 ms, and
+On a wide screen (more than 900 px), the open panel takes its width from the canvas (`dock`):
+the canvas becomes narrower, and a camera at the fit fits the map again. Thus the panel
+covers no card and no portal. On a narrow screen, the panel is over the canvas. The panel fades in and out in 160 ms, and
 at one time with reduced motion. Its text changes only at a change of the selection, of
 the flow in the panel, or of the current map without a selection (`detSync`). Thus a
 frame with no such change makes no DOM change, and the panel adds no work to a frame.
@@ -63,7 +67,7 @@ KEYS_HTML = page_motion.keys_sheet(KEYS)
 PANEL_HTML = (
     '<aside class="cdet cpop cview" id="cdetails" aria-labelledby="cdet-title" data-own-keys hidden>'
     '<div class="cdet__head"><h2 id="cdet-title" tabindex="-1">Details</h2>'
-    '<button type="button" id="cdet-close">Close</button></div>'
+    '<button type="button" class="cdet__close" id="cdet-close">Close</button></div>'
     '<div id="cdet-body"></div></aside>'
 )
 
@@ -100,29 +104,47 @@ padding:0 12px}
 overflow:auto;padding:12px 16px}
 .csnap__pop[hidden]{display:none}
 .cpop code{font:12px/18px var(--fm);color:var(--ink);overflow-wrap:anywhere}
-.csnap__k,.cdet h4{margin:14px 0 4px;font:600 11px/16px var(--fs);letter-spacing:.06em;
+.csnap__k,.cdet h4{margin:14px 0 4px;font:600 11px/16px var(--fm);letter-spacing:.08em;
 color:var(--ink-3)}
 .csnap__k{margin-top:0}
-.cdet{z-index:3;bottom:8px;width:min(380px,calc(100% - 16px));overflow:auto;padding:0 16px 16px}
-.cdet__head{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;
-margin:0 -16px;padding:8px 16px;background:var(--surface)}
-.cdet h2,.cdet h3{margin:0;font:600 15px/20px var(--fs);color:var(--ink);outline:none}
-.cdet h3{margin-top:4px;overflow-wrap:anywhere}
-.cdet p{margin:4px 0}
-.cdet ul{margin:0;padding:0;list-style:none}
+.cdet{z-index:3;bottom:8px;width:min(380px,calc(100% - 16px));overflow:auto;padding:0 20px 20px;
+scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+.cdet__head{position:sticky;top:0;z-index:1;display:flex;align-items:center;
+justify-content:space-between;margin:0 -20px 10px;padding:8px 12px 8px 20px;background:var(--surface);
+border-bottom:1px solid var(--line)}
+.cdet h2{margin:0;font:600 11px/16px var(--fm);letter-spacing:.08em;text-transform:uppercase;
+color:var(--ink-3);outline:none}
+.cdet h3{margin:2px 0 6px;font:600 19px/24px var(--fm);letter-spacing:-.01em;color:var(--ink);
+outline:none;overflow-wrap:anywhere}
+.cdet h4{margin:20px 0 8px;padding-top:14px;border-top:1px solid var(--line)}
+.cdet p{margin:6px 0}
+.cdet ul,.cdet ol{margin:0;padding:0;list-style:none}
+.cdet li{margin:0 0 4px}
 .cdet b{color:var(--ink);font-weight:600}
-.cdet button{box-sizing:border-box;min-height:28px;margin:2px 0;padding:2px 8px;
-border:1px solid var(--line-2);border-radius:6px;background:none;color:var(--ink);font:inherit;
-text-align:left;cursor:pointer}
-.cdet li button{display:block;width:100%}
-.cdet button:hover{background:var(--raised)}
+.cdet__tag{display:inline-block;padding:0 6px;border:1px solid var(--line-2);border-radius:3px;
+font:600 10px/16px var(--fm);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);
+vertical-align:1px}
+.cdet__facts{font:12px/18px var(--fm);color:var(--ink-2)}
+.cdet button{box-sizing:border-box;min-height:32px;margin:0;padding:5px 10px;
+border:1px solid var(--line);border-radius:8px;background:none;color:var(--ink-2);font:inherit;
+text-align:left;cursor:pointer;transition:background .16s ease-out,border-color .16s ease-out}
+.cdet li button{display:flex;align-items:baseline;gap:8px;width:100%}
+.cdet button:hover{background:var(--raised);border-color:var(--line-2);color:var(--ink)}
+.cdet .cdet__close{min-height:28px;padding:2px 8px;border-color:transparent;color:var(--ink-2)}
+.cdet__kind{flex:none;align-self:flex-start;width:14px;height:2px;margin-top:9px;border-radius:1px;
+background:var(--flow)}
+.cdet__ev{display:block;font:11px/15px var(--fs);color:var(--ink-3)}
+.cdet__step{flex:none;margin-left:auto;font:11px/16px var(--fm);color:var(--ink-3);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.cdet button{transition:none}}
 .cpop :focus-visible{outline:2px solid var(--ink);outline-offset:1px}
-.cpop summary{min-height:28px;padding:4px 0;color:var(--ink);cursor:pointer}
+.cpop summary{min-height:28px;padding:4px 0;color:var(--ink-2);cursor:pointer}
+.cpop summary:hover{color:var(--ink)}
 .cdet details details{margin-left:12px}
 .cdet__as{color:var(--ink-3)}
 @media (max-width:600px){.cdet{top:auto;left:8px;width:auto;max-height:55%}}
 @media (pointer:coarse){.cpop,.cbar[data-menu] .cbar__tools[data-open]{top:64px}
-.cdet button,.cpop summary,.keys .keys__close{min-width:44px;min-height:44px;height:auto}}
+.cdet button,.cdet .cdet__close,.cpop summary,.keys .keys__close{min-width:44px;min-height:44px;
+height:auto}}
 @media (pointer:coarse) and (max-width:600px){.cdet{top:auto}}
 """
 )
@@ -146,7 +168,8 @@ DETAILS = r"""
     b.addEventListener('click', function () {
       var had = document.activeElement === b, name = b.getAttribute('data-scheme');
       root.setAttribute('data-theme', name);
-      try { localStorage.setItem(SCHEME_KEY, name); } catch (e) { /* no storage */ }
+      // With no storage, the page does not keep the choice.
+      try { localStorage.setItem(SCHEME_KEY, name); } catch (e) {}
       showScheme();
       var other = all('[data-scheme]').filter(function (x) { return x !== b; })[0];
       if (had && other) other.focus();
@@ -160,7 +183,8 @@ DETAILS = r"""
   if (motion) motion.addEventListener('click', function () {
     var off = root.getAttribute('data-reduce-motion') !== 'true';
     root.setAttribute('data-reduce-motion', String(off));
-    try { localStorage.setItem(MOTION_KEY, String(off)); } catch (e) { /* no storage */ }
+    // With no storage, the page does not keep the choice.
+    try { localStorage.setItem(MOTION_KEY, String(off)); } catch (e) {}
     showMotion(); request();
     say('Reduce motion: ' + (off ? 'on' : 'off') + '.');
   });
@@ -233,10 +257,10 @@ DETAILS = r"""
   // The steps of the sequences of map m that `has` takes, as one line for each sequence.
   function steps(m, has) {
     var out = [];
-    (m.sq || []).forEach(function (q) {
+    (m.sq || []).forEach(function (q, i) {
       var at = [];
       q.s.forEach(function (s, k) { if (has(s, m.flows[s.f])) at.push(k + 1); });
-      if (at.length) out.push(el('li', null, q.n + ': ' + (at.length === 1 ? 'step ' : 'steps ') + at.join(', ') + '.'));
+      if (at.length) out.push(el('li', null, el('button', {type: 'button', 'data-q': i, 'data-m': m.oi}, el('span', null, q.n), quiet(': '), el('span', {'class': 'cdet__step'}, (at.length === 1 ? 'step ' : 'steps ') + at.join(', ')), quiet('.'))));
     });
     return [el('h4', null, 'SEQUENCES'), out.length ? el('ul', null, out) : el('p', null, 'No sequence of this map has this item.')];
   }
@@ -252,8 +276,15 @@ DETAILS = r"""
     return [el('h4', null, 'RULES'), h.length ? [el('p', null, 'Each rule gives its assurance level and its freshness.'), el('ul', null, h)]
       : el('p', null, 'The model has no rules for ' + (c ? 'this card' : 'this map') + '.')];
   }
+  // A tag, and the line in the color of the kind of a flow. The color is set with the
+  // style object: the page policy permits no style attribute.
+  function tag(s) { return el('span', {'class': 'cdet__tag'}, s); }
+  // Words for a screen reader only: the tags give the same facts to the eye.
+  function quiet(s) { return el('span', {'class': 'sr-only'}, s); }
+  function kind(f) { var i = el('i', {'class': 'cdet__kind'}); i.style.background = 'var(--l-' + f.l + ',var(--flow))'; return i; }
+  // One row for a flow: the line of its kind, the artifact, the other component, and its evidence.
   function flowRow(f, other) {
-    return el('li', null, el('button', {type: 'button', 'data-f': f.i}, f.a + ' ' + other), ' ', el('span', {'class': 'cdet__as'}, EV[f.ev] || f.ev));
+    return el('li', null, el('button', {type: 'button', 'data-f': f.i}, kind(f), el('span', null, el('b', null, f.a), ' ' + other + ' ', el('span', {'class': 'cdet__ev'}, EV[f.ev] || f.ev))));
   }
   function flows(name, fs, word, end) {
     return [el('h4', null, name + ' (' + fs.length + ')'),
@@ -270,7 +301,7 @@ DETAILS = r"""
   function module(m, j) {
     var x = m.md[j], file = fileOf(m, x);
     return el('details', null, el('summary', null, x.i), el('p', null, file ? el('code', null, file) : 'Source path not recorded'),
-      el('p', null, 'Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n ? x.n[1] : 0) + '.'),
+      el('p', null, 'Public names in this module: ' + (x.n ? x.n[0] : 0) + '. Tests with imports of this module: ' + (x.n && x.n[1] || 0) + '.'),
       el('p', null, 'Imports: ', list((x.im || []).map(function (y) { return nameOf(m, y); })), '.'),
       el('p', null, 'Imported by: ', list(importers(m, j)), '.'),
       el('p', null, 'External imports: ', list(x.ex || []), '.'),
@@ -289,12 +320,18 @@ DETAILS = r"""
         el('p', null, el('b', null, 'Entry points.'), ' An entry point is where a program can start.'),
         listOr(r.pt || [], function (p) { return el('p', null, el('code', null, p)); }, 'No entry points were extracted for these modules.'))];
   }
+  // A long description shows its first two sentences. The full text is one step away.
+  function about(d) {
+    var cut = d.split('. ').slice(0, 2).join('. ') + '.';
+    return d.length < 300 ? el('p', null, d) : [el('p', null, cut), el('details', null, el('summary', null, 'Full description'), el('p', null, d))];
+  }
   function cardNodes(c) {
     var m = c.map;
-    return [el('h3', {tabindex: '-1'}, c.id), el('p', null, (c.k === 'actor' ? 'Actor' : 'Component') + '. Map: ' + mapName(m) + '.'),
-      c.p ? el('p', null, c.p) : null, c.d ? el('p', null, c.d) : null,
+    return [el('h3', {tabindex: '-1'}, c.id), el('p', null, tag(c.k === 'actor' ? 'Actor' : 'Component'), ' in the map ' + mapName(m) + '.'),
+      c.p ? el('p', null, el('b', null, c.p + '.')) : null, c.d ? about(c.d) : null,
       c.nt ? el('p', null, el('b', null, 'Note.'), ' ' + c.nt) : null,
-      c.as ? el('p', null, 'Assurance level: ' + c.as[0] + '. Freshness: ' + c.as[1] + '.') : null,
+      el('p', {'class': 'cdet__facts'}, (c.k === 'actor' ? '' : counted((c.m || []).length, 'module claim') + ' · ') + c.ins.length + ' in · ' + c.outs.length + ' out'),
+      c.as ? el('p', null, quiet('Assurance level: '), tag(c.as[0]), quiet('. Freshness:'), ' ', tag(c.as[1]), quiet('.')) : null,
       c.child ? el('p', null, el('button', {type: 'button', 'data-go': ''}, 'Go into the map: ' + sizeText(c.child))) : null,
       flows('FLOWS IN', c.ins, 'from', 's'), flows('FLOWS OUT', c.outs, 'to', 't'),
       steps(m, function (s, f) { return (f && (f.s === c.id || f.t === c.id)) || (s.a || []).indexOf(c.id) >= 0 || (s.me || []).indexOf(c.id) >= 0; }),
@@ -303,7 +340,7 @@ DETAILS = r"""
   function flowNodes(f) {
     var m = f.map;
     return [el('h3', {tabindex: '-1'}, 'Flow: ' + f.a),
-      el('p', null, 'From ', el('b', null, f.s), ' to ', el('b', null, f.t), '. Kind: ' + f.k + '. Layer: ' + layerName(f.l) + '.'),
+      el('p', null, tag('Flow'), ' From ', el('b', null, f.s), ' to ', el('b', null, f.t), '. Kind: ' + f.k + '. Layer: ' + layerName(f.l) + '.'),
       el('p', null, 'Evidence: ' + (EV[f.ev] || f.ev) + '.'),
       f.as ? el('p', null, 'Assurance level: ' + f.as[0] + '. Freshness: ' + f.as[1] + '.') : null,
       steps(m, function (s) { return s.f === f.i; }),
@@ -318,20 +355,23 @@ DETAILS = r"""
   // the current map. An open panel with the same subject makes no DOM change.
   function detSync(focus) {
     if (!ON) return;
-    var m = currentMap(), key = FLOW ? 'f' + FLOW.map.oi + ':' + FLOW.i : SEL_C ? 'c' + SEL_C.map.oi + ':' + SEL_C.i : 'm' + m.oi;
+    var m = currentMap(), own = FLOW || SEL_C ? null : viewPanel(), held = document.activeElement;
+    var key = FLOW ? 'f' + FLOW.map.oi + ':' + FLOW.i : SEL_C ? 'c' + SEL_C.map.oi + ':' + SEL_C.i : own ? 'v' + own.key : 'm' + m.oi;
     if (key === SHOWN) return;
     SHOWN = key;
+    // After a button with `data-keep`, the current button of the new text gets the focus.
+    var keep = own && body.contains(held) && held.hasAttribute('data-keep');
     // When the old text has the keyboard focus, the new heading gets it. Thus the focus
     // does not go to the body of the page.
     focus = focus || body.contains(document.activeElement);
     var text = document.createDocumentFragment();
-    addChild(text, FLOW ? flowNodes(FLOW) : SEL_C ? cardNodes(SEL_C) : mapNodes(m));
+    addChild(text, FLOW ? flowNodes(FLOW) : SEL_C ? cardNodes(SEL_C) : own ? own.nodes() : mapNodes(m));
     body.replaceChildren(text);
-    if (focus) { var h = body.querySelector('h3'); if (h) h.focus({preventScroll: true}); }
+    if (focus) { var h = (keep && body.querySelector('[data-keep][aria-current]')) || body.querySelector('h3'); if (h) h.focus({preventScroll: true}); }
   }
   function detShow(on, focus) {
     if (!panel || on === ON) return;
-    ON = on; SHOWN = null;
+    ON = on; SHOWN = null; AUTO = false; dock();
     if (toggle) toggle.setAttribute('aria-pressed', String(on));
     clearTimeout(panel._dt);
     if (on) {
@@ -350,6 +390,15 @@ DETAILS = r"""
     if (back && back.focus && back.isConnected && !panel.contains(back) && back.getClientRects().length) back.focus({preventScroll: true});
     else if (toggle) (toggle.offsetParent ? toggle : more && more.offsetParent ? more : cv).focus();
   }
+  // On a wide screen, the open panel takes its width from the canvas: the canvas becomes
+  // narrower, and the fit, the portals and the legend use the area at the left of the panel.
+  // Thus the panel covers no part of the map. On a narrow screen, the panel is over the map.
+  function dock() {
+    var w = ON && window.innerWidth > 900 ? '396px' : '0px';
+    if (root.style.getPropertyValue('--cdock') === w) return;
+    root.style.setProperty('--cdock', w); window.dispatchEvent(new Event('resize'));
+  }
+  window.addEventListener('resize', dock);
   function detToggle() { menuShow(false); detShow(!ON, true); say('Details: ' + (ON ? 'open' : 'closed') + '.'); }
   if (toggle) toggle.addEventListener('click', detToggle);
   if (panel) {
@@ -360,12 +409,27 @@ DETAILS = r"""
       if (!b) return;
       if (b.hasAttribute('data-f') && c) { BACK = c; FLOW = c.map.flows[+b.getAttribute('data-f')]; detSync(true); }
       else if (b.hasAttribute('data-back')) { FLOW = null; detSync(true); }
-      else if (b.hasAttribute('data-show') && FLOW) flyGoal(goalOf(FLOW.map, null, FLOW));
+      else if (b.hasAttribute('data-q') && VIEWS.sequences) { seqChoose(ORDER[+b.getAttribute('data-m')], +b.getAttribute('data-q'), true); setView('sequences'); }
+      else if (b.hasAttribute('data-show') && FLOW) { viewFlowOn(FLOW); flyGoal(goalOf(FLOW.map, null, FLOW)); }
       else if (b.hasAttribute('data-go') && c && c.child) flyGoal(goalOf(c.map, c, null));
     });
   }
   // A new selection shows its card, and a different current map shows that map.
-  SEL_HOOKS.push(function () { FLOW = null; BACK = null; detSync(); });
+  // With a mouse or the keyboard, a selected card opens the panel. When the selection goes,
+  // a panel that a selection opened closes. On a touch screen, a tap shows the plate of
+  // facts, and the Details button opens the panel: a second tap must still go into the card.
+  var AUTO = false, WAIT = 0;
+  PANEL_DROP = function () { clearTimeout(WAIT); if (AUTO && ON) detShow(false, false); };
+  SEL_HOOKS.push(function () {
+    FLOW = null; BACK = null;
+    clearTimeout(WAIT);
+    // The panel opens 240 ms after the selection: after the fade of the selection, so that
+    // the frame of the click stays short, and after the second click of a usual double-click,
+    // which goes into a card and opens no panel. With reduced motion, it opens at once.
+    if (SEL_C && !ON && !TOUCH) WAIT = setTimeout(function () { if (SEL_C && !ON) { detShow(true, false); AUTO = true; } }, reduced() ? 0 : 240);
+    else if (!SEL_C && AUTO && ON) detShow(false, false);
+    detSync();
+  });
   HERE_HOOKS.push(function () { if (!SEL_C && !FLOW) detSync(); });
 })();
 """

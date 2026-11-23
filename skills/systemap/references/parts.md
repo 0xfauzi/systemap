@@ -40,7 +40,7 @@ The main agent does steps 1, 2, and 3 alone.
 2. Write the top map with forty components or fewer. Give each module a component assignment on the top map. Coverage counts only on the top map.
 3. In the top `MEANING`, write the layer IDs and questions, the regions, and the flow artifacts between top components.
    Part agents must use these names. Use the same layer IDs in all maps, so that the colors stay the same.
-4. For each `crossing import` line between top components, write a flow with an artifact, or record an answer. These flows are the boundary flows.
+4. For each `crossing import` line between top components, give the module roles first. Then write a flow with an artifact for each open line, or record an answer. These flows are the boundary flows.
 5. Select the nested parts. A component with more than ten modules is a candidate. Do not make nested parts for the small components.
 
 ## Step 2. Write the boundary rules
@@ -108,6 +108,8 @@ The files are the result. The summary only tells the main agent where to read.
   6. Run `systemap decisions pending --map ID --json`. Write your verdicts in the result file.
   7. Examine your names and sentences against `references/language.md`.
 - Record answers only in the forms `item` and `items`. The other forms apply across maps. Put such an answer under `proposed_answers`.
+- An `items` answer for a `crossing import` line must have one item.
+- For a `module use` request, give the module role keys in the verdict. Only the main agent records module roles with `systemap decisions submit`.
 - If a different command holds `.systemap/write.lock`, stop and tell the main agent. Do not remove the lock.
 
 ## The result file

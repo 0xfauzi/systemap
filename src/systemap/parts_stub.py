@@ -103,9 +103,14 @@ def _actor(parent: nest.Map, cid: str) -> Component:
 
 
 def build(
-    tree: nest.Tree, parent: nest.Map, card: Component, facts: dict[str, Any]
+    tree: nest.Tree,
+    parent: nest.Map,
+    card: Component,
+    facts: dict[str, Any],
+    sides: bool = False,
 ) -> tuple[Model, Meaning]:
-    """Give the model and the meaning of the stub for a card of the parent map."""
+    """Give the model and the meaning of the stub for a card of the parent map. With sides,
+    the actors go to the sides of the frame (`place.compute` with nested=True)."""
     child = nest.Map(
         parts.map_id(parent.id, card.id),
         parent.path,
@@ -133,7 +138,7 @@ def build(
     )
     plain = {cid: parent.meaning.plain.get(cid, cid) for cid in actors}
     plain.update({c.id: f"the {c.id} modules" for c in internal})
-    placement = place.compute(model)
+    placement = place.compute(model, nested=sides)
     return place.apply(model, placement), Meaning(plain=plain)
 
 
@@ -207,7 +212,7 @@ def write(
     rel = cfg.rel(path)
     if path.exists() or path.is_symlink():
         raise StubError(f"{rel} exists. systemap parts --stub does not write over a file.")
-    model, meaning = build(tree, parent, card, facts)
+    model, meaning = build(tree, parent, card, facts, place.sides_for(cfg))
     found = problems(parent, card, model, meaning, facts, rel)
     if found:
         raise StubError(

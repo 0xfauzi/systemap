@@ -56,7 +56,7 @@ def _with(text: str, journeys: str) -> str:
 def files(top: bool = True) -> dict[str, str]:
     """Give the files of the fixture. With `top` false, only the nested map has sequences."""
     return {
-        "systemap.toml": CONFIG + "[render]\ncanvas = true\n",
+        "systemap.toml": CONFIG + '[render]\npage = "canvas"\n',
         "map/model.py": _with(TOP, TOP_SEQUENCES) if top else TOP,
         "map/gateway.py": _with(NESTED, NESTED_SEQUENCES),
         **SOURCE,

@@ -21,6 +21,10 @@ Acceptance values:
 8. The IDs of `decisions pending` are the same in a second call if no claim changes.
 9. The store identity of a judgement request is the finding kind and the names in the line.
    If two current lines have the same kind and names, the identity of each is its line.
+10. A `module use` request has the role keys, and the module use requests come first.
+   `--limit N` gives the first N requests and the count of the others. A supported result
+   for a module use line writes its module role. A helper result with a symbol that the
+   users do not import writes no file and gives the text of the symbol rule.
 
 The tests send no request to a model. They write the results that an agent would write.
 """
@@ -37,7 +41,7 @@ from typing import Any
 import pytest
 from conftest import init_two_cards, write_tree
 
-from systemap import card_review, config, decisions, extract, facts_file, nest
+from systemap import card_review, config, decisions, extract, facts_file, module_use, nest
 from systemap.cli import main
 
 FIXTURE = Path(__file__).parent / "fixtures" / "typescript-app"
@@ -335,6 +339,20 @@ def test_the_store_identity_of_a_judgement_line_is_its_kind_and_names(
         assert len(same) == 3 and all(lines[line] == line for line in same)
 
 
+def test_the_store_identity_of_a_module_use_line_is_the_line() -> None:
+    """Acceptance 9: a module use line names one module, and its module role answer
+    applies only to that module. Thus its identity is the full line, also when the facts
+    give the module."""
+    from systemap import module_use
+    from systemap.model import Meaning, Model
+
+    empty = Model((800, 600), (), (), (), (), ("data",))
+    m = nest.Map("", Path("map/model.py"), "map/model.py", empty, Meaning(plain={}), {})
+    facts = {"components": {"pkg.reader": {"file": "pkg/reader.py"}}}
+    line = module_use.module_line("pkg.reader")
+    assert decisions._subject(m, line, facts) == line
+
+
 def test_insufficient_evidence_makes_the_request_unknown(
     project: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -488,3 +506,213 @@ def test_a_facts_path_out_of_the_repository_is_not_read(tmp_path: Path) -> None:
         }
     }
     assert decisions.source_files(root, facts) == {"pkg/reader.py": "pkg.reader"}
+
+
+# ---- module use requests (stage 4b) -------------------------------------------------------
+
+# Writer imports `clean` through the facade pkg.api (component Api). pkg.core (component
+# Core) defines `clean`. Thus pkg.api is a facade unit, and Api imports Core. No flow
+# connects Writer, Api, and Core.
+ROLE_SOURCE = {
+    **SOURCE,
+    "pkg/core.py": "def clean(source: str) -> str:\n    return source.strip()\n",
+    "pkg/api/__init__.py": 'from pkg.core import clean\n\n__all__ = ["clean"]\n',
+    "pkg/writer.py": "from pkg.api import clean\nfrom pkg.reader import read\n\n\n"
+    "def write(request: str) -> str:\n    return clean(read(request))\n",
+}
+ROLE_CARDS = "".join(
+    f"""    Component(
+        id="{card}",
+        region="core",
+        does="Cleans the text of a request.",
+        interface="clean(source) -> str",
+        implemented_by=("pkg.{card.lower()}",),
+        entry="clean",
+        x={x},
+        y=200,
+    ),
+"""
+    for card, x in (("Api", 80), ("Core", 370))
+)
+API_LINE = module_use.module_line("pkg.api")
+CORE_LINE = module_use.module_line("pkg.core")
+
+
+@pytest.fixture
+def roles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Path:
+    """A Python project with two module use lines: pkg.api (a facade) and pkg.core."""
+    write_tree(tmp_path, ROLE_SOURCE)
+    init_two_cards(tmp_path, "--no-ci")
+    model = tmp_path / "map/model.py"
+    text = model.read_text(encoding="utf-8").replace(
+        "\n)\n\nFLOWS = ", f"\n{ROLE_CARDS})\n\nFLOWS = ", 1
+    )
+    model.write_text(text.replace("canvas=(600, 300)", "canvas=(600, 400)"), encoding="utf-8")
+    assert main(["--root", str(tmp_path), "extract"]) == 0
+    capsys.readouterr()
+    return tmp_path
+
+
+def role_result(request: dict[str, Any], root: Path, **keys: Any) -> dict[str, Any]:
+    citation = cite(root, request["files"][-1]["file"])
+    return {**result(request, "supported", citation), **keys}
+
+
+def test_module_use_requests_come_first_with_role_keys(
+    roles: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A module use request has the role keys, the rows of its line, and the files of the
+    module and of the modules that define its names. The other requests have no role keys."""
+    found = pending(roles, capsys)
+    uses = [r for r in found if r["role_keys"]]
+    assert [r["target"] for r in uses] == [API_LINE, CORE_LINE]
+    assert [r["target"] for r in found[: len(uses)]] == [API_LINE, CORE_LINE]
+    assert all(r["role_keys"] == ["role", "symbol", "handoff"] for r in uses)
+    assert all(r["role_keys"] == [] for r in found[len(uses) :])
+    api = uses[0]
+    assert api["claim"].splitlines()[:4] == [
+        API_LINE,
+        "count: 1 component",
+        "component: Api",
+        "Writer imports clean",
+    ]
+    assert "pkg.api:clean is defined in pkg.core (Core)." in api["claim"]
+    assert [f["file"] for f in api["files"]] == ["pkg/api/__init__.py", "pkg/core.py"]
+    code, out, _err = run(roles, capsys, "decisions", "pending")
+    assert code == 0 and "  module role keys: role, symbol, handoff" in out
+
+
+def test_limit_gives_the_first_requests_and_the_count_of_the_others(
+    roles: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    every = pending(roles, capsys)
+    code, out, _err = run(roles, capsys, "decisions", "pending", "--json", "--limit", "1")
+    data = json.loads(out)
+    assert code == 0 and data["schema_version"] == 3
+    assert [r["id"] for r in data["requests"]] == [every[0]["id"]]
+    assert data["more"] == len(every) - 1
+    _code, out, _err = run(roles, capsys, "decisions", "pending", "--limit", "1")
+    assert out.rstrip().endswith(
+        f"{len(every) - 1} more decision requests. Do systemap decisions pending again after "
+        "submit."
+    )
+    _code, out, _err = run(roles, capsys, "decisions", "pending", "--json")
+    assert json.loads(out)["more"] == 0
+    with pytest.raises(SystemExit):
+        main(["--root", str(roles), "decisions", "pending", "--limit", "0"])
+    assert "is not an integer of 1 or more." in capsys.readouterr().err
+
+
+def test_a_supported_module_role_writes_its_answer(
+    roles: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The TOML entry has item, role, symbol, evidence, reason, and citations, in this order."""
+    api = of_type(pending(roles, capsys), "judgement", API_LINE)
+    code, out, err = submit(roles, capsys, role_result(api, roles, role="helper", symbol="clean"))
+    assert code == 0, err
+    assert "added an exact answer" in out
+    toml = (roles / "systemap.toml").read_text(encoding="utf-8")
+    entry = next(row for row in toml.splitlines() if API_LINE in row)
+    keys = [k for k in ("item", "role", "symbol", "evidence", "reason", "citations") if k in entry]
+    assert keys == ["item", "role", "symbol", "evidence", "reason", "citations"]
+    assert [entry.index(f"{k} = ") for k in keys] == sorted(entry.index(f"{k} = ") for k in keys)
+    assert "handoff" not in entry
+    answer = next(a for a in config.load(roles).judgement_answered if API_LINE in a.items)
+    assert (answer.role, answer.symbol, answer.handoff) == ("helper", "clean", ())
+    mixed = of_type(pending(roles, capsys), "judgement", CORE_LINE)
+    code, _out, err = submit(
+        roles, capsys, role_result(mixed, roles, role="mixed", handoff=["clean"])
+    )
+    assert code == 0, err
+    answer = next(a for a in config.load(roles).judgement_answered if CORE_LINE in a.items)
+    assert (answer.role, answer.handoff) == ("mixed", ("clean",))
+
+
+@pytest.mark.parametrize(
+    ("keys", "text"),
+    [
+        (
+            {},
+            'a supported result for a module use line must have role: "helper", "handoff", or "mixed".',
+        ),
+        (
+            {"role": "helper", "symbol": "read"},
+            "read is not a name of pkg.api that other components import. Give a name from the rows below the line.",
+        ),
+        ({"role": "bad"}, 'role must be "helper", "handoff", or "mixed".'),
+        ({"role": "helper", "handoff": ["clean"]}, 'handoff is permitted only with role "mixed".'),
+        (
+            {"role": "helper", "symbol": "clean", "extra": 1},
+            "a result must be an object with the keys request_id, verdict, citations, and summary. A supported result for a module use line also has role, and it can have symbol and handoff.",
+        ),
+    ],
+)
+def test_an_incorrect_module_role_writes_no_file(
+    roles: Path, capsys: pytest.CaptureFixture[str], keys: dict[str, Any], text: str
+) -> None:
+    """A helper result with a symbol that the users do not import writes no file and gives the
+    text of the symbol rule. The other faults of the module role keys also write no file."""
+    api = of_type(pending(roles, capsys), "judgement", API_LINE)
+    before = snapshot(roles)
+    code, _out, err = submit(roles, capsys, role_result(api, roles, **keys))
+    assert code == 1
+    assert text in err and "The command wrote nothing." in err
+    assert snapshot(roles) == before
+
+
+def test_role_keys_are_refused_on_other_results(
+    roles: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    found = pending(roles, capsys)
+    other = next(r for r in found if r["type"] == "judgement" and not r["role_keys"])
+    api = of_type(found, "judgement", API_LINE)
+    text = (
+        "role, symbol, and handoff are permitted only in a supported result for a module use line."
+    )
+    for bad in (
+        {**role_result(other, roles), "role": "helper"},
+        {**result(api, "contradicted"), "role": "handoff"},
+    ):
+        before = snapshot(roles)
+        code, _out, err = submit(roles, capsys, bad)
+        assert code == 1 and text in err
+        assert snapshot(roles) == before
+
+
+def test_a_module_role_must_cite_a_file_of_the_module_or_of_its_names(
+    roles: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    api = of_type(pending(roles, capsys), "judgement", API_LINE)
+    bad = {**result(api, "supported", cite(roles, "pkg/writer.py")), "role": "handoff"}
+    code, _out, err = submit(roles, capsys, bad)
+    assert code == 1
+    assert (
+        "a supported result must refer to a file of pkg.api or of a module that defines its "
+        "names: pkg/api/__init__.py, pkg/core.py." in err
+    )
+
+
+def test_the_module_use_requests_with_the_most_waiting_crossings_come_first() -> None:
+    """The order: module use requests by waiting import crossings (descending), then by
+    module. The other requests keep their order after them."""
+    from types import SimpleNamespace
+
+    waiting = {"pkg.a": 1, "pkg.b": 3, "pkg.c": 1}
+    uses = {
+        module_use.module_line(m): {"module": m, "waiting_crossings": n} for m, n in waiting.items()
+    }
+    judged_like: Any = SimpleNamespace(uses=uses)
+
+    def request(target: str, keys: tuple[str, ...]) -> decisions.Request:
+        return decisions.Request(target, "judgement", "", target, target, None, (), "", "", keys)
+
+    found = [request("other 1", ()), *(request(line, decisions.ROLE_KEYS) for line in uses)]
+    found.append(request("other 2", ()))
+    ordered = sorted(found, key=lambda r: decisions._order(r, judged_like))
+    assert [r.target for r in ordered] == [
+        module_use.module_line("pkg.b"),
+        module_use.module_line("pkg.a"),
+        module_use.module_line("pkg.c"),
+        "other 1",
+        "other 2",
+    ]

@@ -7,7 +7,11 @@ Acceptance:
   scan in placed order.
 - place_labels on 200 crowded flows makes fewer than 3,000,000 overlap_area calls.
   The code before the seat grid made 26,514,709 calls (25.6 s). The seats are the
-  same as the seats of that code.
+  same as the seats of that code. This test does not use the rule for the paths of
+  other flows (`cross=False`), because that code did not have the rule.
+- With the rule, a label has a position that no path of a different flow goes through,
+  when its own path has such a position. A label does not go apart from its path only
+  to get such a position.
 - One obstacle box of 1e6 by 1e6 units does not make a cell entry for each cell.
   Seating finishes in less than 10 s and gives the full-scan cost. Before this
   limit, the box made approximately 2.4e8 cell entries: 1e5 by 1e5 took 7.2 s and
@@ -104,7 +108,7 @@ def test_crowded_labels_count_work_and_keep_the_seats(monkeypatch: pytest.Monkey
         routes[i] = route.Route(points=[(x0, y), (x0 + 600.0, y)], src_side="E", dst_side="W")
     widths = {i: 60.0 + (i % 7) * 10.0 for i in routes}
     obstacles = [(f"card{c}", (300.0 + 150.0 * c, 0.0, 40.0, 900.0)) for c in range(3)]
-    seats = route.place_labels(routes, widths, 13.0, obstacles, (1000.0, 900.0))
+    seats = route.place_labels(routes, widths, 13.0, obstacles, (1000.0, 900.0), cross=False)
     text = "\n".join(
         f"{k} {s.box!r} {s.segment!r} {s.on_longest!r} {s.cost!r} {s.hits!r}"
         for k, s in seats.items()
@@ -134,3 +138,40 @@ def test_an_obstacle_that_is_not_finite_gives_the_full_scan_cost() -> None:
     assert state.grid.near(box) == [1]
     state.grid.drop(1)
     assert state.grid.near(box) == []
+
+
+def _through(box: Box, points: list[tuple[float, float]]) -> bool:
+    x0, y0, x1, y1 = box[0] + 1, box[1] + 1, box[0] + box[2] - 1, box[1] + box[3] - 1
+    for a, b in zip(points, points[1:], strict=False):
+        if min(a[0], b[0]) <= x1 and max(a[0], b[0]) >= x0:
+            if min(a[1], b[1]) <= y1 and max(a[1], b[1]) >= y0:
+                return True
+    return False
+
+
+def test_a_label_goes_to_a_position_that_no_other_path_crosses() -> None:
+    # Path 1 goes down through the middle of path 0, where the label of path 0 was.
+    routes = {
+        0: route.Route(points=[(100.0, 200.0), (700.0, 200.0)], src_side="E", dst_side="W"),
+        1: route.Route(points=[(400.0, 50.0), (400.0, 400.0)], src_side="S", dst_side="N"),
+    }
+    widths = {0: 80.0, 1: 40.0}
+    before = route.place_labels(routes, widths, 13.0, [], (1000.0, 900.0), cross=False)
+    after = route.place_labels(routes, widths, 13.0, [], (1000.0, 900.0))
+    assert _through(before[0].box, routes[1].points)
+    assert not _through(after[0].box, routes[1].points)
+    assert after[0].cost == 0
+    # The label stays on its path.
+    assert after[0].box[1] < 200.0 < after[0].box[1] + after[0].box[3]
+
+
+def test_a_label_does_not_go_apart_from_its_path_to_have_no_crossing() -> None:
+    # Many paths cross path 0 along its full length: no position on it is free.
+    routes = {0: route.Route(points=[(100.0, 200.0), (400.0, 200.0)], src_side="E", dst_side="W")}
+    for k in range(1, 40):
+        x = 100.0 + k * 7.5
+        routes[k] = route.Route(points=[(x, 20.0), (x, 600.0)], src_side="S", dst_side="N")
+    widths = dict.fromkeys(routes, 60.0)
+    seats = route.place_labels(routes, widths, 13.0, [], (1000.0, 900.0))
+    x, y, w, h = seats[0].box
+    assert y - seat_grid.APART <= 200.0 <= y + h + seat_grid.APART

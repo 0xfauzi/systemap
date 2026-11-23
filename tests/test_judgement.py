@@ -9,7 +9,7 @@ from typing import Any
 
 import fixture_workspace
 import pytest
-from conftest import Sample, init_two_cards, sample_model, write_tree
+from conftest import Sample, init_two_cards, module_role_rows, sample_model, write_tree
 
 from systemap import config, extract, facts_file, judgement, nest, source_facts
 from systemap.cli import main
@@ -747,14 +747,10 @@ def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
             Answer((), "gone", module_sdk="anthropic"),
         ),
     )
-    # Both directions of A and B are covered; A and C is not; openai is not.
-    assert result.open == [lines[4], lines[6], lines[7]]
-    assert result.answered == 5
-    assert result.stale == [
-        'crossing = ["C", "D"]',
-        'kind = "no sentence"',
-        'module_sdk = "anthropic"',
-    ]
+    # A crossing family answer is refused: it covers no line, and it is not stale.
+    assert result.open == [lines[2], lines[3], lines[4], lines[6], lines[7]]
+    assert result.answered == 3
+    assert result.stale == ['kind = "no sentence"', 'module_sdk = "anthropic"']
     # The entry point line has no colon; its kind still names it.
     entry = judgement.apply_answers(lines, (Answer((), "a debugging hook", kind="entry point"),))
     assert lines[7] not in entry.open and entry.answered == 1
@@ -766,37 +762,37 @@ def test_bulk_answers_cover_a_family_and_go_stale_as_written() -> None:
     assert Answer(("x",), "r").label == "x"
 
 
-def test_crossing_answers_cover_into_from_and_every_pair() -> None:
-    """One answer for every crossing import into a card, out of it, or among a set."""
+def test_crossing_family_answers_are_refused_with_their_counts() -> None:
+    """A family answer for crossing import lines covers no line. The refused answer
+    texts give the count of the lines that each answer selects."""
+    from systemap import refused_answers
 
     def line(a: str, b: str) -> str:
         return f"crossing import: {a} imports {b} and no flow connects them"
 
     lines = [line("A", "M"), line("B", "M"), line("M", "C"), line("A", "B"), line("C", "A")]
-    into = judgement.apply_answers(lines, (Answer((), "the schema", crossing_into="M"),))
-    assert into.open == [line("M", "C"), line("A", "B"), line("C", "A")]
-    assert into.answered == 2 and into.stale == []
-    out = judgement.apply_answers(lines, (Answer((), "the commands", crossing_from="A"),))
-    assert out.open == [line("B", "M"), line("M", "C"), line("C", "A")]
-    assert out.answered == 2
-    # Every pair among three ids, in either direction; M and C is not a pair of them.
-    among = judgement.apply_answers(lines, (Answer((), "one family", crossing=("A", "B", "C")),))
-    assert among.open == [line("A", "M"), line("B", "M"), line("M", "C")]
-    assert among.answered == 2
-    # A stale bulk answer is reported as written.
-    stale = judgement.apply_answers(
-        lines,
-        (
-            Answer((), "gone", crossing_into="Z"),
-            Answer((), "gone", crossing_from="Z"),
-            Answer((), "gone", crossing=("X", "Y", "Z")),
-        ),
+    given = (
+        Answer((), "the schema", crossing_into="M", policy=True),
+        Answer((), "the commands", crossing_from="A", policy=True),
+        Answer((), "one family", crossing=("A", "B", "C"), policy=True),
+        Answer((), "gone", crossing_into="Z", policy=True),
     )
-    assert stale.stale == [
-        'crossing_into = "Z"',
-        'crossing_from = "Z"',
-        'crossing = ["X", "Y", "Z"]',
+    result = judgement.apply_answers(lines, given, {})
+    assert result.open == lines and result.answered == 0
+    # A refused answer that selects no line is not stale.
+    assert result.stale == [] and result.policies == []
+    found = refused_answers.texts(given, lines)
+    assert [(row["answer"], row["cause"], row["lines"]) for row in found] == [
+        ('crossing_into = "M"', "family", 2),
+        ('crossing_from = "A"', "family", 2),
+        ('crossing = ["A", "B", "C"]', "family", 2),
+        ('crossing_into = "Z"', "family", 0),
     ]
+    assert found[0]["text"] == (
+        'crossing_into = "M" selects 2 lines. A family answer cannot close a crossing import '
+        "line. Remove the answer. Then give one exact answer for each line. Give the module "
+        "use answers first."
+    )
 
 
 def test_crossing_into_and_from_in_the_configuration(
@@ -829,6 +825,14 @@ def test_crossing_into_and_from_in_the_configuration(
     )
     assert main(["--root", str(tmp_path), "extract"]) == 0
     capsys.readouterr()
+    # The imported modules are handoff modules, so the import crossings are open.
+    toml = tmp_path / "systemap.toml"
+    roles = "".join(f"    {row},\n" for row in module_role_rows(tmp_path))
+    toml.write_text(
+        toml.read_text(encoding="utf-8") + f"\n[judgement]\nanswered = [\n{roles}]\n",
+        encoding="utf-8",
+    )
+    kept = toml.read_text(encoding="utf-8").split("\n[judgement]\n")[0]
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
     into_reader = "crossing import: Extra imports Reader and no flow connects them"
@@ -838,12 +842,12 @@ def test_crossing_into_and_from_in_the_configuration(
     # the head still counts every open line; an unknown kind is refused.
     assert main(["--root", str(tmp_path), "judgement", "--verbose", "--brief"]) == 0
     out = capsys.readouterr().out
-    count = "    count: 1 module\n"
+    count = "    count: 1 module\n    handoff modules: pkg.reader\n"
     assert f"  {into_reader}\n{count}    pkg.extra imports pkg.reader\n  {into_writer}\n" in out
     # without --brief the kind is taught once, under the first line of that kind
     assert main(["--root", str(tmp_path), "judgement", "--verbose"]) == 0
     out = capsys.readouterr().out
-    assert out.count("      why: The code has a connection that the map does not show.") == 1
+    assert out.count("      why: Handoff code sends an artifact, keeps shared data") == 1
     assert f"  {into_reader}\n{count}    pkg.extra imports pkg.reader\n      why: " in out
     assert main(["--root", str(tmp_path), "judgement", "--kind", "crossing import"]) == 0
     out = capsys.readouterr().out
@@ -854,31 +858,33 @@ def test_crossing_into_and_from_in_the_configuration(
     assert main(["--root", str(tmp_path), "judgement", "--strict", "--kind", "no sentence"]) == 1
     with pytest.raises(SystemExit):
         main(["--root", str(tmp_path), "judgement", "--kind", "crossing"])
-    toml = tmp_path / "systemap.toml"
-    kept = toml.read_text(encoding="utf-8")
-    for form, answered, left in (
-        ('crossing_into = "Reader"', 1, [into_writer]),
-        ('crossing_from = "Extra"', 2, []),
-        ('crossing = ["Reader", "Writer", "Extra"]', 2, []),
-        ('crossing = ["Reader", "Extra"]', 1, [into_writer]),
+    capsys.readouterr()
+    # Each crossing family answer is refused: the lines stay open, and --strict exits 1.
+    for form, selected in (
+        ('crossing_into = "Reader"', 1),
+        ('crossing_from = "Extra"', 2),
+        ('crossing = ["Reader", "Writer", "Extra"]', 2),
+        ('crossing = ["Reader", "Extra"]', 1),
     ):
         toml.write_text(
             kept
             + f"""
 [judgement]
 answered = [
-        {{ {form}, policy = true, reason = "the extra reads the others' types; the map draws the data edges" }},
+{roles}        {{ {form}, policy = true, reason = "the extra reads the others' types; the map draws the data edges" }},
 ]
 """,
             encoding="utf-8",
         )
-        assert main(["--root", str(tmp_path), "judgement"]) == 0
+        assert main(["--root", str(tmp_path), "judgement", "--strict"]) == 1
         out = capsys.readouterr().out
-        assert f", {answered} answered" in out, form
-        for line in (into_reader, into_writer):
-            assert (line in out) == (line in left), (form, line)
+        # Only the two module role answers are answered.
+        assert out.split("\n", 1)[0].endswith(" to examine, 2 answered"), form
+        assert into_reader in out and into_writer in out, form
+        noun = "line" if selected == 1 else "lines"
+        assert f"  refused answer: {form} selects {selected} {noun}. A family answer" in out
     cfg = config.load(tmp_path)
-    assert cfg.judgement_answered[0].crossing == ("Reader", "Extra")
+    assert cfg.judgement_answered[-1].crossing == ("Reader", "Extra")
 
 
 def test_bulk_answers_in_the_configuration(
@@ -905,7 +911,7 @@ model_sdks = ["housemodel"]
 answered = [
     { kind = "single module", policy = true, reason = "two real parts of a two-file package" },
     { module_sdk = "housemodel", policy = true, reason = "the reader calls the model once and is not an agent, by the README's rule" },
-    { crossing = ["Reader", "Writer"], policy = true, reason = "no crossing import is left; this answer is stale" },
+    { crossing = ["Reader", "Writer"], policy = true, reason = "No crossing import is left. This answer is refused." },
 ]
 """,
         encoding="utf-8",
@@ -913,13 +919,15 @@ answered = [
     capsys.readouterr()
     assert main(["--root", str(tmp_path), "judgement"]) == 0
     out = capsys.readouterr().out
-    assert out.startswith("judgement: 2 possible map errors to examine, 3 answered, 1 stale")
+    # A crossing family answer is refused, also when it selects no line, and not stale.
+    assert out.startswith("judgement: 2 possible map errors to examine, 3 answered\n")
     assert "  thin layer: control shows 0 components" in out
-    assert 'stale answer: \'crossing = ["Reader", "Writer"]\' is now missing' in out
+    assert '  refused answer: crossing = ["Reader", "Writer"] selects 0 lines.' in out
+    assert "stale answer" not in out
     cfg = config.load(tmp_path)
     assert cfg.judgement_answered[2] == Answer(
         (),
-        "no crossing import is left; this answer is stale",
+        "No crossing import is left. This answer is refused.",
         crossing=("Reader", "Writer"),
         policy=True,
     )

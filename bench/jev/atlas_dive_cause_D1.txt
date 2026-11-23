@@ -1,0 +1,15 @@
+round 1: canvas 49.9, atlas 33.4, atlas without offEdges 33.4
+round 2: canvas 33.4, atlas 33.4, atlas without offEdges 33.4
+round 3: canvas 33.4, atlas 33.4, atlas without offEdges 33.4
+round 4: canvas 33.4, atlas 33.4, atlas without offEdges 33.4
+round 5: canvas 33.4, atlas 50.0, atlas without offEdges 50.0
+round 6: canvas 49.9, atlas 50.0, atlas without offEdges 33.4
+round 7: canvas 33.4, atlas 33.4, atlas without offEdges 33.4
+round 8: canvas 50.0, atlas 50.0, atlas without offEdges 50.0
+round 9: canvas 33.4, atlas 33.4, atlas without offEdges 33.4
+round 10: canvas 50.0, atlas 50.0, atlas without offEdges 33.4
+canvas: median 33.4 ms, 2 runs at 50 ms or more
+atlas: median 33.4 ms, 4 runs at 50 ms or more
+atlas without offEdges: median 33.4 ms, 2 runs at 50 ms or more
+D1a. offEdges is a cause: no
+D1b. rounds that meet the budget value: 9 of 10: PASS

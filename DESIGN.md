@@ -218,9 +218,25 @@ components:
 
 # Design System: systemap
 
-The page shows a software map in three views: Map, Sequences, and Changes.
+The default page is the atlas page (`[render] page = "atlas"`). It shows a software map in five views: Map, Sequences, States, Focus, and History.
+`docs/design/atlas.md` is the specification of the atlas page, and `docs/design/atlas/study.html` is the reference for its look and its behavior.
+The atlas page uses the tokens, the themes, and the font of this document. It has no Changes view: the change marks are on its Map view. Under the counts of the headline, "Not in this comparison" gives the limits of a revision comparison.
+
+The rest of this document gives the design of the linked page and of the canvas page (`[render] page = "canvas"`).
+The linked page shows a software map in three views: Map, Sequences, and Changes.
 A component is a system part. A flow transmits an artifact between components.
 A sequence shows authored operation steps. The page does not record execution.
+
+## The atlas page
+
+- At rest, the map is calm. The lines are thin and have one neutral color, with a dot at the source and an arrowhead at the target.
+- A line has a casing in the color of the ground, so that a line goes over a different line with a small gap.
+- Each path in a shared gap has its own lane. A label shows at rest only where it covers no card, no name, and no other line.
+- A path gets the color of its kind only when the reader points at a card or a line. Then the line at the bottom of the map gives one sentence about it.
+- An actor has round ends. A region is a faint tint with a number in a ring. A container that holds only actors is a label, not a surface.
+- The headline is type on the ground, beside the map or above it, at the position that gives the larger map.
+- The parts that do not zoom (the header, the headline, the details, the lists, the step bar, the sequence diagram, States, Focus, and History) are HTML and SVG. The map draws on the canvas engine.
+- A motion shows a direction or an order and occurs one time. With reduced motion, no line draws and no value fades.
 
 ## Appearance
 
@@ -263,7 +279,7 @@ the current step card, and the step note.
 A wider line is under the selected line and under the current step line. It is 12 px wide.
 In Ink, it is amber at 30 percent opacity. In Paper, it is the yellow highlighter fill.
 
-Vermilion shows a change. Only the Changes view shows vermilion.
+Vermilion shows a change. On the linked page and the canvas page, only the Changes view shows vermilion. On the atlas page, the change marks of the Map view show vermilion.
 
 Stroke patterns identify evidence states. External components have dashed borders.
 Measurement components use `steel`, which is a neutral color.
@@ -604,8 +620,10 @@ The steps are an authored order. They do not record a run of the program.
 
 ## Changes
 
+This section applies to the linked page and the canvas page only. The atlas page has no Changes view: its change marks are on its Map view, and the page link `#changes` opens its top map.
+
 Changes compares two revisions on the map.
-The page link `#changes` opens the Changes view. The address keeps `#changes` while the view is open.
+On the linked page and the canvas page, the page link `#changes` opens the Changes view. The address keeps `#changes` while the view is open.
 The toolbar gives the base and the head revisions. Hold the B key or the Hold B button to show the map without change marks.
 
 A component with changed source has a CHANGED tag. A component with only test changes has a TESTS tag.

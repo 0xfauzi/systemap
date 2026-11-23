@@ -5,9 +5,11 @@ and the tour is what the script says it is.
 test holds what it wrote to its claims: two PNGs of 1600 by 900, one
 per scheme; a GIF under four megabytes; a tour whose every state names a
 reading or a card the model has, so a renamed card cannot leave the tour
-showing nothing. From step 5 of docs/design/nested-canvas.md, the script
-photographs the canvas page: the tour uses the views and the layer buttons of
-its header, and the URL hash of a card.
+showing nothing. From stage 9 of docs/design/atlas.md, the script
+photographs the atlas page, the default page: the tour uses the views and the
+layer tabs of its header, the list and the step controls of the Sequences view,
+and the URL hash of a card. Its last frame shows the change marks of a revision
+comparison, because the atlas page has no Changes view.
 """
 
 from __future__ import annotations
@@ -81,7 +83,7 @@ def test_every_tour_state_names_a_reading_or_a_card_the_model_has() -> None:
     cards = {c.id for c in m.model.components}
     names = [name for name, _ in script.TOUR]
     assert len(names) == len(set(names))
-    known = {"layer": layers, "card": cards, "view": {"map", "sequences", "changes"}}
+    known = {"layer": layers, "card": cards, "view": {"map", "seq", "states", "focus", "history"}}
     for name, actions in script.TOUR:
         for call, arg in re.findall(r"(layer|card|view)\('([^']+)'\)", actions):
             assert arg in known[call], (name, call, arg)
@@ -89,8 +91,11 @@ def test_every_tour_state_names_a_reading_or_a_card_the_model_has() -> None:
             assert int(k) < len(m.meaning.journeys), (name, k)
     assert any("journey(" in a for _, a in script.TOUR)
     assert any("card(" in a for _, a in script.TOUR)
-    assert any("view('changes')" in a for _, a in script.TOUR)
-    assert "canvas_page" in SCRIPT.read_text(encoding="utf-8"), "the canvas page"
+    assert any("compare" in name for name, _ in script.TOUR), "the change marks"
+    assert script.SEQUENCE_FRAME in names
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert "render_pages.pages" in text and "canvas_page" not in text, "the default page"
+    assert [name for name, _ in script.VIEWS] == ["map", "sequence", "states", "focus", "history"]
     assert sum(1 for _, a in script.TOUR if "layer(" in a) >= len(layers) - 1
 
 
@@ -143,3 +148,15 @@ def test_the_readme_names_every_image_absolutely() -> None:
     raw = "https://raw.githubusercontent.com/0xfauzi/systemap/main/"
     for url in re.findall(rf'(?:src|srcset)="({re.escape(raw)}[^"]+)"', readme):
         assert (ROOT / url[len(raw) :]).is_file(), url
+
+
+def test_only_the_compare_frame_uses_the_page_with_the_disclosure() -> None:
+    """The stage record of stage 9 says that only the last tour frame shows the
+    disclosure "Not in this comparison". The script must agree with that claim."""
+    script = load_script()
+    assert [name for name, _ in script.TOUR if "compare" in name] == ["compare"]
+    assert script.TOUR[-1][0] == "compare"
+    compared = script.render(ROOT, compare=True)
+    plain = script.render(ROOT)
+    assert 'id="atlas-limits"' in compared
+    assert 'id="atlas-limits"' not in plain

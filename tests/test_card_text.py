@@ -149,12 +149,20 @@ def test_the_drawing_reports_unfit_text_and_never_elides(sample: Sample) -> None
         sample.meaning, plain=plain, relations=relations, journeys=(), layer_overrides={}
     )
     svg, detail = render_schematic(model, meaning, sample.theme, sample.facts)
-    problems = check_labels(json.loads(detail)["_meta"])
+    meta = json.loads(detail)["_meta"]
+    problems = check_labels(meta)
     assert (
         "card User: plain word does not fit (actor cards fit about 26 characters on one "
         f"line; this one has {len(long_plain)})"
     ) in problems
     assert len(problems) == 1, problems
+    # The atlas page draws a name on one line. Thus the drawing also reports the long name
+    # (`card_names`), but the diagram still draws it over two lines. In this release, the
+    # check gives a warning for that name, not an error.
+    [page_name] = meta["page_names"]
+    assert page_name.startswith(
+        "card AVeryLongParserComponentName: name does not fit on the atlas page"
+    )
     assert "..." not in svg and "…" not in svg, "nothing is elided"
     # What fits is drawn: the first plain line, and the name over two lines
     # (fifteen and thirteen characters), which is why it was not refused.
@@ -196,6 +204,33 @@ def test_check_refuses_a_card_whose_text_does_not_fit(
         f"two lines; this one has {len(three_lines)})"
     ) in out
     assert run("--root", str(tmp_path), "refresh") == 1
+
+
+def test_check_gives_a_warning_for_a_name_that_the_atlas_page_cuts(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Acceptance: with one card name that is wider than the atlas page shows on one line,
+    `check` exits 0 and gives one warning line that names the card. The map passed the
+    check before this release, so the upgrade does not make the check fail."""
+    write_tree(tmp_path, {"pkg/__init__.py": "", **STARTER_MODULES})
+    init_two_cards(tmp_path, "--no-ci")
+    for rel in ("map/model.py", "map/contract.py"):
+        path = tmp_path / rel
+        path.write_text(
+            path.read_text(encoding="utf-8").replace('"Reader"', '"ManagementCommands"'),
+            encoding="utf-8",
+        )
+    assert run("--root", str(tmp_path), "refresh") == 0
+    capsys.readouterr()
+    assert run("--root", str(tmp_path), "check") == 0
+    out = capsys.readouterr().out
+    warnings = [line for line in out.splitlines() if line.startswith("warning: ")]
+    assert warnings == [
+        "warning: card ManagementCommands: name does not fit on the atlas page (component "
+        "cards on that page show a name of 129 units or less on one line, and this one is "
+        "160 units)"
+    ], out
+    assert "map layout: has no errors" in out
 
 
 # ---- one type size for all cards of a map -----------------------------------------

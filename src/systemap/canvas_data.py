@@ -60,6 +60,7 @@ The keys of a map:
   and `ci` (`canvas_changes`): the change marks of the cards, the lost flows, and the
   roll-up of the map changes.
 - `sq`: the sequences of the map (`canvas_sequences`), only in a map that has sequences.
+- `sm`: the state machines of the map (`canvas_states`), only in a map that has them.
 - `mf`, `ff`, `iv`, `ir`, `md`, `fr` and `sr`: the model file and the facts file (only in
   the top map), the rules, the modules, the file rule and the source records for the
   Details panel (`canvas_details`).
@@ -88,6 +89,7 @@ from systemap import (
     canvas_changes,
     canvas_details,
     canvas_sequences,
+    canvas_states,
     evidence,
     nest,
     nest_join,
@@ -373,6 +375,7 @@ def _map(
         out["ch"] = comparison
         out |= canvas_changes.keys(tree, m, backed, change, found)
     out.update(canvas_sequences.of_map(m, facts))
+    out.update(canvas_states.of_map(m))
     out.update(canvas_details.of_map(cfg, m, facts, claims))
     return out
 

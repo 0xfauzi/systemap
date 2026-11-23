@@ -26,6 +26,7 @@ from test_theme import contrast
 
 from systemap import (
     page_canvas,
+    page_canvas_caption,
     page_canvas_changes,
     page_canvas_draw,
     page_canvas_ports,
@@ -39,6 +40,7 @@ from systemap.model import Layer
 TEXT, LINE = 4.5, 3.0
 # The script text of each part, by the name that a row gives.
 PARTS = {
+    "caption": page_canvas_caption.CAPTION,
     "draw": page_canvas_draw.DRAW,
     "text": page_canvas_text.TEXT,
     "touch": page_canvas_touch.TOUCH_PART,
@@ -65,8 +67,10 @@ CANVAS_MARKS: tuple[tuple[str, str, str, float, str, str], ...] = (
     # Texts on the map.
     ("box name", "ink_3", "map", TEXT, "draw", "b.b[1] + 19), C['--ink-3']"),
     ("region name", "ink_2", "map", TEXT, "draw", "b.b[1] + 20), C['--ink-2']"),
-    ("flow label", "ink_2", "map", TEXT, "draw", "fs, C['--ink-2'], alpha * flowShown(f)"),
+    ("flow label", "ink_2", "map", TEXT, "draw", "fs, C['--ink-2'], alpha * labelShown(f)"),
     # Texts on a plate.
+    ("caption name", "ink_3", "raised", TEXT, "caption", "CAP_KS, C['--ink-3'], CAP.a"),
+    ("caption sentence", "ink", "raised", TEXT, "caption", "CAP_FS, C['--ink'], CAP.a"),
     ("portal name", "ink", "raised", TEXT, "draw", "12, C['--ink'], t.show"),
     ("portal map", "ink_3", "raised", TEXT, "draw", "10.5, C['--ink-3'], t.show"),
     ("path part", "ink", "raised", TEXT, "draw", "last ? C['--raised'] : C['--ink']"),
@@ -90,6 +94,7 @@ CANVAS_MARKS: tuple[tuple[str, str, str, float, str, str], ...] = (
     ("tag of an open port", "ink_2", "raised", TEXT, "ports", "c: '--raised', t: '--ink-2'"),
     # Lines.
     ("card border", "card_line", "map", LINE, "draw", "LINE.rect(k.line"),
+    ("card border under the pointer", "ink_2", "map", LINE, "draw", "LINE.rect(C['--ink-2']"),
     (
         "outline of the back card",
         "card_line",

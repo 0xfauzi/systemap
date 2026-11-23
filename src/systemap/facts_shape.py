@@ -21,6 +21,7 @@ from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any
 
 from systemap.config import ConfigError
+from systemap.import_forms import DETAILS, FORMS
 from systemap.terminal_text import has_control
 
 # The deepest value that extraction writes has 7 levels: a use in a call site. The limit
@@ -197,7 +198,52 @@ def record(required: Mapping[str, Check], permitted: Mapping[str, Check]) -> Che
     return check
 
 
+def one_of(values: tuple[str, ...]) -> Check:
+    """Give a check for a text value from a fixed list."""
+    requirement = "must be " + ", ".join(json.dumps(value) for value in values[:-1])
+    requirement += f", or {json.dumps(values[-1])}"
+
+    def check(value: Any) -> Problem | None:
+        return None if isinstance(value, str) and value in values else ((), requirement)
+
+    return check
+
+
+def sorted_set(item: Check) -> Check:
+    """Give a check for a sorted list without duplicates. Each item must agree with `item`."""
+    inner = list_of(item)
+
+    def check(value: Any) -> Problem | None:
+        found = inner(value)
+        if found is None and value != sorted(set(value)):
+            return (), "must be a sorted list without duplicates"
+        return found
+
+    return check
+
+
+def not_empty(inner: Check) -> Check:
+    """Give a check for a list with one or more items."""
+
+    def check(value: Any) -> Problem | None:
+        if isinstance(value, list) and not value:
+            return (), "must not be an empty list"
+        return inner(value)
+
+    return check
+
+
+def position(value: Any) -> Problem | None:
+    """Make sure that the value is an integer of 0 or more."""
+    found = INTEGER(value)
+    if found is None and value < 0:
+        return (), "must be an integer of 0 or more"
+    return found
+
+
 TEXTS = list_of(TEXT)
+IMPORT_FORMS = plain_keys(map_of(not_empty(sorted_set(one_of(FORMS)))))
+DYNAMIC_IMPORT = record({"call": name, "text": name, "target": name, "line": position}, {})
 NAMED = record({"name": TEXT}, {})
 UNKNOWN = record(
     {"reason": TEXT},
@@ -247,6 +293,8 @@ MODULE = record(
         "imports": TEXTS,
         "imported_by": TEXTS,
         "uses": map_of(TEXTS),
+        "import_forms": IMPORT_FORMS,
+        "dynamic_imports": list_of(DYNAMIC_IMPORT),
         "call_sites": optional(list_of(CALL_SITE)),
         "completeness": COMPLETENESS,
         "parse_error": optional(UNKNOWN),
@@ -267,6 +315,7 @@ FACTS = record(
     {
         "built_at_commit": TEXT,
         "packages": TEXTS,
+        "import_details": sorted_set(one_of(DETAILS)),
         "provenance": OBJECT,
         "tests_dirs": TEXTS,
         "spec_sections": list_of(OBJECT),

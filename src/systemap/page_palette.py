@@ -15,8 +15,11 @@ import json
 from systemap.page_icons import icon
 
 
-def html() -> str:
-    """Give the dialog. It stays hidden until the reader opens it."""
+def html(placeholder: str = "Find a component, flow, layer or action") -> str:
+    """Give the dialog with the hint `placeholder` in its field.
+
+    The dialog stays hidden until the reader opens it.
+    """
     return (
         '<div class="pal" id="palette" hidden>'
         '<div class="pal__box" role="dialog" aria-modal="true" aria-label="Find">'
@@ -24,7 +27,7 @@ def html() -> str:
         '<input id="pal-input" type="text" role="combobox" aria-expanded="true" '
         'aria-controls="pal-list" aria-autocomplete="list" autocomplete="off" '
         'spellcheck="false" aria-label="Find" '
-        'placeholder="Find a component, flow, layer or action">'
+        f'placeholder="{placeholder}">'
         '<button type="button" class="pal__x" id="pal-close" aria-label="Close">'
         "<kbd>Esc</kbd><span>Close</span></button></div>"
         '<div class="pal__list" id="pal-list" role="listbox" aria-label="Results"></div>'

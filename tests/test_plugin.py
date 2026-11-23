@@ -34,6 +34,7 @@ REFERENCES = (
     "maintenance.md",
     "decisions.md",
     "parts.md",
+    "views.md",
 )
 
 

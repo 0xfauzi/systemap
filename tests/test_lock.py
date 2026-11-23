@@ -53,14 +53,25 @@ with lock:
 """
 
 
+def _holds(lock: Path) -> bool:
+    """Tell if the lock file has the full text of the holder."""
+    try:
+        return lock.read_text(encoding="utf-8").endswith("\n")
+    except FileNotFoundError:
+        return False
+
+
 @contextmanager
 def held(target: Path, kind: str, lock: Path) -> Iterator[None]:
-    """Hold a lock in a different process while the `with` statement operates."""
+    """Hold a lock in a different process while the `with` statement operates.
+
+    The holder makes the lock file and then writes its text, thus the wait is for the text:
+    a wait only for the file let a writer read an empty lock ("the holder is not known")."""
     release = target.parent / f"{target.name}.release"
     child = subprocess.Popen([sys.executable, "-c", HOLD, str(target), str(release), kind])
     try:
         deadline = time.monotonic() + 30
-        while not lock.exists():
+        while not _holds(lock):
             assert child.poll() is None, "the holder process stopped"
             assert time.monotonic() < deadline, "the holder did not make the lock"
             time.sleep(0.01)
@@ -91,7 +102,8 @@ def files(root: Path) -> dict[str, bytes]:
 def test_a_held_lock_stops_each_writer_and_no_file_changes(
     nested: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Acceptance 1."""
+    """Acceptance 1. It failed once because `held` waited only for the lock file, which the
+    holder makes before it writes its text, so a writer could read an empty lock."""
     lock = nested / file_write.WRITE_LOCK
     results = nested.parent / "results.json"
     results.write_text("[]", encoding="utf-8")

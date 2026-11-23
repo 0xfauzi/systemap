@@ -20,14 +20,14 @@ you can forget parts of your Python or TypeScript system.
 
 **systemap gives you one page that shows the parts of your system and their
 connections.** Your coding agent writes the map from your code. Commands find
-changes that make the map incorrect. The Changes view shows changed parts
+changes that make the map incorrect. The change marks show changed parts
 and connections before you merge the code.
 
 This page gives the map terms, the installation procedure, and the commands
 that compare the map with the code.
 
 <p align="center">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the canvas page: the reader changes the layer, zooms to a component, reads a sequence one step at a time, and opens the Changes view" width="100%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the atlas page: the reader changes the layer, selects a component, reads a sequence one step at a time and as a diagram, opens the States and Focus views, and sees the change marks" width="100%">
 </p>
 
 <p align="center">
@@ -73,46 +73,47 @@ None of these states records execution.
  <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/light.png" alt="the Paper theme" width="48%">
 </p>
 
-The page draws all maps of the map tree on one canvas. A card that opens a
-nested map shows a preview of that map. When you zoom in, the preview grows into
-the nested map. The wheel and a pinch zoom at the pointer, and a drag moves the map.
-A double-click goes into a card, Esc goes out one level, and F fits the current map.
-The path of the open maps is at the top left. When a neighbour of the open map
-is not on the screen, a portal at the screen edge gives it.
+The page draws all maps of the map tree on one canvas. At rest, the map is calm:
+the lines of the flows are thin and have one neutral color. Point at a card or a
+line to light its flows in the colors of their kinds. The line at the bottom of the
+map then gives one sentence about it.
 
-The header has three views. **Map** shows the layers. **Sequences** shows one
-operation as a route on the map, then one step at a time.
-**Changes** shows the components and flows that a revision comparison changed.
-Find (Ctrl+K, Cmd+K, or /) opens one search field for views, layers,
-components, flows, sequences, and actions in all maps.
+A card that opens a nested map has a small picture of that map. When you zoom in,
+the small picture grows into the nested map, and the map above fades. The wheel and
+a pinch zoom at the pointer, and a drag moves the map. A double-click goes into a
+card, Esc goes out one level, and F fits the current map. The headline gives the
+path of the open maps, the question of the layer, and the counts.
 
-The URL hash holds the open map, for example `index.html#Gateway`.
+The header has five views. A view shows only when the map has data for it.
+**Map** shows the layers as tabs. **Sequences** shows one operation on the map or
+as a diagram, one step at a time. **States** shows one state machine. **Focus** puts
+one card in the middle, with the cards that give to it and the cards that it gives to.
+**History** shows where the source files of each component changed, and when.
+Find (Ctrl+K, Cmd+K, or /) opens one search field for components, flows,
+sequences, and actions in all maps.
+
+The URL hash holds the open map and the selected card, for example `index.html#Gateway/Routes`.
 The page of each nested map, for example `Gateway/index.html`, is a redirect page.
-It opens the canvas page at that map, so earlier links stay correct.
+It opens the top page at that map, so earlier links stay correct.
 
-The themes are Ink and Paper.
-Ink has dark surfaces. Paper has light surfaces.
-The page starts with the device theme, and the theme button changes it.
+The theme control has Device, Light, and Dark. The page starts with the device theme.
 The page obeys the system setting for reduced motion, and the Reduce motion button
-also stops the motion. The ? key shows the keyboard keys of the canvas.
-The source button gives the commit of the map and the facts file.
+also stops the motion. The ? key shows the keyboard keys of the page.
 
-A click or a tap selects a card. The Details panel (the D key) gives the selected
-card: its flows with their evidence, its sequences, its rules with their assurance,
-and the counts of its source records. A dotted ring on an actor card shows an open
-boundary finding of the judgement, with a short text.
+A click or a tap selects a card. Its details give its description, its assurance
+level and freshness, its flows with their evidence, its source modules and source
+records, and its sequences. A dotted ring on an actor card shows an open
+boundary finding of the judgement, with a short text. With `systemap render --base REF`,
+each changed card has a ring and a tag in the change color.
 
-Only the flow kinds, the selection, and the change have colors.
-A line has the color of its flow kind in all views.
-
-Keyboard users move through the cards with Tab and go into a card with Enter.
+Keyboard users move through the cards and the lines with Tab and select a card with Enter.
 A list after the canvas gives each map, card, and flow for a screen reader.
-On a phone, the page shows the same canvas. A tap selects a card and shows its
-facts, and a second tap goes into a card that opens a map.
+On a phone, the details are a sheet at the bottom, and the tools are in one menu.
 
+This page is the atlas page (`docs/design/atlas.md`). With `[render] page = "canvas"`,
+systemap writes the earlier canvas page, with its Changes view.
 With `[render] canvas = false`, systemap writes the earlier linked pages for one release.
 They have the full source records, the snapshot button, full screen, and a phone grid.
-The canvas page does not have these parts.
 
 ## How do you install systemap?
 
@@ -210,10 +211,10 @@ Other agents can use the same instructions if they can read files and execute co
 
 The writing profile in `systemap.toml` sets the writing rules for map names, sequence steps, and other map text.
 The default profile is `plain`. Its rules limit the sentence length and require literal words and one term for each concept.
-A person or a program can examine these rules without a dictionary.
+A person or a program can examine these rules.
 
-To use the full ASD-STE100 Issue 9 rules, set `profile = "asd-ste100"` in the `[writing]` table.
-These rules need the official ASD dictionary.
+To use the ASD-STE100 Issue 9 style, set `profile = "asd-ste100"` in the `[writing]` table.
+This profile adds the style rules and a project word list from public summaries of the standard. It does not use the official ASD dictionary.
 The [language policy](src/systemap/skill/references/language.md) gives the two profiles, the glossary, and the examination procedure.
 This repository uses the `asd-ste100` profile for its map, its interface text, and its documentation.
 
@@ -434,8 +435,8 @@ For a pull request from a fork, CI writes the summary only to the job summary.
 The code and the settings of a fork can change the comment text.
 
 If your repository publishes the map page of each pull request, set `[delta] page_url`
-in `systemap.toml`. Then the comment also has a link to the Changes view of that page.
-The Changes view shows the changed parts on the map.
+in `systemap.toml`. Then the comment also has a link to the changes of that page.
+The atlas page shows the changed parts on the map. The canvas page opens its Changes view.
 `systemap delta` reads `page_url` at the base commit, not in the pull request.
 A new value has an effect after the merge.
 If the job runs a released systemap version, as the workflow from `init` does,
@@ -455,8 +456,8 @@ requests from one repository form a small sample.
 `systemap live` renders the map of the working tree and supplies it at `http://127.0.0.1:8765/`.
 Open this address in a browser.
 When a source, model, or configuration file changes, the command renders the map again.
-Then the browser loads the page again and keeps your view, layer, selection, and sequence step.
-The Changes view compares the working tree with `origin/main`, or with the ref of `--base`.
+Then the browser loads the page again and keeps the URL hash: the open map and the selected card.
+The change marks compare the working tree with `origin/main`, or with the ref of `--base`.
 It includes the edits that are not in a commit.
 The command does not write tracked files. It can add a cache file in `.systemap/facts/`.
 On this repository, the command takes about 7 to 8 seconds to render the map.

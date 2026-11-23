@@ -1,13 +1,18 @@
-"""Make screenshots of the canvas page and its controls.
+"""Make screenshots of the atlas page and its controls.
 
-The script renders the canvas page from stored facts and the model.
+The script renders the page of `[render] page` from stored facts and the model. That is the
+atlas page (docs/design/atlas.md) by default, with the History view from the Git log.
 It writes one page per scheme and serves the pages through HTTP.
 Headless Chrome makes scheme screenshots at 1600 by 900 pixels.
 It makes 12 tour frames at 1600 by 900 pixels.
 It makes one phone image at 390 by 844 pixels.
-It makes the WebP images of the three views on the landing page (site/index.html),
+It makes the WebP images of the five views on the landing page (site/index.html),
 at 1600 by 900 pixels and for a phone at 390 by 760 pixels with 2 device pixels.
-The Changes view compares the commit CHANGE_HEAD with its parent CHANGE_BASE.
+The views are Map, Sequences, States, Focus and History.
+The change marks of `render --base` compare the commit CHANGE_HEAD with its parent
+CHANGE_BASE. The last tour frame shows them, and under the headline it shows the
+disclosure "Not in this comparison" of the comparison. The other frames do not show it.
+A change to the page makes the committed images old. Run the script again after it.
 Each frame shows a view, a layer, a card, or a sequence step.
 ffmpeg puts the frames together in a 30-second GIF, with a 4 MiB size limit.
 Examine the images before use in the README.
@@ -32,7 +37,6 @@ import threading
 from pathlib import Path
 
 from systemap import (
-    canvas_page,
     change,
     cli,
     config,
@@ -56,61 +60,74 @@ TIMEOUT = 15
 
 # The states the tour walks, in order: what the reader would do with the
 # page in half a minute. Each is the script run after the page's own.
+# A frame with "compare" in its name uses the page with the revision comparison.
 TOUR: list[tuple[str, str]] = [
-    ("all", ""),
-    ("system", "layer('system');"),
+    ("system", ""),
     ("structure", "layer('structure');"),
     ("data", "layer('data');"),
     ("control", "layer('control');"),
     ("judge", "layer('judge');"),
-    ("card", "card('CLI');"),
-    ("card-control", "layer('control'); card('Check');"),
+    ("card", "layer('all'); card('CLI');"),
     ("journey-route", "journey(0);"),
-    ("journey-1", "journey(0); start();"),
-    ("journey-2", "journey(0); start(); next();"),
-    ("changes", "view('changes');"),
+    ("journey-2", "journey(0); next(); next();"),
+    ("journey-diagram", "journey(0); next(); next(); diagram();"),
+    ("states", "view('states');"),
+    ("focus", "view('focus');"),
+    ("compare", "layer('all');"),
 ]
+# The frame of the tour that scripts/screenshots.py also writes as sequence.png.
+SEQUENCE_FRAME = "journey-2"
 
 # The views on the landing page, with the script for each view.
 VIEWS: list[tuple[str, str]] = [
-    ("map", "layer('data'); card('FactsExtractor');"),
-    ("sequence", "journey(0); start(); next();"),
-    ("changes", "view('changes');"),
+    ("map", ""),
+    ("sequence", "journey(0); next(); next(); diagram();"),
+    ("states", "view('states');"),
+    ("focus", "view('focus');"),
+    ("history", "view('history');"),
 ]
 CHANGE_BASE = "d8ac070"
 CHANGE_HEAD = "0254afb"
 LANDING_PHONE = "390,760"
 
 # Each tour frame contains the header and the canvas. The helpers use the controls of
-# the page, as a reader does.
+# the page, as a reader does. Each helper waits for the page to draw the result of the
+# helper before it (STEP_MS), because the page builds a view in its frames.
+STEP_MS = 250
 DRIVER = """<script>(function(){{
+var steps = [], at = 0;
 function q(s){{ return document.querySelector(s); }}
-function view(m){{ q('[data-view="' + m + '"]').click(); }}
-function layer(id){{ q('[data-layer="' + id + '"]').click(); }}
-function card(id){{ location.hash = id; }}
-function journey(k){{ view('sequences'); q('#cseq-pick').click();
-  document.querySelectorAll('#cseq-list [role="option"]')[k].click(); }}
-function start(){{ q('#cseq-steps').click(); q('#cseq-start').click(); }}
-function next(){{ q('#cseq-next').click(); }}
+function later(f){{ steps.push(f); }}
+function view(m){{ later(function(){{ q('#atlas-head [data-mode="' + m + '"]').click(); }}); }}
+function layer(id){{ later(function(){{ q('#atlas-tabs [data-layer="' + id + '"]').click(); }}); }}
+function card(id){{ later(function(){{ location.hash = id; }}); }}
+function journey(k){{ view('seq');
+  later(function(){{ document.querySelectorAll('#atlas-rail-list button')[k].click(); }}); }}
+function next(){{ later(function(){{ q('#atlas-step-next').click(); }}); }}
+function diagram(){{ later(function(){{ q('[data-form="diagram"]').click(); }}); }}
 {actions}
+function run(){{ if (at < steps.length) {{ steps[at++](); setTimeout(run, {step}); }} }}
+setTimeout(run, {step});
 }})();</script>
 """
 
 
 def render(root: Path, compare: bool = False) -> str:
-    """Make the canvas page of the map tree from stored facts. With `compare`, the page
-    has the revision comparison of CHANGE_HEAD with CHANGE_BASE."""
+    """Make the page of the map tree from stored facts, as `systemap render` does. With
+    `compare`, the page has the revision comparison of CHANGE_HEAD with CHANGE_BASE."""
     cfg = config.load(root)
     tree = nest.load(cfg)
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not facts:
         raise SystemExit("No facts are available. First run systemap refresh.")
-    changes = None
+    of = None
     if compare:
         source = change.source_change(cfg, CHANGE_BASE, facts, CHANGE_HEAD)
         of = render_pages.page_change(cfg, facts, CHANGE_BASE, CHANGE_HEAD, source, {})
-        changes = {m.id: of(m) for m in tree.maps}
-    pages = {m.id: html for m, html in canvas_page.pages(cfg, tree, facts, changes)}
+    history, lines = render_pages.history(cfg, tree, facts)
+    for line in lines:
+        print(line, file=sys.stderr)
+    pages = {m.id: html for m, html in render_pages.pages(cfg, tree, facts, of, history=history)}
     return pages[tree.top.id]
 
 
@@ -134,7 +151,8 @@ def driven(html: str, actions: str, style: str = "") -> str:
     head, tail = html.rsplit("</body>", 1)
     if style:
         head = head.replace("</head>", f"<style>{style}</style></head>", 1)
-    return page_csp.with_policy(head + DRIVER.format(actions=actions) + "</body>" + tail)
+    script = DRIVER.format(actions=actions, step=STEP_MS)
+    return page_csp.with_policy(head + script + "</body>" + tail)
 
 
 def shoot(
@@ -187,8 +205,8 @@ def webp(ffmpeg: str, png: Path, out: Path) -> None:
 
 
 def landing(args: argparse.Namespace, root: Path, site: Path, base: str, out: Path) -> None:
-    """Make the WebP images of the three views of the landing page."""
-    pages = {"plain": render(root), "compare": render(root, compare=True)}
+    """Make the WebP images of the five views of the landing page."""
+    html = render(root)
     shots = site.parent / "landing"
     shots.mkdir()
     sizes = (
@@ -196,7 +214,6 @@ def landing(args: argparse.Namespace, root: Path, site: Path, base: str, out: Pa
         ("-phone", LANDING_PHONE, 2, "html,body{width:390px;max-width:390px}"),
     )
     for name, actions in VIEWS:
-        html = pages["compare" if name == "changes" else "plain"]
         for scheme in theme_mod.SCHEMES:
             for size, window, scale, style in sizes:
                 stem = f"view-{name}{size}-{scheme}"
@@ -264,8 +281,10 @@ def main(argv: list[str] | None = None) -> int:
     for scheme in theme_mod.SCHEMES:
         (site / f"{scheme}.html").write_text(driven(seeded(html, scheme), ""), encoding="utf-8")
     base_page = seeded(html, theme_mod.DEFAULT_SCHEME)
-    for k, (_name, actions) in enumerate(TOUR, start=1):
-        (site / f"tour-{k:02d}.html").write_text(driven(base_page, actions), encoding="utf-8")
+    compared = seeded(render(root, compare=True), theme_mod.DEFAULT_SCHEME)
+    for k, (name, actions) in enumerate(TOUR, start=1):
+        start = compared if "compare" in name else base_page
+        (site / f"tour-{k:02d}.html").write_text(driven(start, actions), encoding="utf-8")
     # Chrome can use a window wider than the requested phone screenshot.
     # The document width must agree with the screenshot width.
     phone = driven(base_page, "", "html,body{width:390px;max-width:390px}")
@@ -295,7 +314,8 @@ def main(argv: list[str] | None = None) -> int:
                 not args.no_sandbox,
             )
             print(f"  state {k}: {name}")
-        shutil.copyfile(frames / "tour-11.png", out / "sequence.png")
+        at = [name for name, _ in TOUR].index(SEQUENCE_FRAME) + 1
+        shutil.copyfile(frames / f"tour-{at:02d}.png", out / "sequence.png")
         shoot(
             args.chrome,
             f"{base}/phone.html",

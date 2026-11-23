@@ -26,15 +26,15 @@ profile = "plain"
 | Profile | Writing rules |
 |---|---|
 | `plain` | The common rules and the project glossary. This profile is the default. |
-| `asd-ste100` | The common rules, the project glossary, and the full ASD-STE100 Issue 9 rules. |
+| `asd-ste100` | The common rules, the project glossary, and the ASD-STE100 Issue 9 style rules and word list. |
 
 Before you write, read the profile in the configuration.
 If the configuration has no profile, use `plain`.
 Apply the rules of that profile to each new or changed name and sentence.
 
-A person or a program can examine the common rules without the ASD dictionary.
-The `plain` profile has no dictionary step.
-Under the `plain` profile, do not say that the text obeys ASD-STE100.
+A person or a program can examine the common rules.
+The `plain` profile has no ASD-STE100 step.
+Under the `plain` profile, do not say that the text follows ASD-STE100.
 
 ## Common rules
 
@@ -106,50 +106,123 @@ Do not rewrite recorded evidence as if the new words were the original result.
 ## ASD-STE100 profile
 
 Use this section only under the `asd-ste100` profile.
-It adds the full ASD-STE100 Issue 9 rules to the common rules.
+It adds the ASD-STE100 style rules to the common rules.
 
 ### Reference
 
-ASD publishes the [official standard](https://www.asd-ste100.org/STE_downloads.html).
-Use the writing rules in part 1 and the dictionary in part 2.
-Do not use a general English dictionary or a summary of plain English instead.
+This profile uses the style of ASD-STE100 Issue 9. It does not use the official ASD dictionary.
+The rules in this section come from public summaries of the standard.
+The sources are at the end of this section.
+The project word list gives preferred words. It is not the ASD dictionary.
 Do not put a copy of the ASD dictionary in the repository.
 
-Before you write, make sure that the official reference is available.
-If it is not available, tell the maintainer that the reference is missing.
-Then do not give an ASD-STE100 acceptance result.
+Under this profile, you can say that the text follows the ASD-STE100 style of this policy.
+Do not say that the text obeys the official standard or its dictionary.
 
-### Words and sentences
+### Words
 
-For each ordinary word, examine its dictionary entry.
-Use only its approved meaning, part of speech, and word forms.
-A word that is approved as a noun is not automatically approved as a verb.
-For example, use "do a check" instead of the ordinary verb "check".
-For new names, use approved dictionary words or an applicable technical noun from the project glossary.
+- Use each word with one meaning and one part of speech.
+- Use the words in the right column of the project word list.
+- Do not use slang, jargon, or regional words. Use American English spelling.
+- Do not use a technical noun as a verb. Do not use a technical verb as a noun.
+- Do not use phrasal verbs. For example, write "remove", not "get rid of".
+- Use a verb for an action. Write "apply the patch", not "do the application of the patch".
 
-Use the permitted simple verb forms.
-Use the word-count rules in section 8 of the standard.
-Keep each paragraph to one topic and no more than six sentences.
-Do not use semicolons in new prose.
+### Verbs
+
+Use only these verb forms:
+
+- The infinitive and the imperative.
+- The simple present, the simple past, and the simple future.
+- The past participle as an adjective. For example, write "the changed file".
+
+Do not make complex verb forms with auxiliary verbs.
+For example, do not write "has been changed" or "should be replaced".
+Use the "-ing" form only in a technical noun or as a modifier in a technical noun.
+Use the active voice. In descriptive text, use the passive voice only when the agent is not known.
+
+### Sentences and paragraphs
+
+- Do not omit articles, subjects, or verbs to make a sentence shorter.
+- Write "make sure that", not "make sure".
+- Use an article or a demonstrative adjective before a noun when applicable.
+- Use a vertical list for complex text.
+- Use connecting words, such as "then", "but", and "thus", between related sentences.
+- Write one topic in each paragraph. A paragraph must not have more than six sentences.
+- In a procedure, write each instruction in the imperative.
+- Use a note only to give information. Do not put an instruction in a note.
+- Start a warning with a clear command or condition. Then give the risk.
+
+### Punctuation and word counts
+
+- Do not use semicolons.
+- Use a hyphen to connect words that are directly related. A hyphenated word is one word.
+- Text in parentheses counts as one word in the sentence.
+- In a vertical list, a colon has the same effect on the word count as a full stop.
+- Do not use Latin abbreviations. Write "for example", not "e.g.". Write "that is", not "i.e.".
+
+### Project word list
+
+In the source column, "summary" identifies a public summary at the end of this section.
+"Project" identifies a choice of this project.
+
+| Do not use | Use | Source |
+|---|---|---|
+| ensure | make sure that | project |
+| verify | make sure that, examine | project |
+| check (a human action) | examine, do a check | project |
+| look at, review (a human action) | examine | project |
+| follow (a rule) | obey | summary |
+| utilize, leverage | use | summary, project |
+| in order to | to | summary |
+| it is necessary to | you must | summary |
+| require, need | must have, is necessary | project |
+| prior to | before | summary |
+| subsequent to | after | summary |
+| initiate | start | summary |
+| terminate | stop | summary |
+| perform, carry out | do | summary |
+| obtain | get | project |
+| approximately | about | project |
+| find out | find | project |
+| set up | configure, prepare | project |
+| e.g., i.e., etc. | for example, that is, the full list | summary |
+| don't, can't, won't | do not, cannot, will not | summary |
+
+The verbs "execute" and "run" are technical verbs for a computer operation.
+For a human action, write "do".
 
 ### Glossary categories and technical verbs
 
 The category numbers in the project glossary are the technical-name categories of the standard.
 The technical verbs belong to the computer-process category in rule 1.12.
-If approved dictionary words give the same meaning as a technical verb, use those words instead.
-Use "compare the revisions" only if the dictionary meaning of "compare" applies.
+If ordinary words give the same meaning as a technical verb, use those words instead.
 
 ### Acceptance steps
 
 Do these steps in addition to the acceptance procedure for the two profiles:
 
-1. Examine the applicable dictionary entries and their meanings.
-2. Examine each technical term against the glossary and the standard categories.
-3. Make sure that verb forms, punctuation, and word counts obey the standard.
+1. Examine each word against the project word list and the project glossary.
+2. Make sure that verb forms, voice, sentences, and paragraphs obey the rules in this section.
+3. Make sure that punctuation and word counts obey the rules in this section.
+4. Examine each technical term against the glossary and its category.
 
-Do not add an ordinary word to the glossary to avoid its dictionary rule.
-An automated word list cannot show approved meanings or parts of speech.
-Without the official dictionary, do not say that the text obeys ASD-STE100.
+Do not add an ordinary word to the glossary to avoid a rule.
+A program can count words and find the words in the left column of the word list.
+A program cannot show meanings or parts of speech.
+Give the result as "follows the ASD-STE100 style of this policy".
+
+### Sources
+
+The maintainer read these public summaries on 2026-11-19:
+
+- [Term checker rules for ASD-STE100 Issue 9](https://simplified-english.co.uk/rules-ste9.html). This page gives the rule numbers.
+- [Simplified Technical English](https://en.wikipedia.org/wiki/Simplified_Technical_English) in Wikipedia.
+- [Simplified Technical English: Rules and Examples](https://clickhelp.com/clickhelp-technical-writing-blog/what-is-simplified-technical-english/) from ClickHelp.
+- [An STE100 summary for agents](https://git.mlnp.fr/agent-assets.git/raw/steering/ste100/ste100.md).
+
+The summaries do not agree on all rules. This policy uses the stricter rule.
+ASD supplies the [official standard](https://www.asd-ste100.org/STE_downloads.html).
 
 ## Project glossary
 
@@ -174,7 +247,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | baseline | The source revision used for a comparison. |
 | branch | A Git reference to a sequence of commits. |
 | cache | Stored results that a later call can use again. |
-| card | The visual representation of one map component. |
+| card | The visual representation of one component or one actor of a map. |
 | CI | Automated repository checks after a push or pull request. |
 | CLI | The command-line interface of a program. |
 | choice question | A question to a decision provider that selects one option from a list. |
@@ -241,14 +314,19 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | TSX | TypeScript syntax that includes JSX elements. |
 | viewport | The visible area in which the browser shows a map. |
 | writing profile | The configuration value that selects the writing rules for map text: `plain` or `asd-ste100`. |
-| actor | A map component outside the system source boundary. |
+| actor | A card for a person or a system outside the source of its map. On the top map, an actor is outside the system source boundary. On a nested map, an actor stands for a component of the parent map, and the page calls it a neighbour. An actor is not a component of the map that shows it. The schema records an actor as `Component` with `kind='actor'`. |
 | alias | An alternative source name for an import or public symbol. |
 | AUC | The area under a measured threshold curve (category 7). |
 | barycenter | The weighted mean position used by the layout procedure (category 7). |
 | benchmark | A recorded comparison of program or model results under specified conditions (category 7). |
 | camera | The transform that positions and scales the map within its viewport. |
-| canvas page | The page that draws all maps of a map tree on one canvas element. |
-| redirect page | The small page of a nested map that opens the canvas page at that map with the URL hash. |
+| atlas page | The default page: it draws all maps of a map tree on one canvas element, with the calm look of `docs/design/atlas.md`, and it has the views Map, Sequences, States, Focus, and History. |
+| canvas page | The earlier page that draws all maps of a map tree on one canvas element. `[render] page = "canvas"` selects it. |
+| redirect page | The small page of a nested map that opens the top page (the atlas page or the canvas page) at that map with the URL hash. |
+| reading line | On the atlas page, the line of text at the bottom of the map that gives one sentence about the item under the pointer or with the keyboard focus. |
+| lane | On the atlas page, one of the parallel lines that the page gives to the paths that share a gap. |
+| reach | In the Focus view, the count of the other cards on a path of flows from the card in the middle. |
+| state machine | The states of one item and the transitions between them, each with its cause (`StateMachine`). |
 | linked page | The page of one map, with links to the pages of its parent map and its nested maps. `[render] canvas = false` selects it for one release. |
 | release | A published version of systemap with a version number. |
 | claim | An authored statement about source behavior or a map relationship. |
@@ -287,7 +365,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | drag | A pointer movement while a mouse button or a finger stays down. |
 | double-click | Two clicks of a mouse button at one pointer position in a short time. |
 | tap | One short touch of a finger on a touch screen. |
-| preview | A temporary map view that shows a flow before selection. In the canvas page, the small view of a nested map in the card that opens it. |
+| preview | A temporary map view that shows a flow before selection. In the canvas page, the small view of a nested map in the card that opens it. The atlas page calls it the small picture. |
 | portal | In the canvas page, a label at the screen edge for a neighbour of the open map that is not on the screen. |
 | ring | In the canvas page, a line at the screen edge for the frame of an open map that is larger than the screen. |
 | level of detail | The quantity of card information that the screen size of a card selects. |
@@ -319,7 +397,7 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | Ink | The named theme with dark surfaces and an amber selection color (category 17). |
 | Paper | The named theme with light surfaces, an ink selection color, and a yellow highlighter fill (category 17). |
 | amber | The yellow-orange color of the selection in the Ink theme (category 17). |
-| vermilion | The red-orange color that shows a source change in the Changes view (category 17). |
+| vermilion | The red-orange color that shows a source change: the change marks of the atlas page and the Changes view of the canvas page (category 17). |
 | highlighter fill | The yellow fill under the selected card and flow path in the Paper theme (category 17). |
 | device theme | The Paper or Ink theme that the page selects from the light or dark setting of the computer. |
 | CIEDE2000 | The formula that calculates the difference between two colors (category 7). |
@@ -366,6 +444,14 @@ Plural forms and modifiers within an applicable technical noun are permitted.
 | contract commit | The Git commit with the top map, the boundary rules, the stubs, and the `map=` fields. |
 | stub | A nested model file that has only the components from `systemap parts --stub`. |
 | Git worktree | A different folder with the files of one Git repository, with its own branch. |
+| module role | The recorded classification of an imported module in a module use answer: `helper`, `handoff`, or `mixed`. |
+| helper module | A module whose code operates in the code of the caller and sends no artifact out of the caller. |
+| handoff module | A module whose code sends an artifact, keeps shared data, or starts work in its component. |
+| mixed module | A module that has handoff names and other names. |
+| handoff name | A public name of a mixed module that the answer records in `handoff`. |
+| import crossing | Two components of one map where modules of the first component import modules of the second component, and no flow connects them. Each import crossing has one `crossing import` line. |
+| refused answer | A recorded answer that the judgement report does not apply. The report gives the cause. |
+| import form | The time at which an import operates: `load`, `call`, or `type`. |
 
 | Term | Technical meaning |
 |---|---|

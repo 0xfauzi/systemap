@@ -57,7 +57,7 @@ DRIVER = Path(__file__).resolve().parent / "canvas_redirect.js"
 
 @pytest.fixture(scope="module")
 def origin(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
-    root = _made(tmp_path_factory.mktemp("redirect"), "")
+    root = _made(tmp_path_factory.mktemp("redirect"), '[render]\npage = "canvas"\n')
     cfg = config.load(root)
     tree = nest.load(cfg)
     data = canvas_data.build(cfg, tree, facts_file.read_facts(cfg.facts_path, cfg.root))

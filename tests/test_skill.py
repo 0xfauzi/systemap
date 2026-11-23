@@ -50,16 +50,10 @@ def test_skill_front_matter_and_vocabulary() -> None:
     block = re.search(r"```toml\n(.*?)```", second, re.S)
     assert block is not None
     rows = re.findall(r"^\s+\{ (\w+) = ", block.group(1), re.M)
-    assert rows == [
-        "item",
-        "items",
-        "crossing",
-        "crossing_into",
-        "crossing_from",
-        "kind",
-        "module_sdk",
-    ]
-    assert "Seven forms" in second and len(rows) == 7
+    # The crossing selectors are refused answers, so the examples give a module role answer.
+    assert rows == ["item", "items", "item", "kind", "module_sdk"]
+    assert 'role = "helper", symbol = "clean"' in block.group(1)
+    assert "These forms are available" in second and "Seven forms" not in second
     assert "systemap judgement --verbose" in second
     assert '--kind "crossing import"' in second
     assert "repository's own agent definition" in second
@@ -108,19 +102,22 @@ def test_step_four_lists_every_answer_form_and_every_line_kind() -> None:
     for form in (
         'item = "<line>"',
         'items = ["<line>", ...]',
-        'crossing = ["A", "B", ...]',
-        'crossing_into = "A"',
-        'crossing_from = "A"',
         'kind = "<kind>"',
         'module_sdk = "<import>"',
     ):
         assert form in step, form
-    assert "two or more different identifiers" in step and "nonempty" in step
+    assert "nonempty" in step and "crossing_into" not in step
+    assert "refuses a broad answer for `crossing import`, `module use`, and `declared flow`" in step
     assert "evidence digest" in step and "policy = true" in step
     from systemap.config import LINE_KINDS
 
     rows = [line for line in step.splitlines() if line.strip().startswith("| `")]
-    assert [row.split("`")[1] for row in rows] == list(LINE_KINDS)
+    # The table gives `module use` before `crossing import`: the agent gives the module
+    # roles first, and only then are the crossing import lines open.
+    kinds = [k for k in LINE_KINDS if k != "module use"]
+    kinds.insert(kinds.index("crossing import"), "module use")
+    assert [row.split("`")[1] for row in rows] == kinds
+    assert "On a map with `module use` lines, give the module roles first." in step
     mis_fold = next(row for row in rows if "possible mis-fold" in row)
     assert "no common name word or package" in mis_fold
     assert "Examine its function" in mis_fold and "correct component assignment" in mis_fold
@@ -211,12 +208,12 @@ def test_language_policy_is_mandatory_and_installed(tmp_path: Path) -> None:
     for phrase in (
         "ASD-STE100 Issue 9",
         "every new map and every map update",
-        "official ASD rules and dictionary",
-        "approved meanings and parts of speech",
+        "the style rules and the project word list",
+        "one meaning and one part of speech",
         "component names, artifacts, layers, sequences, steps, invariants",
     ):
         assert phrase in text
-    # The agent reads the writing profile, and only the strict profile has a dictionary step.
+    # The agent reads the writing profile, and only the strict profile has an ASD-STE100 step.
     # Issue 97, item 8: the configuration reader also reads `[tool.systemap]` in pyproject.toml
     # when systemap.toml is missing, so the skill names the two places.
     assert (
@@ -224,8 +221,8 @@ def test_language_policy_is_mandatory_and_installed(tmp_path: Path) -> None:
         "`[tool.systemap.writing] profile` in `pyproject.toml`. If the key is missing, use "
         "`plain`." in text
     )
-    assert "There is no dictionary step. Do not say that the text obeys ASD-STE100." in text
-    assert "The `plain` profile has no dictionary step." in policy
+    assert "There is no ASD-STE100 step. Do not say that the text follows ASD-STE100." in text
+    assert "The `plain` profile has no ASD-STE100 step." in policy
     assert "Procedural sentences must not exceed 20 words" in policy
     assert "Descriptive sentences must not exceed 25 words" in policy
     assert "Do not add an ordinary word to the glossary" in policy

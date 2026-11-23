@@ -30,7 +30,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from systemap import boundary_ids, claim_index, flow_ids, sequence_ids
+from systemap import boundary_ids, claim_index, flow_ids, sequence_ids, states
 
 Box = tuple[int, int, int, int]
 Edge = tuple[str, str]
@@ -474,7 +474,7 @@ class Meaning:
 
     verbs gives the source-side and target-side labels for each layer.
     verb_overrides supplies these labels for an individual flow.
-    journeys contains the ordered sequences."""
+    journeys contains the ordered sequences. machines contains the state machines (`states`)."""
 
     plain: Mapping[str, str]
     layers: tuple[Layer, ...] = ()
@@ -484,6 +484,7 @@ class Meaning:
     layer_overrides: Mapping[Edge | str, str] = field(default_factory=dict)
     verbs: Mapping[str, tuple[str, str]] = field(default_factory=dict)
     verb_overrides: Mapping[Edge | str, tuple[str, str]] = field(default_factory=dict)
+    machines: tuple[states.StateMachine, ...] = ()
 
     def relation(self, flow: Flow) -> str:
         """Get the relation sentence of the flow, or an empty string."""
@@ -597,6 +598,9 @@ def meaning_problems(model: Model, meaning: Meaning) -> list[str]:
         if cid not in ids:
             out.append(f"plain has an unknown component: {cid}")
     out += sequence_ids.problems(meaning)
+    out += states.problems(
+        meaning.machines, ids, {f.key for f in model.flows}, {j.id for j in meaning.journeys}
+    )
     for j in meaning.journeys:
         out.extend(_journey_problems(j, ids, model.flows))
     return out

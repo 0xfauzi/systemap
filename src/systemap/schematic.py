@@ -20,7 +20,9 @@ route.py makes horizontal and vertical paths between cards. Paths avoid
 other cards and unrelated regions. Labels use path segments or space
 beside a short segment. Header subtitles can use two lines. The detail
 JSON records placement errors in `_meta.collisions` and routing reasons
-in `_meta.notes`. Map checks reject placement errors.
+in `_meta.notes`. Map checks reject placement errors. `_meta.page_names`
+records the card names that the atlas page cuts. In this release, the check
+gives a warning for them, not an error.
 
 Card positions and flow explanations come from the model. Every figure
 uses these same positions. The minimum figure text size is 11px."""
@@ -32,6 +34,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from systemap import assurance, evidence, flow_ids
+from systemap.card_names import page_name_problems
 from systemap.model import (
     DERIVED_LAYERS,
     Meaning,
@@ -121,6 +124,12 @@ from systemap.schematic_script import page_maps_script as page_maps_script
 from systemap.schematic_style import _defs, _svg_style, layer_marker
 from systemap.schematic_style import panel_css as panel_css
 from systemap.theme import Palette
+
+
+def _page_names(lines: list[str]) -> dict[str, list[str]]:
+    """Give the `page_names` key of the detail JSON. Only a map with a card name that the
+    atlas page cuts has the key. Thus the pages of other maps keep their bytes."""
+    return {"page_names": lines} if lines else {}
 
 
 def render(
@@ -267,6 +276,7 @@ def render(
     floor: list[str] = []
     headers = geo.headers
     collisions = list(geo.collisions)
+    page_names: list[str] = []
     # The ground is neutral and has the same colors in every view: a container
     # is a 1 px solid frame (`line_2`) with no fill, and a region is a 1 px
     # dashed `region` border with a number ring. The strokes keep their screen
@@ -461,8 +471,10 @@ def render(
                 f'fill-opacity=".85"/>'
             )
         # The name and the plain word, within the card's budget; what does
-        # not fit is reported for the check, never cut short.
+        # not fit is reported for the check, never cut short. The check also
+        # gives a warning for a name that the atlas page cuts (`card_names`).
         collisions += card_text(kind, cid, plain)[2]
+        page_names += page_name_problems(kind, cid)
         name_rows, plain_rows = card_lines(kind, cid, plain, sizes) or ([], [])
         for dy, line in name_rows:
             g.append(L(x + 10, y + dy, line, sizes[0], INK, "600", True, "start"))
@@ -634,6 +646,7 @@ def render(
             },
             **change_meta(marks),
             "collisions": collisions,
+            **_page_names(page_names),
             "notes": notes,
             "labels": label_boxes,
             "headers": headers,

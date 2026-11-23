@@ -223,6 +223,32 @@ def test_explain_prints_one_entry_whole_and_names_the_kinds_it_knows() -> None:
     assert "there is no line kind" in missing[0] and "crossing import" in missing[1]
 
 
+def test_the_new_crossing_import_lesson_asks_for_the_module_role() -> None:
+    """A family answer cannot close a crossing import line, and a module role decides if
+    the import must have a flow. Thus the lesson tells the reader to give the module role."""
+    lesson = explain.LESSONS["new crossing import"]
+    assert lesson.do == (
+        "If the connection is correct, add the flow and its description. Otherwise, change "
+        "the code, or give the module role of the imported module."
+    )
+
+
+def test_the_module_use_lessons() -> None:
+    """The `module use` lesson and the `crossing import` lesson of the module roles."""
+    use = explain.LESSONS["module use"]
+    assert use.means == (
+        "Modules of other components import this module. No flow connects these components "
+        "to the component of the module."
+    )
+    assert "A family answer cannot close this line." in use.do
+    crossing = explain.LESSONS["crossing import"]
+    assert crossing.means.startswith("A module of one component imports a handoff module")
+    assert crossing.do.endswith("change its module use answer.")
+    assert explain.rows("module use") and all(
+        "why:" in row or "do:" in row for row in explain.rows("module use")
+    )
+
+
 # ---- the teaching, under the lines and on its own ----------------------------------
 
 

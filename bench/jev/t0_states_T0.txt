@@ -1,0 +1,63 @@
+
+### 0: Source review of a component
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.250 | cap | 1.798 | 2.503 | 0.60 | 0.40 | 17.5 | 105.1 |
+| 1.4 | 1.400 | cap | 1.798 | 2.503 | 0.68 | 0.44 | 19.6 | 117.7 |
+| 1.6 | 1.600 | cap | 1.798 | 2.503 | 0.77 | 0.51 | 22.4 | 134.6 |
+| 2 | 1.798 | width | 1.798 | 2.503 | 0.87 | 0.57 | 25.2 | 151.3 |
+| none | 1.798 | width | 1.798 | 2.503 | 0.87 | 0.57 | 25.2 | 151.3 |
+
+### 1: Review of a flow
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.217 | width | 1.217 | 2.503 | 0.91 | 0.39 | 17.0 | 118.0 |
+| 1.4 | 1.217 | width | 1.217 | 2.503 | 0.91 | 0.39 | 17.0 | 118.0 |
+| 1.6 | 1.217 | width | 1.217 | 2.503 | 0.91 | 0.39 | 17.0 | 118.0 |
+| 2 | 1.217 | width | 1.217 | 2.503 | 0.91 | 0.39 | 17.0 | 118.0 |
+| none | 1.217 | width | 1.217 | 2.503 | 0.91 | 0.39 | 17.0 | 118.0 |
+
+### 2: Life of a job
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.250 | cap | 1.539 | 1.582 | 0.72 | 0.69 | 17.5 | 44.4 |
+| 1.4 | 1.400 | cap | 1.540 | 1.582 | 0.81 | 0.77 | 19.6 | 49.7 |
+| 1.6 | 1.540 | width | 1.540 | 1.582 | 0.89 | 0.85 | 21.6 | 54.6 |
+| 2 | 1.540 | width | 1.540 | 1.582 | 0.89 | 0.85 | 21.6 | 54.6 |
+| none | 1.540 | width | 1.540 | 1.582 | 0.89 | 0.85 | 21.6 | 54.6 |
+
+### 3: A row
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.217 | width | 1.217 | 2.915 | 0.91 | 0.32 | 10.6 | 19.6 |
+| 1.4 | 1.217 | width | 1.217 | 2.915 | 0.91 | 0.32 | 10.6 | 19.6 |
+| 1.6 | 1.217 | width | 1.217 | 2.915 | 0.91 | 0.32 | 10.6 | 19.6 |
+| 2 | 1.217 | width | 1.217 | 2.915 | 0.91 | 0.32 | 10.6 | 19.6 |
+| none | 1.217 | width | 1.217 | 2.915 | 0.91 | 0.32 | 10.6 | 19.6 |
+
+### 4: Many lines
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.217 | width | 1.217 | 2.366 | 0.91 | 0.41 | 49.3 | 64.8 |
+| 1.4 | 1.217 | width | 1.217 | 2.366 | 0.91 | 0.41 | 49.3 | 64.8 |
+| 1.6 | 1.217 | width | 1.217 | 2.366 | 0.91 | 0.41 | 49.3 | 64.8 |
+| 2 | 1.217 | width | 1.217 | 2.366 | 0.91 | 0.41 | 49.3 | 64.8 |
+| none | 1.217 | width | 1.217 | 2.366 | 0.91 | 0.41 | 49.3 | 64.8 |
+
+### 5: Life of a token
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.250 | cap | 1.798 | 5.992 | 0.60 | 0.11 | 11.0 | 20.5 |
+| 1.4 | 1.400 | cap | 1.798 | 5.992 | 0.68 | 0.12 | 12.8 | 22.8 |
+| 1.6 | 1.600 | cap | 1.798 | 5.992 | 0.77 | 0.14 | 14.2 | 26.2 |
+| 2 | 1.798 | width | 1.798 | 5.992 | 0.87 | 0.15 | 16.6 | 29.6 |
+| none | 1.798 | width | 1.798 | 5.992 | 0.87 | 0.15 | 16.6 | 29.6 |
+
+### 6: Life of a request
+| Cap | Scale | Binds | Width fit | Height fit | Fill of width | Fill of height | Largest label box to line (px) | Largest label centre to line (px) |
+|---|---|---|---|---|---|---|---|---|
+| 1.25 | 1.217 | width | 1.217 | 2.950 | 0.91 | 0.31 | 10.6 | 19.6 |
+| 1.4 | 1.217 | width | 1.217 | 2.950 | 0.91 | 0.31 | 10.6 | 19.6 |
+| 1.6 | 1.217 | width | 1.217 | 2.950 | 0.91 | 0.31 | 10.6 | 19.6 |
+| 2 | 1.217 | width | 1.217 | 2.950 | 0.91 | 0.31 | 10.6 | 19.6 |
+| none | 1.217 | width | 1.217 | 2.950 | 0.91 | 0.31 | 10.6 | 19.6 |

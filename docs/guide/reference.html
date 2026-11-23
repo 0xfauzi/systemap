@@ -281,7 +281,11 @@ For each finding, change the model or record the reason for its stored state.</p
 </tr>
 <tr>
 <td>crossing import</td>
-<td>Module A in component P imports module B in component Q. No flow connects P and Q in either direction.</td>
+<td>Module A in component P imports module B in component Q. No flow connects P and Q in either direction. The line opens only when the import crossing uses a handoff module or a handoff name.</td>
+</tr>
+<tr>
+<td>module use</td>
+<td>Modules of other components import module M, and no flow connects them to the component of M. What is the module role of M: <code>helper</code>, <code>handoff</code>, or <code>mixed</code>?</td>
 </tr>
 <tr>
 <td>declared flow</td>
@@ -327,7 +331,7 @@ For each finding, change the model or record the reason for its stored state.</p
 </table>
 </div>
 <p>Without <code>--strict</code>, the report exits 0.
-With <code>--strict</code>, it exits 1 while a finding is open.</p>
+With <code>--strict</code>, it exits 1 while a finding is open or an answer is refused.</p>
 <p>Each source component has one review state:
 <code>missing</code> (no <code>source_review</code>), <code>stale</code> (<code>source_review</code> is not the current digest), or <code>current</code>.
 <code>systemap delta</code> and <code>systemap judgement</code> use the same state.
@@ -348,13 +352,14 @@ An answer that matches no finding is stale.</p>
 <p><code>items</code> shows multiple exact lines with one reason.</p>
 </li>
 <li>
-<p><code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code> shows crossings between any two listed ids.</p>
+<p><code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code> selects crossings between any two listed ids.
+The report refuses this answer, because it selects only <code>crossing import</code> lines.</p>
 </li>
 <li>
-<p><code>crossing_into = &quot;A&quot;</code> shows crossings into A.</p>
+<p><code>crossing_into = &quot;A&quot;</code> selects crossings into A. The report refuses this answer.</p>
 </li>
 <li>
-<p><code>crossing_from = &quot;A&quot;</code> shows crossings from A.</p>
+<p><code>crossing_from = &quot;A&quot;</code> selects crossings from A. The report refuses this answer.</p>
 </li>
 <li>
 <p><code>kind = &quot;single module&quot;</code> shows all lines of that kind.
@@ -383,6 +388,7 @@ The <code>source_review</code> value, the flow review digests, and the source di
 The cited facts are the <code>file</code>, the <code>package</code>, the public <code>names</code>, and the imports in <code>uses</code> with the imported names.
 They also include the <code>external</code> imports, the <code>parsed</code> value, and the unknown records without their line numbers.</li>
 <li>For a <code>crossing import</code> line, the imports between the two components, with the imported names.</li>
+<li>For a <code>module use</code> line, the cited facts of its module, its <code>import_forms</code>, and its <code>dynamic_imports</code> without the line numbers. A new user, a move of the module to a different component, and a function body do not change this evidence.</li>
 <li>For an <code>entry point</code> line, the entry point records of its modules. A record has the <code>kind</code>, <code>module</code>, <code>target</code>, and <code>name</code> values.</li>
 <li>For an <code>unknown surface</code> line of a module, the records of the line and the text of each cited source line.
 The records do not include the line number and the parser version.
@@ -883,10 +889,11 @@ Coverage counts the parent component one time.</p>
 A nested finding has its map id, as in <code>Gateway: map layout: clean ...</code>.</p>
 </li>
 <li>
-<p><code>refresh</code> and <code>render</code> write the canvas page <code>docs/map/index.html</code>.
-The canvas page draws all maps of the tree.
+<p><code>refresh</code> and <code>render</code> write the atlas page <code>docs/map/index.html</code>.
+The atlas page draws all maps of the tree.
 Each nested map also gets a redirect page, for example <code>docs/map/Gateway/index.html</code>.
-The redirect page opens the canvas page at that map, with the URL hash <code>#Gateway</code>.
+The redirect page opens the top page at that map, with the URL hash <code>#Gateway</code>.
+With <code>[render] page = &quot;canvas&quot;</code>, the commands write the canvas page and the same redirect pages.
 Thus a link to <code>Gateway/index.html</code> stays correct.
 With <code>[render] canvas = false</code>, the commands write one linked page for each map, with links between them.</p>
 </li>
@@ -936,6 +943,7 @@ Only a run without <code>--map</code> gives the result for completion.
 <p>A second nested level uses an id such as <code>Gateway/Routes</code>.
 The self-map in the recorded experiment had no nested map.
 Its 18 components were below the threshold.
+From 2026-11-19, the self-map has one nested map, Page (<code>map/page.py</code>), because the component Page has more than ten modules.
 The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/test_nested.py"><code>tests/test_nested.py</code></a> has five top-level
 components. Two open nested maps.
 The fixture in <a href="https://github.com/0xfauzi/systemap/blob/main/tests/three_levels.py"><code>tests/three_levels.py</code></a> has 11 maps with its default sizes: the top map and 10 nested maps on three levels below it.</p>
@@ -1271,7 +1279,7 @@ A missing value is not known. Then the entry point must have its own sequence.</
 <p><code>cause</code> on each unknown record: the cause that gives the <code>fix:</code> line, for example <code>declaration file</code> or <code>script file</code>.</p>
 </li>
 </ul>
-<p>The facts file has a format number in its <code>version</code> key. The current format is 14.
+<p>The facts file has a format number in its <code>version</code> key. The current format is 15.
 A facts file of an earlier format is stale. Then <code>check</code> and <code>extract --check</code> exit 1.
 After an upgrade of systemap, run <code>systemap refresh</code>.</p>
 <p>In format 14, the Python syntax digest and the <code>api</code> fingerprints come from the syntax text of systemap (<code>systemap.syntax_text</code>).
@@ -1279,6 +1287,10 @@ The signatures and the constant values come from the source text.
 Thus each supported Python version gives the same stored values.
 If the syntax tree has a node class that the syntax text does not know, the extraction stops.
 The error gives the class and the Python version.</p>
+<p>In format 15, each module record can have <code>import_forms</code> and <code>dynamic_imports</code>, and the facts have <code>import_details</code>.
+<code>import_forms</code> gives the import form of each target module with a form other than <code>load</code>: <code>load</code> (when the module loads), <code>call</code> (in a function body), or <code>type</code> (only for type checks).
+<code>dynamic_imports</code> gives each import by a string value, for example <code>importlib.import_module(name)</code> or <code>import(name)</code>. These records do not change <code>uses</code>.
+A language adapter gives <code>type</code> only for an import that can never operate at run time.</p>
 <p>A test file that systemap cannot read or parse gives a <code>test_file_issues</code> record, for Python and for TypeScript.
 The record is not known. It does not reject the map. <code>check</code> and <code>refresh</code> print it with its cause and its <code>fix:</code> line.
 <code>judgement</code> gives no line about a test file.</p>
@@ -1355,6 +1367,21 @@ The search selects the region order with the best score.
 Barycenter sweeps through flows select component order within regions.
 With six or fewer regions, the search tries every order.
 For more regions, it uses a greedy start and pairwise swaps.</p>
+<p>In a nested map, the actors go to the four sides of the frame of the map.
+Each actor goes to the side that is nearest to the mean center of the parts that it has flows with.
+Along that side, the actor is near that center.
+An actor with no flow to a part goes to the side with the most free room.
+The size of a side gives the count of actors that fit along it. When a side has too many actors, the actor with the smallest added distance goes to a different side.
+When the layout then has a label collision or a rejected route, the placer tries each actor at each other side with free room.
+It keeps the move with the fewest label collisions and rejected routes, and then the smallest map, while a move removes a collision or a rejected route.
+The container of the actors becomes a box around the frame and the actors, with room for its label above them.
+When the four sides do not have room for all the actors, the actors stay in one column at the left of the frame, as in a top map.
+<code>systemap place</code>, <code>systemap describe</code> and <code>systemap parts --stub</code> use this rule for each map that is not the top map, but only with <code>[render] page = &quot;atlas&quot;</code>, the default.
+With the canvas page or the linked page, the actors of a nested map stay in one column at the left of the frame.
+A map that already has positions keeps them. Use <code>systemap place --all</code> to put the actors of a nested map at the sides.</p>
+<p>The records N1 to N5 in <code>bench/jev/README.md</code> give the measurements of the rule.
+N1, N2 and N4 failed. N3 passed with two acceptance values that were changed after the results of N1 and N2 were known.
+N5 added the moves to a different side and passed the six acceptance values of N4.</p>
 <p>A bend estimate scores each candidate.
 The router renders the best twelve estimates and the model's listed order.
 It scores label collisions, rejected routes, bends, and length, in that order.
@@ -1381,36 +1408,52 @@ The error gives the flow or the component. <code>systemap describe</code> also e
 <p>Writes the page from the facts and model.
 Without facts and without package roots, <code>render</code>, <code>facts</code>, and <code>figure</code> give the package-root error of <code>extract</code> and exit 2.
 Thus they do not tell you to use <code>systemap extract</code> when <code>extract</code> cannot operate.</p>
-<p>The command writes the canvas page. This is the default from step 5 of <code>docs/design/nested-canvas.md</code>.
-The canvas page draws all maps of the tree on one <code>&lt;canvas&gt;</code> element.
-A card that opens a map shows a preview of that map. When the camera zooms in, the preview grows into the map.
-The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
-A click on a card selects it, and a double-click on a card goes into the card.
+<p>The command writes the atlas page (<code>docs/design/atlas.md</code>). This is the default from stage 9 of that document.
+The atlas page draws all maps of the tree on one <code>&lt;canvas&gt;</code> element.
+At rest, the lines of the flows are thin and have one neutral color. A label shows at rest only where it covers no card, no name and no other line.
+A card that opens a map has a small picture of that map. The wheel and a pinch zoom the camera at the pointer, and a drag moves the map.
+When the camera zooms in, the small picture grows into the map, and the map above fades.
+Point at a card or a line to light its flows in the colors of their kinds. The line at the bottom of the map then gives one sentence about it.
+A click, a tap or Enter selects a card and opens its details at the side. On a phone, the details are a sheet at the bottom.
+A double-click on a card, or Shift Enter, goes into the map of that card.
+Esc closes the details or goes out one level, F fits the current map, <code>+</code> and <code>-</code> zoom the camera, and the arrow keys move the map.
+The header has the views and the tools. The views are Map, Sequences, States, Focus, and History. A view shows only when the map has data for it.
+The Map view has the layers as tabs and a headline with the question of the layer and the counts.
+The Sequences view shows one sequence on the map or as a diagram, one step at a time. The left and right arrow keys change the step.
+The States view shows one state machine. The Focus view puts one card in the middle, with the cards that give to it at the left and the cards that it gives to at the right.
+The History view shows where the source files of each component changed, and when (<code>[render] history</code>).
+The headline gives the path of the open maps. A click on a part of the path moves the camera to that map.
+The URL hash holds the ID of the open map, for example <code>index.html#Gateway/Routes</code>. The hash of a card opens its map and selects the card.
+A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</code> opens <code>index.html#Gateway/Routes</code>.
+Without a script, the redirect page goes to the map, and it shows a link to the top page.
+The page uses the system setting for reduced motion. Then no line draws and no value fades.
+The tools are Find (Ctrl+K, Cmd+K, or /), the theme control (Device, Light, and Dark), the Reduce motion button, and the Keyboard keys (the <code>?</code> key). On a narrow screen, these tools are in one Tools menu.
+The details give the selected card: its description, its assurance level and freshness, its flows with their evidence, its source modules and source records, and its sequences. The rules of the map stay available.
+In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
+Thus such an answer changes the page. After you record it, run <code>systemap refresh</code>. If you do not, <code>check</code> and <code>render --check</code> report the page as stale.
+The page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the page cannot show in a frame of a different page.
+The page data is in the element <code>script#atlas-data</code>, and the history data is in <code>script#atlas-history</code>. The page has no <code>window.systemapWorkspace</code> object.</p>
+<p>With <code>[render] page = &quot;canvas&quot;</code>, the command writes the canvas page (<code>docs/design/nested-canvas.md</code>). This was the default from step 5 of that document to stage 9 of <code>docs/design/atlas.md</code>.
+The canvas page also draws all maps of the tree on one <code>&lt;canvas&gt;</code> element, with the same camera, the same keys, and the same redirect pages.
+On the canvas page, a click on a card selects it, and a double-click on a card goes into the card.
 On a touch screen, a tap selects a card, and a second tap on the card goes into it.
-Esc goes out one level, F fits the current map, <code>+</code> and <code>-</code> zoom the camera, and the arrow keys move the map.
 The F key does not show the map in full screen, as on the linked page.
 The header has the views Map, Sequences, and Changes, the layers, and Find (Ctrl+K, Cmd+K, or /).
-The path of the open maps is at the top left of the canvas. A click on a part of the path moves the camera to that map.
+The path of the open maps is at the top left of the canvas.
 When the frame of an open map is larger than the screen, a ring stays at the screen edge.
 When a neighbour of the open map is not on the screen, a portal at the screen edge gives it. A click on the portal moves the camera to the neighbour.
-The URL hash holds the ID of the open map, for example <code>index.html#Gateway/Routes</code>.
-A redirect page keeps the hash of its link: <code>Gateway/index.html#Routes</code> opens <code>index.html#Gateway/Routes</code>.
-Without a script, the redirect page goes to the map, and it shows a link to the canvas page.
-The page uses the system setting for reduced motion. Then each camera move occurs at one time.
 The header also has the theme button, the Reduce motion button, the Keyboard keys (the <code>?</code> key), and the source button. On a narrow screen, these buttons are in one Tools menu.
 The Details panel (the D key) gives the selected card: its kind and text, its <code>note</code> text, the map that it opens, its flows with their evidence, its sequences, its rules with their assurance, and the counts of the public names and the tests of its modules. The facts file has the full source records.
-In the Map view, the actor card of each open boundary finding of the judgement has a dotted ring and a tag with a short text. An answer in <code>[judgement] answered</code> that applies to the finding removes the mark.
-Thus such an answer changes the canvas page. After you record it, run <code>systemap refresh</code>. If you do not, <code>check</code> and <code>render --check</code> report the page as stale.
-The canvas page and the redirect pages have the policy <code>frame-src 'none'</code>. Thus the canvas page cannot show in a frame of a different page.
-The page data is in the element <code>script#canvas-data</code>. The page has no <code>window.systemapWorkspace</code> object.
-With <code>?hud</code> after the page address, the page shows the frames in each second and the time of each frame.</p>
+The canvas page also has the dotted ring of each open boundary finding.
+The page data of the canvas page is in the element <code>script#canvas-data</code>.
+With <code>?hud</code> after the page address, the atlas page and the canvas page show the frames in each second and the time of each frame.</p>
 <p>With <code>[render] canvas = false</code>, the command writes the linked page of each map, as before step 5.
 Then <code>render</code>, <code>refresh</code>, and <code>live</code> write this line on stderr. The exit code does not change.</p>
-<pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the canvas page.
+<pre><code>notice: [render] canvas = false writes the linked pages. The next release removes the linked pages. Remove the setting to write the atlas page.
 </code></pre>
 <p>The linked pages stay for one release. A later release removes them.
-The canvas page does not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the canvas page stale.
-A change of the <code>note</code> text makes the canvas page stale.</p>
+The atlas page and the canvas page do not show the <code>interface</code> text of a component. Thus a change of <code>interface</code> does not make the page stale.
+A change of the <code>note</code> text makes the page stale.</p>
 <ul>
 <li>
 <p><code>--check</code> exits 1 if the page is stale.
@@ -1419,11 +1462,14 @@ Thus a page that <code>render --base REF</code> wrote is stale for <code>render 
 </li>
 <li>
 <p><code>--base REF</code> adds a change map relative to that revision.
-The page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
-The canvas page and the linked page both obey this link.
+On the atlas page, each card with a change has a ring and a tag in the change color, and each removed flow has a dashed line in that color.
+The headline gives the count of the changed cards. The atlas page has no Changes view.
+Under the counts, the disclosure &quot;Not in this comparison&quot; gives the limits of the comparison, as the linked page gives them under NOT IN THIS COMPARISON.
+On the atlas page, <code>#changes</code> opens the top map, and <code>#Gateway/changes</code> opens the map <code>Gateway</code>.
+On the canvas page and the linked page, the page link <code>#changes</code>, for example <code>index.html#changes</code>, opens the Changes view.
 On the canvas page, <code>#Gateway/changes</code> opens the Changes view at the map <code>Gateway</code>.
 A map or a card with the ID <code>changes</code> keeps its link.
-The Changes panel lists the map changes: the components, flows, sequences, and rules
+On the linked page, the Changes panel lists the map changes: the components, flows, sequences, and rules
 that the change added, removed, or changed in the model.
 The list compares the committed model at the merge base with the model on disk.
 A new digest for the same cited module or symbol is not a flow change.
@@ -1638,10 +1684,24 @@ A line after the findings counts the component source reviews by state: current,
 Then one row gives each flow with the label &quot;review earlier than source tracking&quot;. These rows are not findings.
 A crossing-import row gives one component pair and a module count.
 Accepted answers under <code>[judgement] answered</code> suppress findings.
+The report refuses a family answer for <code>crossing import</code>, <code>module use</code>, and <code>declared flow</code> findings, and an answer with two or more items when one item is such a finding.
+A <code>refused answer:</code> row gives each refused answer and its cause. The findings of a refused answer stay open.
+An import only for type checks gives no <code>crossing import</code> finding.</p>
+<p>A <code>module use</code> finding names one module that other components import with no flow. Its exact answer gives the module role of the module:</p>
+<ul>
+<li><code>role = &quot;helper&quot;</code> with <code>symbol</code>, a name that the users import. The code of the module operates in the code of the caller.</li>
+<li><code>role = &quot;handoff&quot;</code>. The code of the module sends an artifact, keeps shared data, or starts work in its component.</li>
+<li><code>role = &quot;mixed&quot;</code> with <code>handoff</code>, a list of the names of the module that are handoff code.</li>
+</ul>
+<p>A <code>crossing import</code> finding opens only when its import crossing uses a handoff module or a handoff name.
+An import crossing that uses a module with no module role waits. It is not a finding, but the <code>module use</code> finding of the module is open.
+An import crossing that uses only helper code is closed. An exact answer for its line gets an <code>unused answer:</code> row.
+The report refuses a <code>helper</code> answer when a flow source record of the map cites the module, and a <code>mixed</code> answer when a cited name is not in <code>handoff</code>.
+After the source review counts, two rows count the import crossings by state and the modules by module role.
 The first finding of each kind has rows about its effect and necessary action.</p>
 <ul>
 <li>
-<p><code>--strict</code> exits 1 while a finding is open. If not, the exit code is 0.
+<p><code>--strict</code> exits 1 while a finding is open, an answer is refused, or an import crossing waits for module roles. If not, the exit code is 0.
 A model without components also gives exit 1 with <code>--strict</code>, as <code>systemap check</code> does.</p>
 </li>
 <li>
@@ -1731,7 +1791,7 @@ It reads the model list one time, as each Jev command does.</p>
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 8. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>. Version 8 added <code>open[].map_id</code>, <code>open[].parent_flow</code>, <code>open[].nested_flows</code>, and <code>open[].import_pairs</code>.</td>
+<td>The version of this schema. The value is 9. Version 2 added <code>open[].cause</code>. Version 3 added <code>open[].sources</code>. Version 4 added <code>earlier_flow_reviews</code>. Version 5 added <code>insufficient</code>, <code>open_lines</code>, and <code>history</code> to each object of <code>unknown_requests</code>. Version 6 added <code>open[].count</code>. Version 7 added <code>assurance</code>. Version 8 added <code>open[].map_id</code>, <code>open[].parent_flow</code>, <code>open[].nested_flows</code>, and <code>open[].import_pairs</code>. Version 9 added <code>open[].module_use</code>, the module role keys of <code>answered.answers</code>, <code>refused_answers</code>, <code>unused_answers</code>, <code>import_crossings</code>, and <code>module_roles</code>.</td>
 </tr>
 <tr>
 <td><code>open</code></td>
@@ -1794,6 +1854,11 @@ It reads the model list one time, as each Jev command does.</p>
 <td>For a <code>boundary import</code> finding: each import, with <code>module</code> and <code>imports</code>. For a <code>boundary flow</code> finding, the list is empty. For other findings, the value is null.</td>
 </tr>
 <tr>
+<td><code>open[].module_use</code></td>
+<td>object or null</td>
+<td>For a <code>module use</code> finding: <code>module</code>, the imported module; <code>component</code>, its component in the map of the line; <code>users</code>, one object for each run-time import with <code>map</code>, <code>component</code>, and <code>names</code> (<code>*</code> is an import of the full module with no known names); and <code>waiting_crossings</code>, the quantity of import crossings that wait for the module role. For other findings, the value is null.</td>
+</tr>
+<tr>
 <td><code>open[].drift</code></td>
 <td>object</td>
 <td>Only with <code>--order-by-drift</code>, and only in a <code>stale source review</code> row. <code>probability</code> is the drift score, or null for <code>no score</code>. <code>source</code> is <code>diff</code> or <code>text</code>: the form of the source part.</td>
@@ -1827,6 +1892,31 @@ It reads the model list one time, as each Jev command does.</p>
 <td><code>answered.answers[].lines</code></td>
 <td>list of strings</td>
 <td>The findings that the answer closes.</td>
+</tr>
+<tr>
+<td><code>answered.answers[].role</code>, <code>symbol</code>, <code>handoff</code></td>
+<td>string, string, list of strings</td>
+<td>The module role, the symbol, and the handoff names of a module role answer. For other answers, the values are empty.</td>
+</tr>
+<tr>
+<td><code>refused_answers</code></td>
+<td>list of objects</td>
+<td>One object for each refused answer: <code>answer</code> (the selector), <code>items</code>, <code>cause</code> (<code>family</code>, <code>items</code>, <code>symbol</code>, or <code>flow_source</code>), <code>text</code>, and <code>lines</code>, the quantity of findings that the answer selects.</td>
+</tr>
+<tr>
+<td><code>unused_answers</code></td>
+<td>list of strings</td>
+<td>Each item of an exact <code>crossing import</code> answer that is not necessary, because module roles close its import crossing.</td>
+</tr>
+<tr>
+<td><code>import_crossings</code></td>
+<td>object</td>
+<td>The keys <code>open</code>, <code>waiting</code>, and <code>closed</code>, with the quantity of import crossings in each state, and <code>crossings</code>: one object for each import crossing with <code>line</code>, <code>map</code>, <code>from</code>, <code>to</code>, <code>state</code>, and <code>modules</code>. Each object of <code>modules</code> has <code>module</code> and <code>role</code> (<code>helper</code>, <code>handoff</code>, <code>mixed</code>, or <code>none</code>). A module with a refused answer has the role <code>none</code>, because it has no accepted module role. Only an <code>open</code> import crossing is a finding.</td>
+</tr>
+<tr>
+<td><code>module_roles</code></td>
+<td>object</td>
+<td>The keys <code>helper</code>, <code>handoff</code>, <code>mixed</code>, <code>refused</code>, and <code>none</code>, with the quantity of the modules of <code>module use</code> findings with each module role.</td>
 </tr>
 <tr>
 <td><code>stale_answers</code></td>
@@ -1949,7 +2039,8 @@ The changes of a refused path are not known. A refused module is not a removed m
 new crossing imports without flows, and flows with lost evidence.
 Each finding gives a correction.
 An answer for a new crossing import must agree with the <code>judgement</code> rule.
-An exact answer must have the current evidence digest. A family answer must have <code>policy = true</code>.
+An exact answer must have the current evidence digest. A family answer is refused.
+Module role answers also close a new crossing import when each imported module is a helper module, or a mixed module and the import uses no handoff name. The delta does not apply the flow source rule, because it has no flow tree.
 The exit code is 0 if the map is current, or 1 if it is necessary to update the map.</p>
 <p>The lines with a necessary action come first, under <code>The map needs an update (N):</code>.
 The lines with no necessary action follow.
@@ -1977,7 +2068,8 @@ A removed item, an actor, and a sequence have no level.
 Each part gives a maximum of 5 rows, and then the count of the other rows.
 The summary is one line if these conditions are true: the contract and the map did not change, no rule has the result <code>fail</code>, and no delta line has a necessary action.
 If the model at the merge base does not load, the contract and the map are <code>unknown</code>, with the cause.</p>
-<p>With <code>[delta] page_url</code>, the comment also has a link to the Changes view of the page for pull request <code>N</code>.
+<p>With <code>[delta] page_url</code>, the comment also has a link to the changes on the page for pull request <code>N</code>.
+On the atlas page, the link opens the top map with the change marks. On the canvas page, it opens the Changes view.
 Then <code>--pr N</code> is necessary.</p>
 <p>The first comment line is <code>&lt;!-- systemap delta --&gt;</code>. CI finds the comment with it and changes that comment.
 The comment does not change the delta lines or the exit code.
@@ -2248,11 +2340,14 @@ A source change that does not change a judgement line does not change its <code>
 The target of a component is its ID. The target of a flow is its <code>id</code>, or <code>SRC-&gt;DST</code> for a flow without an <code>id</code>.
 The target of a judgement line is its kind and the names of the components and modules in the line, for example <code>single module: Reader pkg.reader</code>.
 If two current lines have the same kind and names, or a line names nothing, the target is the full line.</p>
-<h4 id="systemap-decisions-pending-json"><code>systemap decisions pending [--json]</code></h4>
+<h4 id="systemap-decisions-pending-json-limit-n"><code>systemap decisions pending [--json] [--limit N]</code></h4>
 <p>Gives the pending decision requests. The command exits 0.
-An unknown decision request is not pending. The <code>unknown</code> count gives the quantity.</p>
+An unknown decision request is not pending. The <code>unknown</code> count gives the quantity.
+The <code>module use</code> requests come first, sorted by the quantity of import crossings that wait for the module role (the largest first), then by module.
+<code>--limit N</code> gives only the first N decision requests. N must be 1 or more.
+When the limit leaves out requests, the text ends with the quantity of the other requests, and the JSON object gives it in <code>more</code>.</p>
 <p>The JSON object has these fields:</p>
-<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-pending-json">
+<div class="table" role="region" tabindex="0" aria-labelledby="systemap-decisions-pending-json-limit-n">
 <table>
 <thead>
 <tr>
@@ -2265,7 +2360,7 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <tr>
 <td><code>schema_version</code></td>
 <td>integer</td>
-<td>The version of this schema. The value is 2. Version 2 added <code>max_insufficient</code> and <code>requests[].insufficient</code>.</td>
+<td>The version of this schema. The value is 3. Version 2 added <code>max_insufficient</code> and <code>requests[].insufficient</code>. Version 3 added <code>requests[].role_keys</code> and <code>more</code>.</td>
 </tr>
 <tr>
 <td><code>verdicts</code></td>
@@ -2348,6 +2443,16 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 <td>For a judgement line, the target in the decision store: the kind and names of the line, or the full line. For a component or a flow, an empty string, and the store uses <code>target</code>.</td>
 </tr>
 <tr>
+<td><code>requests[].role_keys</code></td>
+<td>list of strings</td>
+<td>For a <code>module use</code> line, <code>role</code>, <code>symbol</code>, and <code>handoff</code>: the module role keys of a <code>supported</code> verdict. For other requests, an empty list.</td>
+</tr>
+<tr>
+<td><code>more</code></td>
+<td>integer</td>
+<td>The quantity of pending decision requests that <code>--limit</code> leaves out. Without <code>--limit</code>, the value is 0.</td>
+</tr>
+<tr>
 <td><code>unknown</code></td>
 <td>integer</td>
 <td>The quantity of unknown decision requests.</td>
@@ -2356,7 +2461,8 @@ An unknown decision request is not pending. The <code>unknown</code> count gives
 </table>
 </div>
 <p>For a judgement line, the files are the files of the components and the modules that the line names.
-If the line names no component or module, the list is empty.</p>
+If the line names no component or module, the list is empty.
+For a <code>module use</code> line, the claim is the line and the rows below it, and the files are the file of the module and the files of the modules that define its names (<code>defined_in</code>).</p>
 <h4 id="systemap-decisions-submit-file"><code>systemap decisions submit FILE</code></h4>
 <p>Reads a JSON list of verdicts from FILE, or from stdin for <code>-</code>.
 Each verdict is an object with only these fields:</p>
@@ -2390,6 +2496,21 @@ Each verdict is an object with only these fields:</p>
 <td>string</td>
 <td>One or more sentences about the source code. The writing profile applies.</td>
 </tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Only in a <code>supported</code> verdict for a <code>module use</code> line, and necessary there: <code>helper</code>, <code>handoff</code>, or <code>mixed</code>.</td>
+</tr>
+<tr>
+<td><code>symbol</code></td>
+<td>string</td>
+<td>Only with <code>role</code>: one name. A <code>helper</code> verdict must have it when the rows of the line give names.</td>
+</tr>
+<tr>
+<td><code>handoff</code></td>
+<td>list of strings</td>
+<td>Only with <code>role = &quot;mixed&quot;</code>: one or more names of the module.</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -2405,7 +2526,9 @@ A test file in the facts is the file of a test in the <code>tests</code> of a mo
 <li>A <code>file</code> is a symbolic link to a file that is not in the repository.</li>
 <li>A line span is not in the file, or <code>start_line</code> is more than <code>end_line</code>.</li>
 <li>A <code>sha256</code> is not the SHA-256 digest of the current file content.</li>
-<li>A <code>supported</code> verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a judgement line without files, one citation is necessary.</li>
+<li>A <code>supported</code> verdict has no citation in a file of the claim. For a flow, these are the files of the two endpoint components. For a <code>module use</code> line, these are the file of the module and the files of the modules that define its names. For a judgement line without files, one citation is necessary.</li>
+<li>A verdict has <code>role</code>, <code>symbol</code>, or <code>handoff</code>, but it is not a <code>supported</code> verdict for a <code>module use</code> line. Or a <code>supported</code> verdict for a <code>module use</code> line has no <code>role</code>.</li>
+<li>The module role does not obey the rules of the answer form, the symbol rule, or the flow source rule. The error gives the text of the refused answer.</li>
 <li>A <code>supported</code> verdict has a decision request with a <code>blocked</code> value, or the review command cannot write the digest.</li>
 <li>A <code>supported</code> verdict for a component has a flow of that component with a <code>contradicted</code> or unknown verdict.</li>
 </ul>
@@ -2413,7 +2536,7 @@ A test file in the facts is the file of a test in the <code>tests</code> of a mo
 <ol>
 <li>The <code>review_digest</code> of each <code>supported</code> flow.</li>
 <li>The <code>source_review</code> of each <code>supported</code> component. A flow digest is one of the claims of its endpoint components. Thus, the flow digests come first.</li>
-<li>One exact answer for each <code>supported</code> judgement line. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.</li>
+<li>One exact answer for each <code>supported</code> judgement line. For a <code>module use</code> line, the answer also has <code>role</code>, and <code>symbol</code> or <code>handoff</code> when the verdict gives them. A review digest can close a judgement line. Thus the command finds the open lines and their evidence digests after the review digests.</li>
 <li>The decision store, <code>.systemap/decisions.json</code>. Git does not record this file.</li>
 </ol>
 <p>A <code>contradicted</code> verdict adds one to the <code>contradicted</code> count of the target.
@@ -2526,10 +2649,11 @@ If the command cannot write the pages of a version, the command gives the error,
 After a good version, the command removes the pages of the maps that the version does not have.</p>
 <ul>
 <li>
-<p><code>--base REF</code> sets the base of the Changes view.
+<p><code>--base REF</code> sets the base of the revision comparison.
 The default is the first of <code>origin/HEAD</code>, <code>origin/main</code>, <code>main</code>, <code>origin/master</code>, and <code>master</code>
 that has a merge base with HEAD. If no ref has one, the page has no revision comparison.
-The Changes view compares the working tree with that merge base.
+The page compares the working tree with that merge base.
+The atlas page shows the changes as marks on the Map view. The canvas page and the linked page show them in the Changes view.
 The comparison includes the commits since the merge base, the edits that are not in a commit,
 and the untracked files that Git does not ignore.</p>
 </li>
@@ -2731,7 +2855,7 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[judgement]</code></td>
 <td>none</td>
-<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, <code>crossing_from = &quot;A&quot;</code>, <code>kind = &quot;single module&quot;</code>, and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. A previous <code>jev</code> name gives a configuration error.</td>
+<td><code>answered = [{item = &quot;&lt;a judgement line&gt;&quot;, reason = &quot;...&quot;, evidence = &quot;&lt;SHA-256 digest&gt;&quot;}]</code> records an exact answer. <code>items = [...]</code> uses one digest for a group. Family forms are <code>kind = &quot;single module&quot;</code> and <code>module_sdk = &quot;google.adk&quot;</code>. They must have <code>policy = true</code>. The configuration also reads <code>crossing = [&quot;A&quot;, &quot;B&quot;, ...]</code>, <code>crossing_into = &quot;A&quot;</code>, and <code>crossing_from = &quot;A&quot;</code>. These forms select only <code>crossing import</code> lines, thus the report refuses them. A <code>kind</code> answer for <code>crossing import</code>, <code>module use</code>, or <code>declared flow</code> is also a refused answer. <code>reviewed = [&quot;&lt;line&gt;&quot;, ...]</code> records the baseline. The report counts new matches. All answers must have reasons. The report identifies stale answers. Audit kinds use this table too. This includes <code>&quot;decision flow&quot;</code>. A previous <code>jev</code> name gives a configuration error.</td>
 </tr>
 <tr>
 <td><code>[judgement] require_reviews</code></td>
@@ -2766,12 +2890,12 @@ Unknown keys are rejected.</p>
 <tr>
 <td><code>[delta]</code></td>
 <td>none</td>
-<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, the comment of <code>systemap delta --comment FILE --pr N</code> also has a link to the Changes view of that page. Without it, the comment has the architecture summary and no link. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
+<td><code>page_url = &quot;https://example.org/pr-{number}/&quot;</code> gives the URL of the map page that the repository publishes for each pull request. The pull request number replaces <code>{number}</code>. With this value, the comment of <code>systemap delta --comment FILE --pr N</code> also has a link to the changes on that page. Without it, the comment has the architecture summary and no link. The URL must start with <code>https://</code> or <code>http://</code>. It must contain <code>{number}</code> and no other <code>{</code> or <code>}</code>. It must not contain <code>#</code> or a space character, because the link adds <code>#changes</code>.</td>
 </tr>
 <tr>
 <td><code>[writing]</code></td>
 <td><code>profile = &quot;plain&quot;</code></td>
-<td>The writing profile for the map text that a person reads. <code>plain</code> selects the common writing rules of the skill's language policy. A person or a program can examine these rules without a dictionary. <code>asd-ste100</code> also selects the full ASD-STE100 Issue 9 rules. These rules need the official ASD dictionary. The skill reads this value. <code>systemap journeys</code> puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. <code>init</code> writes <code>profile = &quot;plain&quot;</code>.</td>
+<td>The writing profile for the map text that a person reads. <code>plain</code> selects the common writing rules of the skill's language policy. A person or a program can examine these rules. <code>asd-ste100</code> also selects the ASD-STE100 Issue 9 style: the style rules and the project word list of the policy. It does not use the official ASD dictionary. The skill reads this value. <code>systemap journeys</code> puts the policy of this profile in each agent request, so a different profile gets a new answer. A different value or key gives a configuration error. <code>init</code> writes <code>profile = &quot;plain&quot;</code>.</td>
 </tr>
 <tr>
 <td><code>[theme]</code></td>
@@ -2780,8 +2904,8 @@ Unknown keys are rejected.</p>
 </tr>
 <tr>
 <td><code>[render]</code></td>
-<td><code>canvas = true</code></td>
-<td><code>render</code>, <code>refresh</code>, and <code>live</code> write the canvas page: all maps of the tree on one canvas (<code>docs/design/nested-canvas.md</code>). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. <code>canvas = true</code> has no effect. <code>canvas = false</code> makes the commands write the linked pages, with no new feature, for one release. Then <code>render</code>, <code>refresh</code>, and <code>live</code> write one line on stderr about the next release. A later release removes the linked pages and this key. <code>check</code> and <code>render --check</code> compare the pages of the current value. A different value or key gives a configuration error.</td>
+<td><code>page = &quot;atlas&quot;</code></td>
+<td><code>render</code>, <code>refresh</code>, and <code>live</code> write the atlas page: all maps of the tree on one canvas (<code>docs/design/atlas.md</code>). The top page holds the canvas. The redirect page of each nested map goes to the top page with the map ID in the URL hash, for example <code>../index.html#Gateway</code>. The atlas page shows the Map view, the Sequences view, the States view, the Focus view and the History view. <code>page = &quot;atlas&quot;</code> is the default from stage 9 of <code>docs/design/atlas.md</code>. <code>page = &quot;canvas&quot;</code> writes the canvas page (<code>docs/design/nested-canvas.md</code>) in place of the atlas page, with the same redirect pages. <code>page = &quot;linked&quot;</code> and <code>canvas = false</code> make the commands write the linked pages, with no new feature, for one release. Then <code>render</code>, <code>refresh</code>, and <code>live</code> write one line on stderr about the next release. A later release removes the linked pages and the key <code>canvas</code>. <code>canvas = true</code> has no effect: it gives the default page. <code>check</code> and <code>render --check</code> compare the pages of the current value. <code>history = true</code> (the default) gives the History view of the atlas page: the commits of HEAD, read with Git, with the root commit and the boundary commits of a shallow clone left out. <code>history = false</code> removes it, and the commands then do not read the Git log. <code>history_days = N</code> (a positive integer) uses only the commits of the N days before the last commit. Without it, the view has all commits. The end of the time is the time of the last commit, not the time of the clock. With <code>history_days</code>, Git gives the changes of only the commits in that time, and <code>--since-as-filter</code> needs Git 2.37 or later. A merge commit is not used. <code>render</code>, <code>refresh</code>, and <code>live</code> keep the log in <code>.systemap/history.json</code>. After a change of HEAD, they read only the new commits. A change of <code>history_days</code> or of the boundary of a shallow clone makes them read the full log again. When Git cannot read the commits, the page has no History view, and <code>render</code> and <code>refresh</code> write one notice line on stderr with the same exit code. They also write one notice line when no commit is used, for example in a clone with <code>--depth 1</code>, which has only a boundary commit, and when no commit changed a source file of a component. <code>check</code> and <code>render --check</code> use the history data of the page file and do not read Git. Thus a new commit does not make the page stale. The history data of the page has the value of <code>history_days</code>. When that value is not the value of the configuration, the page is stale. A different depth of a shallow clone does not make the page stale. <code>refresh</code> writes the page only when an output is stale, so it can keep an earlier history. <code>render</code> writes the history of the current commits. <code>page = &quot;linked&quot;</code> is the same as <code>canvas = false</code>. A <code>canvas</code> value that does not agree with <code>page</code> gives a configuration error. A different value or key gives a configuration error.</td>
 </tr>
 <tr>
 <td><code>[[figures]]</code></td>

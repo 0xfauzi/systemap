@@ -290,6 +290,8 @@ color:var(--ink-2);font-size:14px;font-weight:500;transition:background-color .1
 .tab::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--tab)}
 .tab--data{--tab:var(--k-data)}
 .tab--k{--tab:var(--brand)}
+.tab--control{--tab:var(--k-control)}
+.tab--judge{--tab:var(--k-custom-1)}
 .tab--change{--tab:var(--change)}
 .tab:hover{background:var(--raised);color:var(--ink)}
 .tab[aria-selected="true"]{background:var(--raised);border-color:var(--line-2);color:var(--ink);
@@ -393,8 +395,8 @@ animation-delay:var(--d,0ms)}
 .hero__do .install{grid-column:1/-1;width:auto}
 .hero__do .btn{padding:0 10px;font-size:14px}
 .window{margin-top:48px;border-radius:10px}
-.window__bar{overflow-x:auto}
-.tab{height:40px;padding:0 12px}
+.window__bar{overflow-x:auto;gap:2px;padding:6px}
+.tab{height:40px;padding:0 6px;gap:5px;font-size:13px}
 .sec{padding-top:88px}
 .sec__h{font-size:30px;line-height:36px}
 .steps{gap:64px;margin-top:40px}
@@ -456,4 +458,8 @@ text-decoration-thickness:1px;text-underline-offset:5px}
 .pager{grid-template-columns:1fr}
 .pager__next{grid-column:1}
 .copy{height:34px}
+}
+@media (max-width:359px){
+.bar{padding:0 4px 0 12px}
+.nav__a{padding:0 5px;font-size:13px}
 }

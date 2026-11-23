@@ -8,7 +8,12 @@ examines all results. If one result is incorrect, it writes nothing and tells ea
 - Each cited file must be a source file or a test file in the facts, inside the repository.
 - Each line span must be in the file, and each digest must agree with the current file.
 - `supported` must cite a file of the claim. For a flow, the files of the claim are the
-  files of the two endpoints.
+  files of the two endpoints. For a `module use` line, they are the file of the module and
+  the files of the modules that define its names.
+- A supported result for a `module use` line also has `role`, and it can have `symbol` and
+  `handoff`. The rules of the answer form and of the module role answers
+  (`module_use.check_role`) apply before a file changes. Other results cannot have these
+  keys.
 
 Then the command writes, in this sequence: the flow review digests, the component review
 digests, the exact answers, and the store. A flow digest is one of the claims of its
@@ -23,10 +28,11 @@ The command holds `.systemap/write.lock` from the read of the store to the last 
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -41,6 +47,7 @@ from systemap import (
     facts_file,
     file_write,
     judgement_json,
+    module_use,
     nest,
     review,
 )
@@ -50,6 +57,7 @@ from systemap.decisions import (
     FLOW_REVIEW,
     INSUFFICIENT,
     JUDGEMENT,
+    ROLE_KEYS,
     SOURCE_REVIEW,
     SUPPORTED,
     VERDICTS,
@@ -58,6 +66,10 @@ from systemap.decisions import (
 from systemap.terminal_text import has_control, printable
 
 RESULT_KEYS = ("request_id", "verdict", "citations", "summary")
+KEYS_TEXT = (
+    "a result must be an object with the keys request_id, verdict, citations, and summary. "
+    "A supported result for a module use line also has role, and it can have symbol and handoff."
+)
 # A summary goes into the configuration and into the output of later commands. A terminal
 # can use a control character as a command.
 CONTROL = "contains a control character or a Unicode line separator. Write the summary on one line"
@@ -80,6 +92,12 @@ class Snapshot:
 
     def status(self) -> decisions_store.Status:
         return decisions_store.status(self.records, list(self.requests.values()))
+
+    @functools.cached_property
+    def uses(self) -> tuple[module_use.Index, dict[str, str]]:
+        """Give the module use index and the evidence digest of each unit."""
+        found = module_use.index(self.tree, self.facts)
+        return found, module_use.evidence(found)
 
 
 def snapshot(cfg: config.Config, only: str | None = None) -> Snapshot:
@@ -114,6 +132,7 @@ class Result:
     verdict: str
     citations: tuple[Citation, ...]
     summary: str
+    role: dict[str, Any] = field(default_factory=dict)
 
 
 def read_results(name: str) -> list[Any]:
@@ -225,6 +244,11 @@ def _required_files(request: Request, snap: Snapshot) -> tuple[set[str], str]:
         ends = decisions.endpoint_files(m, request.target, snap.facts, snap.cfg.root)
         if ends:
             return ends, "a file of an endpoint component"
+    module = module_use.item_module(request.target) if request.role_keys else None
+    if module is not None:
+        return {f.file for f in request.files}, (
+            f"a file of {module} or of a module that defines its names"
+        )
     return {f.file for f in request.files}, "a file of the claim"
 
 
@@ -253,10 +277,11 @@ def _check(
     item: Any, where: str, snap: Snapshot, verdicts: dict[str, str]
 ) -> tuple[Result | None, list[str]]:
     """Examine one result. Give the valid result, or the errors."""
-    if not isinstance(item, dict) or set(item) != set(RESULT_KEYS):
-        return None, [
-            f"{where}: a result must be an object with the keys {', '.join(RESULT_KEYS)}."
-        ]
+    if not isinstance(item, dict) or not set(RESULT_KEYS) <= set(item) <= {
+        *RESULT_KEYS,
+        *ROLE_KEYS,
+    }:
+        return None, [f"{where}: {KEYS_TEXT}"]
     if not _encodable(item):
         return None, [
             f"{where}: the result contains text that UTF-8 cannot encode, for example a lone "
@@ -274,10 +299,28 @@ def _check(
     errors += problems
     if request is None or errors:
         return None, errors
-    if verdict == SUPPORTED:
+    role = {key: item[key] for key in ROLE_KEYS if key in item}
+    errors += _role_keys(request, verdict, role, where)
+    if verdict == SUPPORTED and not errors:
         errors += _supported_errors(request, cited, where, verdicts, snap)
-        errors += _dry_run(request, snap, where)
-    return (None if errors else Result(request, verdict, tuple(cited), summary.strip())), errors
+        errors += _dry_run(request, snap, where, role)
+    found = Result(request, verdict, tuple(cited), summary.strip(), role)
+    return (None if errors else found), errors
+
+
+def _role_keys(request: Request, verdict: str, role: dict[str, Any], where: str) -> list[str]:
+    """Examine the presence of the module role keys of one result."""
+    if role and (verdict != SUPPORTED or not request.role_keys):
+        return [
+            f"{where}: role, symbol, and handoff are permitted only in a supported result "
+            "for a module use line."
+        ]
+    if verdict == SUPPORTED and request.role_keys and "role" not in role:
+        return [
+            f"{where}: a supported result for a module use line must have role: "
+            '"helper", "handoff", or "mixed".'
+        ]
+    return []
 
 
 def _encodable(item: dict[str, Any]) -> bool:
@@ -298,8 +341,15 @@ def _target(request: Request) -> review.Target:
     return review.Target(request.target)
 
 
-def _dry_run(request: Request, snap: Snapshot, where: str) -> list[str]:
-    """Find a review error before any file changes."""
+def _dry_run(
+    request: Request, snap: Snapshot, where: str, role: dict[str, Any] | None = None
+) -> list[str]:
+    """Find a review error or a refused module role before any file changes."""
+    if request.role_keys:
+        found, digests = snap.uses
+        entry = {"item": request.target, "reason": "a result", **(role or {})}
+        issue = module_use.check_role(entry, found, digests, snap.tree, snap.facts)
+        return [f"{where}: {issue}"] if issue else []
     if request.type == JUDGEMENT:
         return []
     try:
@@ -353,6 +403,7 @@ def _answers(snap: Snapshot, results: list[Result]) -> list[str]:
         entries.append(
             {
                 "item": line,
+                **{key: result.role[key] for key in ROLE_KEYS if result.role.get(key)},
                 "evidence": digest,
                 "reason": result.summary,
                 "citations": [_cited(c) for c in result.citations],

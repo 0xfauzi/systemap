@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from systemap import card_review, nest
+from systemap.crossing import runtime_targets
 from systemap.evidence import owners
 from systemap.model import Component, Flow, Model
 
@@ -169,7 +170,8 @@ def _parent_flow_lines(m: nest.Map, parent: nest.Map) -> Iterator[Finding]:
 
 def import_pairs(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> dict[Pair, list[Pair]]:
     """Give the imports from the internal components of a nested map to the owners
-    outside the map, for each pair of an internal component and an owner."""
+    outside the map, for each pair of an internal component and an owner. An import
+    only for type checks is not in the result."""
     components = facts.get("components", {})
     inner = owners(m.model, facts)
     outside = outside_owners(tree, m, facts)
@@ -178,7 +180,7 @@ def import_pairs(tree: nest.Tree, m: nest.Map, facts: dict[str, Any]) -> dict[Pa
         p = inner.get(module)
         if not p:
             continue
-        for target in sorted(components[module].get("uses", {})):
+        for target in runtime_targets(components[module]):
             q = outside.get(target)
             if q:
                 out.setdefault((p, q), []).append((module, target))

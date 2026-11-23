@@ -288,7 +288,8 @@ def cmd_render(args: argparse.Namespace) -> int:
         return STALE
     if not _model_ok(p):
         return STALE
-    warn(*render_pages.notice(p.cfg))
+    history, lines = render_pages.history(p.cfg, p.tree, facts, stored=args.check)
+    warn(*render_pages.notice(p.cfg), *lines)
     code = OK
     change_of = None
     if args.base:
@@ -297,7 +298,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         # One gh request for all maps. The data gives the title of each change map.
         pr = change.pr_meta(p.cfg.root, getattr(args, "pr", ""))
         change_of = render_pages.page_change(p.cfg, facts, args.base, args.head, source, pr)
-    for m, html in render_pages.pages(p.cfg, p.tree, facts, change_of):
+    for m, html in render_pages.pages(p.cfg, p.tree, facts, change_of, history=history):
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         if args.check:
             code = max(code, _checked_page(p, out, html))
@@ -539,7 +540,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 def _write_outputs(p: Project, fresh: dict[str, Any]) -> list[str]:
     """Write the page of each map and each configured figure. Give the written paths."""
     written: list[str] = []
-    for m, html in render_pages.pages(p.cfg, p.tree, fresh):
+    history, lines = render_pages.history(p.cfg, p.tree, fresh)
+    warn(*lines)
+    for m, html in render_pages.pages(p.cfg, p.tree, fresh, history=history):
         out = out_paths.checked(p.cfg, m.page_path(p.cfg))
         file_write.write_atomic(p.cfg.root, out, html)
         written.append(p.cfg.rel(out))
@@ -580,8 +583,8 @@ def cmd_judgement(args: argparse.Namespace) -> int:
     """Print the possible map errors that the maintainer must examine.
 
     Exact answers must have the printed line and correct evidence. Family answers must
-    have an explicit policy. The command gives stale answers but does not reject them.
-    With `--strict`, an open line gives exit code 1. `--json` writes one JSON object.
+    have an explicit policy. The command gives stale answers and refused answers. With
+    `--strict`, an open line or a refused answer gives exit code 1. `--json` gives JSON.
     """
     p = _project(args)
     p = Project(providers.chosen(p.cfg, args.provider), p.tree)
@@ -619,7 +622,7 @@ def _judgement_text(p: Project, args: argparse.Namespace) -> int:
     say(*decisions_cli.unknown_text(decisions_cli.judgement_unknown(p.cfg, p.tree, facts, judged)))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
     jev_cli.hint(p.cfg, jev_cli.JUDGEMENT_HINT)
-    if args.strict and result.open:
+    if args.strict and judged.blocking:
         say(STRICT_ACTION)
         return STALE
     return OK
@@ -642,7 +645,7 @@ def _judgement_json(p: Project, args: argparse.Namespace) -> int:
     say(json.dumps(cli_scope.payload(obj, p.tree, entry_coverage="not examined"), indent=2))
     warn(*notes, *cli_scope.notes(p.tree, cli_scope.ENTRY_NOTE))
     warn(*answer_migrations.warnings(p.cfg.judgement_answered, set(judged.lines)))
-    if args.strict and judged.result.open:
+    if args.strict and judged.blocking:
         warn(STRICT_ACTION)
         return STALE
     return OK
@@ -656,7 +659,7 @@ def cmd_delta(args: argparse.Namespace) -> int:
 
     The command reads committed trees and uses the model on disk. If the map needs an
     update, the exit code is 1. `--comment` writes the pull request summary
-    (`pr_summary`), with a link to the Changes view if the base commit sets `page_url`.
+    (`pr_summary`), with a link to the changes on the map page if the base commit sets `page_url`.
     """
     p = _project(args)
     _require_roots(p)
@@ -760,7 +763,7 @@ def cmd_describe(args: argparse.Namespace) -> int:
         # place` would place it, and the positions line says which; a
         # whole layout searched the region order, and the order line says
         # how many orders it tried.
-        placement = place.compute(m.model)
+        placement = place.compute(m.model, nested=not m.top and place.sides_for(p.cfg))
         model = place.apply(m.model, placement) if placement.positions else m.model
         problems = model_problems(model, m.meaning)
         if problems:
@@ -803,7 +806,10 @@ def cmd_place(args: argparse.Namespace) -> int:
     say(*cli_scope.notes(p.tree))
     for m in p.tree.reported:
         placement = place.compute(
-            m.model, all_cards=bool(args.all), keep_order=bool(args.keep_order)
+            m.model,
+            all_cards=bool(args.all),
+            keep_order=bool(args.keep_order),
+            nested=not m.top and place.sides_for(p.cfg),
         )
         if args.print or not placement.positions:
             say(*(m.prefix + line for line in place.lines(placement)))
@@ -1130,12 +1136,12 @@ def build_parser() -> argparse.ArgumentParser:
             "and source evidence. An answer in [judgement] answered can accept an exact line "
             "or a family of lines. Exact answers must have source evidence. Family answers "
             "must have policy=true. The command exits 0, or 1 with --strict if a line "
-            "remains open."
+            "remains open or an answer is refused."
         ),
     )
     add_root(s)
     s.add_argument(
-        "--strict", action="store_true", help="Exit 1 if a line remains open. Use for CI."
+        "--strict", action="store_true", help="Exit 1 for an open line or a refused answer."
     )
     s.add_argument(
         "--kind",
@@ -1222,8 +1228,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Write the pull request comment to FILE. The comment gives the changes to the "
             "contract and the map, the rule results, and the assurance level of each item. "
             "If [delta] page_url is set at the base commit, the comment also has a link to "
-            "the Changes view. If that value is not correct, the comment has no link, and "
-            "a warning gives the cause."
+            "the changes on the map page. If that value is not correct, the comment has no "
+            "link, and a warning gives the cause."
         ),
     )
     s.add_argument(

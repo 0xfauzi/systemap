@@ -5,7 +5,9 @@ scene part (`page_canvas_scene`), the view part (`page_canvas_view`), the drawin
 (`page_canvas_text`), the image part (`page_canvas_image`), the fade part
 (`page_canvas_fade`), the touch part (`page_canvas_touch`), the keyboard part
 (`page_canvas_keys`), the part of the tree list (`page_canvas_tree`), the Sequences view
-(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the reader tools and
+(`page_canvas_sequences`), the Changes view (`page_canvas_changes`), the boards
+(`page_canvas_board`), the finish (`page_canvas_finish`), the caption
+(`page_canvas_caption`), the reader tools and
 the Details panel (`page_canvas_details`), the marks of the open ports
 (`page_canvas_ports`), the part in this module and the Find dialog (`page_canvas_find`).
 The page CSP (`page_csp`) gets the digest
@@ -46,11 +48,14 @@ state to the tests and the measurement scripts. It changes nothing on the page.
 
 from __future__ import annotations
 
+from systemap.page_canvas_board import BOARD
+from systemap.page_canvas_caption import CAPTION
 from systemap.page_canvas_changes import PART as CHANGES_PART
 from systemap.page_canvas_details import DETAILS
 from systemap.page_canvas_draw import DRAW
 from systemap.page_canvas_fade import FADE
 from systemap.page_canvas_find import FIND
+from systemap.page_canvas_finish import FINISH
 from systemap.page_canvas_image import IMAGE
 from systemap.page_canvas_keys import KEYS
 from systemap.page_canvas_ports import PORTS
@@ -67,11 +72,11 @@ from systemap.page_canvas_view import VIEW_PART
 CSS = (
     """
 html,body{margin:0;height:100%;overflow:hidden;background:var(--map)}
-#canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;
+#canvas{position:fixed;inset:0;width:calc(100% - var(--cdock,0px));height:100%;display:block;touch-action:none;
 outline:none;cursor:grab}
 #canvas.drag{cursor:grabbing}
 #canvas:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
-#still{position:fixed;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+#still{position:fixed;inset:0;width:calc(100% - var(--cdock,0px));height:100%;display:block;pointer-events:none}
 #still[hidden]{display:none}
 #canvas:focus-visible+#still{box-shadow:inset 0 0 0 2px var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
@@ -161,6 +166,7 @@ function draw() {
   var bw = Math.max(1, Math.round(W * d)), bh = Math.max(1, Math.round(H * d)), el = frameCanvas();
   if (el.width !== bw || el.height !== bh) { el.width = bw; el.height = bh; }
   ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = C['--map']; ctx.fillRect(0, 0, W, H);
+  drawGrid();
   STATS.cards = 0; STATS.image = 0; HITS = []; LINKS = []; NOBST = 0;
   if (WORDS.size > 20000) WORDS.clear();
   CHAIN = focusChain();
@@ -168,19 +174,26 @@ function draw() {
   drawMap(TOP, 1, 1);
   drawRings(CHAIN);
   drawSelected();
+  drawDot();
   // The portals keep off the boxes that the maps put in OBST (`dodge`).
   NMAP = NOBST;
   var portals = portalsOf(CHAIN), path = pathParts(CHAIN);
+  captionLay(path);
+  legendLay();
   drawPortals(portals, path);
-  drawPlates(path);
+  drawBoard();
+  // The plate of facts is for a touch screen. With a mouse, the Details panel gives the facts.
+  if (!boardOn() && (TOUCH || !panelOn())) drawPlates(path);
   drawPath(path);
+  drawCaption();
   drawHelp();
+  drawLegend();
   drawFocus();
   if (!sharp) makeImages(began);
   if (HUD) drawHud(began, !sharp);
   frameShown();
   drawn++;
-  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS});
+  if (LOG) LOG.push({at: began, ms: performance.now() - began, sharp: sharp, fine: sharp, hide: HIDE, images: LAYERS, sel: SELS.map(function (e) { return [e.c.id, e.a]; })});
   if (FADING || SPEED_FADING || SEL_FADING || VIEW_FADING) fadeLater();
 }
 // A boundary flow that fades asks for more frames (`FADING`), and so does a fade of the image
@@ -195,6 +208,17 @@ function fadeLater() {
   clearTimeout(fadeTimer);
   if (performance.now() - MOVED_AT >= FADE_WAIT) request();
   else fadeTimer = setTimeout(function () { if (drawn === n) request(); }, FADE_WAIT);
+}
+// The frame readout of `?hud`.
+var FRAMES = [];
+function drawHud(began, half) {
+  var now = performance.now();
+  FRAMES.push(now);
+  while (FRAMES.length && now - FRAMES[0] > 1000) FRAMES.shift();
+  var s = FRAMES.length + ' fps · draw ' + (now - began).toFixed(1) + ' ms · ' + (half ? 'half' : 'full') +
+    ' · ' + STATS.cards + ' cards · ' + STATS.image + ' images';
+  ctx.globalAlpha = 0.95; ctx.fillStyle = C['--raised']; ctx.fillRect(W - 330, HEAD_H + 10, 320, 26);
+  text(s, W - 320, HEAD_H + 27, 12, C['--ink'], 1, 400, true);
 }
 function hashOf(id) { return id ? '#' + id.split('/').map(encodeURIComponent).join('/') : ''; }
 function currentMap() { return CHAIN.length ? CHAIN[CHAIN.length - 1].child : TOP; }
@@ -231,6 +255,9 @@ function pick(px, py) {
 function pickClosed(px, py) { var c = pick(px, py); return c && !(c.child && openness(c) >= 0.5) ? c : null; }
 function enter(px, py) {
   var c = pickClosed(px, py);
+  // A move into a map is not a request for details: the panel that the first click of the
+  // double-click opened, or would open, goes before the camera target is calculated.
+  if (c && c.child) panelDrop();
   if (c) flyGoal(goalOf(c.map, c, null));
 }
 function goOut() {
@@ -251,6 +278,7 @@ function hitAt(px, py) {
 var pts = new Map(), drag = null, didMove = false, multi = false, kind = 'mouse';
 cv.addEventListener('wheel', function (e) {
   e.preventDefault(); stopFlight();
+  if (boardOn()) return;
   var p = local(e), dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? H : 1);
   zoomAt(p[0], p[1], Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0018)));
 }, {passive: false});
@@ -258,11 +286,16 @@ cv.addEventListener('pointerdown', function (e) {
   stopFlight(); cv.focus({preventScroll: true});
   var p = local(e);
   pts.set(e.pointerId, p); didMove = false; multi = multi || pts.size > 1; kind = e.pointerType;
-  drag = {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
+  drag = boardOn() ? null : {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
 });
 cv.addEventListener('pointermove', function (e) {
-  if (!pts.has(e.pointerId)) { cv.style.cursor = hitAt(local(e)[0], local(e)[1]) ? 'pointer' : ''; return; }
+  if (!pts.has(e.pointerId)) {
+    var at = local(e), over = hitAt(at[0], at[1]);
+    hoverAt(over ? null : at[0], at[1]);
+    cv.style.cursor = (over && over.kind !== 'board') || HOVER_C ? 'pointer' : boardOn() ? 'default' : '';
+    return;
+  }
   var prev = pts.get(e.pointerId), p = local(e);
   pts.set(e.pointerId, p);
   if (pts.size === 2) {
@@ -365,7 +398,7 @@ function warmList() {
   }
   ORDER.forEach(function (m) {
     m.cards.forEach(function (c) {
-      list.push([c.id, 600]);
+      list.push([c.id, 600, true]);
       (String(c.p || '') + ' ' + String(c.d || '')).split(/\s+/).forEach(function (w) { if (w) words.add(w); });
     });
   });
@@ -376,7 +409,7 @@ function warm(list, at) {
   var t0 = performance.now();
   while (at < list.length && performance.now() - t0 < WARM_MS) {
     var x = list[at++];
-    if (typeof x === 'string') { ctx.font = x; ctx.measureText('Ag'); } else unitWidth(x[0], x[1]);
+    if (typeof x === 'string') { ctx.font = x; ctx.measureText('Ag'); } else unitWidth(x[0], x[1], x[2]);
   }
   if (at < list.length) idle(function () { warm(list, at); });
 }
@@ -471,6 +504,12 @@ window.systemapCanvas = {
   // `viewLog` starts a record of the fade of each mode and the values of the cards and the
   // flows in each frame, and `viewLogged` gives it and stops it.
   viewState: viewState,
+  // The caption (`page_canvas_caption`): the words, the alpha and the screen box of the plate.
+  caption: captionState,
+  // The boards (`page_canvas_board`): the sequence diagram and the state machine.
+  board: boardState,
+  // The finish (`page_canvas_finish`): the dot grid, the legend and the dot of a step.
+  finish: finishState,
   setView: setView,
   viewLog: function () { VIEW_LOG = {frames: []}; },
   viewLogged: function () { var l = VIEW_LOG ? VIEW_LOG.frames : []; VIEW_LOG = null; return l; },
@@ -503,6 +542,9 @@ SCRIPT = (
     + TREE
     + SEQ_PART
     + CHANGES_PART
+    + BOARD
+    + CAPTION
+    + FINISH
     + DETAILS
     + PORTS
     + _INPUT

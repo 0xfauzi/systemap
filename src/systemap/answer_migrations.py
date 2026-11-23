@@ -37,7 +37,7 @@ pattern has its fixed text at its fixed position. An item that is a current line
 the same: the callers give the current lines as `present`. An item that is longer than
 `LONGEST_MIGRATED` also stays the same.
 
-Two earlier forms need the current lines. `current_lines` reads them:
+Three earlier forms must have the current lines. `current_lines` reads them:
 
 - A line that moved to a nested map. Before, the top map gave an `unknown surface` line
   for each module, and each nested map gave a copy with its map prefix. Now the map that
@@ -50,10 +50,21 @@ Two earlier forms need the current lines. `current_lines` reads them:
   does not apply to it. The earlier item has a line number in its location, and this
   form still reads it.
 
-`warnings` gives no warning for an item in these two forms.
+- A `module use` line of a module that moved into or out of a nested map. The line of
+  a module is in the deepest map that owns the module. If the item without its map
+  prefix agrees with one and only one current line without its map prefix, the item
+  applies to that line.
+
+`warnings` gives no warning for an item in these forms.
 
 `judgement` gives no line about a test file. `retired` gives the cause for an item of such
 a line. The report gives the item as a stale answer with this cause.
+
+From this release, a family answer or an answer with two or more items for a
+`crossing import`, `module use`, or `declared flow` line is a refused answer
+(`refused_answers.form`). The report does not apply it, and it gives the cause. This is a
+change of the answer rules, not of a line form: the `crossing import` line form does not
+change, so this module has no pattern for it.
 """
 
 from __future__ import annotations
@@ -224,8 +235,9 @@ def warnings(answers: Iterable[Answer], present: Container[str] = ()) -> list[st
 
 # ---- the earlier forms that need the current lines ----------------------------------
 
-# The kind of the lines that moved. Items of other kinds do not change.
-MOVED_KIND = "unknown surface: "
+# The kinds of the lines that can move to a different map. Items of other kinds do not
+# change.
+MOVED_KINDS = ("unknown surface: ", "module use: ")
 # A re-export target line, in the earlier form or in the current form. The key is the
 # line without the line number of the location and without the names.
 TARGET_LINE = re.compile(
@@ -233,7 +245,7 @@ TARGET_LINE = re.compile(
     rf"(?P<reason>the re-export target {_QUOTED} is outside the extracted module set\.)"
     r"(?: Names: .*)?$"
 )
-_PREFIXED = re.compile(rf"^\S+: (?P<rest>{MOVED_KIND}.*)$")
+_PREFIXED = re.compile(rf"^\S+: (?P<rest>(?:{'|'.join(MOVED_KINDS)}).*)$")
 
 
 def current_lines(answers: Iterable[Answer], lines: list[str]) -> list[Answer]:
@@ -245,7 +257,7 @@ def current_lines(answers: Iterable[Answer], lines: list[str]) -> list[Answer]:
     by_bare: dict[str, list[str]] = {}
     for line in lines:
         bare = _bare(line)
-        if bare.startswith(MOVED_KIND):
+        if bare.startswith(MOVED_KINDS):
             by_bare.setdefault(bare, []).append(line)
         if target := _target_key(line):
             by_bare.setdefault(target, []).append(line)
@@ -257,7 +269,7 @@ def current_lines(answers: Iterable[Answer], lines: list[str]) -> list[Answer]:
 
 
 def _bare(line: str) -> str:
-    """Remove the map prefix of an `unknown surface` line."""
+    """Remove the map prefix of an `unknown surface` line or of a `module use` line."""
     found = _PREFIXED.match(line)
     return found["rest"] if found else line
 

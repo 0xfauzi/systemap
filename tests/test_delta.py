@@ -1,4 +1,4 @@
-"`systemap delta`: what a change did to the map, from the facts at two commits.\n\nA synthetic repository with two commits exercises every line kind at\nonce: a module moved with the same content and one with the same public\nnames, modules added (claimed through a pattern, an empty marker, ignored,\nand claimed by nobody), modules removed (named outright, named by a stale\nignore, claimed through a pattern), an entry and an interface name that\nvanished, a new crossing import with no flow beside one the configuration\nanswers, and a flow whose import went away.\n"
+"`systemap delta`: what a change did to the map, from the facts at two commits.\n\nA synthetic repository with two commits exercises every line kind at\nonce: a module moved with the same content and one with the same public\nnames, modules added (claimed through a pattern, an empty marker, ignored,\nand claimed by nobody), modules removed (named outright, named by a stale\nignore, claimed through a pattern), an entry and an interface name that\nvanished, a new crossing import with no flow beside one that a family answer\ncannot close, a new import only for type checks, and a flow whose import went away.\n"
 
 from __future__ import annotations
 
@@ -91,12 +91,18 @@ HEAD_EDITS = {
         def parse_all(parts: list[str]) -> list[str]:
             return parts
     """,
-    # A new import across a boundary with no flow: Writer reaches Reader.
+    # A new import across a boundary with no flow: Writer reaches Reader. The new import
+    # of Parser is only for type checks, so it gives no new crossing import line.
     "pkg/writer.py": """
         from __future__ import annotations
 
+        from typing import TYPE_CHECKING
+
         from pkg.ledger import Ledger
         from pkg.reader import read
+
+        if TYPE_CHECKING:
+            from pkg.parser import parse_all
 
 
         def write(parts: list[str], ledger: Ledger) -> str:
@@ -104,7 +110,7 @@ HEAD_EDITS = {
             read("")
             return "".join(parts)
     """,
-    # A new crossing import the configuration answers: Ledger -> Parser.
+    # A new crossing import that a family answer cannot close: Ledger -> Parser.
     "pkg/ledger.py": """
         from __future__ import annotations
 
@@ -252,8 +258,10 @@ def test_every_line_kind_with_its_fix(repo: Path, capsys: pytest.CaptureFixture[
     assert sum(line.startswith("  source review:") for line in open_lines) == 5
     start = lines.index(f"No action is necessary for these changes ({len(expected_quiet)}):")
     assert lines[start + 1 : start + 1 + len(expected_quiet)] == [f"  {t}" for t in expected_quiet]
-    # The answered crossing import (Ledger -> Parser) is not asked again.
-    assert "new crossing import: pkg.ledger" not in out
+    # A family answer is refused, so it does not mute the Ledger -> Parser import.
+    assert "  new crossing import: pkg.ledger (component Ledger) imports pkg.parser" in out
+    # An import only for type checks gives no line.
+    assert "new crossing import: pkg.writer (component Writer) imports pkg.parser" not in out
     # Spare is told to drop its module, not also that its entry vanished.
     assert "entry vanished: Spare" not in out
     assert delta.FULL_LOOP in lines
@@ -505,3 +513,48 @@ def test_the_seed_is_the_card_with_the_most_changed_modules() -> None:
     assert delta._seed({"pkg.a", "pkg.b", "pkg.c"}, owner) == "Two"
     assert delta._seed({"pkg.a", "pkg.b"}, owner) == "One", "a tie goes to the first by name"
     assert delta._seed({"pkg.d"}, owner) == "", "an unclaimed module seeds nothing"
+
+
+@pytest.mark.parametrize(
+    ("role", "symbol", "current", "shown"),
+    [
+        ("helper", "parse_all", True, False),
+        ("handoff", "", True, True),
+        ("helper", "parse_all", False, True),
+        ("helper", "not_imported", True, True),
+    ],
+    ids=["helper", "handoff", "stale digest", "bad symbol"],
+)
+def test_a_helper_module_role_stops_the_new_crossing_import_line(
+    repo: Path,
+    capsys: pytest.CaptureFixture[str],
+    role: str,
+    symbol: str,
+    current: bool,
+    shown: bool,
+) -> None:
+    """A helper module role of pkg.parser closes the new import of Ledger. A handoff module
+    role does not close it. A helper answer with a different evidence digest, or with a
+    symbol that the users do not import, does not close it."""
+    from systemap import extract, judgement_evidence, module_use
+
+    components = extract.build(config.load(repo))["components"]
+    digest = judgement_evidence.digest(judgement_evidence.use_state(components, "pkg.parser"))
+    digest = digest if current else "0" * 64
+    line = module_use.module_line("pkg.parser")
+    symbol = f', symbol = "{symbol}"' if symbol else ""
+    toml = repo / "systemap.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8").replace(
+            'answered = [{ crossing = ["Ledger", "Parser"], policy = true, reason = "a type import" }]',
+            f'answered = [{{ item = "{line}", role = "{role}"{symbol}, evidence = "{digest}", '
+            'reason = "a test" }]',
+        ),
+        encoding="utf-8",
+    )
+    main(["--root", str(repo), "delta", "--base", "HEAD~1", "--brief"])
+    out = capsys.readouterr().out
+    found = "  new crossing import: pkg.ledger (component Ledger) imports pkg.parser" in out
+    assert found == shown
+    # The other new import has no module role answer, so it keeps its line.
+    assert "  new crossing import: pkg.writer (component Writer) imports pkg.reader" in out

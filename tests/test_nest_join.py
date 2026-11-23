@@ -21,6 +21,7 @@ Acceptance values:
 8. A run with `--map` gives the boundary lines of the selected map.
 9. In `judgement --json`, the `detail` of a `boundary import` row lists its imports. If
    the parent map has only a flow from X to the card, `parent_flow` gives that direction.
+10. An import only for type checks gives no `boundary import` line.
 """
 
 from __future__ import annotations
@@ -203,6 +204,16 @@ def test_an_import_of_a_component_that_is_not_an_actor(tmp_path: Path) -> None:
         "Gateway: boundary import: Views imports Log, and Log is not an actor of the map "
         "inside Gateway",
     ]
+
+
+def test_an_import_only_for_type_checks_gives_no_boundary_import(tmp_path: Path) -> None:
+    """Acceptance 10: an import only for type checks does not operate at run time. Thus
+    it gives no `boundary import` line."""
+    views = (
+        "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from pkg.log import write\n"
+        "\n\ndef view() -> None:\n    return None\n"
+    )
+    assert boundary(build(tmp_path, gateway__views=views)) == []
 
 
 def level_2(root: Path, *, actor: bool) -> Path:

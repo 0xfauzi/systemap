@@ -131,7 +131,7 @@ def test_insufficient_evidence_gives_one_more_attempt(
     code, _out, err = submit(mapped, capsys, verdict(request, "contradicted", "Third try."))
     assert code == 1 and "is unknown" in err
     code, data, text = status(mapped, capsys)
-    assert code == 1 and data["schema_version"] == 2
+    assert code == 1 and data["schema_version"] == 3
     row = data["unknown_requests"][0]
     assert row["id"] == rid and row["insufficient"] == 2
     history = row["history"]

@@ -1,0 +1,81 @@
+"""Write the data of the study: the map of this repository with its history, and a second system."""
+import json, re, subprocess, sys, datetime
+from pathlib import Path
+sys.path.insert(0, 'tests')
+from systemap.route import route_all
+from systemap.schematic_cards import geometry
+S = Path(sys.argv[1])
+
+def from_model(name, model, meaning):
+    geo = geometry(model)
+    canvas = (float(model.canvas[0]), float(model.canvas[1]))
+    routes = route_all([(f.src, f.dst) for f in model.flows], geo.boxes, geo.actors, geo.blocks, geo.region_boxes, geo.region_of, canvas)
+    actors = {c.id for c in model.components if c.kind == 'actor'}
+    flows = [{'s': f.src, 't': f.dst, 'a': f.artifact, 'k': f.kind, 'p': [[round(p[0], 1), round(p[1], 1)] for p in routes[i].points],
+              'say': meaning.relations.get(f.id) or meaning.relations.get((f.src, f.dst)) or ''} for i, f in enumerate(model.flows)]
+    names = {'data': ('Data flow', 'Which artifacts move between components?'), 'control': ('Control flow', 'Which component starts which component?'),
+             'context': ('Context', 'What does each agent read?'), 'tool': ('Tools', 'Which tools can an agent use?')}
+    layers = [{'id': 'system', 'n': 'System context', 'q': 'Which actors connect to the system?', 'e': [i for i, f in enumerate(model.flows) if f.src in actors or f.dst in actors]},
+              {'id': 'structure', 'n': 'Structure', 'q': 'Which parts make the system?', 'e': []}]
+    for k in dict.fromkeys(f.kind for f in model.flows):
+        n = names.get(k, (k.capitalize(), 'Which flows have the kind ' + k + '?'))
+        layers.append({'id': k, 'n': n[0], 'q': n[1], 'e': [i for i, f in enumerate(model.flows) if f.kind == k]})
+    index = {}
+    for i, f in enumerate(model.flows): index.setdefault((f.src, f.dst), i)
+    sq = [{'n': j.label, 'en': j.starts, 's': [{'a': list(s.acts), 'f': index.get(tuple(s.edge), -1) if s.edge else -1, 'y': s.say} for s in j.steps]} for j in meaning.journeys]
+    return {'id': '', 'size': list(model.canvas),
+            'boxes': [{'id': b.id, 'n': b.label, 'u': b.sub, 'b': list(b.box)} for b in model.containers],
+            'regions': [{'id': r.id, 'n': r.label, 'b': list(r.box)} for r in model.regions],
+            'cards': [{'id': c.id, 'b': [c.x, c.y, 150, c.box[3]], 'k': c.kind, 'p': meaning.plain.get(c.id, ''), 'd': c.does, 'as': [],
+                       'm': [m.split('.')[-1] if ':' not in m else m.split(':')[-1] for m in c.implemented_by]} for c in model.components],
+            'flows': flows, 'layers': [l for l in layers if l['e'] or l['id'] == 'structure'], 'sq': sq, 'sm': []}
+
+# ---- the history of this repository, from git: the changed files of each commit, by component ----
+def history():
+    src = open('map/model.py').read()
+    owner = {}
+    for blk in re.finditer(r'Component\(\s*id="(\w+)"(?:(?!Component\().)*?implemented_by=\((.*?)\),\s*\n\s*(?:entry|map|region|kind)', src, re.S):
+        for m in re.findall(r'"(systemap[\w.]*)', blk.group(2)): owner['src/' + m.replace('.', '/') + '.py'] = blk.group(1)
+    log = subprocess.run(['git', 'log', '--no-merges', '--numstat', '--diff-filter=AMD', '--format=@%H %ct', '--reverse'], capture_output=True, text=True).stdout
+    root = subprocess.run(['git', 'rev-list', '--max-parents=0', 'HEAD'], capture_output=True, text=True).stdout.split()
+    shallow = set(open('.git/shallow').read().split()) if Path('.git/shallow').exists() else set()
+    commits, cur = [], None
+    for line in log.splitlines():
+        if line.startswith('@'):
+            h, t = line[1:].split(); cur = {'h': h, 't': int(t), 'files': []}; commits.append(cur)
+        elif line.strip() and cur is not None:
+            a, d, path = line.split('\t'); cur['files'].append((path, (int(a) if a.isdigit() else 0) + (int(d) if d.isdigit() else 0)))
+    commits = [c for c in commits if c['h'] not in shallow and c['h'] not in root]
+    t0, t1 = commits[0]['t'], commits[-1]['t']; N = 12; span = (t1 - t0) / N or 1
+    seen = set(); cells = {}
+    added = subprocess.run(['git', 'log', '--no-merges', '--diff-filter=A', '--name-only', '--format=@%H', '--reverse'], capture_output=True, text=True).stdout
+    born = {}; h = None
+    for line in added.splitlines():
+        if line.startswith('@'): h = line[1:]
+        elif line.strip() and h not in shallow and h not in root: born.setdefault(h, []).append(line.strip())
+    for c in commits:
+        b = min(N - 1, int((c['t'] - t0) / span))
+        for path, lines in c['files']:
+            comp = owner.get(path)
+            if not comp: continue
+            cell = cells.setdefault(comp, [dict(f=0, l=0, n=[]) for _ in range(N)])[b]
+            cell['f'] += 1; cell['l'] += lines
+        for path in born.get(c['h'], []):
+            comp = owner.get(path)
+            if comp: cells.setdefault(comp, [dict(f=0, l=0, n=[]) for _ in range(N)])[b]['n'].append(path.split('/')[-1][:-3])
+    day = lambda t: datetime.datetime.utcfromtimestamp(t).strftime('%-d %b')
+    return {'commits': len(commits), 'from': day(t0), 'to': day(t1), 'buckets': [[day(t0 + span * i), day(t0 + span * (i + 1))] for i in range(N)], 'cells': cells}
+
+d = json.load(open(S / 'data3.json'))
+own = {'name': 'systemap', 'note': 'the map of systemap itself', 'maps': d['maps'], 'history': history()}
+import fixture_workspace as fw
+from systemap import place
+# The fixture has positions that a person set by hand. The placer of the product gives the positions here.
+pl = place.compute(fw.MODEL, all_cards=True)
+laid = place.apply(fw.MODEL, pl)
+print('placer:', place.head(pl), laid.canvas)
+other = {'name': 'wharf', 'note': 'a real project with agents, made anonymous', 'maps': [from_model('wharf', laid, fw.MEANING)], 'history': None}
+json.dump({'sets': [own, other]}, open(S / 'data4.json', 'w'), separators=(',', ':'))
+hh = own['history']
+print(hh['commits'], hh['from'], hh['to'], {k: sum(c['f'] for c in v) for k, v in hh['cells'].items()})
+m = other['maps'][0]; print(len(m['cards']), len(m['flows']), [(l['id'], len(l['e'])) for l in m['layers']], len(m['sq']), m['size'], sorted({c['k'] for c in m['cards']}))

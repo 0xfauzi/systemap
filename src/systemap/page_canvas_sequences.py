@@ -67,6 +67,9 @@ HTML = (
     '<div class="cseq__seg" role="group" aria-label="Show">'
     '<button type="button" id="cseq-whole" aria-pressed="true">Whole route</button>'
     '<button type="button" id="cseq-steps" aria-pressed="false">Steps</button></div>'
+    '<div class="cseq__form" role="group" aria-label="Form">'
+    '<button type="button" id="cseq-onmap" aria-pressed="true">On the map</button>'
+    '<button type="button" id="cseq-diagram" aria-pressed="false">As a diagram</button></div>'
     '<span class="cseq__tb" id="cseq-wholebar">'
     '<button type="button" class="cseq__btn cseq__btn--primary" id="cseq-start">'
     "Start at step 1</button></span>"
@@ -106,6 +109,8 @@ font-weight:600}
 gap:2px;padding:6px;overflow:auto;border:1px solid var(--line-2);border-radius:10px;
 background:var(--surface);box-shadow:0 14px 40px color-mix(in srgb,#000 40%,transparent)}
 .cseq__list[hidden]{display:none}
+.cdet ol{margin:0;padding:0;list-style:none}
+.cdet button[aria-current]{border-color:var(--ink);font-weight:600}
 .cseq__group{padding:8px 8px 4px;font:600 11px/16px var(--fm);letter-spacing:.06em;
 color:var(--ink-2)}
 .cseq__opt{display:flex;flex-direction:column;justify-content:center;gap:2px;min-height:44px;
@@ -119,6 +124,18 @@ color:var(--ink)}
 .cseq__opt[aria-selected="true"] .cseq__opt-name{font-weight:600}
 .cseq__opt-meta{font:12px/16px var(--fm);color:var(--ink-2)}
 .cseq__opt-name,.cseq__opt-meta{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cseq__label{font:600 11px/16px var(--fm);letter-spacing:.08em;text-transform:uppercase}
+@media not (pointer:coarse){
+.cseq__seg,.cbar .cseq__form{gap:0;padding:2px;border:1px solid var(--line-2);border-radius:8px;
+background:var(--map)}
+.cbar .cseq__seg button,.cbar .cseq__form button{height:26px;padding:0 10px;border-radius:6px}
+.cbar .cseq__seg button[aria-pressed="true"],.cbar .cseq__form button[aria-pressed="true"]{
+background:var(--surface);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 12%,transparent)}
+.cbar:not([data-fit]) .cseq__tb{margin-left:4px;padding-left:12px;
+border-left:1px solid var(--line)}
+.cbar .cseq__btn{height:30px}
+.cbar .cseq__pick{height:30px}
+}
 @media (pointer:coarse){.cbar .cseq{top:56px;padding:6px 8px}}
 @media (max-width:820px){.cseq__label{display:none}.cseq__choose{flex:1 1 180px}}
 """
@@ -185,7 +202,8 @@ function seqValues() {
 }
 // A change of the sequence, of the mode or of the step: new values, new images of a large
 // map (the epoch of the view), and a frame.
-function seqChanged() { seqValues(); VIEW.epoch++; seqSync(); viewTouch(); }
+// The Details panel gets the change through the functions of HERE_HOOKS.
+function seqChanged() { seqValues(); VIEW.epoch++; seqSync(); viewTouch(); HERE_HOOKS.forEach(function (f) { f(currentMap()); }); }
 // The fade of the marks of the route, one time in each frame.
 function seqAdvance() {
   if (SEQ_AT === drawn) return;
@@ -333,6 +351,21 @@ function seqSync() {
   seqFocus(was);
 }
 
+// ---- the route in order, for the Details panel ------------------------------------------
+// The elements of the route of sequence j of map m. A step is a button that shows that
+// step. The button of the current step has `aria-current`.
+function seqRoute(m, j) {
+  return [el('h3', {tabindex: '-1'}, j.n), el('p', null, 'Sequence. Map: ' + mapName(m) + '.'),
+    j.en ? el('p', null, 'Entry point: ', el('code', null, j.en), '.') : null,
+    j.dr ? el('p', null, 'Agent draft. Source review necessary.') : null,
+    el('h4', null, 'THE ROUTE IN ORDER (' + j.s.length + ')'),
+    j.s.length ? [el('p', null, 'Select a step to show it on the map.'), el('ol', null, j.s.map(function (s, k) {
+      var f = m.flows[s.f], name = f ? f.s + ' to ' + f.t + ': ' + f.a : (s.a || []).join(', ') || 'No flow';
+      return el('li', null, el('button', {type: 'button', 'data-step': k, 'data-keep': '', 'aria-current': SEQ.steps && k === SEQ.s ? 'step' : null}, (k + 1) + '. ' + name),
+        s.y ? el('p', null, s.y) : null);
+    }))] : el('p', null, 'This sequence has no steps.')];
+}
+
 // ---- the chooser: a button that opens the listbox of the sequences ---------------------
 function seqOptions() { return Array.prototype.slice.call(SEQ_LIST.querySelectorAll('[role="option"]')); }
 function seqExpand(on) { SEQ_LIST.hidden = !on; SEQ_PICK.setAttribute('aria-expanded', on ? 'true' : 'false'); }
@@ -406,6 +439,11 @@ function seqWire() {
   document.addEventListener('pointerdown', function (e) { if (!SEQ_LIST.parentNode.contains(e.target)) seqShut(false); });
   window.addEventListener('resize', function () { seqShut(false); });
   SEQ_BAR.addEventListener('keydown', seqBarKey);
+  var panel = document.getElementById('cdet-body');
+  if (panel) panel.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-step]') : null;
+    if (b && VIEW.mode === 'sequences') seqMode(true, +b.getAttribute('data-step'), true);
+  });
   function on(id, f) { seqEl(id).addEventListener('click', f); }
   on('whole', function () { seqMode(false, SEQ.s, true); });
   on('steps', function () { seqMode(true, SEQ.s, true); });
@@ -439,6 +477,18 @@ if (SEQ_MAPS.length && SEQ_BAR && SEQ_PICK && SEQ_LIST) {
     },
     // The words of the view for the live region: the words of the sequence (`viewWords`).
     words: function () { return SEQ.j ? seqWords() : ''; },
+    // The Details panel with no selection: the route in order.
+    panel: function () {
+      var j = SEQ.j, m = SEQ.m;
+      return j ? {key: m.oi + ':' + SEQ.k + ':' + (SEQ.steps ? SEQ.s : 'w'), nodes: function () { return seqRoute(m, j); }} : null;
+    },
+    // The caption: the question of the whole route, or the sentence of the step.
+    caption: function () {
+      var j = SEQ.j;
+      if (!j) return null;
+      if (!SEQ.steps) return {k: j.n, s: 'Which parts does this operation use?'};
+      return {k: 'Step ' + (SEQ.s + 1) + ' of ' + j.s.length, s: j.s[SEQ.s].y || 'This step has no sentence.'};
+    },
     leave: function () { seqShut(false); barShow(SEQ_BAR, false, 'sequences'); },
     // The height of the bar. A hidden bar keeps the last height.
     band: function (fresh) { return barBand(SEQ_BAR, SEQ_BAND, fresh); },

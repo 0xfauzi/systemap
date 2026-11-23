@@ -1,0 +1,8 @@
+load average before: 4.04 4.62 3.67 1/108 1152
+| Input | First frame canvas / atlas (ms) | Pan p95 canvas / atlas (ms) | Dive share over 20 ms canvas / atlas | Page size canvas / atlas (bytes) | Point to lit paths, atlas (ms) |
+|---|---|---|---|---|---|
+| self | 347 / 392 (pass) | 33.3 / 33.3 (pass) | 0.461 / 0.150 (pass) | 365,566 / 438,320 = 1.20 (pass) | 85 (pass) |
+| workspace | 312 / 344 (pass) | 33.3 / 16.8 (pass) | 0.200 / 0.156 (pass) | 269,006 / 324,221 = 1.21 (pass) | 89 (pass) |
+| M11 tree | 470 / 564 (pass) | 33.2 / 33.3 (pass) | 0.239 / 0.161 (pass) | 1,223,948 / 1,275,744 = 1.04 (pass) | 77 (pass) |
+budget: pass
+load average after: 1.17 2.16 2.83 1/111 6513

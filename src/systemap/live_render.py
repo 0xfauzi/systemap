@@ -58,8 +58,8 @@ def render_tree(root: Path, base: str, cache: fact_cache.FactCache | None = None
     """Render the pages and the figure of the working tree. Write no file.
 
     The facts come from the source files and the models from the model files. With a
-    base, the Changes view and the map update lines compare the working tree with the
-    merge base of the base and HEAD. `systemap delta` uses the same comparison of the
+    base, the revision comparison of the page and the map update lines compare the working
+    tree with the merge base of the base and HEAD. `systemap delta` uses the same comparison of the
     facts for all maps. With a cache, the extraction uses the kept facts of each file
     with the same text.
     """
@@ -70,9 +70,13 @@ def render_tree(root: Path, base: str, cache: fact_cache.FactCache | None = None
     # One source comparison for all maps: it does not use the model of a map.
     source = change.source_change(cfg, base, facts, change.WORKING_TREE, cache) if base else None
     compared = {m.id: _compare(cfg, m, base, facts, source) for m in tree.maps}
+    # The live page has the history of the commits (`history_data`). It gives no notice.
+    history, _ = render_pages.history(cfg, tree, facts)
     files = {
         out_paths.checked(cfg, m.page_path(cfg)).relative_to(cfg.out_path).as_posix(): html
-        for m, html in render_pages.pages(cfg, tree, facts, lambda m: compared[m.id])
+        for m, html in render_pages.pages(
+            cfg, tree, facts, lambda m: compared[m.id], history=history
+        )
     }
     top = compared[tree.top.id]
     files[FIGURE] = _figure(cfg, tree, facts, (base, source), top)

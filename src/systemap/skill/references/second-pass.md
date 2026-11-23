@@ -28,10 +28,11 @@ Keep exact finding identifiers when you record answers.
    If another component has the correct function, change the assignment.
    If both assignments are incorrect, correct the component definitions first.
    Record uncertain assignments and their source evidence for the maintainer.
-3. Examine every crossing import with `systemap judgement --verbose`.
+3. Give the module role of each `module use` line first. Use the procedure in `references/decisions.md`.
+   Then examine every open crossing import with `systemap judgement --verbose`.
    Find the source import. Identify the data transfer or call direction.
-   Add a supported flow, record why no flow is necessary, or correct the component assignments.
-   Type annotations and shared constants can be imports without a useful map flow.
+   Add a supported flow, give an exact answer for the line, or correct the component assignments.
+   An import for type checks only does not make a line. A helper module does not open a crossing import line.
 4. Examine every declared or structural flow.
    Find the source that gives its direction and artifact.
    If the import belongs to a different component, correct the module assignments.
@@ -69,7 +70,7 @@ Keep exact finding identifiers when you record answers.
 
 ## Answer records
 
-Seven forms are available. Each table has one reason.
+These forms are available. Each table has one reason.
 These values are examples. Replace each quoted line and digest with actual output after source examination.
 
 ```toml
@@ -77,9 +78,7 @@ These values are examples. Replace each quoted line and digest with actual outpu
 answered = [
     { item = "<exact printed line>", reason = "The source operation uses an HTTP client outside the extracted package.", evidence = "<current evidence digest>" },
     { items = ["<first exact line>", "<second exact line>"], reason = "Each component has a different function in this small package.", evidence = "<current evidence digest>" },
-    { crossing = ["Page", "Figures", "Describe"], policy = true, reason = "These components use shared diagram tables without another artifact transfer." },
-    { crossing_into = "Model", policy = true, reason = "Components import the schema for type annotations." },
-    { crossing_from = "CLI", policy = true, reason = "Commands import the components that their control flows call." },
+    { item = "module use: other components import pkg.text and no flow connects them to its component", role = "helper", symbol = "clean", reason = "The function clean operates in the code of the caller and sends no artifact.", evidence = "<current evidence digest>" },
     { kind = "single module", policy = true, reason = "Each component has a different function in this small package." },
     { module_sdk = "google.adk", policy = true, reason = "The framework also has tool and session modules without model calls." },
 ]
@@ -91,7 +90,10 @@ The digest contains the facts that the finding cites: the names, the imports, an
 A comment, a function body, or a test does not open the answer again.
 A line about a flow or a source review also contains the source files.
 `judgement` gives no line about a test file.
+A module use answer has `role`: `"helper"` with a `symbol`, `"handoff"`, or `"mixed"` with a `handoff` list.
 A broad answer is a permanent policy only with `policy = true`.
+systemap refuses a broad answer, and an answer with two or more items, for `crossing import`, `module use`, and `declared flow` lines.
+The `crossing`, `crossing_into`, and `crossing_from` forms select only `crossing import` lines. Thus systemap refuses them.
 Use `reviewed = ["<printed line>", ...]` to record its examined baseline.
 The report counts current matches outside that baseline.
 Do not use a broad policy to avoid source examination.
@@ -104,7 +106,8 @@ The header still counts all unanswered lines. `--strict` also reads all lines.
 Do this procedure for every map in the tree.
 Nested finding lines include the map identifier, for example `Gateway: single module: ...`.
 An exact `item` answer includes that prefix.
-Broad forms such as `kind`, `crossing`, and `module_sdk` apply across maps.
+Broad forms such as `kind` and `module_sdk` apply across maps.
+systemap refuses broad forms for `crossing import`, `module use`, and `declared flow` lines in all maps.
 
 An import between two internal components belongs to their nested map.
 An import across its boundary belongs to the applicable components on the parent map.

@@ -61,7 +61,6 @@ name = "demo"
 [package_roots]
 "pkg" = "pkg"
 [render]
-canvas = true
 """
 POLICY = (
     "[judgement]\nanswered = [\n"
@@ -78,9 +77,10 @@ def run(*argv: str) -> int:
     return main(list(argv))
 
 
-def made(root: Path, gateway: str = WITHOUT, extra: str = "") -> Path:
-    """The nested tree with the canvas page, placed, extracted and rendered."""
-    files = {**TREE, **MODELS, "systemap.toml": CONFIG + extra, "map/gateway.py": gateway}
+def made(root: Path, gateway: str = WITHOUT, extra: str = "", page: str = "canvas") -> Path:
+    """The nested tree with the given page (the canvas page), placed, extracted and rendered."""
+    toml = CONFIG + f'page = "{page}"\n' + extra
+    files = {**TREE, **MODELS, "systemap.toml": toml, "map/gateway.py": gateway}
     write_tree(root, files)
     for command in ("place", "extract", "render"):
         assert run("--root", str(root), command) == 0

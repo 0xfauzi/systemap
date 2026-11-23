@@ -1,6 +1,7 @@
 """The canvas page: all maps of a map tree on one canvas (docs/design/nested-canvas.md).
 
-This is the default output (`config_render`): `render_pages` uses `pages`, the canvas page
+`[render] page = "canvas"` selects this page (`config_render`). Before stage 9 of
+docs/design/atlas.md it was the default output. `render_pages` uses `pages`, the canvas page
 for the top map and a small page for each nested map (`canvas_redirect`). The small page
 goes to the top page with the ID of its map in the URL hash, for example
 `../index.html#Gateway`. Thus a link to a nested page still opens that map.
@@ -34,6 +35,7 @@ from systemap import (
     judgement_json,
     nest,
     page,
+    page_canvas_board,
     page_canvas_changes,
     page_canvas_details,
     page_canvas_find,
@@ -81,10 +83,11 @@ SLOTS: dict[str, tuple[str, ...]] = {
     "css": (
         page_canvas_changes.CSS,
         page_canvas_sequences.CSS,
+        page_canvas_board.CSS,
         page_canvas_find.CSS,
         page_canvas_details.CSS,
     ),
-    "head": (page_canvas_sequences.HTML, page_canvas_changes.HTML),
+    "head": (page_canvas_sequences.HTML, page_canvas_board.HTML, page_canvas_changes.HTML),
     "after": (page_canvas_find.HTML, page_canvas_details.HTML),
 }
 

@@ -4,12 +4,14 @@ The report includes component grouping, flow descriptions, layer contents, entry
 coverage, imports, and source evidence. Each line has a stable kind prefix. The
 configuration can answer an exact line or a family of lines. Exact answers must have an
 evidence digest. Family answers must have an explicit policy. The report shows unmatched
-answers as stale.
+answers as stale. It refuses a family answer and an answer with two or more items for the
+kinds of `refused_answers.NO_FAMILY_KINDS`.
 
 Each nested diagnostic has its map ID as a prefix. Exact answers include this prefix.
-family selectors use the diagnostic after the prefix. Entry point and SDK questions
+Family selectors use the diagnostic after the prefix. Entry point and SDK questions
 belong to the deepest applicable map. Sequences from all maps supply entry coverage. The
-CLI exits 1 with --strict if a line remains open. otherwise, the report exits 0.
+CLI exits 1 with --strict if a line remains open or an answer is refused. Otherwise, the
+report exits 0.
 """
 
 from __future__ import annotations
@@ -29,13 +31,24 @@ from systemap import (
     evidence,
     explain,
     judgement_evidence,
+    module_use,
     nest,
     nest_join,
+    refused_answers,
     step_refs,
     unknown_causes,
 )
 from systemap import language as languages
 from systemap.config import LINE_KINDS, Answer, ConfigError
+from systemap.crossing import CROSSING_LINE as CROSSING_LINE
+from systemap.crossing import Pair as Pair
+from systemap.crossing import crossing_counts as crossing_counts
+from systemap.crossing import crossing_detail as crossing_detail
+from systemap.crossing import crossing_detail_tree as crossing_detail_tree
+from systemap.crossing import crossing_imports as crossing_imports
+from systemap.crossing import crossing_imports_without_flow as crossing_imports_without_flow
+from systemap.crossing import crossing_line as crossing_line
+from systemap.crossing import crossing_pairs as crossing_pairs
 from systemap.evidence import mentioned, owners
 from systemap.journey_coverage import (
     TOGETHER_AT as TOGETHER_AT,
@@ -197,86 +210,6 @@ def entry_points_without_journey(
     """This function groups entry points without sequence coverage by kind and component."""
     owner = _owner_of(model, facts)
     return _entry_lines(ways_in_without_journey(meaning, facts, text, skip, owner, covered), owner)
-
-
-Pair = tuple[str, str]
-
-
-def crossing_pairs(
-    components: dict[str, Any], owner: dict[str, str]
-) -> dict[Pair, list[tuple[str, str]]]:
-    """This function indexes module imports across distinct component pairs.
-
-    It uses source facts and an owner table so the delta can use the same rule at
-    another commit.
-    """
-    out: dict[Pair, list[tuple[str, str]]] = {}
-    for module in sorted(components):
-        p = owner.get(module)
-        if not p:
-            continue
-        for target in sorted(components[module].get("uses", {})):
-            q = owner.get(target)
-            if q and q != p:
-                out.setdefault((p, q), []).append((module, target))
-    return out
-
-
-def crossing_line(p: str, q: str) -> str:
-    """This function gives one diagnostic for a component pair.
-
-    The line contains no count, because a count can change while the finding stays the
-    same. `crossing_counts` gives the count for the row below the line.
-    """
-    return f"crossing import: {p} imports {q} and no flow connects them"
-
-
-def crossing_imports(model: Model, facts: dict[str, Any]) -> dict[Pair, list[tuple[str, str]]]:
-    """This function gives component pairs with an import connection and no flow
-    connection.
-    """
-    components = facts.get("components", {})
-    joined = {frozenset(f.edge) for f in model.flows}
-    return {
-        pair: imports
-        for pair, imports in crossing_pairs(components, _owner_of(model, facts)).items()
-        if frozenset(pair) not in joined
-    }
-
-
-def crossing_imports_without_flow(model: Model, facts: dict[str, Any]) -> list[str]:
-    """This function gives one diagnostic for each ordered component pair with imports but
-    no flow. The verbose detail lists these imports.
-    """
-    return [crossing_line(p, q) for p, q in crossing_imports(model, facts)]
-
-
-def crossing_detail(model: Model, facts: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
-    """This function indexes imports by their full printed crossing-import diagnostic."""
-    return {
-        prefix + crossing_line(p, q): [f"{m} imports {t}" for m, t in imports]
-        for (p, q), imports in crossing_imports(model, facts).items()
-    }
-
-
-def crossing_counts(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, int]:
-    """This function gives the count of the modules of the source component that import
-    the destination component, for each crossing-import line of all maps."""
-    return {
-        m.prefix + crossing_line(p, q): len({module for module, _target in imports})
-        for m in tree.reported
-        for (p, q), imports in crossing_imports(m.model, facts).items()
-    }
-
-
-def crossing_detail_tree(tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
-    """This function gives crossing-import detail for all maps with their diagnostic
-    prefixes.
-    """
-    out: dict[str, list[str]] = {}
-    for m in tree.reported:
-        out.update(crossing_detail(m.model, facts, m.prefix))
-    return out
 
 
 def declared_flows(
@@ -535,7 +468,12 @@ def run_tree(
 
 
 def evidence_for_tree(
-    tree: nest.Tree, facts: dict[str, Any], root: Path, lines: list[str], earlier: bool = False
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    root: Path,
+    lines: list[str],
+    earlier: bool = False,
+    uses: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """This function hashes the evidence of each printed line for exact answers.
 
@@ -543,14 +481,17 @@ def evidence_for_tree(
     Crossing-import evidence includes only the imports between the two components. A
     line with a source line number has the evidence of its statement. An uncommitted
     source edit that changes a cited fact changes the digest. With `earlier`, the
-    digests have the form of systemap 2.0.0 (`answer_upgrade`).
+    digests have the form of systemap 2.0.0 (`answer_upgrade`). `uses` gives the module
+    of each `module use` line. Without it, the module comes from the line.
     """
     crossings = {
         m.prefix + crossing_line(p, q): imports
         for m in tree.maps
         for (p, q), imports in crossing_imports(m.model, facts).items()
     }
-    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings, earlier)
+    if uses is None:
+        uses = {x: m for x in lines if (m := module_use.line_module(unprefixed(x)))}
+    return judgement_evidence.tree_evidence(tree, facts, root, lines, crossings, earlier, uses)
 
 
 def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
@@ -565,7 +506,6 @@ def answer_digest(items: Iterable[str], evidence: Mapping[str, str]) -> str:
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
-CROSSING_LINE = re.compile(r"^crossing import: (\S+) imports (\S+) and no flow connects")
 SDK_LINE = re.compile(r"^model sdk: module \S+ imports (\S+) and its component ")
 # How each kind's lines begin; the entry point line carries no colon.
 KIND_PREFIX = {kind: f"{kind}: " for kind in LINE_KINDS} | {"entry point": "entry point "}
@@ -611,7 +551,8 @@ def answers(answer: Answer, line: str, present: Container[str] = ()) -> bool:
 @dataclass(frozen=True)
 class Answered:
     """This record contains open diagnostics, accepted counts, stale answers, pending
-    reviews, policy notices, and the accepted answers.
+    reviews, policy notices, the accepted answers, the texts of the refused answers
+    (`refused_answers`), and the answers that module roles make unused.
     """
 
     open: list[str]
@@ -620,6 +561,8 @@ class Answered:
     pending: list[str] = field(default_factory=list)
     policies: list[str] = field(default_factory=list)
     accepted: list[Answer] = field(default_factory=list)
+    refused: list[str] = field(default_factory=list)
+    unused: list[str] = field(default_factory=list)
 
 
 def apply_answers(
@@ -651,6 +594,8 @@ def _accepted_answers(
     accepted: list[Answer] = []
     present = set(lines)
     for a in given:
+        if refused_answers.form(a) is not None:
+            continue
         matches = [line for line in lines if answers(a, line, present)]
         if not matches:
             continue
@@ -691,7 +636,7 @@ def _answer_issue(answer: Answer, evidence: Mapping[str, str] | None) -> str | N
 def _stale_answers(given: list[Answer], lines: list[str]) -> list[str]:
     stale: list[str] = []
     present = set(lines)
-    for answer in given:
+    for answer in (a for a in given if refused_answers.form(a) is None):
         if answer.items:
             stale.extend(
                 item
@@ -741,6 +686,8 @@ def report(
     out += [f"  stale answer: {answer_migrations.stale(item)}" for item in result.stale]
     out += [f"  pending answer: {printable(item)}" for item in result.pending or []]
     out += [f"  policy answer: {printable(item)}" for item in result.policies or []]
+    out += [f"  refused answer: {printable(item)}" for item in result.refused]
+    out += [f"  unused answer: {printable(item)}" for item in result.unused]
     return out
 
 

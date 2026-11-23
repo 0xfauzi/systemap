@@ -19,6 +19,9 @@ The header holds these controls, from left to right:
   buttons are a toolbar: Tab goes to the pressed button, and the arrow keys move between
   the buttons. When the buttons do not fit in the header, the script shows a select in
   their place, as the linked page does on a phone.
+  With a mouse, the views are one segmented control, and the layers are tabs with a line
+  under the pressed tab. Thus the two groups do not look the same. On a touch screen, each
+  control keeps its box of 44 px.
 - The Find button (`find-open`). It is hidden until the search part of the renderer wires
   its dialog and removes the `hidden` attribute.
 - The tools (`_tools`), as on the linked page (`page._tools`): the source of the map (the
@@ -58,25 +61,46 @@ def _views() -> str:
         '<nav class="cbar__views" aria-label="Views">'
         '<button type="button" data-view="map" aria-pressed="true">Map</button>'
         '<button type="button" data-view="sequences" aria-pressed="false">Sequences</button>'
+        '<button type="button" data-view="states" aria-pressed="false">States</button>'
         '<button type="button" data-view="changes" aria-pressed="false">Changes</button>'
         "</nav>"
     )
 
 
-def _layers(found: list[dict[str, str]]) -> str:
+def first_layer(data: Mapping[str, Any]) -> str:
+    """Give the layer with which the page opens: "system" when System context is the first
+    layer of the top map, and "all" in the other cases.
+
+    System context is the first layer only when it has flows (`page.tab_layers`). The
+    script uses the same rule (`VIEW.layer` in `page_canvas_view`)."""
+    top = (data.get("maps") or [{}])[0].get("layers") or []
+    return "system" if top and top[0]["id"] == "system" else "all"
+
+
+def _layers(found: list[dict[str, str]], first: str = "all") -> str:
+    def state(layer: str) -> str:
+        on = layer == first
+        return f'aria-pressed="{"true" if on else "false"}" tabindex="{0 if on else -1}"'
+
+    def pick(layer: str) -> str:
+        return " selected" if layer == first else ""
+
     buttons = "".join(
-        f'<button type="button" data-layer="{esc(lay["id"])}" aria-pressed="false" '
-        f'tabindex="-1" title="{esc(lay["q"])}">{esc(lay["n"])}</button>'
+        f'<button type="button" data-layer="{esc(lay["id"])}" {state(lay["id"])} '
+        f'title="{esc(lay["q"])}">{esc(lay["n"])}</button>'
         for lay in found
     )
-    options = "".join(f'<option value="{esc(lay["id"])}">{esc(lay["n"])}</option>' for lay in found)
+    options = "".join(
+        f'<option value="{esc(lay["id"])}"{pick(lay["id"])}>{esc(lay["n"])}</option>'
+        for lay in found
+    )
     return (
         '<div class="cbar__layers" role="toolbar" aria-label="Layer">'
         f"{buttons}"
-        '<button type="button" data-layer="all" aria-pressed="true" tabindex="0" '
+        f'<button type="button" data-layer="all" {state("all")} '
         f'title="{ALL_TITLE}">All</button></div>'
         '<div class="cbar__pick"><label for="canvas-layer">Layer</label>'
-        f'<select id="canvas-layer">{options}<option value="all" selected>All</option>'
+        f'<select id="canvas-layer">{options}<option value="all"{pick("all")}>All</option>'
         "</select></div>"
     )
 
@@ -141,9 +165,9 @@ def html_of(data: Mapping[str, Any], tools: str = "") -> str:
     name = esc(data.get("name", "") or "map")
     return (
         '<header class="cbar" id="canvas-head">'
-        f'<h1 class="cbar__name">{name}</h1>'
+        f'{page.MARK}<h1 class="cbar__name">{name}</h1>'
         + _views()
-        + _layers(layers(data))
+        + _layers(layers(data), first_layer(data))
         + tools
         + '<span class="cbar__space"></span>'
         + _find()
@@ -175,6 +199,11 @@ font:inherit;cursor:pointer}
 color:var(--ink);font-weight:500}
 .cbar button:focus-visible,.cbar select:focus-visible{outline:2px solid var(--ink);
 outline-offset:1px}
+.cbar .mark{flex:none;width:20px;height:20px;margin-right:-4px}
+.cbar .mark__path{fill:none;stroke:var(--ink);stroke-width:44;stroke-linecap:round;
+stroke-linejoin:round}
+.cbar .mark__dot{fill:var(--brand)}
+.cbar[data-fit="2"] .mark{display:none}
 .cbar__name{flex:none;max-width:240px;margin:0;overflow:hidden;font:600 15px/1 var(--fs);
 letter-spacing:-.02em;white-space:nowrap;text-overflow:ellipsis}
 .cbar__views,.cbar__layers{display:flex;flex:none;gap:2px}
@@ -211,6 +240,25 @@ overflow:hidden;clip-path:inset(50%)}
 .cview.on{visibility:visible;opacity:1;transition:opacity .16s ease-out}
 @media (prefers-reduced-motion:reduce){.cview,.cview.on{transition:none}}
 :root[data-reduce-motion="true"] .cview{transition:none}
+@media not (pointer:coarse){
+.cbar button{transition:background .16s ease-out,color .16s ease-out,box-shadow .16s ease-out}
+.cbar__views{gap:0;padding:2px;border:1px solid var(--line-2);border-radius:8px;
+background:var(--map)}
+.cbar .cbar__views button{height:26px;padding:0 12px;border-radius:6px}
+.cbar .cbar__views button[aria-pressed="true"]{background:var(--surface);
+box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 12%,transparent)}
+.cbar__layers{align-self:stretch;align-items:stretch;gap:0;padding-left:14px}
+.cbar .cbar__layers button{height:auto;padding:0 10px;border:0;border-radius:0;
+background:none;box-shadow:inset 0 -2px 0 transparent}
+.cbar .cbar__layers button:hover{background:none;box-shadow:inset 0 -2px 0 var(--line-2)}
+.cbar .cbar__layers button[aria-pressed="true"]{background:none;
+box-shadow:inset 0 -2px 0 var(--ink);color:var(--ink)}
+.cbar .cbar__layers button:focus-visible{outline-offset:-3px}
+.cbar[data-fit="2"] .cbar__views{padding:1px}
+.cbar[data-fit="2"] .cbar__views button{padding:0 7px}
+}
+@media (prefers-reduced-motion:reduce){.cbar button{transition:none}}
+:root[data-reduce-motion="true"] .cbar button{transition:none}
 .tree a:focus{top:104px;z-index:5}
 @media (pointer:coarse){.tree a:focus{top:120px}}
 """

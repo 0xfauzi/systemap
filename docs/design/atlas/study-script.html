@@ -1,0 +1,718 @@
+<script>
+(function () {
+'use strict';
+var D = JSON.parse(document.getElementById('data').textContent), NS = 'http://www.w3.org/2000/svg';
+var KIND = {data: ['--data', 'Data'], control: ['--control', 'Control'], judge: ['--judge', 'Map review'], context: ['--context', 'Context'], tool: ['--tool', 'Tool']};
+var svg = document.getElementById('map'), world = document.getElementById('world'), app = document.getElementById('app'), stage = document.getElementById('stage');
+var dot = document.getElementById('dot'), cam = {x: 0, y: 0, k: 1}, cur = null, sel = null, hot = null, hotFlow = null, LANE = 4.5, started = false;
+var REDUCE = matchMedia('(prefers-reduced-motion:reduce)').matches, MODE = 'map', SEQ = {i: 0, step: -1, form: 'map'}, SM = {i: 0}, FOCUS = {id: ''};
+function el(tag, attrs, parent, text) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+function kvar(f) { return 'var(' + (KIND[f.k] || KIND.data)[0] + ')'; }
+
+// ---- the maps: the top map, and each map that a card opens --------------------------------
+var SET, MAPS, TOP;
+function prepare() {
+MAPS.forEach(function (m) {
+  m.byId = {}; m.s = 1; m.ox = 0; m.oy = 0; m.host = null; m.shown = [];
+  m.cards.forEach(function (c, i) { c.i = i; c.map = m; c.fl = []; m.byId[c.id] = c; });
+  m.flows.forEach(function (f, i) { f.i = i; f.map = m; });
+  m.layers.push({id: 'all', n: 'All', q: 'Which flows connect the components?', e: m.flows.map(function (f) { return f.i; })});
+  m.name = m.id || SET.name;
+});
+// Inside a card, the first layer asks about the neighbours of that card.
+MAPS.slice(1).forEach(function (m) { m.layers.forEach(function (l) { if (l.id === 'system') { l.n = 'Neighbours'; l.q = 'Which neighbours connect to ' + m.name + '?'; } }); });
+MAPS.slice(1).forEach(function (m) {
+  var c = TOP.byId[m.id]; if (!c) return;
+  // The map sits in the right part of its card. Its scale makes it fit the height of the card.
+  m.host = c; c.opens = m; m.parts = m.cards.filter(function (x) { return x.k !== 'actor'; }).length;
+  m.s = Math.min((c.b[3] - 12) / m.size[1], 44 / m.size[0]);
+  m.ox = c.b[0] + c.b[2] - 9 - m.size[0] * m.s; m.oy = c.b[1] + (c.b[3] - m.size[1] * m.s) / 2;
+});
+}
+
+function build(m) {
+  var g = m.g = el('g', {class: 'lvl'}, m.host ? TOP.g : world);
+  if (m.host) g.setAttribute('transform', 'translate(' + m.ox + ' ' + m.oy + ') scale(' + m.s + ')');
+  m.boxes.forEach(function (b) {
+    var inside = m.cards.filter(function (c) { return c.b[0] >= b.b[0] && c.b[0] < b.b[0] + b.b[2] && c.b[1] >= b.b[1] && c.b[1] < b.b[1] + b.b[3]; });
+    if (!inside.length) return;
+    if (inside.every(function (c) { return c.k === 'actor'; })) {
+      // Only actors: no surface. The name is above the first actor.
+      var first = Math.min.apply(null, inside.map(function (c) { return c.b[1]; }));
+      if (!m.host) el('text', {x: Math.min.apply(null, inside.map(function (c) { return c.b[0]; })) + 6, y: first - 14, class: 'sysname'}, g, b.n);
+      return;
+    }
+    el('rect', {x: b.b[0], y: b.b[1], width: b.b[2], height: b.b[3], rx: 16, class: 'sys'}, g);
+    el('text', {x: b.b[0] + 20, y: b.b[1] + 30, class: 'sysname'}, g, b.n);
+    var room = Math.floor((b.b[2] - 50 - b.n.length * 7.4) / 5.1), sub = b.u && b.u.length > room ? b.u.slice(0, Math.max(0, room - 1)).replace(/[ ,;]+$/, '') + '\u2026' : b.u;
+    if (sub && room > 12) el('text', {x: b.b[0] + 20 + b.n.length * 7.4 + 10, y: b.b[1] + 30, class: 'syssub'}, g, sub);
+  });
+  m.regions.forEach(function (r, i) {
+    el('rect', {x: r.b[0] + 3, y: r.b[1] + 3, width: r.b[2] - 6, height: r.b[3] - 6, rx: 12, class: 'region'}, g);
+    el('circle', {cx: r.b[0] + 17, cy: r.b[1] + 17, r: 7, class: 'rring'}, g);
+    el('text', {x: r.b[0] + 17, y: r.b[1] + 20, 'text-anchor': 'middle', class: 'rnum'}, g, i + 1);
+    el('text', {x: r.b[0] + 31, y: r.b[1] + 20.5, class: 'rname'}, g, r.n);
+  });
+  m.gFlows = el('g', {class: 'gflows'}, g); m.gCards = el('g', {}, g);
+  m.cards.forEach(function (c) {
+    var b = c.b, actor = c.k === 'actor', rx = actor ? b[3] / 2 : 9, tx = b[0] + (actor ? 20 : 13);
+    var cg = c.g = el('g', {class: 'card' + (actor ? ' actor' : '') + (c.opens ? ' host' : ''), tabindex: 0, role: 'button', 'aria-label': c.id + ', ' + c.p + (c.opens ? ', opens a map of ' + c.opens.parts + ' parts' : '')}, m.gCards);
+    if (c.opens) el('rect', {x: b[0] + 4, y: b[1] + 4, width: b[2], height: b[3], rx: rx, class: 'under'}, cg);
+    el('rect', {x: b[0] - 3, y: b[1] - 3, width: b[2] + 6, height: b[3] + 6, rx: rx + 3, class: 'ring'}, cg);
+    el('rect', {x: b[0], y: b[1], width: b[2], height: b[3], rx: rx, class: 'box'}, cg);
+    el('text', {x: tx, y: b[1] + b[3] / 2 - 1.5, class: 'nm'}, cg, c.id);
+    el('text', {x: tx, y: b[1] + b[3] / 2 + 13, class: 'pl'}, cg, c.p);
+    if (c.k !== 'actor' && c.k !== 'component') el('text', {x: b[0] + b[2] - 9, y: b[1] + 14, class: 'kind'}, cg, c.k);
+    cg.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') point(c, null); });
+    cg.addEventListener('pointerleave', function () { point(null, null); });
+    cg.addEventListener('focus', function () { point(c, null); });
+    cg.addEventListener('blur', function () { point(null, null); });
+    cg.addEventListener('click', function (e) { e.stopPropagation(); act(c); });
+    cg.addEventListener('dblclick', function (e) { e.stopPropagation(); if (c.opens) enter(c.opens); });
+    cg.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (e.shiftKey && c.opens) enter(c.opens); else act(c); } });
+  });
+}
+// A click on a card selects it. In a nested map, an actor is a card of the map above: a click goes to that card.
+function act(c) {
+  if (c.map.host && c.k === 'actor') { var up = c.map.host.map.byId[c.id]; fitMap(c.map.host.map); if (up) setTimeout(function () { select(up); }, 380); return; }
+  select(sel === c ? null : c);
+}
+
+// ---- the lines of a layer: parallel lanes, round corners, a casing at each crossing -------
+function lanes(list) {
+  [0, 1].forEach(function (ax) {
+    var segs = [];
+    list.forEach(function (f) {
+      for (var i = 0; i + 1 < f.q.length; i++) {
+        var a = f.q[i], b = f.q[i + 1];
+        if (Math.abs(a[ax] - b[ax]) < 0.01 && Math.abs(a[1 - ax] - b[1 - ax]) > 1) segs.push({f: f, i: i, c: Math.round(a[ax] * 2) / 2, lo: Math.min(a[1 - ax], b[1 - ax]), hi: Math.max(a[1 - ax], b[1 - ax])});
+      }
+    });
+    segs.sort(function (a, b) { return a.c - b.c || a.lo - b.lo; });
+    var k = 0;
+    while (k < segs.length) {
+      var group = [segs[k]], hi = segs[k].hi, j = k + 1;
+      while (j < segs.length && segs[j].c === segs[k].c && segs[j].lo < hi - 2) { group.push(segs[j]); hi = Math.max(hi, segs[j].hi); j++; }
+      if (group.length > 1) {
+        group.sort(function (a, b) { return a.f.i - b.f.i; });
+        group.forEach(function (s, n) { var d = (n - (group.length - 1) / 2) * LANE; s.f.q[s.i][ax] += d; s.f.q[s.i + 1][ax] += d; });
+      }
+      k = j;
+    }
+  });
+}
+function pathOf(q) {
+  var d = 'M' + q[0][0] + ' ' + q[0][1];
+  for (var i = 1; i < q.length - 1; i++) {
+    var a = q[i - 1], p = q[i], b = q[i + 1], la = Math.hypot(p[0] - a[0], p[1] - a[1]), lb = Math.hypot(b[0] - p[0], b[1] - p[1]), r = Math.min(7, la / 2, lb / 2);
+    if (r < 0.5) { d += 'L' + p[0] + ' ' + p[1]; continue; }
+    d += 'L' + (p[0] - (p[0] - a[0]) / la * r) + ' ' + (p[1] - (p[1] - a[1]) / la * r) + 'Q' + p[0] + ' ' + p[1] + ' ' + (p[0] + (b[0] - p[0]) / lb * r) + ' ' + (p[1] + (b[1] - p[1]) / lb * r);
+  }
+  var z = q[q.length - 1], y = q[q.length - 2], l = Math.hypot(z[0] - y[0], z[1] - y[1]) || 1;
+  return d + 'L' + (z[0] - (z[0] - y[0]) / l * 5) + ' ' + (z[1] - (z[1] - y[1]) / l * 5);
+}
+function head(q) {
+  var z = q[q.length - 1], y = q[q.length - 2], l = Math.hypot(z[0] - y[0], z[1] - y[1]) || 1, ux = (z[0] - y[0]) / l, uy = (z[1] - y[1]) / l, s = 7.5, w = 3.6;
+  return [z[0], z[1], z[0] - ux * s - uy * w, z[1] - uy * s + ux * w, z[0] - ux * s + uy * w, z[1] - uy * s - ux * w].join(' ');
+}
+function seg(q, i) { return Math.abs(q[i + 1][0] - q[i][0]) + Math.abs(q[i + 1][1] - q[i][1]); }
+function mid(q) { var i = Math.floor((q.length - 1) / 2); return {x: (q[i][0] + q[i + 1][0]) / 2, y: (q[i][1] + q[i + 1][1]) / 2}; }
+function hits(b, list, skip) {
+  for (var n = 0; n < list.length; n++) {
+    if (list[n] === skip) continue;
+    var q = list[n].q;
+    for (var i = 0; i + 1 < q.length; i++) if (Math.min(q[i][0], q[i + 1][0]) <= b[2] && Math.max(q[i][0], q[i + 1][0]) >= b[0] && Math.min(q[i][1], q[i + 1][1]) <= b[3] && Math.max(q[i][1], q[i + 1][1]) >= b[1]) return true;
+  }
+  return false;
+}
+function over(a, b) { return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]; }
+// A place for the label of each line: on the line, first on a part that goes left to right. It is on no
+// card, on no name of a region and on no other label, and no other line goes through it. A line with no
+// such place has no label at rest.
+function short(a) { return a.length > 30 ? a.slice(0, 28).replace(/[ ,]+$/, '') + '\u2026' : a; }
+function walls(m) {
+  return m.cards.map(function (c) { return [c.b[0] - 3, c.b[1] - 3, c.b[0] + c.b[2] + 3, c.b[1] + c.b[3] + 3]; })
+    .concat(m.regions.map(function (r) { return [r.b[0], r.b[1] + 6, r.b[0] + 40 + r.n.length * 6.6, r.b[1] + 28]; }))
+    .concat(m.boxes.map(function (b) { return [b.b[0] + 12, b.b[1] + 16, b.b[0] + 230, b.b[1] + 38]; }));
+}
+// A place for the label of line f. `lines` are the lines that must not go through the label.
+function seat(f, fs, wall, taken, lines) {
+  var w = f.lbl.length * fs * 0.56 + 8, hh = fs * 1.35, best = null;
+  var flat = function (i) { return Math.abs(f.q[i][1] - f.q[i + 1][1]) < 0.01; };
+  var order = f.q.slice(0, -1).map(function (p, i) { return i; }).sort(function (a, b) { return (flat(b) - flat(a)) || seg(f.q, b) - seg(f.q, a); });
+  order.forEach(function (i) {
+    if (best) return;
+    var a = f.q[i], b = f.q[i + 1], L = seg(f.q, i), need = (flat(i) ? w : hh) + 18;
+    if (L < need) return;
+    [0.5, 0.35, 0.65, 0.22, 0.78, 0.12, 0.88].forEach(function (t) {
+      if (best) return;
+      var cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, box = [cx - w / 2, cy - hh / 2, cx + w / 2, cy + hh / 2];
+      if (wall.some(function (c) { return over(box, c); }) || taken.some(function (o) { return over(box, o); })) return;
+      if (!hits(box, lines, f)) best = {x: cx, y: cy, box: box};
+    });
+  });
+  return best;
+}
+function put(f, at, fs) { f.tx.setAttribute('x', at.x); f.tx.setAttribute('y', at.y + fs * 0.34); f.tx.style.fontSize = fs + 'px'; }
+// At rest a line has a label only if the label is on no card, on no name of a region and on no other
+// label, and no other line goes through it.
+function place(m) {
+  var list = m.shown, fs = m.fs = Math.min(15, 11 / (cam.k * m.s)), taken = [], wall = walls(m);
+  list.slice().sort(function (a, b) { return a.len - b.len; }).forEach(function (f) {
+    var best = seat(f, fs, wall, taken, list);
+    f.rest = !!best; f.lab = best || mid(f.q);
+    if (best) taken.push(best.box);
+  });
+  list.forEach(function (f) { put(f, f.lab, fs); f.tx.setAttribute('class', f.rest ? '' : 'rest0'); });
+  relit(m);
+}
+// The lit lines that have no label at rest get a place among the lit lines only.
+function relit(m) {
+  var lit = m.shown.filter(function (f) { return f.g.classList.contains('lit'); }), wall = walls(m);
+  var taken = lit.filter(function (f) { return f.rest; }).map(function (f) { return f.lab.box; });
+  lit.filter(function (f) { return !f.rest; }).forEach(function (f) {
+    var at = seat(f, m.fs, wall, taken, lit) || seat(f, m.fs, wall, taken, []) || seat(f, m.fs, [], taken, []);
+    if (!at) {
+      // No free place on the line: the label goes above the labels that are in its way.
+      var w = f.lbl.length * m.fs * 0.56 + 8, hh = m.fs * 1.35, c = mid(f.q), n = 0;
+      at = {x: c.x, y: c.y, box: [c.x - w / 2, c.y - hh / 2, c.x + w / 2, c.y + hh / 2]};
+      while (n++ < 6 && taken.some(function (o) { return over(at.box, o); })) { at.y -= hh; at.box[1] -= hh; at.box[3] -= hh; }
+    }
+    taken.push(at.box); put(f, at, m.fs);
+  });
+}
+
+function setLayer(m, id, quick) {
+  var lay = typeof id === 'object' ? id : m.layers.filter(function (l) { return l.id === id; })[0] || m.layers[m.layers.length - 1];
+  m.layer = lay; if (typeof id !== 'object') m.mapLayer = lay;
+  var swap = function () {
+    m.shown = lay.e.map(function (i) { return m.flows[i]; });
+    m.cards.forEach(function (c) { c.fl = []; });
+    m.gFlows.textContent = '';
+    m.shown.forEach(function (f) { f.q = f.p.map(function (p) { return [p[0], p[1]]; }); f.len = 0; m.byId[f.s].fl.push(f); m.byId[f.t].fl.push(f); });
+    lanes(m.shown);
+    m.shown.forEach(function (f) {
+      for (var i = 0; i + 1 < f.q.length; i++) f.len += seg(f.q, i);
+      var g = f.g = el('g', {class: 'flow', style: '--k:' + kvar(f)}, m.gFlows), d = pathOf(f.q);
+      el('path', {d: d, class: 'case'}, g); f.w = el('path', {d: d, class: 'wire'}, g);
+      el('circle', {cx: f.q[0][0], cy: f.q[0][1], r: 2}, g); el('polygon', {points: head(f.q)}, g);
+      f.lbl = (lay.nums ? lay.nums[f.i].join(', ') + '  ' : '') + short(f.a);
+      f.tx = el('text', {}, g, f.lbl);
+      var hit = el('path', {d: d, class: 'hit'}, g);
+      hit.addEventListener('pointerenter', function (e) { if (e.pointerType !== 'touch') point(null, f); });
+      hit.addEventListener('pointerleave', function () { point(null, null); });
+      hit.addEventListener('click', function (e) { e.stopPropagation(); point(null, f); });
+    });
+    var used = {}; m.shown.forEach(function (f) { used[f.s] = used[f.t] = 1; });
+    (lay.also || []).forEach(function (id) { used[id] = 1; });
+    m.g.classList.toggle('dense', m.shown.length > 48);
+    m.used = used; m.none = !m.shown.length;
+    m.cards.forEach(function (c) { c.g.classList.toggle('quiet', !m.none && !used[c.id]); });
+    // A layer with many flows: the lines go light, and the dot and the arrowhead at each card stay. The cards
+    // and their ports are the first thing to read. A line is at full strength when the reader points at it.
+    m.g.style.setProperty('--rest', Math.max(0.3, Math.min(1, 1.25 - m.shown.length / 56)).toFixed(2));
+    m.g.style.setProperty('--ends', Math.max(0.75, Math.min(1, 1.25 - m.shown.length / 160)).toFixed(2));
+    place(m);
+    m.gFlows.classList.remove('swap');
+    if (m === cur) { chrome(); if (sel && sel.map === m && !m.none) inspector(sel); light(); }
+  };
+  if (quick || REDUCE) swap(); else { m.gFlows.classList.add('swap'); setTimeout(swap, 150); }
+}
+
+// ---- the headline, the tabs and the key of the map that the camera is in -------------------
+var askTimer = 0;
+function chrome() {
+  var m = cur, lay = m.layer, tabs = document.getElementById('tabs'), ask = document.getElementById('ask');
+  tabs.textContent = '';
+  if (MODE !== 'map') { headline(); return; }
+  m.layers.forEach(function (l) {
+    var t = h('button', 'tab', l.n); t.setAttribute('role', 'tab'); t.id = 'tab-' + l.id; t.setAttribute('aria-selected', l === lay ? 'true' : 'false');
+    if (l.e.length) t.appendChild(h('i', '', l.e.length));
+    t.addEventListener('click', function () { setLayer(m, l.id); });
+    tabs.appendChild(t);
+  });
+  var actors = m.cards.filter(function (c) { return c.k === 'actor' && m.used[c.id]; }).length, comps = Object.keys(m.used).length - actors;
+  ask.classList.add('swap'); clearTimeout(askTimer);
+  askTimer = setTimeout(function () {
+    var k = document.getElementById('ask-k'); k.textContent = '';
+    if (m.host) { var up = h('button', '', m.host.map.name); up.title = 'Go out (Esc)'; up.addEventListener('click', function () { fitMap(m.host.map); }); k.appendChild(up); k.appendChild(h('span', '', '/')); k.appendChild(h('b', '', m.name)); k.appendChild(h('span', '', '·')); }
+    k.appendChild(h('span', '', lay.n));
+    document.getElementById('ask-q').textContent = lay.q;
+    document.getElementById('ask-n').textContent = m.none ? plural(m.cards.length, 'card') + ' in ' + plural(m.regions.length, 'region')
+      : (actors ? plural(actors, m.host ? 'neighbour' : 'actor') + ' · ' : '') + plural(comps, m.host ? 'part' : 'component') + ' · ' + plural(m.shown.length, 'flow');
+    ask.classList.remove('swap');
+  }, started ? 150 : 0);
+  var kinds = {}; m.shown.forEach(function (f) { kinds[f.k] = 1; });
+  var key = document.getElementById('key'); key.textContent = '';
+  Object.keys(KIND).forEach(function (k) { if (!kinds[k]) return; var s = h('span'), i = h('i'); i.style.setProperty('--k', 'var(' + KIND[k][0] + ')'); s.appendChild(i); s.appendChild(document.createTextNode(KIND[k][1])); key.appendChild(s); });
+}
+
+// ---- pointing and selecting ------------------------------------------------------------------
+function point(c, f) {
+  if ((c && c.map !== cur) || (f && f.map !== cur)) return;
+  hot = c; hotFlow = f; if (c || f) document.getElementById('note').classList.add('gone'); light();
+}
+function light() {
+  var m = cur, c = hot || (hotFlow ? null : (sel && sel.map === m ? sel : null)), f = hotFlow, on = {}, any = !!(c || f), ke = cam.k * m.s;
+  var st = MODE === 'seq' && !any && SEQ.step >= 0 ? TOP.sq[SEQ.i].s[SEQ.step] : null, nums = m.layer.nums;
+  m.g.classList.toggle('stepping', MODE === 'seq' && !any && SEQ.step >= 0);
+  m.shown.forEach(function (x) {
+    var lit = st ? x.i === st.f : f ? x === f : c ? (x.s === c.id || x.t === c.id) : false, was = x.g.classList.contains('lit');
+    x.g.classList.toggle('done', !!(st && nums && !lit && nums[x.i][0] - 1 < SEQ.step));
+    x.g.classList.toggle('lit', lit);
+    if (lit) { on[x.s] = on[x.t] = 1; m.gFlows.appendChild(x.g); }
+    if (lit && !was && !REDUCE) { var L = Math.ceil(x.len * ke) + 6; x.w.style.strokeDasharray = L; x.w.style.setProperty('--len', L); x.g.classList.remove('draw'); void x.w.getBoundingClientRect(); x.g.classList.add('draw'); }
+    if (!lit) { x.g.classList.remove('draw'); x.w.style.strokeDasharray = ''; }
+  });
+  if (c) on[c.id] = 1;
+  if (st) { st.a.forEach(function (id) { on[id] = 1; }); any = true; }
+  m.cards.forEach(function (x) { x.g.classList.toggle('lit', !!on[x.id]); x.g.classList.toggle('sel', x === sel); });
+  // A card with no flow in the layer does not make the other cards go back.
+  var some = m.shown.some(function (x) { return x.g.classList.contains('lit'); });
+  m.g.classList.toggle('focus', any && !st && (some || !!f));
+  if (m.fs) relit(m);
+  speak(c, f);
+}
+function speak(c, f) {
+  var say = document.getElementById('say'); say.textContent = '';
+  if (f) {
+    var b = h('b'); b.appendChild(document.createTextNode(f.s)); b.appendChild(h('span', 'arr', '→')); b.appendChild(document.createTextNode(f.t));
+    var code = h('code', '', f.a); code.style.setProperty('--k', kvar(f));
+    say.appendChild(b); say.appendChild(code); if (f.say) say.appendChild(h('span', '', f.say));
+  } else if (c && c !== sel) {
+    var ins = c.fl.filter(function (x) { return x.t === c.id; }).length, outs = c.fl.length - ins;
+    say.appendChild(h('b', '', c.id));
+    var words = c.p + (c.fl.length ? ' · receives ' + ins + ', gives ' + outs : ' · no flow in this layer');
+    if (c.opens) words += ' · double-click to see its ' + c.opens.parts + ' parts';
+    if (c.map.host && c.k === 'actor') words += ' · outside ' + c.map.name + ', select to go to it';
+    say.appendChild(h('span', '', words));
+  }
+  say.classList.toggle('on', !!(f || (c && c !== sel)));
+}
+function select(c, keep) {
+  var was = app.classList.contains('open'); sel = c; app.classList.toggle('open', !!c);
+  if (c) inspector(c);
+  light();
+  var r = stage.getBoundingClientRect();
+  if (r.width <= 720 && c && !keep) {
+    // On a phone the details are a sheet at the bottom. The selected card goes to the middle of the part above the sheet.
+    var m = c.map, k = Math.max(cam.k, 0.62 / m.s), band = r.height * 0.38;
+    go({k: k, x: m.ox + (c.b[0] + c.b[2] / 2) * m.s - r.width / 2 / k, y: m.oy + (c.b[1] + c.b[3] / 2) * m.s - (96 + (band - 96) / 2 + 20) / k});
+  } else if (was !== !!c && !keep) fitMap(cur);
+}
+function inspector(c) {
+  var head = document.getElementById('side-head'), body = document.getElementById('side-body'), m = c.map;
+  head.textContent = ''; body.textContent = '';
+  var k = h('div', 'side__k', c.k === 'actor' ? (m.host ? 'Outside ' + m.name : 'Actor · outside the system') : m.host ? 'Part of ' + m.name : c.k === 'component' ? 'Component' : c.k), x = h('button'); x.setAttribute('aria-label', 'Close the details'); x.title = 'Close (Esc)';
+  x.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+  x.addEventListener('click', function () { select(null); }); k.appendChild(x);
+  head.appendChild(k); head.appendChild(h('h2', '', c.id)); head.appendChild(h('div', 'side__p', c.p));
+  if (c.as && c.as.length) { var st = h('div', 'side__state'); st.appendChild(h('i', c.as[0] === 'examined' ? '' : 'no')); st.appendChild(document.createTextNode(c.as[0] === 'examined' ? 'Claims examined against the source, ' + c.as[1] : 'Claims not examined')); head.appendChild(st); }
+  if (c.opens) {
+    var go2 = h('button', 'enter'); go2.innerHTML = '<svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 4.5v-3h3M11.5 8.5v3h-3M8 1.5h3.5V5M5 11.5H1.5V8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+    go2.appendChild(document.createTextNode('See its ' + c.opens.parts + ' parts')); go2.addEventListener('click', function () { enter(c.opens); }); body.appendChild(go2);
+  }
+  if (!m.host && c.fl.length) { var focusBtn = h('button', 'more', 'Focus on this card'); focusBtn.style.marginTop = '0'; focusBtn.addEventListener('click', function () { FOCUS.id = c.id; setMode('focus'); }); body.appendChild(focusBtn); }
+  if (c.d) {
+    var d = h('p', 'side__d clip', c.d); body.appendChild(d);
+    if (c.d.length > 260) { var more = h('button', 'more', 'Read all'); more.addEventListener('click', function () { var shut = d.classList.toggle('clip'); more.textContent = shut ? 'Read all' : 'Show less'; }); body.appendChild(more); }
+  }
+  [['Receives', function (f) { return f.t === c.id; }, 's', 'from'], ['Gives', function (f) { return f.s === c.id; }, 't', 'to']].forEach(function (g) {
+    var list = c.fl.filter(g[1]); if (!list.length) return;
+    var sec = h('section', 'sec'), t = h('h3', '', g[0]); t.appendChild(h('span', '', list.length)); sec.appendChild(t);
+    list.forEach(function (f) {
+      var r = h('button', 'row'); r.style.setProperty('--k', kvar(f)); r.appendChild(h('i'));
+      var b = h('b', '', f.a + ' '); b.appendChild(h('em', '', g[3] + ' ' + f[g[2]])); r.appendChild(b); if (f.say) r.appendChild(h('small', '', f.say));
+      r.addEventListener('pointerenter', function () { point(null, f); }); r.addEventListener('pointerleave', function () { point(null, null); });
+      r.addEventListener('focus', function () { point(null, f); }); r.addEventListener('blur', function () { point(null, null); });
+      r.addEventListener('click', function () { var o = m.byId[f[g[2]]]; if (o.map.host && o.k === 'actor') act(o); else select(o); });
+      sec.appendChild(r);
+    });
+    body.appendChild(sec);
+  });
+  if (!c.fl.length) body.appendChild(h('p', 'side__d', 'This card has no flow in the layer ' + m.layer.n + '.'));
+  if (c.m && c.m.length) {
+    var ms = h('section', 'sec'), mt = h('h3', '', 'Source modules'); mt.appendChild(h('span', '', c.m.length)); ms.appendChild(mt);
+    var wrap = h('div', 'mods'); c.m.slice(0, 14).forEach(function (n) { wrap.appendChild(h('code', '', n)); });
+    if (c.m.length > 14) wrap.appendChild(h('code', '', '+ ' + (c.m.length - 14) + ' more'));
+    ms.appendChild(wrap); body.appendChild(ms);
+  }
+  body.scrollTop = 0;
+}
+
+// ---- the camera, and the map that it is in -----------------------------------------------------
+var raf = 0, relabel = 0;
+function smooth(a, b, v) { var t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); }
+function apply() {
+  world.setAttribute('transform', 'translate(' + (-cam.x * cam.k) + ' ' + (-cam.y * cam.k) + ') scale(' + cam.k + ')');
+  var step = 24 * Math.pow(2, -Math.round(Math.log2(Math.max(0.5, Math.min(2, cam.k)))) ) * cam.k; if (step < 14) step *= 2; if (step > 34) step /= 2;
+  dot.setAttribute('width', step); dot.setAttribute('height', step); dot.setAttribute('patternTransform', 'translate(' + (-cam.x * cam.k % step) + ' ' + (-cam.y * cam.k % step) + ')');
+  var r = stage.getBoundingClientRect(), into = null, deep = 0;
+  MAPS.forEach(function (m) {
+    if (!m.host) return;
+    // t is 0 when the nested map is a small picture in its card, and 1 when it has the screen.
+    var t = smooth(0.16, 0.5, m.size[1] * m.s * cam.k / r.height), cx = (m.ox + m.size[0] * m.s / 2 - cam.x) * cam.k, cy = (m.oy + m.size[1] * m.s / 2 - cam.y) * cam.k;
+    var seen = cx > 0 && cx < r.width && cy > 0 && cy < r.height;
+    m.g.classList.toggle('thumb', t < 0.2); m.g.classList.toggle('far', cam.k * m.s < 0.95);
+    m.t = seen ? t : 0;
+    m.g.style.pointerEvents = m.t > 0.5 ? '' : 'none';
+    if (m.t > 0.5) into = m; deep = Math.max(deep, m.t);
+  });
+  TOP.g.classList.toggle('inside', deep > 0.5); TOP.g.classList.toggle('far', cam.k < 0.95);
+  // The map above goes away as the nested map takes the screen.
+  Array.prototype.forEach.call(TOP.g.children, function (n) { if (!n.classList.contains('lvl')) { n.style.opacity = deep > 0.02 ? String(1 - deep) : ''; n.style.pointerEvents = deep > 0.5 ? 'none' : ''; } });
+  var now = into || TOP;
+  if (now !== cur) { var old = cur; cur = now; if (old) { old.g.classList.remove('focus'); } hot = hotFlow = null; if (sel && sel.map !== cur) { sel = null; app.classList.remove('open'); } chrome(); light(); }
+  document.getElementById('zv').textContent = Math.round(cam.k * cur.s * 100) + '%';
+  clearTimeout(relabel); relabel = setTimeout(function () { place(cur); }, 140);
+}
+function frame(m) { return [m.ox, m.oy, m.size[0] * m.s, m.size[1] * m.s]; }
+function fitMap(m, now, whole) {
+  var now2 = !!whole;
+  var r = stage.getBoundingClientRect(), wide = r.width > 720, right = (app.classList.contains('open') && wide && sel && sel.map === m ? 380 : 0) + 24, bottom = 30;
+  var b = frame(m), fitK = function (left, top) { return Math.min((r.width - left - right) / b[2], (r.height - top - bottom) / b[3], 1.6 / m.s); };
+  var beside = r.width - right > 1180 && fitK(330, 26) >= fitK(20, 112), top = beside ? 26 : wide ? 112 : 96, left = beside ? 330 : 20;
+  document.getElementById('ask').classList.toggle('beside', beside);
+  var k = fitK(left, top);
+  if (!wide && k * m.s < 0.5 && !now2) { k = 0.5 / m.s; go({k: k, x: b[0] - 14 / k, y: b[1] - top / k}, now); return; }
+  // Under a headline, a wide map starts near the headline and does not go to the middle of the screen.
+  var free = r.height - top - bottom - b[3] * k, lift = beside ? free / 2 : Math.min(free / 2, 10);
+  go({k: k, x: b[0] + b[2] / 2 - (left + (r.width - left - right) / 2) / k, y: b[1] - (top + lift) / k}, now);
+}
+function enter(m) { if (sel) { sel = null; app.classList.remove('open'); } fitMap(m); }
+function go(to, now) {
+  cancelAnimationFrame(raf);
+  if (now || REDUCE) { cam = to; apply(); return; }
+  // A move with a large change of zoom goes at one rate in the logarithm of the zoom, so it does not rush at one end.
+  var from = {x: cam.x, y: cam.y, k: cam.k}, r = stage.getBoundingClientRect(), big = Math.abs(Math.log(to.k / from.k)), ms = 320 + Math.min(520, big * 190), t0 = performance.now();
+  var fc = [from.x + r.width / 2 / from.k, from.y + r.height / 2 / from.k], tc = [to.x + r.width / 2 / to.k, to.y + r.height / 2 / to.k];
+  (function step(t) {
+    var u = Math.min(1, (t - t0) / ms), e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2, k = from.k * Math.pow(to.k / from.k, e);
+    var w = big > 0.05 ? (1 / from.k - 1 / k) / (1 / from.k - 1 / to.k) : e, cx = fc[0] + (tc[0] - fc[0]) * w, cy = fc[1] + (tc[1] - fc[1]) * w;
+    cam = {k: k, x: cx - r.width / 2 / k, y: cy - r.height / 2 / k}; apply();
+    if (u < 1) raf = requestAnimationFrame(step);
+  })(t0);
+}
+function zoomAt(px, py, f) { var k = Math.max(0.3, Math.min(60, cam.k * f)), wx = cam.x + px / cam.k, wy = cam.y + py / cam.k; cam = {k: k, x: wx - px / k, y: wy - py / k}; apply(); }
+svg.addEventListener('wheel', function (e) { e.preventDefault(); cancelAnimationFrame(raf); var r = svg.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0016))); }, {passive: false});
+var pts = {}, drag = null, pinch = 0, moved = false;
+svg.addEventListener('pointerdown', function (e) { cancelAnimationFrame(raf); pts[e.pointerId] = [e.clientX, e.clientY]; drag = {x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y}; moved = false; pinch = 0; });
+svg.addEventListener('pointermove', function (e) {
+  if (!pts[e.pointerId]) return;
+  pts[e.pointerId] = [e.clientX, e.clientY];
+  var ids = Object.keys(pts);
+  if (ids.length === 2) { var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]), r = svg.getBoundingClientRect(); if (pinch) zoomAt((a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top, d / pinch); pinch = d; moved = true; return; }
+  if (!drag) return;
+  var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (!moved && Math.hypot(dx, dy) < 4) return;
+  if (!moved) { moved = true; svg.classList.add('drag'); try { svg.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ } }
+  cam.x = drag.cx - dx / cam.k; cam.y = drag.cy - dy / cam.k; apply();
+});
+function up(e) { delete pts[e.pointerId]; drag = null; pinch = 0; svg.classList.remove('drag'); }
+svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
+svg.addEventListener('click', function () { if (!moved) { if (hotFlow) point(null, null); else if (sel) select(null); } });
+function center() { var r = stage.getBoundingClientRect(); return [r.width / 2, r.height / 2]; }
+document.getElementById('zi').addEventListener('click', function () { var c = center(); zoomAt(c[0], c[1], 1.25); });
+document.getElementById('zo').addEventListener('click', function () { var c = center(); zoomAt(c[0], c[1], 0.8); });
+document.getElementById('zf').addEventListener('click', function () { fitMap(cur, false, true); });
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { if (sel) { var c = sel; select(null); c.g.focus(); } else if (cur.host) fitMap(cur.host.map); }
+  if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) fitMap(cur);
+  if (MODE === 'seq' && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !/SELECT|INPUT/.test(e.target.tagName)) { e.preventDefault(); stepTo(SEQ.step + (e.key === 'ArrowRight' ? 1 : -1)); }
+});
+addEventListener('resize', function () { fitMap(cur, true); if (MODE === 'states') drawMachine(); if (MODE === 'seq' && SEQ.form === 'diagram') drawSeq(); if (MODE === 'focus') drawFocus(); if (MODE === 'history') drawHistory(); });
+
+// ---- the other views: a sequence on the map, and a state machine ------------------------------
+function setMode(mode) {
+  MODE = mode; app.dataset.mode = mode;
+  Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) { b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'); });
+  if (sel) { sel = null; app.classList.remove('open'); }
+  hot = hotFlow = null; document.getElementById('say').classList.remove('on');
+  if (cur !== TOP) fitMap(TOP, true);
+  rail();
+  if (mode === 'map') setLayer(TOP, TOP.mapLayer || 'system');
+  if (mode === 'seq') pickSeq(SEQ.i);
+  if (mode === 'states') { chrome(); drawMachine(); }
+  if (mode === 'focus') { chrome(); drawFocus(); }
+  if (mode === 'history') { chrome(); drawHistory(); }
+}
+function rail() {
+  var r = document.getElementById('rail'); r.textContent = '';
+  var deg = {}; TOP.flows.forEach(function (f) { deg[f.s] = (deg[f.s] || 0) + 1; deg[f.t] = (deg[f.t] || 0) + 1; });
+  var cards = TOP.cards.filter(function (c) { return deg[c.id]; }).sort(function (a, b) { return deg[b.id] - deg[a.id]; });
+  var list = MODE === 'seq' ? TOP.sq.map(function (q) { return [q.n, q.s.length]; }) : MODE === 'states' ? TOP.sm.map(function (x) { return [x.n, x.st.length]; }) : MODE === 'focus' ? cards.map(function (c) { return [c.id, deg[c.id]]; }) : [];
+  list.forEach(function (it, i) {
+    var b = h('button', '', it[0]); b.appendChild(h('i', '', it[1])); b.setAttribute('aria-current', (MODE === 'focus' ? it[0] === FOCUS.id : i === (MODE === 'seq' ? SEQ.i : SM.i)) ? 'true' : 'false');
+    b.addEventListener('click', function () { if (MODE === 'seq') pickSeq(i); else if (MODE === 'focus') { FOCUS.id = it[0]; chrome(); drawFocus(); } else { SM.i = i; chrome(); drawMachine(); } rail(); });
+    r.appendChild(b);
+  });
+}
+function headline() {
+  var ask = document.getElementById('ask'), k, q, n;
+  if (MODE === 'seq') { var s = TOP.sq[SEQ.i]; k = 'Sequence'; q = s.n; n = plural(s.s.length, 'step') + (s.en ? ' · starts at ' + s.en : ''); }
+  else if (MODE === 'focus') { var fc = focusCard(), up = reach(fc.id, 't', 's'), dn = reach(fc.id, 's', 't'); k = 'Focus'; q = 'What does ' + fc.id + ' use, and what uses ' + fc.id + '?'; n = 'receives from ' + count(up, 1) + ' · gives to ' + count(dn, 1) + ' · a change here can reach ' + Object.keys(dn).length + ' of ' + (TOP.cards.length - 1) + ' cards'; }
+  else if (MODE === 'history') { var hi = SET.history; k = 'History'; q = 'Where did the system change, and when?'; n = plural(hi.commits, 'commit') + ' · ' + hi.from + ' to ' + hi.to + ' · changed source files, by component'; }
+  else { var x = TOP.sm[SM.i]; k = 'State machine' + (x.of ? ' · of ' + x.of : ''); q = x.n; n = plural(x.st.length, 'state') + ' · ' + plural(x.tr.length, 'transition'); }
+  ask.classList.add('swap'); clearTimeout(askTimer);
+  askTimer = setTimeout(function () { document.getElementById('ask-k').textContent = k; document.getElementById('ask-q').textContent = q; document.getElementById('ask-n').textContent = n; ask.classList.remove('swap'); }, 150);
+}
+// A sequence is a layer with only the flows of its steps. Each line has the numbers of its steps.
+function pickSeq(i) {
+  SEQ.i = i; SEQ.step = -1;
+  var q = TOP.sq[i], ids = [], nums = {}, also = [];
+  q.s.forEach(function (st, n) { st.a.forEach(function (id) { also.push(id); }); if (st.f < 0) return; if (ids.indexOf(st.f) < 0) ids.push(st.f); (nums[st.f] = nums[st.f] || []).push(n + 1); });
+  setLayer(TOP, {id: 'seq', n: q.n, q: q.n, e: ids, nums: nums, also: also});
+  stepper(); if (SEQ.form === 'diagram') drawSeq();
+}
+function stepTo(n) {
+  var q = TOP.sq[SEQ.i]; n = Math.max(-1, Math.min(q.s.length - 1, n)); if (n === SEQ.step) return;
+  SEQ.step = n; hot = hotFlow = null; light(); stepper(); if (SEQ.form === 'diagram') drawSeq();
+}
+function stepper() {
+  var box = document.getElementById('stepper'), q = TOP.sq[SEQ.i], n = SEQ.step, st = n >= 0 ? q.s[n] : null; box.textContent = '';
+  var dots = h('div', 'dots2'); q.s.forEach(function (x, i) { dots.appendChild(h('i', i < n ? 'was' : i === n ? 'now' : '')); });
+  var forms = h('div', 'forms'); [['map', 'On the map'], ['diagram', 'As a diagram']].forEach(function (f) { var b = h('button', '', f[1]); b.setAttribute('aria-pressed', SEQ.form === f[0] ? 'true' : 'false'); b.addEventListener('click', function () { SEQ.form = f[0]; app.dataset.form = f[0]; stepper(); if (f[0] === 'diagram') drawSeq(); else fitMap(TOP, true); }); forms.appendChild(b); });
+  box.appendChild(forms);
+  box.appendChild(h('span', 'n', st ? 'Step ' + (n + 1) + ' of ' + q.s.length : 'Whole route')); box.appendChild(dots);
+  box.appendChild(h('p', '', st ? st.y : 'The map shows the ' + plural(q.s.length, 'step') + ' of this sequence, with a number on each line.'));
+  var nav = h('div', 'nav'), prev = h('button', '', '←'), next = h('button', 'go', st ? (n === q.s.length - 1 ? 'Done' : 'Next →') : 'Start →');
+  prev.setAttribute('aria-label', 'Previous step'); prev.disabled = n < 0; prev.addEventListener('click', function () { stepTo(n - 1); });
+  next.addEventListener('click', function () { stepTo(n === q.s.length - 1 ? -1 : n + 1); });
+  nav.appendChild(prev); nav.appendChild(next); box.appendChild(nav);
+}
+// The same sequence as a diagram: one column for each card, one row for each step. A click on a row
+// goes to that step.
+function drawSeq() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, q = TOP.sq[SEQ.i], parts = [];
+  g.textContent = ''; g.setAttribute('class', SEQ.step >= 0 ? 'stepping' : '');
+  q.s.forEach(function (st) { var f = st.f >= 0 ? TOP.flows[st.f] : null; (f ? [f.s, f.t] : st.a).forEach(function (id) { if (TOP.byId[id] && parts.indexOf(id) < 0) parts.push(id); }); });
+  var NW = 150, NH = 40, RH = 56, TOPY = 86, CW = Math.max(120, Math.min(210, 1000 / parts.length)), bw = (parts.length - 1) * CW + NW, bh = TOPY + q.s.length * RH + 10;
+  var left = wide ? 350 : 16, top = wide ? 40 : 190, aw = r.width - left - 30, ah = r.height - top - 130, k = Math.min(1.2, aw / bw, ah / bh);
+  g.setAttribute('transform', 'translate(' + (left + (aw - bw * k) / 2) + ' ' + (top + (ah - bh * k) / 2) + ') scale(' + k + ')');
+  var X = function (id) { return NW / 2 + parts.indexOf(id) * CW; };
+  parts.forEach(function (id) {
+    var c = TOP.byId[id], x = X(id), w = Math.min(NW, CW - 14), ng = el('g', {class: 'fnode'}, g);
+    el('path', {d: 'M' + x + ' ' + NH + 'V' + bh, class: 'qlife'}, g);
+    el('rect', {x: x - w / 2, y: 0, width: w, height: NH, rx: c.k === 'actor' ? NH / 2 : 9}, ng); el('text', {x: x, y: NH / 2 + 4.5}, ng, id.length * 7.6 > w - 10 ? id.slice(0, Math.floor((w - 16) / 7.6)) + '…' : id);
+  });
+  q.s.forEach(function (st, i) {
+    var f = st.f >= 0 ? TOP.flows[st.f] : null, y = TOPY + i * RH, cls = i === SEQ.step ? ' lit' : i < SEQ.step ? ' done' : '';
+    var row = el('g', {class: 'qrow'}, g); el('rect', {x: -10, y: y - RH / 2 + 4, width: bw + 20, height: RH - 8, rx: 8}, row);
+    row.addEventListener('click', function () { stepTo(i); });
+    var eg = el('g', {class: 'sedge' + cls, style: f ? '--k:' + kvar(f) : ''}, g), x1 = f ? X(f.s) : X(st.a[0] || parts[0]);
+    if (f) {
+      var x2 = X(f.t), dir = x2 >= x1 ? 1 : -1;
+      el('path', {d: 'M' + (x1 + dir * 11) + ' ' + y + 'H' + (x2 - dir * 9), class: 'wire'}, eg);
+      el('polygon', {points: [x2 - dir * 1, y, x2 - dir * 10, y - 4.4, x2 - dir * 10, y + 4.4].join(' ')}, eg);
+      el('text', {x: (x1 + x2) / 2, y: y - 9}, eg, short(f.a));
+    } else el('text', {x: x1 + 18, y: y + 4, style: 'text-anchor:start'}, eg, 'no flow');
+    var bead = el('g', {class: 'qbead'}, eg); el('circle', {cx: x1, cy: y, r: 10}, bead); el('text', {x: x1, y: y + 3.6}, bead, i + 1);
+  });
+}
+// The state machine: one board, in the same language as the map. A state has the shape of an actor,
+// because a state is not a component.
+function drawMachine() {
+  var g = document.getElementById('bworld'), x = TOP.sm[SM.i], r = stage.getBoundingClientRect(), wide = r.width > 1180, CW = 290, CH = 170, NW = 200, NH = 62;
+  g.textContent = ''; g.setAttribute('class', '');
+  var cols = Math.max.apply(null, x.st.map(function (s) { return s.c; })) + 1, rows = Math.max.apply(null, x.st.map(function (s) { return s.r; })) + 1;
+  var bw = (cols - 1) * CW + NW, bh = (rows - 1) * CH + NH, left = wide ? 340 : 24, top = wide ? 60 : 190, aw = r.width - left - 40, ah = r.height - top - 110;
+  var k = Math.min(1.25, aw / (bw + 80), ah / (bh + 60)), ox = left + (aw - bw * k) / 2, oy = top + (ah - bh * k) / 2;
+  g.setAttribute('transform', 'translate(' + ox + ' ' + oy + ') scale(' + k + ')');
+  var pos = x.st.map(function (s) { return [s.c * CW + NW / 2, s.r * CH + NH / 2]; }), say = document.getElementById('say');
+  function tell(parts) { say.textContent = ''; parts.forEach(function (p) { say.appendChild(p); }); say.classList.toggle('on', parts.length > 0); }
+  function focus(edges, nodes) { g.setAttribute('class', edges.length || nodes.length ? 'focus' : ''); x.tr.forEach(function (t) { t.g.classList.toggle('lit', edges.indexOf(t) >= 0); }); x.st.forEach(function (s, i) { s.g.classList.toggle('lit', nodes.indexOf(i) >= 0); }); }
+  var gE = el('g', {}, g), gN = el('g', {}, g);
+  x.tr.forEach(function (t) {
+    var a = pos[t.a], b = pos[t.b], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+    var back = x.tr.some(function (o) { return o !== t && o.a === t.b && o.b === t.a; }), bend = back ? 30 : 0;
+    // The line starts and ends at the edge of the two states.
+    var ea = Math.min(Math.abs(ux) > 0.01 ? NW / 2 / Math.abs(ux) : 1e9, Math.abs(uy) > 0.01 ? NH / 2 / Math.abs(uy) : 1e9) + 3;
+    var p0 = [a[0] + ux * ea - uy * bend * 0.45, a[1] + uy * ea + ux * bend * 0.45], p1 = [b[0] - ux * (ea + 4) - uy * bend * 0.45, b[1] - uy * (ea + 4) + ux * bend * 0.45];
+    var mx = (p0[0] + p1[0]) / 2 - uy * bend, my = (p0[1] + p1[1]) / 2 + ux * bend, d = 'M' + p0[0] + ' ' + p0[1] + 'Q' + mx + ' ' + my + ' ' + p1[0] + ' ' + p1[1];
+    var tx = p1[0] - mx, ty = p1[1] - my, tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    var tip = [p1[0] + tx * 4, p1[1] + ty * 4], eg = t.g = el('g', {class: 'sedge'}, gE);
+    el('path', {d: d, class: 'wire'}, eg);
+    el('polygon', {points: [tip[0], tip[1], tip[0] - tx * 9 - ty * 4.2, tip[1] - ty * 9 + tx * 4.2, tip[0] - tx * 9 + ty * 4.2, tip[1] - ty * 9 - tx * 4.2].join(' ')}, eg);
+    // The label of a straight line is above the line. The label of a bent line is at the outer side of the bend.
+    var lx = (p0[0] + 2 * mx + p1[0]) / 4, ly = (p0[1] + 2 * my + p1[1]) / 4, side = -uy * bend;
+    if (!bend) el('text', {x: lx - uy * 0, y: ly - 12}, eg, t.l);
+    else el('text', {x: lx + (side < 0 ? -14 : 14), y: ly + ux * bend * 0.4 + 4, style: 'text-anchor:' + (Math.abs(side) < 4 ? 'middle' : side < 0 ? 'end' : 'start')}, eg, t.l);
+    var hit = el('path', {d: d, class: 'hit'}, eg);
+    var on = function () { focus([t], [t.a, t.b]); var bb = h('b'); bb.appendChild(document.createTextNode(x.st[t.a].id)); bb.appendChild(h('span', 'arr', '→')); bb.appendChild(document.createTextNode(x.st[t.b].id)); tell([bb, h('code', '', t.l), h('span', '', t.c)]); };
+    hit.addEventListener('pointerenter', on); hit.addEventListener('click', on); hit.addEventListener('pointerleave', function () { focus([], []); tell([]); });
+  });
+  x.st.forEach(function (s, i) {
+    var p = pos[i], ng = s.g = el('g', {class: 'snode' + (s.first ? ' first' : ''), tabindex: 0, role: 'img', 'aria-label': 'State ' + s.id + '. ' + s.y}, gN);
+    if (s.first) { el('circle', {cx: p[0] - NW / 2 - 34, cy: p[1], r: 4, class: 'sstart'}, ng); el('path', {d: 'M' + (p[0] - NW / 2 - 30) + ' ' + p[1] + 'H' + (p[0] - NW / 2 - 6), class: 'wire', style: 'fill:none;stroke:var(--ink-3);stroke-width:1.3'}, ng); }
+    el('rect', {x: p[0] - NW / 2, y: p[1] - NH / 2, width: NW, height: NH, rx: NH / 2}, ng);
+    el('text', {x: p[0], y: p[1] - 1, class: 'nm'}, ng, s.id); el('text', {x: p[0], y: p[1] + 16, class: 'sy'}, ng, s.sym);
+    var on = function () { var e = x.tr.filter(function (t) { return t.a === i || t.b === i; }), n = [i]; e.forEach(function (t) { n.push(t.a, t.b); }); focus(e, n); tell([h('b', '', s.id), h('span', '', s.y + (s.first ? ' This is the first state.' : ''))]); };
+    ng.addEventListener('pointerenter', on); ng.addEventListener('focus', on); ng.addEventListener('click', on);
+    ng.addEventListener('pointerleave', function () { focus([], []); tell([]); }); ng.addEventListener('blur', function () { focus([], []); tell([]); });
+  });
+}
+// ---- focus: one card, the cards that it receives from, and the cards that it gives to ---------
+function focusCard() { var deg = {}; TOP.flows.forEach(function (f) { deg[f.s] = (deg[f.s] || 0) + 1; deg[f.t] = (deg[f.t] || 0) + 1; }); return TOP.byId[FOCUS.id] || TOP.cards.slice().sort(function (a, b) { return (deg[b.id] || 0) - (deg[a.id] || 0); })[0]; }
+// The cards that a card can reach along the flows, with the count of steps. `from` and `to` are 's' and 't'.
+function reach(id, from, to) {
+  var dist = {}, edge = [id], d = 0;
+  while (edge.length) { d++; var next = []; TOP.flows.forEach(function (f) { if (edge.indexOf(f[from]) >= 0 && f[to] !== id && !dist[f[to]]) { dist[f[to]] = d; next.push(f[to]); } }); edge = next; }
+  return dist;
+}
+function count(dist, d) { return Object.keys(dist).filter(function (k) { return dist[k] === d; }).length; }
+function drawFocus() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, say = document.getElementById('say'), c = focusCard();
+  FOCUS.id = c.id; g.textContent = ''; g.setAttribute('class', '');
+  var up = reach(c.id, 't', 's'), dn = reach(c.id, 's', 't'), CW = 250, NW = 168, NH = 40, RH = 52, MAX = 9;
+  var cols = [[-2, up, 2, 'TWO STEPS BEFORE'], [-1, up, 1, 'GIVES TO ' + c.id.toUpperCase()], [1, dn, 1, c.id.toUpperCase() + ' GIVES TO'], [2, dn, 2, 'TWO STEPS AFTER']].map(function (d) {
+    var ids = Object.keys(d[1]).filter(function (k) { return d[1][k] === d[2]; });
+    return {j: d[0], ids: ids.slice(0, MAX), more: Math.max(0, ids.length - MAX), name: d[3]};
+  }).filter(function (col) { return col.ids.length && (wide || Math.abs(col.j) === 1); });
+  var rows = Math.max.apply(null, cols.map(function (col) { return col.ids.length + (col.more ? 1 : 0); }).concat([1])), js = cols.map(function (col) { return col.j; }).concat([0]);
+  var x0 = Math.min.apply(null, js) * CW - NW / 2, x1 = Math.max.apply(null, js) * CW + NW / 2, bw = x1 - x0, bh = rows * RH + 40;
+  var left = wide ? 350 : 16, top = wide ? 50 : 200, aw = r.width - left - 30, ah = r.height - top - 110, k = Math.min(1.2, aw / (bw + 20), ah / bh);
+  g.setAttribute('transform', 'translate(' + (left + aw / 2 - (x0 + bw / 2) * k) + ' ' + (top + ah / 2) + ') scale(' + k + ')');
+  var at = {}, gE = el('g', {}, g), gN = el('g', {}, g), edges = [];
+  function pos(j, i, n) { return [j * CW, (i - (n - 1) / 2) * RH]; }
+  function tell(parts) { say.textContent = ''; parts.forEach(function (p) { say.appendChild(p); }); say.classList.toggle('on', parts.length > 0); }
+  function focus(es, keys) { g.setAttribute('class', es.length ? 'focus' : ''); edges.forEach(function (e) { e.g.classList.toggle('lit', es.indexOf(e) >= 0); }); Object.keys(at).forEach(function (key) { at[key].g.classList.toggle('lit', keys.indexOf(key) >= 0); }); }
+  function node(key, id, p, cls) {
+    var card = TOP.byId[id], ng = el('g', {class: 'fnode ' + cls, tabindex: 0, role: 'button', 'aria-label': id}, gN), w = cls === 'mid' ? NW + 24 : NW, hh = cls === 'mid' ? NH + 10 : NH;
+    if (cls === 'mid') el('rect', {x: p[0] - w / 2 - 4, y: p[1] - hh / 2 - 4, width: w + 8, height: hh + 8, rx: card.k === 'actor' ? hh / 2 + 4 : 13, class: 'fhalo'}, ng);
+    el('rect', {x: p[0] - w / 2, y: p[1] - hh / 2, width: w, height: hh, rx: card.k === 'actor' ? hh / 2 : 9}, ng); el('text', {x: p[0], y: p[1] + 4.5}, ng, id);
+    at[key] = {p: p, w: w, g: ng, id: id};
+    var on = function () { var es = edges.filter(function (e) { return e.a === key || e.b === key; }), keys = [key]; es.forEach(function (e) { keys.push(e.a, e.b); }); focus(es, keys); tell([h('b', '', id), h('span', '', card.p + (cls === 'mid' ? '' : ' · select to focus on it'))]); };
+    ng.addEventListener('pointerenter', on); ng.addEventListener('focus', on);
+    ng.addEventListener('pointerleave', function () { focus([], []); tell([]); }); ng.addEventListener('blur', function () { focus([], []); tell([]); });
+    if (cls !== 'mid') ng.addEventListener('click', function () { FOCUS.id = id; chrome(); drawFocus(); rail(); });
+  }
+  node('0', c.id, [0, 0], 'mid');
+  cols.forEach(function (col) {
+    var n = col.ids.length + (col.more ? 1 : 0);
+    el('text', {x: col.j * CW, y: -(rows * RH) / 2 - 14, class: 'fcol'}, g, col.name);
+    col.ids.forEach(function (id, i) { node(col.j + ':' + id, id, pos(col.j, i, n), Math.abs(col.j) === 2 ? 'far' : ''); });
+    if (col.more) { var p = pos(col.j, n - 1, n); el('text', {x: p[0], y: p[1] + 4, class: 'fmore'}, g, '+ ' + col.more + ' more'); }
+  });
+  // A line for each flow between two columns that are adjacent.
+  TOP.flows.forEach(function (f) {
+    [[-2, -1], [-1, 0], [0, 1], [1, 2]].forEach(function (pair) {
+      var a = at[pair[0] === 0 ? '0' : pair[0] + ':' + f.s], b = at[pair[1] === 0 ? '0' : pair[1] + ':' + f.t];
+      if (!a || !b || a.id !== f.s || b.id !== f.t) return;
+      var p0 = [a.p[0] + a.w / 2 + 3, a.p[1]], p1 = [b.p[0] - b.w / 2 - 9, b.p[1]], dx = (p1[0] - p0[0]) * 0.5, d = 'M' + p0[0] + ' ' + p0[1] + 'C' + (p0[0] + dx) + ' ' + p0[1] + ' ' + (p1[0] - dx) + ' ' + p1[1] + ' ' + p1[0] + ' ' + p1[1];
+      var near = pair[0] === 0 || pair[1] === 0, eg = el('g', {class: 'sedge' + (near ? '' : ' thin'), style: '--k:' + kvar(f)}, gE), e = {g: eg, a: pair[0] === 0 ? '0' : pair[0] + ':' + f.s, b: pair[1] === 0 ? '0' : pair[1] + ':' + f.t};
+      el('path', {d: d, class: 'wire'}, eg); el('polygon', {points: [p1[0] + 7, p1[1], p1[0] - 1, p1[1] - 4, p1[0] - 1, p1[1] + 4].join(' ')}, eg);
+      var hit = el('path', {d: d, class: 'hit'}, eg), on = function () { focus([e], [e.a, e.b]); var bb = h('b'); bb.appendChild(document.createTextNode(f.s)); bb.appendChild(h('span', 'arr', '→')); bb.appendChild(document.createTextNode(f.t)); var code = h('code', '', f.a); code.style.setProperty('--k', kvar(f)); tell([bb, code].concat(f.say ? [h('span', '', f.say)] : [])); };
+      hit.addEventListener('pointerenter', on); hit.addEventListener('click', on); hit.addEventListener('pointerleave', function () { focus([], []); tell([]); });
+      edges.push(e);
+    });
+  });
+}
+// ---- history: where the source files of each component changed, in equal parts of the time ---
+function drawHistory() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, say = document.getElementById('say'), hi = SET.history;
+  g.textContent = ''; g.setAttribute('class', '');
+  var rows = TOP.cards.filter(function (c) { return hi.cells[c.id]; }), N = hi.buckets.length, CW = 46, CH = 24, LAB = 150, BAR = 46, max = 1, tot = [];
+  rows.forEach(function (c) { hi.cells[c.id].forEach(function (x, i) { max = Math.max(max, x.l); tot[i] = (tot[i] || 0) + x.l; }); });
+  var bw = LAB + N * CW + 70, bh = BAR + 26 + rows.length * CH, left = wide ? 350 : 16, top = wide ? 40 : 190, aw = r.width - left - 30, ah = r.height - top - 120, k = Math.min(1.25, aw / bw, ah / bh);
+  g.setAttribute('transform', 'translate(' + (left + (aw - bw * k) / 2) + ' ' + (top + (ah - bh * k) / 2) + ') scale(' + k + ')');
+  var tmax = Math.max.apply(null, tot);
+  hi.buckets.forEach(function (b, i) {
+    var hh = Math.max(1, (tot[i] || 0) / tmax * BAR); el('rect', {x: LAB + i * CW + 3, y: BAR - hh, width: CW - 6, height: hh, rx: 2, class: 'hbar'}, g);
+    if (i % 2 === 0) el('text', {x: LAB + i * CW + CW / 2, y: BAR + 16, class: 'haxis'}, g, b[0]);
+  });
+  rows.forEach(function (c, ri) {
+    var y = BAR + 26 + ri * CH, cells = hi.cells[c.id], files = 0;
+    var name = el('text', {x: LAB - 12, y: y + CH / 2 + 4, class: 'hrow'}, g, c.id);
+    name.addEventListener('click', function () { setMode('map'); select(TOP.byId[c.id]); });
+    cells.forEach(function (x, i) {
+      files += x.f; if (!x.f) { el('rect', {x: LAB + i * CW + 2, y: y + 2, width: CW - 4, height: CH - 4, rx: 4, fill: 'var(--tint)'}, g); return; }
+      var cg = el('g', {class: 'hcell', tabindex: 0, role: 'img', 'aria-label': c.id + ', ' + hi.buckets[i][0] + ' to ' + hi.buckets[i][1] + ', ' + plural(x.f, 'file change')}, g);
+      el('rect', {x: LAB + i * CW + 2, y: y + 2, width: CW - 4, height: CH - 4, rx: 4, 'fill-opacity': (0.1 + 0.82 * Math.sqrt(x.l / max)).toFixed(2)}, cg);
+      if (x.n.length) el('circle', {cx: LAB + i * CW + CW - 9, cy: y + 8, r: 3, class: 'hborn'}, cg);
+      var on = function () { say.textContent = ''; say.appendChild(h('b', '', c.id)); say.appendChild(h('code', '', hi.buckets[i][0] + ' to ' + hi.buckets[i][1])); say.appendChild(h('span', '', plural(x.f, 'file change') + ', ' + x.l + ' lines' + (x.n.length ? ' · new: ' + x.n.slice(0, 4).join(', ') + (x.n.length > 4 ? ' and ' + (x.n.length - 4) + ' more' : '') : ''))); say.classList.add('on'); };
+      cg.addEventListener('pointerenter', on); cg.addEventListener('focus', on); cg.addEventListener('pointerleave', function () { say.classList.remove('on'); }); cg.addEventListener('blur', function () { say.classList.remove('on'); });
+    });
+    el('text', {x: LAB + N * CW + 12, y: y + CH / 2 + 4, class: 'hsum'}, g, files);
+  });
+  el('text', {x: LAB + N * CW + 12, y: BAR + 16, class: 'hsum'}, g, 'files');
+}
+// The matrix shows all flows with no line that crosses a different line. The cards are in the order of
+// their regions. A mark is in the row of its source and the column of its target.
+function drawMatrix() {
+  var g = document.getElementById('bworld'), r = stage.getBoundingClientRect(), wide = r.width > 1180, say = document.getElementById('say');
+  g.textContent = ''; g.setAttribute('class', '');
+  var order = TOP.cards.filter(function (c) { return c.k === 'actor'; }), groups = [['OUTSIDE', order.length]];
+  TOP.regions.forEach(function (reg) { var inside = TOP.cards.filter(function (c) { return c.k !== 'actor' && c.b[0] >= reg.b[0] && c.b[0] < reg.b[0] + reg.b[2] && c.b[1] >= reg.b[1] && c.b[1] < reg.b[1] + reg.b[3]; }); order = order.concat(inside); groups.push([reg.n, inside.length]); });
+  TOP.cards.forEach(function (c) { if (order.indexOf(c) < 0) order.push(c); });
+  var n = order.length, CELL = 26, LAB = 128, GAPG = 8, at = [], off = 0, gi = 0, left = wide ? 350 : 16, top = wide ? 40 : 190;
+  groups.forEach(function (gr) { for (var i = 0; i < gr[1]; i++) at.push(off + i * CELL); off += gr[1] * CELL + GAPG; });
+  while (at.length < n) { at.push(off); off += CELL; }
+  var size = off - GAPG, aw = r.width - left - 30, ah = r.height - top - 132, k = Math.min(1.15, aw / (size + LAB + 20), ah / (size + LAB + 10));
+  g.setAttribute('transform', 'translate(' + (left + (aw - (size + LAB) * k) / 2) + ' ' + (top + (ah - (size + LAB) * k) / 2) + ') scale(' + k + ')');
+  var idx = {}; order.forEach(function (c, i) { idx[c.id] = i; });
+  var rowHi = el('rect', {x: LAB, width: size, height: CELL, class: 'mrow'}, g), colHi = el('rect', {y: LAB, width: CELL, height: size, class: 'mrow'}, g), names = {row: [], col: []};
+  // the bands of the regions, and their names
+  off = 0; groups.forEach(function (gr) {
+    if (!gr[1]) return; var len = gr[1] * CELL;
+    el('rect', {x: LAB + off, y: LAB + off, width: len, height: len, rx: 6, class: 'mband'}, g);
+    el('text', {x: LAB + size + 12, y: LAB + off + len / 2 + 3, class: 'mgroup'}, g, gr[0]);
+    off += len + GAPG;
+  });
+  order.forEach(function (c, i) {
+    el('path', {d: 'M' + LAB + ' ' + (LAB + at[i] + CELL) + 'h' + size, class: 'mgrid', style: 'opacity:.55'}, g);
+    names.row[i] = el('text', {x: LAB - 10, y: LAB + at[i] + CELL / 2 + 4, 'text-anchor': 'end', class: 'mname' + (c.k === 'actor' ? ' actor' : '')}, g, c.id);
+    names.col[i] = el('text', {transform: 'translate(' + (LAB + at[i] + CELL / 2 + 4) + ' ' + (LAB - 10) + ') rotate(-52)', class: 'mname' + (c.k === 'actor' ? ' actor' : '')}, g, c.id);
+  });
+  function mark(i, j) { rowHi.setAttribute('y', LAB + at[i]); colHi.setAttribute('x', LAB + at[j]); rowHi.classList.add('on'); colHi.classList.add('on'); names.row.forEach(function (t, a) { t.classList.toggle('lit', a === i); }); names.col.forEach(function (t, a) { t.classList.toggle('lit', a === j); }); }
+  function clear() { rowHi.classList.remove('on'); colHi.classList.remove('on'); names.row.concat(names.col).forEach(function (t) { t.classList.remove('lit'); }); say.classList.remove('on'); }
+  var cells = {};
+  TOP.flows.forEach(function (f) { var key = idx[f.s] + ',' + idx[f.t]; (cells[key] = cells[key] || []).push(f); });
+  Object.keys(cells).forEach(function (key) {
+    var ij = key.split(',').map(Number), list = cells[key], x = LAB + at[ij[1]], y = LAB + at[ij[0]], cg = el('g', {class: 'mcell', tabindex: 0, role: 'button', 'aria-label': list[0].s + ' gives ' + list.map(function (f) { return f.a; }).join(' and ') + ' to ' + list[0].t}, g);
+    el('rect', {x: x + 1, y: y + 1, width: CELL - 2, height: CELL - 2, rx: 5, class: 'bg'}, cg);
+    list.forEach(function (f, a) { var w = list.length > 1 ? 7 : 10; el('rect', {x: x + CELL / 2 - (list.length * (w + 2) - 2) / 2 + a * (w + 2), y: y + CELL / 2 - 5, width: w, height: 10, rx: 3, class: 'dot', fill: kvar(f)}, cg); });
+    var on = function () {
+      mark(ij[0], ij[1]); say.textContent = '';
+      var f = list[0], b = h('b'); b.appendChild(document.createTextNode(f.s)); b.appendChild(h('span', 'arr', '→')); b.appendChild(document.createTextNode(f.t)); say.appendChild(b);
+      list.forEach(function (x2) { var code = h('code', '', x2.a); code.style.setProperty('--k', kvar(x2)); say.appendChild(code); });
+      if (f.say) say.appendChild(h('span', '', list.length === 1 ? f.say : f.say + ' (and ' + (list.length - 1) + ' more)'));
+      say.classList.add('on');
+    };
+    cg.addEventListener('pointerenter', on); cg.addEventListener('focus', on); cg.addEventListener('pointerleave', clear); cg.addEventListener('blur', clear);
+    // A click shows the same flow on the map.
+    cg.addEventListener('click', function () { setMode('map'); setLayer(TOP, 'all', true); hotFlow = list[0]; light(); });
+  });
+}
+Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode); }); });
+app.dataset.mode = 'map';
+
+// ---- start: the lines of the first map draw one time, the short lines first -------------------
+function load(i) {
+  SET = D.sets[i]; MAPS = SET.maps; TOP = MAPS[0];
+  world.textContent = ''; sel = hot = hotFlow = null; cur = null; app.classList.remove('open'); started = false;
+  SEQ = {i: 0, step: -1, form: 'map'}; SM = {i: 0}; FOCUS = {id: ''}; MODE = 'map'; app.dataset.mode = 'map'; app.dataset.form = 'map';
+  prepare(); MAPS.forEach(build);
+  MAPS.forEach(function (m) { m.used = {}; setLayer(m, 'system', true); });
+  cur = TOP; fitMap(TOP, true); chrome(); light();
+  Array.prototype.forEach.call(document.querySelectorAll('#views button'), function (b) {
+    b.setAttribute('aria-pressed', b.dataset.mode === 'map' ? 'true' : 'false');
+    b.hidden = (b.dataset.mode === 'states' && !(TOP.sm && TOP.sm.length)) || (b.dataset.mode === 'history' && !SET.history) || (b.dataset.mode === 'seq' && !(TOP.sq && TOP.sq.length));
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#sets button'), function (b, n) { b.setAttribute('aria-pressed', n === i ? 'true' : 'false'); });
+  if (!REDUCE) {
+    var ke = cam.k;
+    TOP.shown.slice().sort(function (a, b) { return a.len - b.len; }).forEach(function (f, n) {
+      var L = Math.ceil(f.len * ke) + 6; f.w.style.strokeDasharray = L; f.w.style.strokeDashoffset = L; f.tx.style.transition = 'none'; f.tx.style.opacity = 0;
+      setTimeout(function () {
+        f.w.style.transition = 'stroke-dashoffset .5s cubic-bezier(.3,.7,.2,1)'; f.w.style.strokeDashoffset = 0;
+        setTimeout(function () { f.w.style.transition = ''; f.w.style.strokeDasharray = ''; f.w.style.strokeDashoffset = ''; f.tx.style.transition = ''; f.tx.style.opacity = ''; }, 540);
+      }, 160 + n * 28);
+    });
+  }
+  started = true;
+}
+D.sets.forEach(function (st, i) { var b = h('button', '', st.name); b.title = st.note; b.addEventListener('click', function () { load(i); }); document.getElementById('sets').appendChild(b); });
+load(0);
+})();

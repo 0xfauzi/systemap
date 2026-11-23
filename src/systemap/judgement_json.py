@@ -18,8 +18,10 @@ from systemap import (
     flow_review,
     judgement,
     judgement_evidence,
+    module_use,
     nest,
     nest_join,
+    refused_answers,
     review_policy,
     source_facts,
 )
@@ -32,7 +34,10 @@ from systemap.config import LINE_KINDS, Answer, Config
 # adds `assurance`: the level, the freshness, and the basis of each claim. Version 8 adds
 # `map_id`, `parent_flow`, `nested_flows`, and `import_pairs` to each row of `open`. They
 # have values only for a `boundary flow` or a `boundary import` line (`nest_join.fields`).
-SCHEMA_VERSION = 8
+# Version 9 adds `module_use` to each row of `open`, `role`, `symbol`, and `handoff` to each
+# answer of `answered`, and `refused_answers`, `unused_answers`, `import_crossings`, and
+# `module_roles` (`role_fields`).
+SCHEMA_VERSION = 9
 # The fields of a row of `open` for a line that is not a boundary line.
 NO_BOUNDARY: dict[str, Any] = dict.fromkeys(
     ("map_id", "parent_flow", "nested_flows", "import_pairs")
@@ -44,6 +49,10 @@ class Judged:
     """This record contains the judgement lines, their evidence digests, the result of
     the answers, the cause and the sources of each `unknown surface` line, the count
     of each line with a count (`line_counts`), and the fields of each boundary line.
+
+    `crossings` gives the state and the units of each import crossing, and `uses` gives
+    the record of each `module use` line (`module_use`). `hidden` gives the waiting and
+    the closed crossing import lines. They are not in `lines`.
     """
 
     lines: list[str]
@@ -57,10 +66,28 @@ class Judged:
     claims: list[assurance.Claim] = field(default_factory=list)
     boundary: Mapping[str, dict[str, Any]] = field(default_factory=dict)
     found: Mapping[str, nest_join.Finding] = field(default_factory=dict)
+    crossings: Mapping[str, dict[str, Any]] = field(default_factory=dict)
+    uses: Mapping[str, dict[str, Any]] = field(default_factory=dict)
+    hidden: list[str] = field(default_factory=list)
+    refused_rows: list[dict[str, Any]] = field(default_factory=list)
+    unused: list[str] = field(default_factory=list)
+
+    @property
+    def blocking(self) -> bool:
+        """Tell if `judgement --strict` exits 1: a line is open, an answer is refused, or an
+        import crossing waits for module roles."""
+        waiting = any(row["state"] == module_use.WAITING for row in self.crossings.values())
+        return bool(self.result.open or self.result.refused or waiting)
 
     def import_rows(self, tree: nest.Tree, facts: dict[str, Any]) -> dict[str, list[str]]:
-        """Give the import rows of each crossing-import line and `boundary import` line."""
-        return judgement.crossing_detail_tree(tree, facts) | nest_join.detail(self.found)
+        """Give the import rows of each crossing-import line and `boundary import` line, and
+        the rows of each `module use` line. The rows of an open crossing import line start
+        with its handoff modules."""
+        out = judgement.crossing_detail_tree(tree, facts) | nest_join.detail(self.found)
+        for line, row in self.crossings.items():
+            if row["rows"] and line in out:
+                out[line] = [*row["rows"], *out[line]]
+        return out | {line: list(row["rows"]) for line, row in self.uses.items()}
 
     def detail(
         self, tree: nest.Tree, facts: dict[str, Any], verbose: bool
@@ -102,15 +129,20 @@ def line_counts(
     return {line: count for line, count in out.items() if line in present}
 
 
-def current_lines(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> list[str]:
+def current_lines(
+    tree: nest.Tree, facts: dict[str, Any], cfg: Config, found: module_use.Index | None = None
+) -> list[str]:
     """This function gives the judgement lines of the map tree, without the answers.
 
-    With `[judgement] require_reviews`, a missing source review is a line."""
+    The `module use` lines come after the lines of `judgement.run_tree`. `found` is the
+    result of `module_use.index`. With `[judgement] require_reviews`, a missing source
+    review is a line."""
     adapter = languages.repository(cfg.language) if cfg.language else None
     base = adapter.model_sdks if adapter else judgement.MODEL_SDKS
     separators = (adapter.import_separator,) if adapter else judgement.IMPORT_SEPARATORS
     sdks = judgement.sdk_list(cfg.model_sdks, base)
     lines = judgement.run_tree(tree, facts, sdks, cfg.observed_by, separators=separators)
+    lines += module_use.lines(module_use.index(tree, facts) if found is None else found, tree)
     if cfg.require_reviews:
         lines += review_policy.missing_lines(tree, facts)
     return lines
@@ -119,34 +151,102 @@ def current_lines(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> list[s
 def evaluate(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> Judged:
     """This function gives the judgement lines and applies the answers that are not
     audit answers. With `[judgement] require_reviews`, a missing source review is a line.
-    """
-    lines = current_lines(tree, facts, cfg)
+
+    The module role answers decide the state of each import crossing. Only the open
+    crossing import lines are in `Judged.lines`. The evidence covers all lines, also the
+    hidden crossing import lines."""
+    found = module_use.index(tree, facts)
+    lines = current_lines(tree, facts, cfg, found)
     given = [a for a in cfg.judgement_answered if not audit.is_audit_answer(a)]
     given = answer_migrations.current_lines(given, lines)
-    evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines)
-    result = judgement.apply_answers(lines, given, evidence)
+    present = set(lines)
+    uses = {u.line: u.module for u in found.units.values() if u.line in present}
+    evidence = judgement.evidence_for_tree(tree, facts, cfg.root, lines, uses=uses)
+    picked = module_use.roles(given, found, module_use.evidence(found), tree, facts)
+    states = module_use.crossing_states(found, picked.accepted)
+    states = module_use.checked_states(states, found, tree, picked.accepted)
+    shown = [line for line in lines if states.get(line, module_use.OPEN) == module_use.OPEN]
+    refused = {row["answer"] for row in picked.refused}
+    kept = [a for a in given if module_use.role_answer(a) is None or a.label not in refused]
+    result = judgement.apply_answers(shown, kept, evidence)
+    unused = refused_answers.correct_stale(result, states, found)
+    rows = [*refused_answers.texts(given, lines), *picked.refused]
+    result.refused.extend(row["text"] for row in rows)
     renamed = answer_migrations.renamed_items(cfg.judgement_answered)
     result.stale.extend(item for item in renamed if item not in result.stale)
-    causes = line_causes(lines, facts)
-    sources = line_sources(lines, facts)
-    earlier = earlier_reviews(tree, facts)
-    found = boundary_findings(tree, facts, lines)
-    counts = line_counts(tree, facts, lines, found)
-    claims = assurance.of_tree(tree, facts)
-    boundary = nest_join.all_fields(tree, found)
+    found_lines = boundary_findings(tree, facts, shown)
+    counts = line_counts(tree, facts, shown, found_lines)
+    counts |= {u.line: (module_use.user_count(u), "component") for u in found.units.values()}
+    counts = {line: count for line, count in counts.items() if line in set(shown)}
+    crossings, use_rows = role_records(tree, facts, found, picked, states)
     return Judged(
-        lines,
+        shown,
         evidence,
         result,
         cfg.require_reviews,
-        causes,
-        sources,
-        earlier,
+        line_causes(shown, facts),
+        line_sources(shown, facts),
+        earlier_reviews(tree, facts),
         counts,
-        claims,
-        boundary,
-        found,
+        assurance.of_tree(tree, facts),
+        nest_join.all_fields(tree, found_lines),
+        found_lines,
+        crossings,
+        use_rows,
+        [line for line in lines if line not in set(shown)],
+        rows,
+        unused,
     )
+
+
+def role_records(
+    tree: nest.Tree,
+    facts: dict[str, Any],
+    found: module_use.Index,
+    picked: module_use.Roles,
+    states: Mapping[str, str],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Give the record of each import crossing and of each unit with a line in this run.
+
+    The record of an import crossing has its state, its units with their module roles,
+    and, for an open import crossing, the `handoff modules:` row. The record of a unit has
+    the fields of `module_use` in the JSON object and the rows below its line."""
+    prefixes = {m.id: m.prefix for m in tree.maps}
+    crossings = {
+        line: {
+            "line": line,
+            "map": c.map,
+            "from": c.source,
+            "to": c.target,
+            "state": states[line],
+            "modules": [
+                {"module": u, "role": module_use.accepted_role(u, picked)} for u in c.units
+            ],
+            "rows": (
+                [module_use.handoff_row(c, picked.accepted)]
+                if states[line] == module_use.OPEN and any(u in picked.accepted for u in c.units)
+                else []
+            ),
+        }
+        for line, c in found.crossings.items()
+    }
+    refs = module_use.flow_refs(tree, facts) if found.units else []
+    uses = {
+        u.line: {
+            "module": u.module,
+            "component": u.component,
+            "users": [
+                {"map": user.map, "component": user.component, "names": list(user.names)}
+                for user in u.users
+            ],
+            "waiting_crossings": sum(states.get(x) == module_use.WAITING for x in u.crossings),
+            "role": module_use.unit_role(u.module, picked),
+            "rows": module_use.unit_rows(u, found, states, refs, prefixes),
+        }
+        for u in found.units.values()
+        if u.line_map is not None
+    }
+    return crossings, uses
 
 
 def open_boundary(tree: nest.Tree, facts: dict[str, Any], cfg: Config) -> frozenset[str]:
@@ -205,9 +305,15 @@ def earlier_reviews(tree: nest.Tree, facts: dict[str, Any]) -> list[dict[str, st
 
 
 def earlier_rows(judged: Judged, tree: nest.Tree, teach: bool) -> list[str]:
-    """This function gives one text row for each flow review with the state `earlier`."""
+    """This function gives the count rows of the import crossings and of the module roles
+    (`module_use.count_rows`). Then it gives one text row for each flow review with the
+    state `earlier`."""
+    counts = module_use.count_rows(
+        (row["state"] for row in judged.crossings.values()),
+        (row["role"] for row in judged.uses.values()),
+    )
     if not judged.earlier:
-        return []
+        return counts
     prefixes = {m.id: m.prefix for m in tree.maps}
     rows = [
         f"{flow_review.EARLIER_LABEL}: {prefixes.get(row['map'], '')}{row['flow']}"
@@ -217,7 +323,7 @@ def earlier_rows(judged: Judged, tree: nest.Tree, teach: bool) -> list[str]:
         "  The review digest does not identify the examined source. Examine the flow claim "
         "against the source. Then use systemap review --flow ID."
     )
-    return rows + ([action] if teach else [])
+    return counts + rows + ([action] if teach else [])
 
 
 def line_causes(lines: Iterable[str], facts: dict[str, Any]) -> dict[str, str]:
@@ -276,6 +382,7 @@ def payload(
                 "sources": judged.sources.get(line),
                 "count": judged.counts[line][0] if line in judged.counts else None,
                 **judged.boundary.get(line, NO_BOUNDARY),
+                "module_use": _use_row(judged.uses.get(line)),
             }
             for line in shown
         ],
@@ -283,6 +390,7 @@ def payload(
             "count": result.answered,
             "answers": [_answer_row(a, judged.lines) for a in result.accepted],
         },
+        **role_fields(judged),
         "stale_answers": list(result.stale),
         "source_reviews": dict(reviews) if reviews is not None else None,
         "earlier_flow_reviews": [dict(row) for row in judged.earlier],
@@ -299,6 +407,40 @@ def _answer_row(answer: Answer, lines: list[str]) -> dict[str, Any]:
         "items": list(answer.items),
         "reason": answer.reason,
         "lines": [line for line in lines if judgement.answers(answer, line, present)],
+        "role": answer.role,
+        "symbol": answer.symbol,
+        "handoff": list(answer.handoff),
+    }
+
+
+def _use_row(row: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Give the `module_use` field of a row of `open`: None for a line of a different kind."""
+    if row is None:
+        return None
+    keys = ("module", "component", "users", "waiting_crossings")
+    return {key: row[key] for key in keys}
+
+
+def role_fields(judged: Judged) -> dict[str, Any]:
+    """Give the fields of the module roles: the refused answers, the unused answers, the
+    states of the import crossings, and the module role counts of the units."""
+    crossings = list(judged.crossings.values())
+    states = [row["state"] for row in crossings]
+    roles = [row["role"] for row in judged.uses.values()]
+    keys = ("answer", "items", "cause", "text", "lines")
+    return {
+        "refused_answers": [{key: row[key] for key in keys} for row in judged.refused_rows],
+        "unused_answers": list(judged.unused),
+        "import_crossings": {
+            **{state: states.count(state) for state in ("open", "waiting", "closed")},
+            "crossings": [
+                {key: row[key] for key in ("line", "map", "from", "to", "state", "modules")}
+                for row in crossings
+            ],
+        },
+        "module_roles": {
+            role: roles.count(role) for role in ("helper", "handoff", "mixed", "refused", "none")
+        },
     }
 
 

@@ -178,3 +178,34 @@ def test_the_python_tool_note_stays_for_python(
     write_tree(tmp_path, STARTER)
     assert run("--root", str(tmp_path), "init", "--no-ci") == 0
     assert "\n".join(scaffold.TOOLING_NOTE) + "\nNext," in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "config_file",
+    [
+        ("pyproject.toml", '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'),
+        ("pyproject.toml", '[tool.setuptools]\npackage-dir = {"" = "lib"}\n'),
+        ("setup.cfg", "[options]\npackage_dir =\n    =lib\n"),
+        ("setup.cfg", "[options.packages.find]\nwhere = lib\n"),
+    ],
+)
+def test_init_finds_the_library_of_a_lib_layout(
+    tmp_path: Path, config_file: tuple[str, str]
+) -> None:
+    # The layout of SQLAlchemy 2.1.9: the library is under lib/, and the root has the test
+    # package test/ and the package examples/. The packaging configuration names lib/.
+    write_tree(
+        tmp_path,
+        {
+            config_file[0]: config_file[1],
+            "lib/mylib/__init__.py": "",
+            "lib/mylib/core.py": "def run() -> None:\n    pass\n",
+            "test/__init__.py": "",
+            "test/test_core.py": "def test_run() -> None:\n    pass\n",
+            "examples/__init__.py": "",
+        },
+    )
+    assert python_repo.discover_roots(tmp_path) == [("lib/mylib", "mylib")]
+    # Without the packaging configuration, a test directory is still not a package root.
+    (tmp_path / config_file[0]).unlink()
+    assert python_repo.discover_roots(tmp_path) == [("examples", "examples")]

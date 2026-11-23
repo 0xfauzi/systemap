@@ -228,6 +228,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # tests/test_screenshots.py renders the comparison of two earlier commits
 
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
@@ -317,9 +318,26 @@ jobs:
   # axe-core: the test puts it
   # into the page. The runner has no GPU, so Chromium paints in software. In this job the
   # tests fail when the browser or axe-core is not available.
+  # tests/test_atlas_browser.py examines the Map view of the atlas page (docs/design/atlas.md).
+  # tests/test_atlas_point_browser.py examines pointing and selecting on the atlas page.
+  # tests/test_atlas_sequences_browser.py examines the Sequences view of the atlas page.
+  # tests/test_atlas_parity_browser.py examines Find, the hash, the tools, the marks, the list
+  # of the tree, axe-core and systemap live on the atlas page. tests/test_atlas_frames.py
+  # examines the performance budget of the atlas page on the generated tree.
+  # tests/test_atlas_limits_browser.py examines the disclosure "Not in this comparison".
+  # tests/test_atlas_inside_browser.py examines the signs of a nested map on the atlas page.
+  # tests/test_atlas_final_browser.py examines the repairs of the final review of the atlas page.
+  # tests/test_atlas_page_layout_browser.py examines the layout of the nested map Page.
+  # tests/test_atlas_faults_browser.py examines the repairs of the faults that tests of the page on
+  # other repositories found.
+  # tests/test_atlas_uses_browser.py examines the Uses and Used by lists of the component panel.
+  # tests/test_atlas_select_browser.py examines that a selection keeps the camera in place.
+  # tests/test_atlas_counts_browser.py examines the counts of the headline and of Focus.
+  # tests/test_atlas_names_browser.py examines that the check and the atlas page agree on the
+  # card names that fit.
   canvas-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60 # on 2026-11-22 the job passed 80 percent of its tests at 22 minutes and did not end in 30
     env:
       SYSTEMAP_BROWSER_TESTS: required
     steps:
@@ -349,7 +367,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the canvas browser tests
-        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py
+        run: uv run pytest -q tests/test_canvas_*browser.py tests/test_canvas_frames.py tests/test_canvas_access.py tests/test_canvas_live.py tests/test_atlas_browser.py tests/test_atlas_point_browser.py tests/test_atlas_sequences_browser.py tests/test_atlas_states_browser.py tests/test_atlas_focus_browser.py tests/test_atlas_history_browser.py tests/test_atlas_reach.py tests/test_atlas_parity_browser.py tests/test_atlas_limits_browser.py tests/test_atlas_inside_browser.py tests/test_atlas_final_browser.py tests/test_atlas_page_layout_browser.py tests/test_atlas_faults_browser.py tests/test_atlas_names_browser.py tests/test_atlas_uses_browser.py tests/test_atlas_select_browser.py tests/test_atlas_counts_browser.py tests/test_atlas_frames.py
 
   plugin:
     runs-on: ubuntu-latest

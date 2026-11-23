@@ -1,4 +1,4 @@
-"""The pull request comment: the architecture summary, and a link to the Changes view.
+"""The pull request comment: the architecture summary, and a link to the changes on the map page.
 
 `systemap delta --comment FILE` writes the comment. The comment starts with a marker
 line. CI finds the comment with the marker and changes that comment on each push.
@@ -7,7 +7,9 @@ line. CI finds the comment with the marker and changes that comment on each push
 A repository can also publish the map page of each pull request, for example with
 `systemap render --base REF`. `[delta] page_url` gives the URL of that page, with
 `{number}` in the place of the pull request number. Then the comment also has a link to
-the Changes view of the page, and `--pr` must give the pull request number.
+the changes on the page, and `--pr` must give the pull request number. The link ends in
+`#changes`. On the atlas page (the default), it opens the top map, which has the change
+marks. On the canvas page and the linked page, it opens the Changes view.
 `systemap delta` reads `page_url` at the base commit (`delta_git.page_url_at`). In CI, a
 fork can change the configuration of the pull request, but not of the base commit.
 """
@@ -24,7 +26,8 @@ from systemap import file_write
 # The first line of the comment. CI finds the comment with it and changes that comment.
 MARKER = "<!-- systemap delta -->"
 NUMBER = "{number}"
-# The page opens the Changes view for this URL fragment.
+# The URL fragment of the link. The atlas page opens the top map with the change marks, and the
+# canvas page and the linked page open the Changes view.
 CHANGES = "#changes"
 KEYS = {"page_url"}
 
@@ -78,7 +81,7 @@ def number(text: str) -> int:
 
 
 def link(url: str, pr: int) -> str:
-    """Give the link to the Changes view of the page for the pull request."""
+    """Give the link to the changes on the page for the pull request."""
     return url.replace(NUMBER, str(pr)) + CHANGES
 
 
@@ -86,7 +89,7 @@ def comment(summary: str, url: str = "", pr: int = 0) -> str:
     """Give the comment: the marker, the summary, and the link if there is a page URL."""
     out = [MARKER, summary]
     if url:
-        out += ["", f"[Open the Changes view of the map]({link(url, pr)})"]
+        out += ["", f"[Open the changes on the map]({link(url, pr)})"]
     return "\n".join(out) + "\n"
 
 

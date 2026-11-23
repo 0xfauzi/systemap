@@ -11,7 +11,8 @@ never shows an image of a different view.
 
 The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f)`,
 `over(m, a, ox, oy, alpha)`, `enter(from)`, `leave(to)`, `frame()`, `band(fresh)`,
-`box()`, `facts(c)`, `say(m)`, `words()` and `here(m)`. All of them are optional.
+`box()`, `facts(c)`, `say(m)`, `words()`, `here(m)`, `caption()` and `panel()`. All of them
+are optional.
 
 - `card(c)` gives null for the usual card, or `{a, ring, tag, back, note}`: the alpha of
   the card (0 to 1), and four marks, each null or an object. `ring` is
@@ -37,6 +38,9 @@ The seam. Each view part puts its functions in `VIEWS[mode]`: `card(c)`, `flow(f
   in place of the name and the `say` of the current map. Empty words keep those.
 - `here(m)` occurs when the label of the canvas gives the current map m (`relabel`): when
   the camera stops, and at a change of the view.
+- `caption()` gives the words of the caption at the right of the path, `{k, s}`: a short
+  name and a sentence (`page_canvas_caption`). `panel()` gives the text of the Details
+  panel when no card is selected, `{key, nodes}` (`viewPanel`).
 - `band(fresh)` gives the height of a bar of the view under the header, for example the
   toolbar of the Sequences view. With `fresh`, the part measures the bar again. The top
   band of the screen (`HEAD_H`) is the header and the bar of each view, multiplied by the
@@ -71,7 +75,8 @@ is quiet: it has the alpha QUIET. These are the rules of `paint` in
 `schematic_relations.py`. A map that does not have the layer shows no flow, and its cards
 that are not subjects are quiet. The flags of each map are calculated one time for each
 layer (`layerFlags`), when the map is first drawn with that layer. The layer applies only
-in the Map view, as on the linked page. A layer button in a different view goes to the
+in the Map view, as on the linked page. The page opens with the layer System context
+when the top map has flows in it, and with All in the other cases. A layer button in a different view goes to the
 Map view with that layer.
 
 The header (`canvas_header`). The view buttons and the layer buttons set the view. The
@@ -86,15 +91,18 @@ from __future__ import annotations
 
 VIEW_PART = r"""
 // ---- the views and the layers ------------------------------------------------------
-var VIEW = {mode: 'map', layer: 'all', epoch: 0}, VIEWS = Object.create(null), MODES = ['map', 'sequences', 'changes'];
-var MODE_NAMES = {map: 'Map', sequences: 'Sequences', changes: 'Changes'};
+var VIEW = {mode: 'map', layer: 'all', epoch: 0}, VIEWS = Object.create(null), MODES = ['map', 'sequences', 'states', 'changes'];
+var MODE_NAMES = {map: 'Map', sequences: 'Sequences', states: 'States', changes: 'Changes'};
 var VIEW_MS = 160, VIEW_MAX = 0.2, VIEW_STEP = 1, VIEW_LAST = 0, VIEW_AT = 0, VIEW_FADING = false, VIEW_AIM = 0, VIEW_LOG = null;
-var VIEW_SHOW = {map: 1, sequences: 0, changes: 0}, QUIET = 0.32, VIEW_IDLE = true;
+var VIEW_SHOW = {map: 1, sequences: 0, states: 0, changes: 0}, QUIET = 0.32, VIEW_IDLE = true;
 var PLAIN = {a: 1, ring: null, tag: null, back: null, note: null}, PLAIN_FLOW = {a: 1, color: null};
 var HEAD_EL = document.getElementById('canvas-head'), HEAD_H = 0, HEAD_BASE = 0;
 // The layers of all maps: the name and the question of each layer ID.
 var LAYER_OF = Object.create(null);
 ORDER.forEach(function (m) { (m.layers || []).forEach(function (l) { if (!LAYER_OF[l.id]) LAYER_OF[l.id] = l; }); });
+// The page opens with System context when that layer is the first layer of the top map: it
+// then has flows (`page.tab_layers`, `canvas_header.first_layer`). Else it opens with All.
+if (TOP.layers && TOP.layers[0] && TOP.layers[0].id === 'system') VIEW.layer = 'system';
 // The flags of a layer in a map: the flows that it shows, and the quiet cards.
 function layerFlags(m, id) {
   var memo = m._lf || (m._lf = Object.create(null));
@@ -112,9 +120,27 @@ function layerFlags(m, id) {
 // A quiet card of a layer, and a flow that a view does not show (`FLOW_OFF`, also for the
 // other views).
 var MAP_QUIET = {a: QUIET, ring: null, tag: null, back: null, note: null}, FLOW_OFF = {a: 0, color: null};
+// The cards that a flow of the layer connects to the selected card s, and s (`selNear`).
+function selNear(s) {
+  if (s._nk === VIEW.layer) return s._near;
+  var near = Object.create(null), fl = VIEW.layer === 'all' ? null : layerFlags(s.map, VIEW.layer).flow;
+  near[s.id] = true;
+  s.ins.concat(s.outs).forEach(function (f) { if (!fl || fl[f.i]) { near[f.s] = true; near[f.t] = true; } });
+  s._nk = VIEW.layer; s._near = near;
+  return near;
+}
+// With a selected card, the flows of that card stay, and the other flows and cards of its
+// map go to low contrast. A flow with the alpha SEL_DIM has no label (`labelShown`).
+var SEL_DIM = {a: 0.16, color: null};
 VIEWS.map = {
-  card: function (c) { return VIEW.layer !== 'all' && layerFlags(c.map, VIEW.layer).quiet[c.i] ? MAP_QUIET : null; },
-  flow: function (f) { return VIEW.layer !== 'all' && !layerFlags(f.map, VIEW.layer).flow[f.i] ? FLOW_OFF : null; }
+  card: function (c) {
+    if (VIEW.layer !== 'all' && layerFlags(c.map, VIEW.layer).quiet[c.i]) return MAP_QUIET;
+    return SEL_C && SEL_C.map === c.map && !selNear(SEL_C)[c.id] ? MAP_QUIET : null;
+  },
+  flow: function (f) {
+    if (VIEW.layer !== 'all' && !layerFlags(f.map, VIEW.layer).flow[f.i]) return FLOW_OFF;
+    return SEL_C && SEL_C.map === f.map && f.s !== SEL_C.id && f.t !== SEL_C.id ? SEL_DIM : null;
+  }
 };
 
 // ---- the seam --------------------------------------------------------------------
@@ -190,6 +216,15 @@ function viewFlow(f) {
 }
 // The alpha of flow f in this frame, after `viewFlow` (the labels use it).
 function flowShown(f) { return VIEW_AIM ? flowAim(f).a : f._vAt === drawn ? f._v.a : 1; }
+// The alpha of the label of flow f. A flow with the alpha 0.16 or less (a flow that is not
+// on the route of a sequence) has no label, and the label has the alpha of the flow from 0.4.
+function labelShown(f) { var s = flowShown(f); return s * smooth(0.16, 0.4, s) * restShown(f); }
+// Make the Map view show flow f before the camera goes to it: when the layer does not show
+// the flow, the layer of the flow, or All.
+function viewFlowOn(f) {
+  if (VIEW.mode !== 'map' || VIEW.layer === 'all' || layerFlags(f.map, VIEW.layer).flow[f.i]) return;
+  setView('map', layerFlags(f.map, f.l).flow[f.i] ? f.l : 'all');
+}
 // The color of a flow, for a color of the view or for the layer color.
 function flowColor(f, color) { return color ? C[color] || color : C['--l-' + f.l] || C['--flow']; }
 // Draw the parts of the views after the cards of map m. A view that fades out still draws.
@@ -205,7 +240,7 @@ function viewOver(m, a, ox, oy, alpha) {
 function viewFrame() {
   var now = performance.now(), dt = VIEW_LAST ? now - Math.max(VIEW_LAST, VIEW_AT) : Infinity;
   VIEW_LAST = now; VIEW_FADING = false; STATS.hooks = 0; STATS.flows = 0;
-  VIEW_IDLE = VIEW.mode === 'map' && VIEW.layer === 'all';
+  VIEW_IDLE = VIEW.mode === 'map' && VIEW.layer === 'all' && !SEL_C;
   VIEW_STEP = reduced() ? 1 : Math.min(VIEW_MAX, dt / VIEW_MS);
   MODES.forEach(function (mode) {
     var to = mode === VIEW.mode ? 1 : 0;
@@ -234,7 +269,14 @@ var MARKS_OF = [];
 function markColor(m) { return C[m.c] || m.c; }
 // The ring of a card: a line 3 px outside the card. The back line: a line around the back
 // card of a card that opens a map.
-function ringRect(b, ring, al, x, y, w, h, r) { b.rect(markColor(ring), al, x - 3, y - 3, w + 6, h + 6, r + 3, ring.w || 2, ring.d); }
+// The ring is 3 px outside the card. Its edges are on the pixel grid of the screen, so that
+// a thin ring keeps its full color at each position of the camera.
+function ringRect(b, ring, al, x, y, w, h, r) {
+  var lw = ring.w || 2, d = dpr(), o = (Math.round(lw * d) % 2) / 2;
+  function px(v) { return (Math.round(v * d - o) + o) / d; }
+  var x0 = px(x - 3), y0 = px(y - 3);
+  b.rect(markColor(ring), al, x0, y0, px(x + w + 3) - x0, px(y + h + 3) - y0, r + 3, lw, ring.d);
+}
 function backRect(b, back, al, x, y, w, h, r) { b.rect(markColor(back), al, x + 4, y + 4, w, h, r, back.w || 1.5); }
 function viewBack(v, x, y, w, h, r, alpha) { if (v.back && v.d > 0) backRect(BACK_LINE, v.back, alpha * v.d, x, y, w, h, r); }
 function viewMarksAt(c, v, x, y, w, h, alpha) {
@@ -254,7 +296,7 @@ function drawTag(v, x, y, w, h, alpha, c) {
     if (!e[0]) return;
     var pw = unitWidth(e[0].s, 600) * fs + 10, room = smooth(pw, pw + 2 * fs, w), top = e[1];
     if (!i && c) {
-      var need = 2 * inset(h) + unitWidth(c.id, 600) * titleSize(h) + pw + 8;
+      var need = 2 * inset(h) + unitWidth(c.id, 600, true) * titleSize(h) + pw + 8;
       top -= (1 - smooth(need, need + 2 * fs, w)) * th / 2;
     }
     if (room > 0.02) markPlate(e[0], x + w - pw - 4, top, pw, th, fs, al * room);
@@ -308,6 +350,10 @@ var LAYER_SELECT = document.getElementById('canvas-layer');
 // The height of the header. It is constant for a screen (`measure` reads it). When the
 // header goes into the Tools menu or out of it, the menu closes (`MENU_SHUT`).
 var MENU_SHUT = null;
+// The Details part sets PANEL_DROP: it stops a panel that a selection is about to open,
+// and closes a panel that a selection opened.
+var PANEL_DROP = null;
+function panelDrop() { if (PANEL_DROP) PANEL_DROP(); }
 function headMeasure() {
   HEAD_BASE = HEAD_EL ? HEAD_EL.getBoundingClientRect().height : 0;
   if (HEAD_EL) {
@@ -376,6 +422,10 @@ function viewWords(modeChanged) {
 // live region (`facts` and `say` of the view part).
 function viewFacts(c) { var v = VIEWS[VIEW.mode]; return v && v.facts ? v.facts(c) : ''; }
 function viewSay(m) { var v = VIEWS[VIEW.mode]; return v && v.say ? v.say(m) : ''; }
+// The text of the current view for the Details panel when no card is selected (`panel` of
+// the view part): `{key, nodes}`, or null for the rules of the current map. `key` changes
+// when the text changes, and `nodes()` gives the elements.
+function viewPanel() { var v = VIEWS[VIEW.mode]; return v && v.panel ? v.panel() : null; }
 // The current map is m (`relabel`): each view part with `here` gets it.
 var HERE_HOOKS = [];
 function viewHere(m) {

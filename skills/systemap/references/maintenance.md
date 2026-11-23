@@ -81,7 +81,7 @@ If the source or the claims change after that, the finding opens again.
 | `removed`, excluded | A coverage exclusion refers to a removed module. | Remove the stale exclusion. |
 | `entry vanished` | The public entry symbol is missing. | Select a public symbol from the claimed modules. |
 | `interface vanished` | The interface refers to a missing symbol. | Use an existing symbol or an empty interface value. |
-| `new crossing import` | An import crosses components without a flow. | Add a supported flow, change assignments, or record why no flow is necessary. |
+| `new crossing import` | An import crosses components without a flow. | Add a supported flow, change assignments, or give the module role of the imported module in its `module use` answer. |
 | `evidence lost` | The flow no longer has its recorded support. | Examine current source. Then correct or renew the claim. |
 | `source evidence lost` | Source records no longer support a claim that had a current source review. | Examine references, direction, and artifact before renewal. |
 | `structural evidence lost` | An import or configured mechanism is missing. | Examine the flow against current source. |
@@ -119,7 +119,7 @@ With `systemap init --strict-ci`, the job fails.
 The workflow writes the architecture summary as one pull request comment, and changes it after each push.
 The summary gives the contract changes, the map changes, the rule results, and the assurance level of each row.
 For a pull request from a fork, the workflow writes the summary only to the job summary.
-With `[delta] page_url` in `systemap.toml`, the comment also has a link to the Changes view of the page.
+With `[delta] page_url` in `systemap.toml`, the comment also has a link to the changes on the map page. On the atlas page (the default), the link opens the top map with the change marks. On the canvas page, it opens the Changes view.
 The page shows the map changes. Make that page with `systemap render --base REF`.
 
 ## Completion

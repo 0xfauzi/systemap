@@ -1,0 +1,1185 @@
+[
+ {
+  "unit": "django.core.exceptions",
+  "role": "helper",
+  "file": "django/core/exceptions.py",
+  "span": [
+   10,
+   13
+  ],
+  "sentence": "Exception classes only.",
+  "symbol": "FieldDoesNotExist"
+ },
+ {
+  "unit": "django.conf",
+  "role": "handoff",
+  "file": "django/conf/__init__.py",
+  "span": [
+   242,
+   318
+  ],
+  "sentence": "O1 variant: settings keeps shared configuration data.",
+  "symbol": "Settings"
+ },
+ {
+  "unit": "django.utils.functional",
+  "role": "helper",
+  "file": "django/utils/functional.py",
+  "span": [
+   7,
+   48
+  ],
+  "sentence": "Lazy objects and decorators that operate in the caller.",
+  "symbol": "cached_property"
+ },
+ {
+  "unit": "django.utils.module_loading",
+  "role": "helper",
+  "file": "django/utils/module_loading.py",
+  "span": [
+   19,
+   35
+  ],
+  "sentence": "Functions that import a module or attribute for the caller.",
+  "symbol": "import_string"
+ },
+ {
+  "unit": "django.utils.translation",
+  "role": "helper",
+  "file": "django/utils/translation/__init__.py",
+  "span": [
+   95,
+   96
+  ],
+  "sentence": "Translation functions that give text to the caller.",
+  "symbol": "gettext"
+ },
+ {
+  "unit": "django.utils.timezone",
+  "role": "helper",
+  "file": "django/utils/timezone.py",
+  "span": [
+   200,
+   204
+  ],
+  "sentence": "Time zone functions.",
+  "symbol": "now"
+ },
+ {
+  "unit": "django.apps.registry",
+  "role": "handoff",
+  "file": "django/apps/registry.py",
+  "span": [
+   438,
+   438
+  ],
+  "sentence": "apps is the shared registry of installed applications and models.",
+  "symbol": "apps"
+ },
+ {
+  "unit": "django.utils.regex_helper",
+  "role": "helper",
+  "file": "django/utils/regex_helper.py",
+  "span": [
+   42,
+   193
+  ],
+  "sentence": "Regular expression helpers.",
+  "symbol": "normalize"
+ },
+ {
+  "unit": "django.db",
+  "role": "handoff",
+  "file": "django/db/__init__.py",
+  "span": [
+   38,
+   38
+  ],
+  "sentence": "connections keeps the shared database connections, which send SQL to the database.",
+  "symbol": "connections"
+ },
+ {
+  "unit": "django.utils.encoding",
+  "role": "helper",
+  "file": "django/utils/encoding.py",
+  "span": [
+   53,
+   72
+  ],
+  "sentence": "Text conversion functions.",
+  "symbol": "force_str"
+ },
+ {
+  "unit": "django.utils.deprecation",
+  "role": "helper",
+  "file": "django/utils/deprecation.py",
+  "span": [
+   27,
+   28
+  ],
+  "sentence": "Warning classes and deprecation helpers.",
+  "symbol": "RemovedInDjango2028Warning"
+ },
+ {
+  "unit": "django.db.models",
+  "role": "mixed",
+  "file": "django/db/models/__init__.py",
+  "span": [
+   64,
+   64
+  ],
+  "sentence": "The facade exports Model, Manager and QuerySet, which read and write rows, next to field and expression helpers.",
+  "handoff": [
+   "Model",
+   "Manager",
+   "QuerySet"
+  ]
+ },
+ {
+  "unit": "django.db.utils",
+  "role": "mixed",
+  "file": "django/db/utils.py",
+  "span": [
+   141,
+   197
+  ],
+  "sentence": "ConnectionHandler keeps the shared connections; the errors and the router are helpers.",
+  "handoff": [
+   "ConnectionHandler"
+  ]
+ },
+ {
+  "unit": "django.http.response",
+  "role": "helper",
+  "file": "django/http/response.py",
+  "span": [
+   375,
+   445
+  ],
+  "sentence": "Response objects that the caller fills and gives back.",
+  "symbol": "HttpResponse"
+ },
+ {
+  "unit": "django.utils.http",
+  "role": "helper",
+  "file": "django/utils/http.py",
+  "span": [
+   155,
+   165
+  ],
+  "sentence": "HTTP value helpers.",
+  "symbol": "base36_to_int"
+ },
+ {
+  "unit": "django.apps.config",
+  "role": "helper",
+  "file": "django/apps/config.py",
+  "span": [
+   13,
+   274
+  ],
+  "sentence": "The base class of application configurations.",
+  "symbol": "AppConfig"
+ },
+ {
+  "unit": "django.core.checks",
+  "role": "mixed",
+  "file": "django/core/checks/__init__.py",
+  "span": [
+   14,
+   14
+  ],
+  "sentence": "register adds a check to the shared check registry; the message classes are helpers.",
+  "handoff": [
+   "register"
+  ]
+ },
+ {
+  "unit": "django.db.transaction",
+  "role": "handoff",
+  "file": "django/db/transaction.py",
+  "span": [
+   327,
+   334
+  ],
+  "sentence": "atomic starts and commits transactions on the database connection.",
+  "symbol": "atomic"
+ },
+ {
+  "unit": "django.utils.text",
+  "role": "helper",
+  "file": "django/utils/text.py",
+  "span": [
+   26,
+   32
+  ],
+  "sentence": "Text helpers.",
+  "symbol": "capfirst"
+ },
+ {
+  "unit": "django.core.signals",
+  "role": "handoff",
+  "file": "django/core/signals.py",
+  "span": [
+   4,
+   4
+  ],
+  "sentence": "The signals call receivers of other components when they are sent.",
+  "symbol": "request_finished"
+ },
+ {
+  "unit": "django.urls.base",
+  "role": "helper",
+  "file": "django/urls/base.py",
+  "span": [
+   28,
+   108
+  ],
+  "sentence": "URL reverse functions that operate in the caller.",
+  "symbol": "reverse"
+ },
+ {
+  "unit": "django.utils.datastructures",
+  "role": "helper",
+  "file": "django/utils/datastructures.py",
+  "span": [
+   49,
+   219
+  ],
+  "sentence": "Data structure classes.",
+  "symbol": "MultiValueDict"
+ },
+ {
+  "unit": "django.utils.inspect",
+  "role": "helper",
+  "file": "django/utils/inspect.py",
+  "span": [
+   71,
+   73
+  ],
+  "sentence": "Signature helpers.",
+  "symbol": "func_accepts_kwargs"
+ },
+ {
+  "unit": "django.utils.crypto",
+  "role": "helper",
+  "file": "django/utils/crypto.py",
+  "span": [
+   80,
+   82
+  ],
+  "sentence": "Hash and random helpers.",
+  "symbol": "constant_time_compare"
+ },
+ {
+  "unit": "django",
+  "role": "mixed",
+  "file": "django/__init__.py",
+  "span": [
+   8,
+   24
+  ],
+  "sentence": "setup configures logging and fills the application registry; VERSION and get_version are helpers.",
+  "handoff": [
+   "setup"
+  ]
+ },
+ {
+  "unit": "django.utils._os",
+  "role": "helper",
+  "file": "django/utils/_os.py",
+  "span": [
+   65,
+   92
+  ],
+  "sentence": "Path helpers.",
+  "symbol": "safe_join"
+ },
+ {
+  "unit": "django.utils.version",
+  "role": "helper",
+  "file": "django/utils/version.py",
+  "span": [
+   24,
+   45
+  ],
+  "sentence": "Version helpers.",
+  "symbol": "get_version"
+ },
+ {
+  "unit": "django.core.cache",
+  "role": "handoff",
+  "file": "django/core/cache/__init__.py",
+  "span": [
+   56,
+   56
+  ],
+  "sentence": "caches keeps the shared cache connections, which send values to the cache store.",
+  "symbol": "caches"
+ },
+ {
+  "unit": "django.core.checks.messages",
+  "role": "helper",
+  "file": "django/core/checks/messages.py",
+  "span": [
+   75,
+   77
+  ],
+  "sentence": "Check message classes.",
+  "symbol": "Error"
+ },
+ {
+  "unit": "django.core.validators",
+  "role": "helper",
+  "file": "django/core/validators.py",
+  "span": [
+   210,
+   280
+  ],
+  "sentence": "Validator classes.",
+  "symbol": "EmailValidator"
+ },
+ {
+  "unit": "django.http.request",
+  "role": "helper",
+  "file": "django/http/request.py",
+  "span": [
+   54,
+   525
+  ],
+  "sentence": "Request objects that the caller reads.",
+  "symbol": "HttpRequest"
+ },
+ {
+  "unit": "django.utils.deconstruct",
+  "role": "helper",
+  "file": "django/utils/deconstruct.py",
+  "span": [
+   6,
+   61
+  ],
+  "sentence": "A class decorator.",
+  "symbol": "deconstructible"
+ },
+ {
+  "unit": "django.utils.log",
+  "role": "handoff",
+  "file": "django/utils/log.py",
+  "span": [
+   291,
+   323
+  ],
+  "sentence": "log_response sends log records, and AdminEmailHandler sends mail.",
+  "symbol": "log_response"
+ },
+ {
+  "unit": "django.core.mail",
+  "role": "handoff",
+  "file": "django/core/mail/__init__.py",
+  "span": [
+   113,
+   183
+  ],
+  "sentence": "send_mail sends email through a mail backend.",
+  "symbol": "send_mail"
+ },
+ {
+  "unit": "django.core.management.base",
+  "role": "helper",
+  "file": "django/core/management/base.py",
+  "span": [
+   193,
+   625
+  ],
+  "sentence": "The base class of management commands.",
+  "symbol": "BaseCommand"
+ },
+ {
+  "unit": "django.core.management.color",
+  "role": "helper",
+  "file": "django/core/management/color.py",
+  "span": [
+   114,
+   120
+  ],
+  "sentence": "Terminal color helpers.",
+  "symbol": "color_style"
+ },
+ {
+  "unit": "django.db.migrations",
+  "role": "helper",
+  "file": "django/db/migrations/__init__.py",
+  "span": [
+   1,
+   1
+  ],
+  "sentence": "Migration and operation classes.",
+  "symbol": "Migration"
+ },
+ {
+  "unit": "django.db.models.constants",
+  "role": "helper",
+  "file": "django/db/models/constants.py",
+  "span": [
+   8,
+   8
+  ],
+  "sentence": "Constants.",
+  "symbol": "LOOKUP_SEP"
+ },
+ {
+  "unit": "django.db.models.expressions",
+  "role": "helper",
+  "file": "django/db/models/expressions.py",
+  "span": [
+   1717,
+   1813
+  ],
+  "sentence": "Query expression classes.",
+  "symbol": "Case"
+ },
+ {
+  "unit": "django.db.models.fields",
+  "role": "helper",
+  "file": "django/db/models/fields/__init__.py",
+  "span": [
+   1246,
+   1362
+  ],
+  "sentence": "Model field classes.",
+  "symbol": "CharField"
+ },
+ {
+  "unit": "django.dispatch.dispatcher",
+  "role": "handoff",
+  "file": "django/dispatch/dispatcher.py",
+  "span": [
+   68,
+   533
+  ],
+  "sentence": "Signal.send calls the receivers of other components.",
+  "symbol": "Signal"
+ },
+ {
+  "unit": "django.utils.formats",
+  "role": "helper",
+  "file": "django/utils/formats.py",
+  "span": [
+   100,
+   141
+  ],
+  "sentence": "Format helpers.",
+  "symbol": "get_format"
+ },
+ {
+  "unit": "django.utils.html",
+  "role": "helper",
+  "file": "django/utils/html.py",
+  "span": [
+   53,
+   62
+  ],
+  "sentence": "HTML escape helpers.",
+  "symbol": "escape"
+ },
+ {
+  "unit": "django.utils.safestring",
+  "role": "helper",
+  "file": "django/utils/safestring.py",
+  "span": [
+   65,
+   78
+  ],
+  "sentence": "Safe string classes.",
+  "symbol": "mark_safe"
+ },
+ {
+  "unit": "django.core.serializers.json",
+  "role": "mixed",
+  "file": "django/core/serializers/json.py",
+  "span": [
+   18,
+   58
+  ],
+  "sentence": "Serializer writes objects to a stream; DjangoJSONEncoder is a helper.",
+  "handoff": [
+   "Serializer"
+  ]
+ },
+ {
+  "unit": "django.db.models.deletion",
+  "role": "mixed",
+  "file": "django/db/models/deletion.py",
+  "span": [
+   117,
+   552
+  ],
+  "sentence": "Collector collects and deletes rows; the on_delete functions are helpers.",
+  "handoff": [
+   "Collector"
+  ]
+ },
+ {
+  "unit": "django.forms",
+  "role": "helper",
+  "file": "django/forms/__init__.py",
+  "span": [
+   1,
+   11
+  ],
+  "sentence": "Form and field classes.",
+  "symbol": "Form"
+ },
+ {
+  "unit": "django.urls.resolvers",
+  "role": "helper",
+  "file": "django/urls/resolvers.py",
+  "span": [
+   108,
+   111
+  ],
+  "sentence": "URL resolver classes.",
+  "symbol": "get_resolver"
+ },
+ {
+  "unit": "django.utils.duration",
+  "role": "helper",
+  "file": "django/utils/duration.py",
+  "span": [
+   18,
+   28
+  ],
+  "sentence": "Duration helpers.",
+  "symbol": "duration_string"
+ },
+ {
+  "unit": "django.utils.hashable",
+  "role": "helper",
+  "file": "django/utils/hashable.py",
+  "span": [
+   4,
+   26
+  ],
+  "sentence": "A value helper.",
+  "symbol": "make_hashable"
+ },
+ {
+  "unit": "django.contrib.admin",
+  "role": "mixed",
+  "file": "django/contrib/admin/__init__.py",
+  "span": [
+   24,
+   24
+  ],
+  "sentence": "site keeps the shared registry of model admins, and autodiscover imports the admin modules.",
+  "handoff": [
+   "site",
+   "autodiscover",
+   "register"
+  ]
+ },
+ {
+  "unit": "django.contrib.auth.views",
+  "role": "handoff",
+  "file": "django/contrib/auth/views.py",
+  "span": [
+   77,
+   130
+  ],
+  "sentence": "The views log users in and out and change passwords.",
+  "symbol": "LoginView"
+ },
+ {
+  "unit": "django.core.paginator",
+  "role": "helper",
+  "file": "django/core/paginator.py",
+  "span": [
+   147,
+   205
+  ],
+  "sentence": "Pagination classes.",
+  "symbol": "Paginator"
+ },
+ {
+  "unit": "django.core.serializers",
+  "role": "helper",
+  "file": "django/core/serializers/__init__.py",
+  "span": [
+   128,
+   135
+  ],
+  "sentence": "Serialization functions that give text to the caller.",
+  "symbol": "serialize"
+ },
+ {
+  "unit": "django.core.signing",
+  "role": "helper",
+  "file": "django/core/signing.py",
+  "span": [
+   158,
+   168
+  ],
+  "sentence": "Signing helpers.",
+  "symbol": "JSONSerializer"
+ },
+ {
+  "unit": "django.db.backends.base.base",
+  "role": "handoff",
+  "file": "django/db/backends/base/base.py",
+  "span": [
+   30,
+   789
+  ],
+  "sentence": "BaseDatabaseWrapper keeps a database connection and executes SQL.",
+  "symbol": "BaseDatabaseWrapper"
+ },
+ {
+  "unit": "django.db.backends.utils",
+  "role": "mixed",
+  "file": "django/db/backends/utils.py",
+  "span": [
+   17,
+   114
+  ],
+  "sentence": "The cursor wrappers execute SQL; the name functions are helpers.",
+  "handoff": [
+   "CursorWrapper",
+   "CursorDebugWrapper"
+  ]
+ },
+ {
+  "unit": "django.db.models.fields.composite",
+  "role": "helper",
+  "file": "django/db/models/fields/composite.py",
+  "span": [
+   50,
+   156
+  ],
+  "sentence": "A field class.",
+  "symbol": "CompositePrimaryKey"
+ },
+ {
+  "unit": "django.db.models.functions.comparison",
+  "role": "helper",
+  "file": "django/db/models/functions/comparison.py",
+  "span": [
+   7,
+   67
+  ],
+  "sentence": "Function expression classes.",
+  "symbol": "Cast"
+ },
+ {
+  "unit": "django.db.models.lookups",
+  "role": "helper",
+  "file": "django/db/models/lookups.py",
+  "span": [
+   373,
+   410
+  ],
+  "sentence": "Lookup classes.",
+  "symbol": "Exact"
+ },
+ {
+  "unit": "django.db.models.query_utils",
+  "role": "helper",
+  "file": "django/db/models/query_utils.py",
+  "span": [
+   41,
+   247
+  ],
+  "sentence": "Query helper classes.",
+  "symbol": "Q"
+ },
+ {
+  "unit": "django.db.models.signals",
+  "role": "handoff",
+  "file": "django/db/models/signals.py",
+  "span": [
+   45,
+   45
+  ],
+  "sentence": "The model signals call receivers of other components.",
+  "symbol": "pre_save"
+ },
+ {
+  "unit": "django.db.models.sql.where",
+  "role": "helper",
+  "file": "django/db/models/sql/where.py",
+  "span": [
+   21,
+   321
+  ],
+  "sentence": "WHERE clause tree classes.",
+  "symbol": "WhereNode"
+ },
+ {
+  "unit": "django.middleware.csrf",
+  "role": "helper",
+  "file": "django/middleware/csrf.py",
+  "span": [
+   96,
+   114
+  ],
+  "sentence": "CSRF token functions and the middleware class that operate in the caller.",
+  "symbol": "get_token"
+ },
+ {
+  "unit": "django.template.loader",
+  "role": "helper",
+  "file": "django/template/loader.py",
+  "span": [
+   5,
+   19
+  ],
+  "sentence": "Template load functions.",
+  "symbol": "get_template"
+ },
+ {
+  "unit": "django.urls.conf",
+  "role": "helper",
+  "file": "django/urls/conf.py",
+  "span": [
+   95,
+   95
+  ],
+  "sentence": "URL pattern constructors.",
+  "symbol": "path"
+ },
+ {
+  "unit": "django.urls.exceptions",
+  "role": "helper",
+  "file": "django/urls/exceptions.py",
+  "span": [
+   8,
+   9
+  ],
+  "sentence": "Exception classes.",
+  "symbol": "NoReverseMatch"
+ },
+ {
+  "unit": "django.utils.cache",
+  "role": "mixed",
+  "file": "django/utils/cache.py",
+  "span": [
+   410,
+   448
+  ],
+  "sentence": "learn_cache_key writes header lists to the cache, and get_cache_key reads them; the header functions are helpers.",
+  "handoff": [
+   "learn_cache_key",
+   "get_cache_key"
+  ]
+ },
+ {
+  "unit": "django.utils.connection",
+  "role": "handoff",
+  "file": "django/utils/connection.py",
+  "span": [
+   34,
+   85
+  ],
+  "sentence": "BaseConnectionHandler keeps shared connections for each thread.",
+  "symbol": "BaseConnectionHandler"
+ },
+ {
+  "unit": "django.utils.csp",
+  "role": "helper",
+  "file": "django/utils/csp.py",
+  "span": [
+   97,
+   128
+  ],
+  "sentence": "CSP helpers.",
+  "symbol": "build_policy"
+ },
+ {
+  "unit": "django.utils.dateparse",
+  "role": "helper",
+  "file": "django/utils/dateparse.py",
+  "span": [
+   68,
+   79
+  ],
+  "sentence": "Parse functions.",
+  "symbol": "parse_date"
+ },
+ {
+  "unit": "django.utils.decorators",
+  "role": "helper",
+  "file": "django/utils/decorators.py",
+  "span": [
+   61,
+   95
+  ],
+  "sentence": "Decorator helpers.",
+  "symbol": "method_decorator"
+ },
+ {
+  "unit": "django.utils.ipv6",
+  "role": "helper",
+  "file": "django/utils/ipv6.py",
+  "span": [
+   17,
+   51
+  ],
+  "sentence": "Address helpers.",
+  "symbol": "clean_ipv6_address"
+ },
+ {
+  "unit": "django.utils.translation.trans_real",
+  "role": "helper",
+  "file": "django/utils/translation/trans_real.py",
+  "span": [
+   131,
+   287
+  ],
+  "sentence": "Translation catalog classes.",
+  "symbol": "DjangoTranslation"
+ },
+ {
+  "unit": "django.views.decorators.csrf",
+  "role": "helper",
+  "file": "django/views/decorators/csrf.py",
+  "span": [
+   7,
+   7
+  ],
+  "sentence": "View decorators.",
+  "symbol": "csrf_protect"
+ },
+ {
+  "unit": "django.contrib.auth",
+  "role": "handoff",
+  "file": "django/contrib/auth/__init__.py",
+  "span": [
+   169,
+   198
+  ],
+  "sentence": "login writes the user to the session and sends user_logged_in.",
+  "symbol": "login"
+ },
+ {
+  "unit": "django.core.checks.registry",
+  "role": "handoff",
+  "file": "django/core/checks/registry.py",
+  "span": [
+   126,
+   126
+  ],
+  "sentence": "registry keeps the shared list of checks.",
+  "symbol": "registry"
+ },
+ {
+  "unit": "django.core.files.locks",
+  "role": "helper",
+  "file": "django/core/files/locks.py",
+  "span": [
+   1,
+   128
+  ],
+  "sentence": "File lock functions (the facts give no names).",
+  "symbol": "lock"
+ },
+ {
+  "unit": "django.db.backends.postgresql.psycopg_any",
+  "role": "helper",
+  "file": "django/db/backends/postgresql/psycopg_any.py",
+  "span": [
+   1,
+   120
+  ],
+  "sentence": "Range type aliases (the facts give no names).",
+  "symbol": "Range"
+ },
+ {
+  "unit": "django.db.models.base",
+  "role": "handoff",
+  "file": "django/db/models/base.py",
+  "span": [
+   95,
+   459
+  ],
+  "sentence": "ModelBase registers each model in the application registry, and Model.save writes rows.",
+  "symbol": "ModelBase"
+ },
+ {
+  "unit": "django.db.models.sql.query",
+  "role": "handoff",
+  "file": "django/db/models/sql/query.py",
+  "span": [
+   231,
+   2791
+  ],
+  "sentence": "Query builds SQL and executes count and exists queries through the compiler.",
+  "symbol": "Query"
+ },
+ {
+  "unit": "django.template",
+  "role": "helper",
+  "file": "django/template/__init__.py",
+  "span": [
+   47,
+   47
+  ],
+  "sentence": "Template engine handler that gives engines to the caller.",
+  "symbol": "engines"
+ },
+ {
+  "unit": "django.template.engine",
+  "role": "helper",
+  "file": "django/template/engine.py",
+  "span": [
+   13,
+   234
+  ],
+  "sentence": "Template engine class.",
+  "symbol": "Engine"
+ },
+ {
+  "unit": "django.conf.global_settings",
+  "role": "helper",
+  "file": "django/conf/global_settings.py",
+  "span": [
+   17,
+   17
+  ],
+  "sentence": "Default setting values.",
+  "symbol": "DEBUG"
+ },
+ {
+  "unit": "django.conf.locale",
+  "role": "helper",
+  "file": "django/conf/locale/__init__.py",
+  "span": [
+   11,
+   636
+  ],
+  "sentence": "Language data.",
+  "symbol": "LANG_INFO"
+ },
+ {
+  "unit": "django.conf.urls.static",
+  "role": "helper",
+  "file": "django/conf/urls/static.py",
+  "span": [
+   10,
+   30
+  ],
+  "sentence": "A URL pattern helper.",
+  "symbol": "static"
+ },
+ {
+  "unit": "django.contrib.admin.decorators",
+  "role": "mixed",
+  "file": "django/contrib/admin/decorators.py",
+  "span": [
+   97,
+   128
+  ],
+  "sentence": "register adds a model admin to the shared admin site; action and display are helpers.",
+  "handoff": [
+   "register"
+  ]
+ },
+ {
+  "unit": "django.contrib.auth.management.commands.changepassword",
+  "role": "handoff",
+  "file": "django/contrib/auth/management/commands/changepassword.py",
+  "span": [
+   12,
+   82
+  ],
+  "sentence": "The command changes a password in the database.",
+  "symbol": "Command"
+ },
+ {
+  "unit": "django.contrib.contenttypes.management",
+  "role": "handoff",
+  "file": "django/contrib/contenttypes/management/__init__.py",
+  "span": [
+   100,
+   143
+  ],
+  "sentence": "create_contenttypes writes content type rows.",
+  "symbol": "create_contenttypes"
+ },
+ {
+  "unit": "django.contrib.syndication.views",
+  "role": "helper",
+  "file": "django/contrib/syndication/views.py",
+  "span": [
+   29,
+   235
+  ],
+  "sentence": "A view class that makes a feed response for the caller.",
+  "symbol": "Feed"
+ },
+ {
+  "unit": "django.core.files.utils",
+  "role": "helper",
+  "file": "django/core/files/utils.py",
+  "span": [
+   7,
+   23
+  ],
+  "sentence": "File name helpers.",
+  "symbol": "validate_file_name"
+ },
+ {
+  "unit": "django.db.backends.ddl_references",
+  "role": "helper",
+  "file": "django/db/backends/ddl_references.py",
+  "span": [
+   194,
+   236
+  ],
+  "sentence": "DDL reference classes.",
+  "symbol": "Statement"
+ },
+ {
+  "unit": "django.db.backends.mysql.schema",
+  "role": "handoff",
+  "file": "django/db/backends/mysql/schema.py",
+  "span": [
+   6,
+   249
+  ],
+  "sentence": "The schema editor executes DDL.",
+  "symbol": "DatabaseSchemaEditor"
+ },
+ {
+  "unit": "django.db.backends.postgresql.base",
+  "role": "handoff",
+  "file": "django/db/backends/postgresql/base.py",
+  "span": [
+   98,
+   560
+  ],
+  "sentence": "DatabaseWrapper keeps a database connection and executes SQL.",
+  "symbol": "DatabaseWrapper"
+ },
+ {
+  "unit": "django.db.backends.postgresql.operations",
+  "role": "helper",
+  "file": "django/db/backends/postgresql/operations.py",
+  "span": [
+   27,
+   405
+  ],
+  "sentence": "SQL text helpers.",
+  "symbol": "DatabaseOperations"
+ },
+ {
+  "unit": "django.db.backends.sqlite3.introspection",
+  "role": "mixed",
+  "file": "django/db/backends/sqlite3/introspection.py",
+  "span": [
+   59,
+   456
+  ],
+  "sentence": "DatabaseIntrospection queries the database; FlexibleFieldLookupDict is a helper.",
+  "handoff": [
+   "DatabaseIntrospection"
+  ]
+ },
+ {
+  "unit": "django.forms.fields",
+  "role": "helper",
+  "file": "django/forms/fields.py",
+  "span": [
+   276,
+   309
+  ],
+  "sentence": "Form field classes.",
+  "symbol": "CharField"
+ },
+ {
+  "unit": "django.template.backends.jinja2",
+  "role": "helper",
+  "file": "django/template/backends/jinja2.py",
+  "span": [
+   14,
+   52
+  ],
+  "sentence": "A template backend class.",
+  "symbol": "Jinja2"
+ },
+ {
+  "unit": "django.template.context",
+  "role": "helper",
+  "file": "django/template/context.py",
+  "span": [
+   141,
+   176
+  ],
+  "sentence": "Template context classes.",
+  "symbol": "Context"
+ },
+ {
+  "unit": "django.test.runner",
+  "role": "helper",
+  "file": "django/test/runner.py",
+  "span": [
+   391,
+   403
+  ],
+  "sentence": "Test runner helpers.",
+  "symbol": "get_max_test_processes"
+ },
+ {
+  "unit": "django.test.selenium",
+  "role": "handoff",
+  "file": "django/test/selenium.py",
+  "span": [
+   129,
+   276
+  ],
+  "sentence": "SeleniumTestCase starts a browser.",
+  "symbol": "SeleniumTestCase"
+ },
+ {
+  "unit": "django.urls.utils",
+  "role": "helper",
+  "file": "django/urls/utils.py",
+  "span": [
+   59,
+   66
+  ],
+  "sentence": "URL helpers.",
+  "symbol": "get_mod_func"
+ },
+ {
+  "unit": "django.utils.asyncio",
+  "role": "helper",
+  "file": "django/utils/asyncio.py",
+  "span": [
+   8,
+   39
+  ],
+  "sentence": "A decorator.",
+  "symbol": "async_unsafe"
+ },
+ {
+  "unit": "django.views.decorators.common",
+  "role": "helper",
+  "file": "django/views/decorators/common.py",
+  "span": [
+   5,
+   26
+  ],
+  "sentence": "A view decorator.",
+  "symbol": "no_append_slash"
+ },
+ {
+  "unit": "django.views.decorators.debug",
+  "role": "helper",
+  "file": "django/views/decorators/debug.py",
+  "span": [
+   10,
+   78
+  ],
+  "sentence": "View decorators.",
+  "symbol": "sensitive_variables"
+ }
+]
