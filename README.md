@@ -27,7 +27,7 @@ This page gives the map terms, the installation procedure, and the commands
 that compare the map with the code.
 
 <p align="center">
- <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the atlas page: the reader changes the layer, selects a component, reads a sequence one step at a time and as a diagram, opens the States and Focus views, and sees the change marks" width="100%">
+ <img src="https://raw.githubusercontent.com/0xfauzi/systemap/main/docs/screenshots/tour.gif" alt="the atlas page: the reader changes the layer, selects a component, reads a sequence one step at a time and as a diagram, opens the States and Focus views, goes into the nested map of one component, and sees the change marks" width="100%">
 </p>
 
 <p align="center">
@@ -353,8 +353,21 @@ labels with an overlap. Each finding gives a correction.
 include a single-module component, an entry point with no sequence, and an import
 across components with no flow. Change the map or record a reason in
 `systemap.toml`. Exact answers must have evidence for the stored source snapshot. Family answers must have
-an explicit policy. Changed evidence can open an exact finding again.
+an explicit policy, and some finding kinds refuse them (see below). Changed evidence can open an exact finding again.
 A component `source_review` digest that is not current is also a finding.
+
+**An import between two components with no flow gets a module role, not a family answer.**
+For each module that other components import with no flow, `systemap judgement` prints one `module use` line.
+The agent reads the module and gives its role with `systemap decisions`:
+
+- `helper`: the code runs in the caller and sends nothing out of the caller. The answer cites a symbol of the module.
+- `handoff`: the code sends an artifact, keeps shared state, or starts work.
+- `mixed`: the answer names the handoff names of the module.
+
+A `crossing import` line stays open only when the two components use a `handoff` module or a handoff name. Draw the flow, or record an exact answer for that line.
+systemap refuses a family answer (`kind = "crossing import"`, `kind = "module use"`, or `kind = "declared flow"`), because one such answer can hide each undrawn connection of a map.
+If your `systemap.toml` has such an answer from an earlier version, `systemap judgement --strict` exits 1 after the upgrade. Remove the answer and give the module roles.
+An import that only gives types opens no line. The details of a card on the page list the cards that it uses and the cards that use it, with "flow" or "no flow" for each.
 
 With `[judgement] require_reviews = true`, a component without a `source_review` digest is also a finding.
 `systemap judgement --json` gives the open lines, their kinds, and their evidence digests as one JSON object for programs.

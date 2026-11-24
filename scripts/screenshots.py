@@ -4,7 +4,7 @@ The script renders the page of `[render] page` from stored facts and the model. 
 atlas page (docs/design/atlas.md) by default, with the History view from the Git log.
 It writes one page per scheme and serves the pages through HTTP.
 Headless Chrome makes scheme screenshots at 1600 by 900 pixels.
-It makes 12 tour frames at 1600 by 900 pixels.
+It makes 13 tour frames at 1600 by 900 pixels.
 It makes one phone image at 390 by 844 pixels.
 It makes the WebP images of the five views on the landing page (site/index.html),
 at 1600 by 900 pixels and for a phone at 390 by 760 pixels with 2 device pixels.
@@ -14,7 +14,7 @@ CHANGE_BASE. The last tour frame shows them, and under the headline it shows the
 disclosure "Not in this comparison" of the comparison. The other frames do not show it.
 A change to the page makes the committed images old. Run the script again after it.
 Each frame shows a view, a layer, a card, or a sequence step.
-ffmpeg puts the frames together in a 30-second GIF, with a 4 MiB size limit.
+ffmpeg puts the frames together in a GIF of about 31 seconds, with a 4 MiB size limit.
 Examine the images before use in the README.
 
     uv run python scripts/screenshots.py
@@ -54,7 +54,7 @@ WINDOW = "1600,900"
 # The tour uses the same viewport as the theme images.
 TOUR_WINDOW = WINDOW
 PHONE_WINDOW = "390,844"
-SECONDS_PER_STATE = 2.5
+SECONDS_PER_STATE = 2.4
 GIF_LIMIT = 4 * 1024 * 1024
 TIMEOUT = 15
 
@@ -73,6 +73,8 @@ TOUR: list[tuple[str, str]] = [
     ("journey-diagram", "journey(0); next(); next(); diagram();"),
     ("states", "view('states');"),
     ("focus", "view('focus');"),
+    # The nested map of the card Page, with the signs that the page shows a nested map.
+    ("inside", "card('Page');"),
     ("compare", "layer('all');"),
 ]
 # The frame of the tour that scripts/screenshots.py also writes as sequence.png.
