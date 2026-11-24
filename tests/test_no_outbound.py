@@ -92,6 +92,7 @@ RUN: dict[str, tuple[str, ...]] = {
     "refresh": ("refresh",),
     "judgement": ("judgement",),
     "rules": ("rules",),
+    "claims": ("claims", "Reader"),
     "delta": ("delta", "--base", "HEAD~1"),
     "suggest": ("suggest",),
     "parts": ("parts",),

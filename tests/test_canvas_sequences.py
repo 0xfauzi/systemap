@@ -3,7 +3,7 @@
 
 Acceptance values, written before the first run:
 
-1. For each sequence and each step of the self-map (16 sequences and 69 steps), the flow
+1. For each sequence and each step of the self-map (17 sequences and 71 steps), the flow
    index `f` in the canvas data is equal to `flow_ids.step_index` for that step (the rule
    of the linked page, `schematic`). The acts, the measures, the sentence, the label, the
    start, the draft flag and the short entry point name are those of the model and of
@@ -68,7 +68,7 @@ def test_the_flow_of_each_step_is_the_flow_of_the_linked_page(self_tree: Any) ->
     top = tree.top
     shown = data["maps"][0]["sq"]
     journeys = top.meaning.journeys
-    assert (len(shown), sum(len(j["s"]) for j in shown)) == (16, 69)
+    assert (len(shown), sum(len(j["s"]) for j in shown)) == (17, 71)
     edge_index = {f.key: i for i, f in enumerate(top.model.flows)}
     linked = page_sequences.data(top.model, top.meaning, facts)["journeys"]
     for one, j, meta in zip(shown, journeys, linked, strict=True):

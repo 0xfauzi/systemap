@@ -2,7 +2,7 @@
 the sequence as a diagram.
 
 The test drives real canvas pages in the Chromium of Playwright (tests/canvas_board.js):
-the self-map of this repository, which has two state machines and 16 sequences, and the
+the self-map of this repository, which has two state machines and 17 sequences, and the
 fixture of tests/test_canvas_page.py, which has no state machine. The test skips when Node
 or the Playwright package is not there, except when SYSTEMAP_BROWSER_TESTS is "required".
 

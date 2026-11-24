@@ -3,7 +3,7 @@
 The test drives real canvas pages in the Chromium of Playwright (tests/canvas_sequences.js):
 the fixture of tests/canvas_sequenced.py (a top map and the nested map Gateway, each with
 sequences), the same fixture with a step that names no flow (`_minus_page`), and the
-self-map of this repository (16 sequences and 69 steps). The test skips when Node, the
+self-map of this repository (17 sequences and 71 steps). The test skips when Node, the
 Playwright package or axe-core is not there, except when SYSTEMAP_BROWSER_TESTS is
 "required" (the CI job canvas-browser). Then it fails.
 
@@ -220,7 +220,7 @@ def test_each_route_of_the_self_map_shows_its_flows(self_page: Path) -> None:
     found = _drive("--routes", str(self_page), "")
     assert found["errors"] == []
     m = _data(self_page)["maps"][0]
-    assert len(found["routes"]) == len(m["sq"]) == 16
+    assert len(found["routes"]) == len(m["sq"]) == 17
     count = 0
     for run, seq in zip(found["routes"], m["sq"], strict=True):
         assert run["whole"]["seq"]["id"] == seq["id"]
@@ -230,7 +230,7 @@ def test_each_route_of_the_self_map_shows_its_flows(self_page: Path) -> None:
             assert step["seq"]["s"] == k
             _route_frame(step["drawn"], _expected(seq["s"], k))
             count += 1
-    assert count == 69
+    assert count == 71
 
 
 @functools.cache
