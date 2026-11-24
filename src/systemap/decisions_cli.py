@@ -21,13 +21,13 @@ from collections.abc import Callable
 from typing import Any
 
 from systemap import (
-    cli_scope,
     config,
     decisions,
     decisions_store,
     decisions_submit,
     decisions_supported,
     judgement_json,
+    map_scope,
     nest,
 )
 from systemap.decisions import VERDICTS, Request
@@ -233,7 +233,8 @@ def judgement_unknown(
 
 
 def cmd_decisions(args: argparse.Namespace) -> int:
-    from systemap.cli import _root, say, warn
+    from systemap.command_io import root as _root
+    from systemap.command_io import say, warn
 
     cfg = config.load(_root(args))
     if args.action == "submit":
@@ -241,20 +242,20 @@ def cmd_decisions(args: argparse.Namespace) -> int:
         return 0
     snap = decisions_submit.snapshot(cfg, getattr(args, "only", None))
     # A run with --map gives no entry point requests (`judgement.run_tree`).
-    warn(*cli_scope.notes(snap.tree, cli_scope.ENTRY_NOTE))
+    warn(*map_scope.notes(snap.tree, map_scope.ENTRY_NOTE))
     scope = {"entry_coverage": "not examined"}
     if args.action == "pending":
         limit = args.limit
         say(
             json.dumps(
-                cli_scope.payload(pending_payload(snap, limit), snap.tree, **scope), indent=2
+                map_scope.payload(pending_payload(snap, limit), snap.tree, **scope), indent=2
             )
             if args.json
             else "\n".join(pending_text(snap, limit))
         )
         return 0
     say(
-        json.dumps(cli_scope.payload(status_payload(snap), snap.tree, **scope), indent=2)
+        json.dumps(map_scope.payload(status_payload(snap), snap.tree, **scope), indent=2)
         if args.json
         else "\n".join(status_text(snap))
     )
@@ -303,7 +304,7 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
                 metavar="N",
                 help="Give only the first N decision requests.",
             )
-        cli_scope.add_option(a)
+        map_scope.add_option(a)
     a = actions.add_parser(
         "submit",
         help="Examine and record a JSON list of verdicts.",
@@ -315,5 +316,5 @@ def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -
     )
     add_root(a)
     a.add_argument("file", metavar="FILE", help="Give the file of verdicts, or - for stdin.")
-    cli_scope.refuse_option(a, "systemap decisions submit")
+    map_scope.refuse_option(a, "systemap decisions submit")
     s.set_defaults(func=cmd_decisions)

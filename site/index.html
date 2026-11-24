@@ -199,7 +199,7 @@ systemap check</code></pre>
 <div class="wrap">
 <h2 id="more" class="sec__h">What the picture does not show</h2>
 <ul class="limits">
-<li><strong>CI can block an import.</strong> An import rule names parts that must not import each other, or that must not make an import cycle. <code>systemap check</code> exits with code 1 for an import against a rule. The map of systemap has 7 such rules.</li>
+<li><strong>CI can block an import.</strong> An import rule names parts that must not import each other, or that must not make an import cycle. <code>systemap check</code> exits with code 1 for an import against a rule. The map of systemap has 8 such rules.</li>
 <li><strong>A review belongs to the code that was read.</strong> The review of a part records a digest of its code and its claims. A changed comment does not open the review again. Changed code does.</li>
 <li><strong>Your agent reads the map before a change.</strong> <code>systemap claims NAME</code> gives the function, the rules, the flows, and the sequences of one part. It calls no model.</li>
 <li><strong>A large system has nested maps.</strong> A part can open its own map, in its own file. The page shows all levels, and you zoom into a part.</li>

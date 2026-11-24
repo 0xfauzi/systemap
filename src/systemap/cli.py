@@ -31,6 +31,7 @@ from systemap import (
     check_actions,
     check_report,
     cli_scope,
+    command_io,
     config,
     contract_move,
     decisions_cli,
@@ -66,12 +67,13 @@ from systemap import (
     scaffold,
     serve,
     skill,
-    terminal_text,
     trend,
 )
 from systemap import facts as facts_mod
 from systemap import language as languages
 from systemap import suggest as suggest_mod
+from systemap.command_io import say as say
+from systemap.command_io import warn as warn
 from systemap.config import ArgumentError, Config, ConfigError
 from systemap.journey_coverage import outside_map, reviewed_entries
 from systemap.model import Meaning, Model, import_rule_problems
@@ -79,6 +81,7 @@ from systemap.model import problems as model_problems
 from systemap.serve import DEFAULT_PORT, make_server
 
 OK, STALE = 0, 1
+_root = command_io.root
 
 
 @dataclass(frozen=True)
@@ -99,25 +102,6 @@ class Project:
     @property
     def theme(self) -> dict[str, Any]:
         return self.tree.top.theme
-
-
-def say(*lines: str) -> None:
-    """Write the lines to stdout. A control character in a line shows as an escape."""
-    for line in lines:
-        print(terminal_text.lines(line))
-
-
-def warn(*lines: str) -> None:
-    """Write the lines to stderr. A control character in a line shows as an escape."""
-    for line in lines:
-        print(terminal_text.lines(line), file=sys.stderr)
-
-
-def _root(args: argparse.Namespace) -> Path:
-    if args.root:
-        return Path(args.root).resolve()
-    found = config.find_root(Path.cwd().resolve())
-    return found or Path.cwd().resolve()
 
 
 def _project(args: argparse.Namespace) -> Project:

@@ -27,9 +27,9 @@ from systemap import (
     source_facts,
 )
 from systemap import moves as moves_mod
-from systemap.check import interface_head, interface_problem, names_not_known
 from systemap.config import Config
 from systemap.crossing import runtime_targets
+from systemap.interface_names import interface_head, interface_problem, names_not_known
 from systemap.judgement import apply_answers, crossing_line, crossing_pairs
 from systemap.judgement_evidence import crossing_state, digest
 from systemap.model import (

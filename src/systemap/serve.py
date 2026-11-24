@@ -653,7 +653,8 @@ def _inputs(root: Path, live: LiveMap) -> list[Path]:
 
 
 def cmd_live(args: argparse.Namespace) -> int:
-    from systemap.cli import _root, warn
+    from systemap.command_io import root as _root
+    from systemap.command_io import warn
 
     root = _root(args)
     warn(*_notice(root))

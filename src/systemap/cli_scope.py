@@ -29,25 +29,24 @@ from systemap import (
     parts_plan,
 )
 from systemap.config import Config
-from systemap.terminal_text import show
+from systemap.map_scope import ENTRY_NOTE as ENTRY_NOTE
+from systemap.map_scope import HELP as HELP
+from systemap.map_scope import PAGES_NOTE as PAGES_NOTE
+from systemap.map_scope import SEQUENCES_NOTE as SEQUENCES_NOTE
+from systemap.map_scope import add_option as add_option
+from systemap.map_scope import label as label
+from systemap.map_scope import load as load
+from systemap.map_scope import notes as notes
+from systemap.map_scope import payload as payload
+from systemap.map_scope import records as records
+from systemap.map_scope import refuse_option as refuse_option
+from systemap.map_scope import show_notes as show_notes
 
 # The commands that accept `--map` with the scoped load. `review` has its own option, and
 # `decisions` adds the option to its `pending` and `status` actions (`add_option`).
 SCOPED = ("check", "judgement", "rules", "place", "describe", "journeys", "claims")
 # The commands that refuse `--map`, because they write the shared files of all maps.
 REFUSED = ("refresh", "extract")
-
-HELP = (
-    "Examine only the map with this ID, for example Gateway or Gateway/Routes. Use . for "
-    "the top map. The command reads only the model files of this map, of its parent maps, "
-    "and of its nested maps. Only a run without --map gives the result for completion."
-)
-ENTRY_NOTE = "entry coverage: not examined in a run with --map"
-PAGES_NOTE = "pages: not examined in a run with --map"
-SEQUENCES_NOTE = (
-    "sequence coverage: a run with --map examines only the sequences of this map, of its "
-    "parent maps, and of its nested maps"
-)
 
 
 PARTS_HELP = (
@@ -70,53 +69,6 @@ def add_options(sub: Any) -> None:
         add_option(sub.choices[name])
     for name in REFUSED:
         refuse_option(sub.choices[name], f"systemap {name}")
-
-
-def add_option(parser: argparse.ArgumentParser) -> None:
-    """Add `--map ID` to a command. The value goes to `args.only` (`nest.load`)."""
-    parser.add_argument("--map", dest="only", default=None, metavar="ID", help=HELP)
-
-
-def refuse_option(parser: argparse.ArgumentParser, command: str) -> None:
-    """Add a `--map` option that stops the command with exit code 2 and the reason."""
-
-    def refused(_value: str) -> str:
-        raise argparse.ArgumentTypeError(
-            f"{command} writes the shared files of all maps. Thus it examines the full "
-            "tree. Do the command again without --map."
-        )
-
-    parser.add_argument("--map", dest="refused_map", type=refused, help=argparse.SUPPRESS)
-
-
-def load(cfg: Config, args: argparse.Namespace) -> nest.Tree:
-    """Load the tree, or only the scope of `--map` if the command has the option."""
-    return nest.load(cfg, getattr(args, "only", None))
-
-
-def label(tree: nest.Tree) -> str:
-    """Give the name of the selected map for a person."""
-    return tree.selected or f"{nest.TOP_ID} (the top map)"
-
-
-def notes(tree: nest.Tree, *examined: str) -> list[str]:
-    """Give the lines that tell a person the scope of a run with `--map`.
-
-    `examined` gives the lines about the checks that the run did not do. A run without
-    `--map` gives no lines."""
-    if not tree.partial:
-        return []
-    return [
-        f"map: This run examines only the map {label(tree)}. Only a run without --map "
-        "gives the result for completion.",
-        *examined,
-    ]
-
-
-def show_notes(tree: nest.Tree, *examined: str) -> None:
-    """Write the lines of `notes`, if the run has `--map`."""
-    for line in notes(tree, *examined):
-        show(line)
 
 
 def check_notes(cfg: Config, tree: nest.Tree) -> list[str]:
@@ -174,20 +126,3 @@ def judged(found: judgement_json.Judged, tree: nest.Tree, cfg: Config) -> judgem
         uses={k: v for k, v in found.uses.items() if in_scope(tree, k)},
         hidden=[line for line in found.hidden if in_scope(tree, line)],
     )
-
-
-def payload(obj: dict[str, Any], tree: nest.Tree, **not_examined: str) -> dict[str, Any]:
-    """Add the scope of a run with `--map` to the JSON object of a command.
-
-    `not_examined` gives the checks that the run did not do, for example
-    `entry_coverage="not examined"`."""
-    if tree.partial:
-        obj["scope"] = {"map": tree.selected, **not_examined}
-    return obj
-
-
-def records(found: dict[str, dict[str, Any]], tree: nest.Tree) -> dict[str, dict[str, Any]]:
-    """Keep the store records of the selected map, or all records of the full tree."""
-    if not tree.partial:
-        return found
-    return {key: row for key, row in found.items() if row.get("map", "") == tree.selected}

@@ -38,7 +38,6 @@ from typing import Any
 
 from systemap import (
     answer_write,
-    cli_scope,
     config,
     config_decisions,
     decisions,
@@ -47,6 +46,7 @@ from systemap import (
     facts_file,
     file_write,
     judgement_json,
+    map_scope,
     module_use,
     nest,
     review,
@@ -104,7 +104,7 @@ def snapshot(cfg: config.Config, only: str | None = None) -> Snapshot:
     """Read the map, the facts, and the store. The stored facts must agree with the source.
 
     With a map ID in `only`, the snapshot has only the requests and the store records of
-    that map (`cli_scope`). The requests have the same IDs as in the full tree."""
+    that map (`map_scope`). The requests have the same IDs as in the full tree."""
     tree = nest.load(cfg, only)
     saved = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not saved:
@@ -120,7 +120,7 @@ def snapshot(cfg: config.Config, only: str | None = None) -> Snapshot:
         )
     judged = judgement_json.evaluate(tree, saved, cfg)
     found = decisions.requests(tree, saved, cfg.root, judged)
-    records = cli_scope.records(decisions_store.load(cfg.root), tree)
+    records = map_scope.records(decisions_store.load(cfg.root), tree)
     return Snapshot(cfg, tree, saved, judged, {r.id: r for r in found}, records)
 
 

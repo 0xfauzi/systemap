@@ -314,7 +314,8 @@ def _same(m: nest.Map, texts: dict[Path, str], model: Model, meaning: Meaning) -
 
 
 def cmd_review(args: argparse.Namespace) -> int:
-    from systemap.cli import _root, say
+    from systemap.command_io import root as _root
+    from systemap.command_io import say
 
     target = flow_target(args.flow) if args.flow is not None else Target(args.component)
     say(*review(config.load(_root(args)), args.map, target, bool(args.dry_run)))

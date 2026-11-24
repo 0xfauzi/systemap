@@ -23,7 +23,16 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from systemap import card_review, config, facts_file, flow_ids, import_rules, nest
+from systemap import (
+    card_review,
+    command_io,
+    config,
+    facts_file,
+    flow_ids,
+    import_rules,
+    map_scope,
+    nest,
+)
 from systemap.evidence import owners
 from systemap.model import Component, ImportRule, claimed
 
@@ -195,26 +204,28 @@ def lines(found: dict[str, Any]) -> list[str]:
 
 
 def cmd_claims(args: argparse.Namespace) -> int:
-    from systemap import cli, cli_scope
-
-    cfg = config.load(cli._root(args))
+    cfg = config.load(command_io.root(args))
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
     if not facts:
-        cli.warn(f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract")
+        command_io.warn(
+            f"No facts are available at {cfg.rel(cfg.facts_path)}", "run: systemap extract"
+        )
         return FAILED
-    tree = cli_scope.load(cfg, args)
+    tree = map_scope.load(cfg, args)
     found = find(tree, facts, args.name)
-    cli.warn(*cli_scope.notes(tree))
+    command_io.warn(*map_scope.notes(tree))
     if not found:
         names = near(tree, facts, args.name)
         hint = f"The nearest names are {', '.join(names)}." if names else "No name is near it."
-        cli.warn(f"No component and no module has the name {args.name}. {hint}")
+        command_io.warn(f"No component and no module has the name {args.name}. {hint}")
         return FAILED
     if args.json:
-        cli.say(json.dumps(cli_scope.payload({"query": args.name, "found": found}, tree), indent=2))
+        command_io.say(
+            json.dumps(map_scope.payload({"query": args.name, "found": found}, tree), indent=2)
+        )
         return OK
     for at, one in enumerate(found):
-        cli.say(*([""] if at else []), *lines(one))
+        command_io.say(*([""] if at else []), *lines(one))
     return OK
 
 

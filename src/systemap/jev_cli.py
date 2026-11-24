@@ -23,7 +23,6 @@ from typing import Any
 from systemap import (
     agent,
     audit,
-    cli_scope,
     config,
     decision,
     decision_kinds,
@@ -34,6 +33,7 @@ from systemap import (
     history,
     jev,
     journeys,
+    map_scope,
     model_write,
     nest,
     providers,
@@ -275,8 +275,8 @@ def cmd_journeys(args: argparse.Namespace, run_command: agent.Run | None = None)
     facts = _facts(cfg)
     if facts is None:
         return STALE
-    tree = cli_scope.load(cfg, args)
-    cli_scope.show_notes(tree, cli_scope.SEQUENCES_NOTE)
+    tree = map_scope.load(cfg, args)
+    map_scope.show_notes(tree, map_scope.SEQUENCES_NOTE)
     from systemap.journey_coverage import outside_map, reviewed_entries
 
     covered = reviewed_entries(m.meaning for m in tree.maps)
@@ -775,7 +775,7 @@ def _limit(text: str) -> int:
 
 
 def _rooted(args: argparse.Namespace) -> argparse.Namespace:
-    from systemap.cli import _root
+    from systemap.command_io import root as _root
 
     args.root_path = _root(args)
     return args

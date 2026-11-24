@@ -169,7 +169,8 @@ def convert(cfg: config.Config) -> list[str]:
 
 
 def cmd_convert(args: argparse.Namespace) -> int:
-    from systemap.cli import _root, say
+    from systemap.command_io import root as _root
+    from systemap.command_io import say
 
     say(*convert(config.load(_root(args))))
     return 0

@@ -45,13 +45,13 @@ class PlanError(Exception):
 
 
 def _say(*lines: str) -> None:
-    from systemap.cli import say
+    from systemap.command_io import say
 
     say(*lines)
 
 
 def cmd_parts(args: argparse.Namespace) -> int:
-    from systemap.cli import _root
+    from systemap.command_io import root as _root
 
     cfg = config.load(_root(args))
     facts = facts_file.read_facts(cfg.facts_path, cfg.root)
@@ -68,7 +68,7 @@ def cmd_parts(args: argparse.Namespace) -> int:
         if selected.id:
             return _part(cfg, tree, selected, facts, bool(args.json))
     except PlanError as exc:
-        from systemap.cli import warn
+        from systemap.command_io import warn
 
         warn(f"systemap: {exc}")
         return FAILED
