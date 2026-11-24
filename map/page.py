@@ -175,7 +175,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=552,
-            source_review="5efb6c6ec9833320ade595e97c8de015174e5f24c30c825200525c7a3c7c476c",
+            source_review="9d4e5e86e355e64ed7fe18de9f03f12131321c4940fb82ef0355bfe479dea1de",
         ),
         Component(
             id='AtlasDrawing',
@@ -195,7 +195,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=460,
-            source_review="426cdec79c9da902c8050d90fa2ea730d536eda2c04192846345d83c2aa71304",
+            source_review="fea4110f5cef1b05ceed1b4b8248a69d1c4711808dbec269416bab8a9ab27e3e",
         ),
         Component(
             id='AtlasViews',
@@ -212,7 +212,7 @@ MODEL = Model(
             region='atlas',
             x=270,
             y=644,
-            source_review="01882cf4d725b9ba8b76eceef3cd240b4328018002a1c463540d74f6b44810ec",
+            source_review="ec4b42666b64351f872165313b8c070bd0526b66b2737f6e793d07cb12dd37c5",
         ),
         Component(
             id='CanvasPage',
@@ -325,8 +325,8 @@ MODEL = Model(
              source_refs=('systemap.atlas_script@f7b8b2aab77e0d9843790c76a4f4237d5532c3a1ce1d6d15f2d77d5ce7951245', 'systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_draw@b919db2f4a32c0b50c2baf71f9db69d23de639bca7554046f9ef82f41fcf8052', 'systemap.atlas_marks@5f1e3409355cf1e6ad06f20061cf5ff542038de36d833615788bf09a758dba42',),
              review_digest="93f39aea88d5bf379d5fe2836a9e007dd859eaf20f9addc0bbf391ecf76ce762"),
         Flow('AtlasViews', 'AtlasPage', 'view parts', 'data',
-             source_refs=('systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_script@f7b8b2aab77e0d9843790c76a4f4237d5532c3a1ce1d6d15f2d77d5ce7951245', 'systemap.atlas_view@806ba19f46c03889361294c13e57d323b8b9bb5afc57fa89e95c0b06b21c81cd', 'systemap.atlas_details@d9cbbcaa58e00c38ffc9edc70430eab456ae4ae91f34fabdf11dfd906887b38f',),
-             review_digest="e927fc81d29920cd95f665061c8a3320ee4616d9460a2bbe44e625700b7dc8d3"),
+             source_refs=('systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_script@f7b8b2aab77e0d9843790c76a4f4237d5532c3a1ce1d6d15f2d77d5ce7951245', 'systemap.atlas_view@62b48a4419d43cbe3288a20254efe6ac7d5af8d0c3401eacae0cf2a233d9cda7', 'systemap.atlas_details@d9cbbcaa58e00c38ffc9edc70430eab456ae4ae91f34fabdf11dfd906887b38f',),
+             review_digest="05196788b57fbe4e6a3359b3db0e61a4f59ea489fe6612c27eaa1d798a032124"),
         Flow('CanvasPage', 'AtlasPage', 'theme, Find list', 'data',
              source_refs=('systemap.atlas_page@de171a459f1d2753d28a033928eff11e6345863711c0f7221b2231d4635ca934', 'systemap.atlas_find@608e4d0ab095d7ce9da33f23e47c918f25048871a41098feedd5bb70e4a0408b', 'systemap.canvas_page@b7697cbd0efa159805fbb28257d3e49271b55fce3f3598afec6d9251e923613a', 'systemap.page_canvas_find@3126016f8695d35d7a88d90013e2c972248bcc146c1f9ec8b1580b66c9ebf5cc',),
              review_digest="f4d920361492a9bbd4fe310fb98835224dd0491b2a305ac7e68cac85be059e8d"),

@@ -103,6 +103,16 @@ state machine, History needs commit data.
   other cards and lines go back. A card with no flow in the layer does not dim the map.
 - **Pointing at a line.** That flow lights. The reading line gives the source, the target,
   the artifact and the relation sentence of the model.
+- **A fast pointer.** A pointer that goes across the map does not point at the cards and
+  lines on its way. A move faster than 0.3 px for each ms, less than 60 ms after the move
+  before it, changes no light. The light changes 60 ms after the last such move, to the
+  item that is then below the pointer. A slow pointer, and the first move of a pointer that
+  was at rest, change the light at once (`pointSoon` in `atlas_input`). Without this rule,
+  the map changed its light many times in a second (tests/test_atlas_calm_browser.py).
+- **The scrollbars of a board.** A board (the diagram of a sequence, States, Focus, History)
+  scrolls in a direction only when its content with its margins does not fit in that
+  direction (`boardSize` in `atlas_view`). In a direction where the content fits, the
+  content is not larger than the box, and the board shows no scrollbar there.
 - **The reading line.** One line of text at the bottom of the map for the thing under the
   pointer. It is a live region for a screen reader.
 - **Selecting a card.** The details open at the side. The camera keeps its scale and its

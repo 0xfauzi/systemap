@@ -164,8 +164,7 @@ function hsDraw() {
   var bb = HWORLD.getBBox(), k = Math.min(1.25, (aw - 9) / bb.width, (ah - 9) / bb.height);
   if (k < (phone ? HS_MIN_PHONE : HS_MIN)) k = phone ? HS_MIN_PHONE : HS_MIN;
   var tx = Math.max(4, (aw - bb.width * k) / 2), ty = W > 1180 ? Math.max(4, (ah - bb.height * k) / 2) : 4;
-  HSVG.setAttribute('width', Math.ceil(Math.max(aw, tx * 2 + bb.width * k)));
-  HSVG.setAttribute('height', Math.ceil(Math.max(ah, ty * 2 + bb.height * k)));
+  boardSize(HBOARD, HSVG, aw, ah, bb.width * k + 8, bb.height * k + 8, tx * 2 + bb.width * k, ty * 2 + bb.height * k);
   HWORLD.setAttribute('transform', 'translate(' + (tx - bb.x * k) + ' ' + (ty - bb.y * k) + ') scale(' + k + ')');
   HS.items = items; HS.rows = rows; HS.scale = k; HS.free = g; HS.n = N;
   var back = HS.at && HWORLD.querySelector('[data-item="' + HS.at + '"]') ? HS.at : items.length ? items[0].g.getAttribute('data-item') : null;

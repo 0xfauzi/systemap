@@ -393,8 +393,7 @@ function smDraw() {
   var bb = SWORLD.getBBox(), k = Math.min(SM_MAX, (aw - 1) / (bb.width + 80), (ah - 1) / (bb.height + 60));
   if (k < SM_MIN) k = Math.max(SM_MIN, Math.min((aw - 24) / bb.width, (ah - 24) / bb.height));
   var tx = Math.max(12, (aw - bb.width * k) / 2), ty = Math.max(12, (ah - bb.height * k) / 2);
-  SSVG.setAttribute('width', Math.ceil(Math.max(aw, tx * 2 + bb.width * k)));
-  SSVG.setAttribute('height', Math.ceil(Math.max(ah, ty * 2 + bb.height * k)));
+  boardSize(SBOARD, SSVG, aw, ah, bb.width * k + 24, bb.height * k + 24, tx * 2 + bb.width * k, ty * 2 + bb.height * k);
   SWORLD.setAttribute('transform', 'translate(' + (tx - bb.x * k) + ' ' + (ty - bb.y * k) + ') scale(' + k + ')');
   SM.scale = k; SM.turn = turn; SM.items = items;
   SBOARD.scrollTo(0, 0);

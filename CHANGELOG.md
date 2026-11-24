@@ -19,6 +19,8 @@ A layer is a filtered view of the map.
 
 ### Atlas page
 
+- The map does not change its light while the pointer goes fast across it. Before, each pointer move made the item below the pointer the light at once, so a pointer on its way across the map made the map change its light many times in a second. Now a move faster than 0.3 px for each ms, less than 60 ms after the move before it, changes no light. The light changes 60 ms after the last such move, to the item that is then below the pointer. A slow pointer, and a pointer that was at rest, change the light at once, as before.
+- A board (the diagram of a sequence, States, Focus, History) scrolls in a direction only when its content does not fit in that direction. Before, the content could be 1 px larger than a box with a part of a pixel. Then a browser that shows its scrollbars showed one scrollbar, and that scrollbar caused the scrollbar of the other direction.
 - The README, the site and the guide describe module roles and the Uses and Used by lists. The screenshots and the tour are made again from the current page. The tour has a new frame for a nested map (13 frames, 31.2 seconds).
 - A long label at rest does not go across a vertical part of its line. Outside the Sequences view, a vertical part takes a label only when the label is 8 label heights wide or less. The label shows when the reader points at the line.
 - `systemap check` gives a warning line for each card name that the atlas page cuts. The line starts with `warning: card ID: name does not fit on the atlas page`.

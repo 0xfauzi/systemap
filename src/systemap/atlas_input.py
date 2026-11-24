@@ -289,11 +289,29 @@ cv.addEventListener('pointerdown', function (e) {
   drag = {x: p[0], y: p[1], cx: cam.x, cy: cam.y};
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* no capture */ }
 });
+// The pointer points at an item only when it is slow or still. A pointer that goes across
+// the map is on many cards and lines for a short time. If each one became the light, the map
+// would change its light many times in a second. Thus a move faster than AIM_SLOW (px for
+// each ms) changes no light: the light changes AIM_MS after the last such move, to the item
+// that is then below the pointer. A slow move changes the light at once. So does the first
+// move after AIM_MS with no move: a pointer that was at rest is not on its way across the map.
+var AIM = {t: -Infinity, x: 0, y: 0, timer: 0}, AIM_SLOW = 0.3, AIM_MS = 60;
+function pointSoon(c, f, at) {
+  var now = performance.now(), dt = now - AIM.t, fast = dt < AIM_MS && Math.hypot(at[0] - AIM.x, at[1] - AIM.y) / Math.max(1, dt) > AIM_SLOW;
+  AIM.t = now; AIM.x = at[0]; AIM.y = at[1];
+  clearTimeout(AIM.timer); AIM.timer = 0;
+  if (!fast || (HOT.c === c && HOT.f === f)) { point(c, f, 'pointer'); return; }
+  AIM.timer = setTimeout(function () {
+    AIM.timer = 0;
+    var c2 = pickHere(AIM.x, AIM.y), f2 = c2 ? null : pickLine(AIM.x, AIM.y);
+    point(c2, f2, 'pointer');
+  }, AIM_MS);
+}
 cv.addEventListener('pointermove', function (e) {
   if (!pts.has(e.pointerId)) {
     var at = local(e), c = e.pointerType === 'touch' ? null : pickHere(at[0], at[1]), f = c || e.pointerType === 'touch' ? null : pickLine(at[0], at[1]);
     cv.classList.toggle('over', !TOUCH && !!(c || f));
-    if (e.pointerType !== 'touch') point(c, f, 'pointer');
+    if (e.pointerType !== 'touch') pointSoon(c, f, at);
     return;
   }
   var prev = pts.get(e.pointerId), p = local(e);
@@ -325,7 +343,7 @@ function up(e) {
 }
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
-cv.addEventListener('pointerleave', function () { cv.classList.remove('over'); if (HOT.from === 'pointer') point(null, null, ''); });
+cv.addEventListener('pointerleave', function () { cv.classList.remove('over'); clearTimeout(AIM.timer); AIM.timer = 0; if (HOT.from === 'pointer') point(null, null, ''); });
 cv.addEventListener('dblclick', function (e) { var p = local(e); if (kind === 'mouse') enter(p[0], p[1]); });
 // Esc, F, + and - also operate while a button of the page has the keyboard focus, as in the
 // design study. The arrow keys of a button stay with the button (`ownKeys`).

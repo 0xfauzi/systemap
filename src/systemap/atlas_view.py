@@ -152,6 +152,20 @@ function viewLabel() {
   return layerOf(currentMap()) === 'all' ? '' : ' Layer: ' + layerName(currentMap(), layerOf(currentMap())) + '.';
 }
 
+// ---- the size of the content of a board ------------------------------------------------
+// A board (the diagram of a sequence, States, Focus, History) is a box that can scroll. Set
+// the size of its SVG content. aw, ah: the size of the box. mw, mh: the smallest size that
+// holds the content with its margins. cw, ch: the size of the content when it does not fit.
+// A direction scrolls only when the content does not fit in it. In a direction where the
+// content fits, the SVG is not larger than the box (the box can have a part of a pixel, and
+// a size that is rounded up would be larger), and the board shows no scrollbar there. Thus
+// the scrollbar of one direction cannot cause a scrollbar in the other direction.
+function boardSize(board, svg, aw, ah, mw, mh, cw, ch) {
+  var ox = mw > aw + 0.5, oy = mh > ah + 0.5;
+  board.style.overflowX = ox ? 'auto' : 'hidden'; board.style.overflowY = oy ? 'auto' : 'hidden';
+  svg.setAttribute('width', ox ? Math.ceil(cw) : Math.max(1, Math.floor(aw)));
+  svg.setAttribute('height', oy ? Math.ceil(ch) : Math.max(1, Math.floor(ah)));
+}
 // ---- the headline, the tabs, the key and the zoom readout -------------------------------
 var ASK = document.getElementById('atlas-ask'), ASK_K = document.getElementById('atlas-ask-k');
 var ASK_Q = document.getElementById('atlas-ask-q'), ASK_N = document.getElementById('atlas-ask-n');

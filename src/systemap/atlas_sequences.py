@@ -567,7 +567,7 @@ function boardDraw() {
   // the diagram scrolls only at BOARD_MIN. The 1 px keeps the rounded size in the box.
   var k = Math.max(BOARD_MIN, Math.min(1.2, (aw - 1) / (bw + 24), (ah - 1) / (bh + 4)));
   var tx = Math.max(12 * k, (aw - bw * k) / 2), ty = Math.max(0, (ah - bh * k) / 2);
-  boardBox(left, top, aw, ah, Math.max(aw, tx + (bw + 12) * k), Math.max(ah, ty + (bh + 4) * k));
+  boardBox(left, top, aw, ah, (bw + 24) * k, (bh + 4) * k, tx + (bw + 12) * k, ty + (bh + 4) * k);
   BWORLD.setAttribute('transform', 'translate(' + tx + ' ' + ty + ') scale(' + k + ')');
   function X(id) { var i = parts.indexOf(id); return NW / 2 + Math.max(0, i) * CW; }
   BOARD.scale = k;
@@ -606,10 +606,11 @@ function boardPlate(t, eg, at) {
   var x = +t.getAttribute('x') - w * at, y = +t.getAttribute('y');
   BWORLD.insertBefore(sv('rect', {x: x - 4, y: y - 12, width: w + 8, height: 16, rx: 3, 'class': 'qplate'}), eg);
 }
-// The part of the screen of the diagram (x, y, w, h) and the size of its content (cw, ch).
-function boardBox(x, y, w, h, cw, ch) {
+// The part of the screen of the diagram (x, y, w, h), the smallest size that holds its content
+// (mw, mh), and the size of its content when it does not fit (cw, ch). See `boardSize`.
+function boardBox(x, y, w, h, mw, mh, cw, ch) {
   [['--board-x', x], ['--board-y', y], ['--board-w', w], ['--board-h', h]].forEach(function (v) { BOARD.style.setProperty(v[0], v[1] + 'px'); });
-  BSVG.setAttribute('width', Math.ceil(cw)); BSVG.setAttribute('height', Math.ceil(ch));
+  boardSize(BOARD, BSVG, w, h, mw, mh, cw, ch);
 }
 // The column of the bead of a step: the source of its flow, or its first acting card.
 function boardX(m, st, parts) {

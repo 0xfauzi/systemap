@@ -342,8 +342,7 @@ function fcDraw(keyed) {
   var bb = FWORLD.getBBox(), k = Math.min(1.2, (aw - 1) / (bb.width + 40), (ah - 1) / (bb.height + 40));
   if (k < FC_MIN) k = Math.max(FC_MIN, Math.min((aw - 24) / bb.width, (ah - 24) / bb.height));
   var tx = Math.max(12, (aw - bb.width * k) / 2), ty = phone ? 12 : Math.max(12, (ah - bb.height * k) / 2);
-  FSVG.setAttribute('width', Math.ceil(Math.max(aw, tx * 2 + bb.width * k)));
-  FSVG.setAttribute('height', Math.ceil(Math.max(ah, ty * 2 + bb.height * k)));
+  boardSize(FBOARD, FSVG, aw, ah, bb.width * k + 24, bb.height * k + 24, tx * 2 + bb.width * k, ty * 2 + bb.height * k);
   FWORLD.setAttribute('transform', 'translate(' + (tx - bb.x * k) + ' ' + (ty - bb.y * k) + ') scale(' + k + ')');
   FC.scale = k; FC.items = items; FC.cols = cols; FC.free = g;
   FBOARD.scrollTo(0, 0);
