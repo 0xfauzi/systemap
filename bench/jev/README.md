@@ -9081,3 +9081,12 @@ Result: all stage 4a acceptance values on the three maps passed, and V4 passed.
 Playwright and `--no-sandbox` on Linux. The tour has one new frame, `inside`, for the nested
 map Page: 13 frames of 2.4 seconds (31.2 seconds), 1200 px wide, 1.33 MB (limit 4 MiB). The coordinator
 examined the six scheme and view images and each tour frame.
+
+## B32: the budget after the fast pointer rule and the board sizes (2026-11-24)
+
+One run of `bench/jev/atlas_budget.py`, load average 0.77 at the start. Result: pass on each
+value. Point to lit paths: 63 ms (self), 71 ms (workspace), 48 ms (M11 tree), limit 100 ms.
+The budget moves the pointer one time after a rest, so the fast pointer rule gives no delay
+there. Dive share over 20 ms, canvas / atlas: 0.117 / 0.039, 0.033 / 0.022, 0.028 / 0.044.
+Before the change, a measurement of the fast pointer (tests/atlas_calm.js --sweep on the
+code at a51fd0f) gave a change of the light during the move; after it, no frame changes.
