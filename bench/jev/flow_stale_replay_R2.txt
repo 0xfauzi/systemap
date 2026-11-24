@@ -1,0 +1,39 @@
+HEAD 3f86460: 2558 source texts
+flows at HEAD: 142, with source records: 93, records: 252, records with a symbol: 0
+unit merge: 186 steps, 42 steps with an event, 1314 events
+  set         75  0.057
+  unknown      0  0.000
+  format      12  0.009
+  partner     95  0.072
+  no start   112  0.085
+  code      1020  0.776
+  events in one step: median 29, largest 61
+  events for each cited module (a flow event with two changed modules counts for each):
+    systemap.cli                       589  0.448
+    systemap.config                    184  0.140
+    systemap.model                     121  0.092
+    systemap.extract                   120  0.091
+    systemap.check                     115  0.088
+    systemap.schematic                  77  0.059
+    systemap.judgement                  75  0.057
+    systemap.change                     48  0.037
+  events with one changed module and no set change: 822
+unit commit: 679 steps, 133 steps with an event, 2492 events
+  set         77  0.031
+  unknown      0  0.000
+  format      19  0.008
+  partner    200  0.080
+  no start   213  0.085
+  code      1983  0.796
+  events in one step: median 19, largest 61
+  events for each cited module (a flow event with two changed modules counts for each):
+    systemap.cli                      1122  0.450
+    systemap.config                    315  0.126
+    systemap.check                     216  0.087
+    systemap.extract                   214  0.086
+    systemap.model                     145  0.058
+    systemap.judgement                 119  0.048
+    systemap.schematic                 118  0.047
+    systemap.change                     84  0.034
+  events with one changed module and no set change: 1882
+partner code of 2963 module texts: the kept part of the top-level statements has median 0.95, lowest 0.03, highest 0.99

@@ -9081,3 +9081,42 @@ Result: all stage 4a acceptance values on the three maps passed, and V4 passed.
 Playwright and `--no-sandbox` on Linux. The tour has one new frame, `inside`, for the nested
 map Page: 13 frames of 2.4 seconds (31.2 seconds), 1200 px wide, 1.33 MB (limit 4 MiB). The coordinator
 examined the six scheme and view images and each tour frame.
+
+## F1: the flow reviews that a source change outside the examined code made stale (2026-11-24)
+
+Question: a flow source record has the SHA-256 digest of the full module text. How many recorded flow reviews became stale from a change that a narrower digest does not see?
+The script `flow_stale_replay.py` reads each `Flow(...)` call in `map/*.py` at each commit of the history of `3f86460`. Its docstring gives the classes and the acceptance values, which were written before the first run.
+An event is one flow at one step whose source records are different from the records at the parent. The `merge` unit has 186 steps on the first-parent line. The `commit` unit has 679 commits with one parent.
+The outputs are `flow_stale_replay_R1.txt`, `flow_stale_replay_R2.txt` and `flow_stale_replay_R3.txt`. One run took 102 s (R1).
+
+| Class | `merge` events | Part | `commit` events | Part |
+|---|---|---|---|---|
+| `set` (a record location added or removed) | 75 | 0.057 | 77 | 0.031 |
+| `unknown` (no text for a digest) | 0 | 0.000 | 0 | 0.000 |
+| `format` (the same normalized syntax) | 12 | 0.009 | 19 | 0.008 |
+| `partner` (the same partner code) | 95 | 0.072 | 200 | 0.080 |
+| `start` (the same start statements) | 406 | 0.309 | 929 | 0.373 |
+| `no start` (the module has no start statement) | 116 | 0.088 | 218 | 0.087 |
+| `code` (the start statements changed) | 610 | 0.464 | 1049 | 0.421 |
+| All events | 1314 | | 2492 | |
+
+Results against the acceptance values, in the `merge` unit:
+
+- (a) passed. The `unknown` part is 0.000 (limit 0.05). The measurement is valid.
+- (b) failed. The `format` part is 0.009 (necessary 0.10). A syntax digest in the flow source records prevents 12 of 1314 events. It is not worth its migration.
+- (c) gave no decision. The lower estimate for a symbol digest is 0.072 (`partner`). The upper estimate is 0.381 (`partner` plus `start`). The value 0.30 is between them.
+- (d) `systemap.cli` changed in 589 of the 1314 events (0.448). The next modules are `systemap.config` (184), `systemap.model` (121), `systemap.extract` (120) and `systemap.check` (115).
+
+Corrections during the work:
+
+- R1 had no `no start` class and no `start` class. It counted these events as `code` (1132 events). The docstring of R1 called `partner` an upper estimate. This was incorrect.
+- R2 added `no start` and the kept part of the partner code. The partner code keeps a median of 0.95 of the top-level statements of a module (lowest 0.03, highest 0.99, 2963 module texts). In `systemap.cli`, the partner code of the flow to Scaffold keeps 68 of 75 statements, because `build_parser` uses `scaffold` and each command function. Thus `partner` is a lower estimate.
+- R3 added `start`, which does not include the statements that the start statements use. A change to such a statement can change the behavior of the flow. Thus `partner` plus `start` is an upper estimate.
+
+More facts from the runs:
+
+- 42 of the 186 `merge` steps have an event. The median step with an event has 29 events, and the largest has 61. The map at HEAD has 93 flows with source records.
+- At HEAD, 0 of the 252 source records name a symbol. Thus the script cannot measure a symbol digest directly, and each value for it is an estimate.
+- The script does not show how a person or an agent examined each flow before the record. A measurement is necessary to know this.
+
+Limits: the history is one repository with one map. The partner code and the start statements come from names and imports only. The script does not follow attribute access on objects or dynamic calls.
