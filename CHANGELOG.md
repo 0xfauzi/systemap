@@ -9,6 +9,15 @@ A layer is a filtered view of the map.
 
 ## Unreleased
 
+### Commands
+
+- `systemap claims NAME` prints the map claims about one component. `NAME` is a component ID, a module name, or the path of a source file.
+  The output has the function, the modules, the invariants, the import rules with their results, the flows, and the sequences of the component.
+  The command reads the model and the stored facts. It calls no decision provider, sends no data, and writes no file. `--json` writes one JSON object, and `--map ID` selects one map.
+  The skill tells the agent to run it before a change to a module.
+
+## 4.0.0 - 2026-11-24
+
 ### Writing profile
 
 - The `asd-ste100` profile uses the ASD-STE100 Issue 9 style. It does not use the official ASD dictionary.
@@ -16,13 +25,6 @@ A layer is a filtered view of the map.
   Under this profile, an agent says that the text follows the ASD-STE100 style. It does not say that the text obeys the official standard.
 - The language policy text changed for the two profiles. The cache key of a coding-agent request contains the policy.
   Thus `systemap journeys` does not use an answer that it recorded before this change. It asks the agent again.
-
-### Commands
-
-- `systemap claims NAME` prints the map claims about one component. `NAME` is a component ID, a module name, or the path of a source file.
-  The output has the function, the modules, the invariants, the import rules with their results, the flows, and the sequences of the component.
-  The command reads the model and the stored facts. It calls no decision provider, sends no data, and writes no file. `--json` writes one JSON object, and `--map ID` selects one map.
-  The skill tells the agent to run it before a change to a module.
 
 ### Atlas page
 
@@ -39,6 +41,11 @@ A layer is a filtered view of the map.
 - No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
 
 ### Changes that can break a script or a CI job
+
+Upgrade steps:
+- Run `systemap refresh` one time and commit the output. The facts format is 15, and the page is the atlas page.
+- Run `systemap judgement --strict`. A family answer for `crossing import`, `module use` or `declared flow` lines in `systemap.toml` is now a refused answer, and the command exits 1. Remove each such answer. Then give the module roles with `systemap decisions`, and draw a flow or record an exact answer for each `crossing import` line that stays open.
+- A project on 2.0.0 runs `systemap refresh` on 3.0.0 first. From 3.1.0, systemap does not do the one-time upgrade of 2.0.0 flow reviews and answer evidence.
 
 - The facts format is 15. Each module record can have `import_forms` and `dynamic_imports`, and the facts have `import_details`.
   `import_forms` gives the import form of each target module with a form other than `load`: `call` (in a function body) or `type` (only for type checks).
