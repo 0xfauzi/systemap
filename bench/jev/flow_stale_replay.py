@@ -60,6 +60,18 @@ symbol digest, not an upper estimate. The `start` class does not include the sta
 that the start statements use, so `partner` plus `start` is the upper estimate.
 Acceptance value (c) uses the two estimates as a range.
 
+Added on 2026-11-24 before run R4: the symbol measure. After R3, the records of
+`systemap.cli` in 16 flows at HEAD name a symbol. For an event that is not `set` and
+not `unknown`, the script finds the symbols that the records at HEAD name for the same
+flow and each changed module. The event has the symbol state `same` if each changed
+module has such a symbol, and the definition of each symbol has the same normalized
+syntax before and after. A digest of the named definitions prevents a `same` event. The
+definition does not include the statements that it uses, so this value is an upper
+estimate for these flows. A flow whose key changed in the history has no symbol.
+
+(e) If the `same` events are 0.30 or more of all `merge` events, a symbol digest is
+    worth a design. Below 0.30, it is not worth a design for the records at HEAD.
+
 Run from the repository root, with the full history (`git fetch --unshallow`):
 
     uv run python bench/jev/flow_stale_replay.py
@@ -325,6 +337,41 @@ class Event:
     key: Key
     kind: str
     modules: tuple[str, ...]
+    symbol: str = ""
+
+
+SAME, CHANGED = "same", "changed"
+
+
+@cache
+def _definition(text: str, name: str) -> str | None:
+    """Give the normalized syntax of the top-level definition of a name, or None."""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return None
+    found = [
+        s
+        for s in tree.body
+        if name in _defined(s) and not isinstance(s, ast.Import | ast.ImportFrom)
+    ]
+    return _joined(found) if found else None
+
+
+def symbol_state(before: Refs, after: Refs, texts: dict[str, str], named: Refs) -> str:
+    """Give the symbol state of an event: `same`, `changed`, or an empty string when a
+    changed module has no symbol in the records at HEAD (`named`)."""
+    for loc in before.keys() & after.keys():
+        if before[loc] == after[loc]:
+            continue
+        symbols = [n.partition(":")[2] for n in named if _module(n) == _module(loc) and ":" in n]
+        if not symbols:
+            return ""
+        for name in symbols:
+            was = _definition(texts[before[loc]], name)
+            if was is None or was != _definition(texts[after[loc]], name):
+                return CHANGED
+    return SAME
 
 
 def _module(location: str) -> str:
@@ -367,12 +414,16 @@ def _one(loc: str, before: Refs, after: Refs, texts: dict[str, str]) -> str:
 
 def events(steps: list[tuple[str, str]], texts: dict[str, str]) -> list[Event]:
     out = []
+    head = flows("HEAD")
     for commit, parent in steps:
         before, after = flows(parent), flows(commit)
         for key in sorted(before.keys() & after.keys()):
             if before[key] != after[key]:
                 kind, modules = classify(before[key], after[key], texts)
-                out.append(Event(commit, key, kind, modules))
+                state = ""
+                if kind not in (SET, UNKNOWN):
+                    state = symbol_state(before[key], after[key], texts, head.get(key, {}))
+                out.append(Event(commit, key, kind, modules, state))
     return out
 
 
@@ -402,6 +453,14 @@ def report(unit: str, found: list[Event], step_count: int) -> None:
     print("  events for each cited module (a flow event with two changed modules counts for each):")
     for module, count in by_module.most_common(8):
         print(f"    {module:32} {count:5}  {count / total:.3f}")
+    states = Counter(e.symbol for e in found)
+    with_symbol = states[SAME] + states[CHANGED]
+    print(
+        f"  symbol measure: {with_symbol} events have a symbol at HEAD for each changed module. "
+        f"same {states[SAME]} ({states[SAME] / total:.3f} of all events), changed {states[CHANGED]}"
+    )
+    kinds_same = Counter(e.kind for e in found if e.symbol == SAME)
+    print(f"  the classes of the same events: {dict(sorted(kinds_same.items()))}")
     one = sum(1 for e in found if e.kind != SET and len(e.modules) == 1)
     print(f"  events with one changed module and no set change: {one}")
 

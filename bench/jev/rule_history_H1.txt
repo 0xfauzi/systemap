@@ -1,0 +1,12 @@
+HEAD 24166a2: 191 steps, 8 rules
+  check-no-provider          fail at   0 steps, unknown at   0 steps
+  commands-above-all         fail at  83 steps, unknown at   0 steps
+  diagram-no-commands        fail at   0 steps, unknown at   0 steps
+  diagram-no-provider        fail at   0 steps, unknown at   0 steps
+  diagram-one-direction      fail at   0 steps, unknown at   0 steps
+  extraction-source-only     fail at   0 steps, unknown at   0 steps
+  router-alone               fail at   0 steps, unknown at   0 steps
+  schema-below-users         fail at   0 steps, unknown at   0 steps
+steps that bring a failure: 1 (1 rule failures)
+  ea701f8 commands-above-all: 2026-09-19 Merge pull request #4 from 0xfauzi/feat/typesafe-model-sdk
+      systemap.jev_cli -> systemap.cli

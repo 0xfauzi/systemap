@@ -9120,3 +9120,57 @@ More facts from the runs:
 - The script does not show how a person or an agent examined each flow before the record. A measurement is necessary to know this.
 
 Limits: the history is one repository with one map. The partner code and the start statements come from names and imports only. The script does not follow attribute access on objects or dynamic calls.
+
+## F2: a symbol digest with the symbols of the records at HEAD (2026-11-24)
+
+Question: F1 gave a range for a symbol digest, because no record named a symbol. After F1, the records of `systemap.cli` in 16 flows name the command function (21 records with a symbol at `24166a2`). How many events of the history does a digest of the named definitions prevent?
+The script `flow_stale_replay.py` has the symbol measure and acceptance value (e) in its docstring. They were written before run R4. The output is `flow_stale_replay_R4.txt`.
+The history is longer than in F1: 191 `merge` steps and 1343 events, because of the commits after `3f86460`.
+
+| Measure | `merge` unit | `commit` unit |
+|---|---|---|
+| All events | 1343 | 2521 |
+| Events with a symbol at HEAD for each changed module | 352 | 769 |
+| Symbol state `same` (a digest of the named definitions prevents the event) | 313 | 697 |
+| Symbol state `changed` | 39 | 72 |
+| `same` as a part of all events | 0.233 | 0.276 |
+| `same` as a part of the events with a symbol | 0.889 | 0.906 |
+
+Result against acceptance value (e): failed. The `same` part is 0.233 in the `merge` unit (necessary 0.30). With only the records at HEAD, a symbol digest is not worth a design.
+The cause is the number of events that the measure can examine, not the effect on one record. `systemap.cli` changed in 592 events, but only 352 events have a symbol for each changed module. In the other events, a second module without a symbol also changed.
+Of the 313 `same` events, the classes of F1 give 248 as `start` and 65 as `code`. Thus the named definition is smaller than the start statements of the estimate in 65 events.
+
+Limits: a named definition does not include the statements that it uses. A change to such a statement can change the behavior of the flow, so 0.233 is an upper estimate for these 16 flows. A flow whose key changed in the history has no symbol. The symbols were selected on 2026-11-24 by the agent that wrote this record, from the command function that calls the other component.
+Three flows from Config keep a module record of `systemap.cli`, because the code that uses the configuration value is in a private function, and a record must name a public name.
+
+A fact from the work of 2026-11-24: commit `24166a2` moved functions between modules and changed no behavior. After it, 29 flow reviews and 15 component reviews were stale, and 4 exact answers needed a new evidence digest. The symbols in the records changed the claims of 8 components that have a flow with the CLI.
+
+## H1: the steps of the history that brought an import against a rule (2026-11-24)
+
+Question: `systemap claims` gives the import rules of a component before a change. How frequently did a rule of the map at `24166a2` apply to a change in the history?
+The script `rule_history.py` has the method and the acceptance value in its docstring. The value was written before the first run. The output is `rule_history_H1.txt`. The run took 323 s.
+
+| Rule | Steps with `fail` (of 191) | Steps with `unknown` |
+|---|---|---|
+| `check-no-provider` | 0 | 0 |
+| `commands-above-all` | 83 | 0 |
+| `diagram-no-commands` | 0 | 0 |
+| `diagram-no-provider` | 0 | 0 |
+| `diagram-one-direction` | 0 | 0 |
+| `extraction-source-only` | 0 | 0 |
+| `router-alone` | 0 | 0 |
+| `schema-below-users` | 0 | 0 |
+
+One step brought a failure: `ea701f8` (2026-09-19, pull request 4) added the import `systemap.jev_cli -> systemap.cli`. The rule `commands-above-all` then failed for 83 steps, until commit `24166a2` removed the imports.
+
+Result against the acceptance value: fewer than 3 steps brought a failure (1). The rules did not apply to the changes of this history. Thus paired agent runs with and without `systemap claims` were not done.
+No measurement shows that `systemap claims` changes the work of an agent. The invariants, the flows and the sequences in its output have no check that can score a change, so this script does not measure them.
+
+Limits: the 8 rules were written on 2026-11-24 from the imports at HEAD, and 7 of them passed when they were written. A rule that passes now is probably a boundary that the history also kept. Thus the low count is in part a result of the selection of the rules. The history is one repository.
+
+## The 400-card dive of the frame test on the cloud container (2026-11-24)
+
+`tests/test_canvas_frames.py::test_the_p95_frame_interval_is_in_its_limit[400 cards-dive]` failed in one full test run on a cloud container with 4 CPUs. The three runs of the scenario gave a p95 of 50, 33.4 and 50 ms (limit 35.0 ms). Other commands used the machine during that run.
+Then the scenario ran 12 times with 4 times CPU throttling while no other command ran (73.5 s in total). The p95 values were 33.5, 33.4, 50, 33.4, 50, 49.9, 50, 33.4, 50, 50, 49.9 and 50 ms. Thus 4 of 12 runs were in the limit.
+The canvas-browser job of CI on a GitHub runner passed in the last 5 completed runs of the `systemap` workflow that had no other failure (runs 307, 308, 310, 311 and 313).
+Result: the test and its limit do not change. On this container, the scenario is at its limit also without other work, and a failure of this test here does not show a regression. The docstring of the test already says that the scenario is at 33.3 ms on a busy host.

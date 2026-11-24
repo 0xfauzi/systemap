@@ -1,0 +1,45 @@
+HEAD 24166a2: 2576 source texts
+flows at HEAD: 142, with source records: 93, records: 256, records with a symbol: 21
+unit merge: 191 steps, 43 steps with an event, 1343 events
+  set         92  0.069
+  unknown      0  0.000
+  format      12  0.009
+  partner     95  0.071
+  start      412  0.307
+  no start   117  0.087
+  code       615  0.458
+  events in one step: median 29, largest 61
+  events for each cited module (a flow event with two changed modules counts for each):
+    systemap.cli                       592  0.441
+    systemap.config                    184  0.137
+    systemap.check                     122  0.091
+    systemap.model                     121  0.090
+    systemap.extract                   120  0.089
+    systemap.schematic                  77  0.057
+    systemap.judgement                  75  0.056
+    systemap.jev_cli                    48  0.036
+  symbol measure: 352 events have a symbol at HEAD for each changed module. same 313 (0.233 of all events), changed 39
+  the classes of the same events: {'code': 65, 'start': 248}
+  events with one changed module and no set change: 833
+unit commit: 684 steps, 134 steps with an event, 2521 events
+  set         94  0.037
+  unknown      0  0.000
+  format      19  0.008
+  partner    200  0.079
+  start      935  0.371
+  no start   219  0.087
+  code      1054  0.418
+  events in one step: median 19, largest 61
+  events for each cited module (a flow event with two changed modules counts for each):
+    systemap.cli                      1125  0.446
+    systemap.config                    315  0.125
+    systemap.check                     223  0.088
+    systemap.extract                   214  0.085
+    systemap.model                     145  0.058
+    systemap.judgement                 119  0.047
+    systemap.schematic                 118  0.047
+    systemap.change                     84  0.033
+  symbol measure: 769 events have a symbol at HEAD for each changed module. same 697 (0.276 of all events), changed 72
+  the classes of the same events: {'code': 152, 'start': 545}
+  events with one changed module and no set change: 1893
+partner code of 3217 module texts: the kept part of the top-level statements has median 0.95, lowest 0.03, highest 0.99
