@@ -65,7 +65,10 @@ Give the agent the instruction from <code>init</code>:</p>
 <p>If the maintainer asks, the agent also uses <code>systemap suggest --decide</code> and <code>systemap audit --provider jev</code>.
 These commands must have <code>TYPESAFE_API_KEY</code>.
 <code>--decide</code> replaces <code>--jev</code>. From 3.1.0, <code>--jev</code> gives a usage error.
-For a map that is already in use, the agent starts with <a href="pull-requests-and-ci.html#systemap-delta"><code>systemap delta</code></a>.</p>
+Before the agent changes a module, it runs <code>systemap claims NAME</code> with the module name, the file path, or the component ID.
+The output gives the function of the component, its invariants, its import rules, its flows, and its sequences.
+This command calls no model and sends no data.</p>
+<p>For a map that is already in use, the agent starts with <a href="pull-requests-and-ci.html#systemap-delta"><code>systemap delta</code></a>.</p>
 <h2 id="source-reviews-and-verdicts">Source reviews and verdicts</h2>
 <p>A source review is a recorded examination of the source that supports a claim.
 <code>systemap review ID</code> writes the current <code>source_review</code> digest of one component. <code>systemap review --flow ID</code> writes the <code>review_digest</code> of one flow.

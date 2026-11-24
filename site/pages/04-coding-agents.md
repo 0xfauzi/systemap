@@ -24,6 +24,10 @@ The skill tells the agent to:
 If the maintainer asks, the agent also uses `systemap suggest --decide` and `systemap audit --provider jev`.
 These commands must have `TYPESAFE_API_KEY`.
 `--decide` replaces `--jev`. From 3.1.0, `--jev` gives a usage error.
+Before the agent changes a module, it runs `systemap claims NAME` with the module name, the file path, or the component ID.
+The output gives the function of the component, its invariants, its import rules, its flows, and its sequences.
+This command calls no model and sends no data.
+
 For a map that is already in use, the agent starts with [`systemap delta`](pull-requests-and-ci.html#systemap-delta).
 
 ## Source reviews and verdicts

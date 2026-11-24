@@ -19,6 +19,7 @@ from typing import Any
 
 from systemap import (
     check,
+    claims_cli,
     extraction,
     judgement,
     judgement_evidence,
@@ -32,7 +33,7 @@ from systemap.terminal_text import show
 
 # The commands that accept `--map` with the scoped load. `review` has its own option, and
 # `decisions` adds the option to its `pending` and `status` actions (`add_option`).
-SCOPED = ("check", "judgement", "rules", "place", "describe", "journeys")
+SCOPED = ("check", "judgement", "rules", "place", "describe", "journeys", "claims")
 # The commands that refuse `--map`, because they write the shared files of all maps.
 REFUSED = ("refresh", "extract")
 
@@ -56,8 +57,10 @@ PARTS_HELP = (
 
 
 def add_parsers(sub: Any, add_root: Callable[[argparse.ArgumentParser], None]) -> None:
-    """Add the command `systemap parts`. Then add `--map` to the commands (`add_options`)."""
+    """Add the commands `systemap parts` and `systemap claims`. Then add `--map` to the
+    commands (`add_options`)."""
     parts_cli.add_parser(sub, add_root, PARTS_HELP)
+    claims_cli.add_parser(sub, add_root)
     add_options(sub)
 
 

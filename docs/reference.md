@@ -656,7 +656,7 @@ Commands use all maps in the map tree:
   For example, the map `Gateway/Routes` has the file `map/gateway_routes.py` and the value `map="gateway_routes.py"`.
   All model files are in the folder of the top model file.
 
-These commands accept `--map ID`: `check`, `judgement`, `rules`, `place`, `describe`, `journeys`, `review`, `decisions pending`, and `decisions status`.
+These commands accept `--map ID`: `check`, `judgement`, `rules`, `claims`, `place`, `describe`, `journeys`, `review`, `decisions pending`, and `decisions status`.
 With `--map ID`, the command reads only the model files of that map, of its parent maps, and of its nested maps.
 Thus an error in the model file of a different map does not stop the command.
 The command reports only the map `ID`. Use `--map .` for the top map.
@@ -1510,6 +1510,28 @@ The JSON object has these fields:
 The `evidence` digest is for an answer with one line.
 An `items` answer for more than one line has a different digest.
 The text report prints that digest in the pending-answer row.
+
+### `systemap claims NAME [--json]`
+
+Prints the map claims about one component.
+`NAME` is a component ID, a module name, or the path of a source file.
+For a module or a file, the command gives the component that contains it.
+The output has one record for each map that has the component:
+
+- the plain name, the kind, the map, and the region,
+- the `does`, `interface`, and `entry` fields, and the nested map of the component,
+- the modules that the module claims of the component select,
+- the invariants that apply to the component,
+- the import rules that name the component, each with its result (`pass`, `fail`, or `unknown`), its effect on the component, and its reason,
+- the flows to the component and the flows from it, each with its relation sentence,
+- the sequences that name the component.
+
+A coding agent runs this command before it changes a module.
+The command reads the model and the stored facts. It calls no decision provider, sends no data, and writes no file.
+`--json` writes one JSON object with the keys `query` and `found`.
+`--map ID` selects one map.
+If no component and no module has the name, the command gives the nearest names and exits 1.
+Without stored facts, the command exits 1.
 
 ### `systemap rules [--brief] [--json]`
 

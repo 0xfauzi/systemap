@@ -127,8 +127,7 @@ Copy these lines into your answer. Mark each step when it is complete.
 
 ## Source changes after the first map
 
-Use `references/maintenance.md` for a map already in use.
-Do not replace the full model for a small source change.
+Use `references/maintenance.md` for a map already in use. Do not replace the full model for a small source change.
 
 1. Run `systemap delta --base REF` against the base branch.
    Each line identifies a change and the necessary map action.
@@ -184,6 +183,7 @@ Only the agent of the parent map writes `systemap.toml`, the parent model, and t
 | `systemap init` | Write missing configuration, initial model, skill, and CI workflow. With `--no-ci`, do not write the workflow. With `--strict-ci`, the workflow fails on a map finding. |
 | `systemap extract` | Write source facts. `--check` exits 1 for stale facts. |
 | `systemap facts` | Show one source view: `--modules`, `--docstrings`, `--module NAME`, `--names NAME`, `--entry-points`, `--external`, or `--imports NAME`. |
+| `systemap claims NAME` | Show the map claims about one component, module, or source file: its function, invariants, import rules, flows, and sequences. Run it before you change a module. It sends no data. |
 | `systemap place` | Write positions for components without positions. `--all` keeps only pinned positions. `--keep-order` keeps region order. `--print` shows positions without file changes. |
 | `systemap render` | Write the page. `--check` exits 1 for stale output. |
 | `systemap check` | Examine map consistency and coverage. Exit 0 means success, 1 means failed checks, and 2 means that the command cannot use the configuration or model. |

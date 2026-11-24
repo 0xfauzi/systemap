@@ -17,6 +17,13 @@ A layer is a filtered view of the map.
 - The language policy text changed for the two profiles. The cache key of a coding-agent request contains the policy.
   Thus `systemap journeys` does not use an answer that it recorded before this change. It asks the agent again.
 
+### Commands
+
+- `systemap claims NAME` prints the map claims about one component. `NAME` is a component ID, a module name, or the path of a source file.
+  The output has the function, the modules, the invariants, the import rules with their results, the flows, and the sequences of the component.
+  The command reads the model and the stored facts. It calls no decision provider, sends no data, and writes no file. `--json` writes one JSON object, and `--map ID` selects one map.
+  The skill tells the agent to run it before a change to a module.
+
 ### Atlas page
 
 - The README, the site and the guide describe module roles and the Uses and Used by lists. The screenshots and the tour are made again from the current page. The tour has a new frame for a nested map (13 frames, 31.2 seconds).

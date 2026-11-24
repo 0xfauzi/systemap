@@ -113,6 +113,84 @@ INVARIANTS: tuple[Invariant, ...] = (
 )
 
 # Each import rule gives an id, a kind, the components, and the reason.
-IMPORT_RULES: tuple[ImportRule, ...] = ()
+IMPORT_RULES: tuple[ImportRule, ...] = (
+    ImportRule(
+        "check-no-provider",
+        "forbid_import",
+        src=("Check",),
+        dst=("SecondOpinion",),
+        reason="The modules of SecondOpinion send requests to a decision provider. CI runs check for each pull request, and check must not use the network (src/systemap/jev.py, docstring).",
+        invariant=11,
+    ),
+    ImportRule(
+        "diagram-no-provider",
+        "forbid_import",
+        src=("Router", "Schematic", "Page", "Figures"),
+        dst=("SecondOpinion",),
+        reason="The page builder makes the page from the model and the stored facts. A module of SecondOpinion can send a request, and the page must cause no external request (src/systemap/page.py, build).",
+        invariant=8,
+    ),
+    ImportRule(
+        "diagram-no-commands",
+        "forbid_import",
+        src=("Router", "Schematic", "Page", "Figures"),
+        dst=("CLI", "Scaffold"),
+        reason="The commands call the diagram modules. A diagram module that imports a command makes an import cycle with the command line (src/systemap/cli.py, imports).",
+    ),
+    ImportRule(
+        "extraction-source-only",
+        "forbid_import",
+        src=("FactsExtractor",),
+        dst=(
+            "CLI",
+            "Scaffold",
+            "Placer",
+            "Skill",
+            "Router",
+            "Schematic",
+            "Page",
+            "Figures",
+            "Check",
+            "Judgement",
+            "SecondOpinion",
+            "Describe",
+        ),
+        reason="The checks compare each claim with the source facts. The extraction must read only the source and the configuration, so that a check or a page cannot change the facts (src/systemap/extract.py, docstring).",
+        invariant=4,
+    ),
+    ImportRule(
+        "schema-below-users",
+        "forbid_import",
+        src=("Model",),
+        dst=(
+            "CLI",
+            "Scaffold",
+            "FactsExtractor",
+            "ChangeDetector",
+            "Placer",
+            "Skill",
+            "Router",
+            "Page",
+            "Figures",
+            "Check",
+            "Judgement",
+            "SecondOpinion",
+            "Describe",
+        ),
+        reason="Each of these components imports the schema. If the schema imports one of them, the two components make an import cycle. The imports of Config and Schematic are in the code now and are not in this rule (src/systemap/model_load.py and src/systemap/nest.py, imports).",
+    ),
+    ImportRule(
+        "router-alone",
+        "allow_imports",
+        src=("Router",),
+        reason="The router calculates paths and label positions from the geometry in its parameters. It reads no model, no facts and no configuration (src/systemap/route.py, route_all).",
+    ),
+    ImportRule(
+        "diagram-one-direction",
+        "forbid_cycle",
+        src=("Placer", "Router", "Schematic", "Figures"),
+        reason="Placer uses the routes and the diagram. Schematic uses the routes. Figures uses the diagram. These imports go in one direction, and a cycle prevents a test of one step without the others (src/systemap/place.py and src/systemap/schematic.py, imports).",
+    ),
+)
 
 CONTRACT = Contract(invariants=INVARIANTS, import_rules=IMPORT_RULES)

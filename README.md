@@ -489,6 +489,9 @@ On this repository, the command takes about 7 to 8 seconds to render the map.
 - **Read changes across a year.** `systemap history` reads repository samples.
   Its report shows parts that grew and the associated commits.
 
+- **Read the claims before a change.** `systemap claims NAME` gives the map claims about one component, module, or source file.
+  The output has its function, invariants, import rules, flows, and sequences. The command calls no model and sends no data.
+
 - **Make a work plan.** `systemap plan "<task>" --provider jev` shows parts likely to change.
   After the work, the command compares the projection with the changed parts.
 

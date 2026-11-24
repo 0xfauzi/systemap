@@ -289,6 +289,25 @@ JOURNEYS = (
         ),
     ),
     Journey(
+        id="read-claims",
+        label="Read the map claims before a change",
+        covers=('["subcommand","systemap.claims_cli","","claims"]',),
+        steps=(
+            Step(
+                acts=("Agent",),
+                measures=(),
+                edge=("Agent", "CLI"),
+                say="Before a change to a module, the agent runs systemap claims with the module name, the file path or the component ID.",
+            ),
+            Step(
+                acts=("CLI",),
+                measures=("Agent",),
+                edge=("Model", "CLI"),
+                say="The command reads the loaded map and the stored facts. It prints the function, invariants, import rules, flows and sequences of the component.",
+            ),
+        ),
+    ),
+    Journey(
         id="render-page",
         label="Render the map page",
         covers=('["subcommand","systemap.cli","systemap","render"]',),
