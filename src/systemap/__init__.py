@@ -27,7 +27,7 @@ from systemap.model import (
     build_state,
 )
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"
 
 from systemap.states import State, StateMachine, Transition
 
