@@ -7,7 +7,7 @@ A sequence is an ordered set of map steps.
 An entry point starts work in the system.
 A layer is a filtered view of the map.
 
-## Unreleased
+## 4.0.0 - 2026-11-24
 
 ### Writing profile
 
@@ -32,6 +32,11 @@ A layer is a filtered view of the map.
 - No line of a map is drawn on the edge of a surface. A part of a line nearer than 7 map units to the edge goes 7 units farther from it. The routes and the canvas page do not change.
 
 ### Changes that can break a script or a CI job
+
+Upgrade steps:
+- Run `systemap refresh` one time and commit the output. The facts format is 15, and the page is the atlas page.
+- Run `systemap judgement --strict`. A family answer for `crossing import`, `module use` or `declared flow` lines in `systemap.toml` is now a refused answer, and the command exits 1. Remove each such answer. Then give the module roles with `systemap decisions`, and draw a flow or record an exact answer for each `crossing import` line that stays open.
+- A project on 2.0.0 runs `systemap refresh` on 3.0.0 first. From 3.1.0, systemap does not do the one-time upgrade of 2.0.0 flow reviews and answer evidence.
 
 - The facts format is 15. Each module record can have `import_forms` and `dynamic_imports`, and the facts have `import_details`.
   `import_forms` gives the import form of each target module with a form other than `load`: `call` (in a function body) or `type` (only for type checks).
