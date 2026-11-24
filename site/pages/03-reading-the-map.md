@@ -48,6 +48,9 @@ A click on a line keeps it lit.
 
 Select a card to open its details at the side. On a phone, the details are a sheet at the bottom.
 The details give the kind, the description, the assurance level and the freshness, the flows in and out with their evidence, the source modules, the source records, and the sequences that use the card.
+The details also have two lists from the source facts: "Uses" gives the cards whose modules this card imports, and "Used by" gives the cards whose modules import this card.
+Each row says "flow" when the map has a flow between the two cards, and "no flow" when it has none. A "no flow" row is a code dependency that the map does not draw.
+The lists include imports for type checks.
 Point at a flow row in the details to light that flow on the map. "All rules of this map" gives the invariants and the import rules of the map.
 "Focus on this card" opens the card in the Focus view.
 

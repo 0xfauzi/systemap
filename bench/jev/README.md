@@ -9074,3 +9074,10 @@ Step V4: the 335 G1 labels were written as exact answers with current digests in
 The command refused no module role answer. The import crossings of acceptance 18.1 (a) are open in the command output. OrmLoading -> Engine is closed, as in G1.
 
 Result: all stage 4a acceptance values on the three maps passed, and V4 passed.
+
+## The site pictures after the merge of the atlas page (2026-11-24)
+
+`scripts/screenshots.py` wrote all images again from the page at 950db3a, with the Chromium of
+Playwright and `--no-sandbox` on Linux. The tour has one new frame, `inside`, for the nested
+map Page: 13 frames of 2.4 seconds (31.2 seconds), 1200 px wide, 1.33 MB (limit 4 MiB). The coordinator
+examined the six scheme and view images and each tour frame.

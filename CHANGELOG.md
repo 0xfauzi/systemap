@@ -19,6 +19,7 @@ A layer is a filtered view of the map.
 
 ### Atlas page
 
+- The README, the site and the guide describe module roles and the Uses and Used by lists. The screenshots and the tour are made again from the current page. The tour has a new frame for a nested map (13 frames, 31.2 seconds).
 - A long label at rest does not go across a vertical part of its line. Outside the Sequences view, a vertical part takes a label only when the label is 8 label heights wide or less. The label shows when the reader points at the line.
 - `systemap check` gives a warning line for each card name that the atlas page cuts. The line starts with `warning: card ID: name does not fit on the atlas page`.
   The check and the page use one measure of a card name (`card_names`): the same font widths, the same size, and the same room.

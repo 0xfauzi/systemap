@@ -163,6 +163,7 @@
 <p class="step__n"><span class="ring" aria-hidden="true">2</span>CI checks</p>
 <h3>CI checks the map against the code</h3>
 <p>Each module must be in one part. A flow line must not go through an unrelated part. A part with changed code needs a new review.</p>
+<p>When one part imports code of a different part and the map has no flow between them, your agent reads the imported module and says if it is a helper or a handoff. A handoff must have a flow or a recorded reason. One answer cannot close all such findings.</p>
 </div>
 <div class="step__show">
 <pre class="out wrap-lines"><code class="language-console"><span class="ln" style="--i:0"><span class="pr">$ </span><span class="k">systemap</span> check <span class="a">--brief</span></span>
